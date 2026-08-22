@@ -15,11 +15,14 @@ def test_smoke_01_create_project_structure(client, tmp_data):
     assert r.status_code == 200
     p = r.json()
 
-    # Feature auto-created by template application.
+    # Feature + drafting conversation auto-created by template application.
     bootstrap = p["bootstrap"]
     assert bootstrap.get("feature_id")
+    assert bootstrap.get("conversation_id")
     detail = client.get(f"/api/projects/{p['id']}").json()
     assert any(f["id"] == bootstrap["feature_id"] for f in detail["features"])
+    conv = client.get(f"/api/conversations/{bootstrap['conversation_id']}").json()
+    assert conv["kind"] == "drafting" and conv["feature_id"] == bootstrap["feature_id"]
 
     # Charter (prompt L1) drafted with ontology concept table.
     assert "本体概念表" in p["charter"]
