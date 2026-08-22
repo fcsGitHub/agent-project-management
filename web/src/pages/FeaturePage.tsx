@@ -9,6 +9,8 @@ import {
   Tabs, Textarea, Input, cx,
 } from "../components/ui";
 import Markdown from "react-markdown";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 export function FeaturePage() {
   const { pid, fid } = useParams();
@@ -116,6 +118,7 @@ function ConversationList({ conversations, pid }: { conversations: import("../li
 
 function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Artifact[]; pid: string }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
+  const [deposit, setDeposit] = useState<import("../lib/api").Artifact | null>(null);
   const art = useQuery({
     queryKey: ["artifact", pid, openPath],
     queryFn: () => api.getArtifact(pid, openPath!),
@@ -154,9 +157,15 @@ function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Arti
             <div className="text-xs text-mut">
               版本史：{art.data.history.map((h) => h.commit.slice(0, 7)).join(" ← ")}
             </div>
+            {art.data.path.includes("test") || true ? (
+              <Button variant="outline" onClick={() => setDeposit(artifacts.find((x) => x.path === openPath) ?? null)}>
+                📚 沉淀为资产
+              </Button>
+            ) : null}
           </div>
         )}
       </Drawer>
+      <DepositModal artifact={deposit} onClose={() => setDeposit(null)} pid={pid} />
     </>
   );
 }
@@ -216,3 +225,56 @@ function NewConversationModal({ open, onClose, pid, fid }: {
   );
 }
 
+
+function DepositModal({ artifact, onClose, pid }: {
+  artifact: import("../lib/api").Artifact | null; onClose: () => void; pid: string;
+}) {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [library, setLibrary] = useState("test");
+  const [kind, setKind] = useState("test-suite");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (artifact) { setTitle(artifact.path.split("/").pop()?.replace(/\./g, "-") ?? ""); } }, [artifact]);
+  if (!artifact) return null;
+  return (
+    <Modal open={!!artifact} onClose={onClose} title="沉淀为资产（入库评审 Gate）">
+      <div className="space-y-3">
+        <div className="text-xs text-mut">来源工件：<span className="font-mono">{artifact.path}</span></div>
+        <Input placeholder="资产标题（如：登录回归套件）" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="flex gap-2">
+          {[["test", "🧪 测试库", "test-suite"], ["product", "📦 产品库", "prd-template"], ["doc", "📚 文档库", "adr"]].map(([lib, label, k]) => (
+            <button key={lib} onClick={() => { setLibrary(lib); setKind(k); }}
+              className={cx("flex-1 rounded-lg border px-3 py-2 text-xs",
+                library === lib ? "border-acc bg-accbg text-acc" : "border-line text-mut")}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-mut">kind：{kind}（由本体 assetKinds 校验）</div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>取消</Button>
+          <Button variant="primary" disabled={!title.trim() || busy} onClick={async () => {
+            setBusy(true);
+            try {
+              const r = await fetch("/api/assets", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ source_project_id: pid, artifact_path: artifact.path, commit: artifact.commit, library, kind, title }),
+              });
+              const asset = await r.json();
+              const rr = await fetch(`/api/assets/${asset.id}/submit_review`, { method: "POST" });
+              const rev = await rr.json();
+              toast.success("已提交入库评审", { description: `审批 ${rev.approval_id?.slice(0, 10)}… 待批准后发布` });
+              await qc.invalidateQueries();
+              onClose();
+            } catch (e) {
+              toast.error("沉淀失败", { description: String(e) });
+            } finally {
+              setBusy(false);
+            }
+          }}>提交入库评审</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

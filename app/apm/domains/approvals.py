@@ -278,6 +278,12 @@ def decide(approval_id: str, body: DecisionIn) -> dict:
             io={"comment": body.comment},
             conversation_id=approval["conversation_id"],
         )
+        try:  # asset_review gates publish the asset on grant
+            from apm.domains.assets import publish_from_approval
+
+            publish_from_approval(get_approval(approval_id) or {})
+        except ImportError:
+            pass
         _resume_engine_for_approval(approval, {"decision": "approved", "comment": body.comment})
     elif body.decision == "rejected":
         events.emit(

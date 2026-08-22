@@ -216,10 +216,16 @@ CREATE TABLE IF NOT EXISTS ui_commands (
 );
 """
 
+FTS_DDL = """
+-- Asset full-text index; Chinese indexed as character bigrams (docs/09 §5).
+CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(asset_id UNINDEXED, text);
+"""
+
 
 def create_all(conn: sqlite3.Connection) -> None:
     conn.executescript(EVENTS_DDL)
     conn.executescript(PROJECTIONS_DDL)
+    conn.executescript(FTS_DDL)
 
 
 def drop_projections(conn: sqlite3.Connection) -> None:

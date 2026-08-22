@@ -1,0 +1,409 @@
+"""Asset domain: deposit → review gate → publish → search/consume (docs/09)."""
+from __future__ import annotations
+
+import json
+import re
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from apm import config
+from apm.content import assetsrepo
+from apm.core import db, events
+from apm.core.ids import new_id
+from apm.core.projections import on
+
+router = APIRouter(tags=["assets"])
+
+
+# ------------------------------------------------------------ FTS helpers
+def _bigrams(text: str) -> str:
+    """Chinese char bigrams + latin words (SQLite FTS5 has no CJK tokenizer)."""
+    tokens: list[str] = []
+    for latin in re.findall(r"[A-Za-z0-9_-]+", text):
+        tokens.append(latin.lower())
+    cjk = re.findall(r"[\u4e00-\u9fff]+", text)
+    for run in cjk:
+        if len(run) == 1:
+            tokens.append(run)
+        for i in range(len(run) - 1):
+            tokens.append(run[i : i + 2])
+    return " ".join(tokens)
+
+
+def _reindex(conn, asset_id: str) -> None:
+    row = conn.execute(
+        "SELECT a.id, a.title, a.kind, a.tags, a.status FROM assets a WHERE a.id = ?", (asset_id,)
+    ).fetchone()
+    conn.execute("DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,))
+    if not row or row["status"] in ("archived",):
+        return
+    try:
+        body = assetsrepo.read_asset_body(
+            conn.execute("SELECT library_id FROM assets WHERE id = ?", (asset_id,)).fetchone()["library_id"],
+            asset_id,
+        )
+    except Exception:
+        body = ""
+    text = _bigrams(f"{row['title']} {row['kind']} {row['tags'] or ''} {body}")
+    conn.execute("INSERT INTO assets_fts (asset_id, text) VALUES (?, ?)", (asset_id, text))
+
+
+def _fts_query(q: str) -> list[str]:
+    return [r["asset_id"] for r in db.get_conn().execute(
+        "SELECT asset_id FROM assets_fts WHERE assets_fts MATCH ? ORDER BY rank", (_bigrams(q) or "*",)
+    ).fetchall()]
+
+
+# ------------------------------------------------------------ projections
+@on("asset.drafted", "asset.in_review", "asset.published", "asset.deprecated", "asset.archived")
+def _proj_asset_upsert(conn, e):
+    p = e.payload
+    existing = conn.execute("SELECT version FROM assets WHERE id = ?", (e.agg_id,)).fetchone()
+    if existing:
+        conn.execute(
+            "UPDATE assets SET status = ?, updated_at = ?, title = ?, tags = ?, version = version + 1"
+            " WHERE id = ?",
+            (p.get("status", "draft"), e.ts, p.get("title"), json.dumps(p.get("tags") or [], ensure_ascii=False), e.agg_id),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO assets (id, library_id, kind, title, status, tags, owner_id, version,"
+            " git_path, commit_sha, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                e.agg_id, p["library"], p["kind"], p.get("title", ""), p.get("status", "draft"),
+                json.dumps(p.get("tags") or [], ensure_ascii=False), e.actor_id, 1,
+                assetsrepo.asset_path(p["library"], e.agg_id), p.get("commit", ""),
+                e.ts, e.ts,
+            ),
+        )
+    _reindex(conn, e.agg_id)
+
+
+@on("asset.linked")
+def _proj_asset_linked(conn, e):
+    p = e.payload
+    conn.execute(
+        "INSERT INTO asset_links (id, asset_id, type, target_type, target_ref, created_at)"
+        " VALUES (?,?,?,?,?,?)",
+        (new_id("al"), e.agg_id, p["type"], p["target_type"], json.dumps(p["target"], ensure_ascii=False), e.ts),
+    )
+    if p["type"] == "usage":
+        conn.execute(
+            "UPDATE assets SET citation_count = citation_count + 1, updated_at = ? WHERE id = ?",
+            (e.ts, e.agg_id),
+        )
+
+
+@on("asset.consumed")
+def _proj_asset_consumed(conn, e):
+    conn.execute("UPDATE assets SET updated_at = ? WHERE id = ?", (e.ts, e.agg_id))
+
+
+@on("asset.superseded")
+def _proj_asset_superseded(conn, e):
+    conn.execute(
+        "UPDATE assets SET status = 'deprecated', updated_at = ? WHERE id = ?", (e.ts, e.agg_id)
+    )
+
+
+# ---------------------------------------------------------------- helpers
+def get_asset(asset_id: str) -> dict | None:
+    row = db.get_conn().execute("SELECT * FROM assets WHERE id = ?", (asset_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def require_asset(asset_id: str) -> dict:
+    a = get_asset(asset_id)
+    if not a:
+        raise HTTPException(status_code=404, detail=f"asset {asset_id} not found")
+    return a
+
+
+def _links(asset_id: str, type_: str) -> list[dict]:
+    rows = db.get_conn().execute(
+        "SELECT * FROM asset_links WHERE asset_id = ? AND type = ? ORDER BY created_at",
+        (asset_id, type_),
+    ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["target"] = json.loads(d["target_ref"])
+        out.append(d)
+    return out
+
+
+def deposit(
+    *,
+    source_project_id: str,
+    artifact_path: str,
+    commit: str | None,
+    library: str,
+    kind: str,
+    title: str,
+    tags: list[str] | None = None,
+    body: str | None = None,
+    conversation_id: str | None = None,
+    actor_type: str = "human",
+    actor_id: str | None = None,
+) -> dict:
+    """Path A manual deposit: artifact → draft asset with provenance link."""
+    from apm.domains.ontology import load_ontology
+    from apm.domains.projects import require_project
+
+    project = require_project(source_project_id)
+    onto = load_ontology(project["ontology"])
+    lib = next((l for l in onto.libraries if l["id"] == library), None)
+    if not lib:
+        raise HTTPException(status_code=422, detail=f"unknown library '{library}'")
+    kinds = {k["id"] for k in onto.asset_kinds}
+    if kind not in kinds or kind not in set(lib["accepts"]):
+        raise HTTPException(status_code=422, detail=f"kind '{kind}' not accepted by library '{library}'")
+
+    if body is None:
+        from apm.content import gitrepo
+
+        try:
+            body = gitrepo.read_file(source_project_id, artifact_path, commit)
+        except (FileNotFoundError, gitrepo.GitError) as e:
+            raise HTTPException(status_code=404, detail=f"artifact not found: {e}")
+
+    aid = new_id("a")
+    sha = assetsrepo.write_asset(
+        library, aid,
+        {"title": title, "kind": kind, "library": library, "tags": tags or [],
+         "status": "draft", "owner": actor_id or config.settings.user_id},
+        body,
+    )
+    events.emit(
+        event_type="asset.drafted",
+        agg_type="asset",
+        agg_id=aid,
+        project_id=source_project_id,
+        actor_type=actor_type,
+        actor_id=actor_id or config.settings.user_id,
+        payload={"library": library, "kind": kind, "title": title, "tags": tags or [],
+                 "commit": sha, "status": "draft"},
+    )
+    events.emit(
+        event_type="asset.linked",
+        agg_type="asset",
+        agg_id=aid,
+        project_id=source_project_id,
+        actor_type=actor_type,
+        actor_id=actor_id or config.settings.user_id,
+        payload={"type": "provenance", "target_type": "artifact",
+                 "target": {"project_id": source_project_id, "path": artifact_path,
+                            "commit": commit, "conversation_id": conversation_id}},
+    )
+    return get_asset(aid)  # type: ignore[return-value]
+
+
+def submit_review(asset_id: str) -> dict:
+    asset = require_asset(asset_id)
+    if asset["status"] != "draft":
+        raise HTTPException(status_code=422, detail=f"asset is {asset['status']}, expected draft")
+    from apm.domains.approvals import _request
+
+    body = assetsrepo.read_asset_body(asset["library_id"], asset_id)
+    approval = _request(
+        kind="gate",
+        snapshot={
+            "gate": "asset_review",
+            "asset_id": asset_id,
+            "title": asset["title"],
+            "library": asset["library_id"],
+            "kind": asset["kind"],
+            "summary": f"资产入库评审：{asset['title']} → {asset['library_id']}",
+            "preview": body[:600],
+        },
+        project_id="",
+    )
+    events.emit(
+        event_type="asset.in_review",
+        agg_type="asset",
+        agg_id=asset_id,
+        actor_type="human",
+        actor_id=config.settings.user_id,
+        payload={"status": "in_review", "title": asset["title"], "library": asset["library_id"],
+                 "kind": asset["kind"], "approval_id": approval["id"]},
+    )
+    return {"asset": get_asset(asset_id), "approval_id": approval["id"]}
+
+
+def publish_from_approval(approval: dict) -> dict | None:
+    """Called when an asset_review gate approval is granted."""
+    snap = approval.get("payload_snapshot") or {}
+    if snap.get("gate") != "asset_review":
+        return None
+    asset_id = snap.get("asset_id")
+    asset = get_asset(asset_id) if asset_id else None
+    if not asset:
+        return None
+    sha = assetsrepo.write_asset(
+        asset["library_id"], asset_id,
+        {"title": asset["title"], "kind": asset["kind"], "library": asset["library_id"],
+         "status": "published"},
+        assetsrepo.read_asset_body(asset["library_id"], asset_id),
+    )
+    events.emit(
+        event_type="asset.published",
+        agg_type="asset",
+        agg_id=asset_id,
+        actor_type="human",
+        actor_id=config.settings.user_id,
+        payload={"status": "published", "commit": sha, "title": asset["title"],
+                 "library": asset["library_id"], "kind": asset["kind"]},
+    )
+    return get_asset(asset_id)
+
+
+def link_usage(
+    asset_id: str, *, project_id: str, artifact_path: str | None = None,
+    conversation_id: str | None = None, actor_type: str = "agent", actor_id: str = "",
+) -> dict:
+    asset = require_asset(asset_id)
+    events.emit(
+        event_type="asset.linked",
+        agg_type="asset",
+        agg_id=asset_id,
+        project_id=project_id,
+        actor_type=actor_type,
+        actor_id=actor_id or "agent",
+        payload={"type": "usage", "target_type": "project",
+                 "target": {"project_id": project_id, "path": artifact_path,
+                            "conversation_id": conversation_id}},
+    )
+    events.emit(
+        event_type="asset.consumed",
+        agg_type="asset",
+        agg_id=asset_id,
+        project_id=project_id,
+        actor_type=actor_type,
+        actor_id=actor_id or "agent",
+        payload={"by": actor_id or "agent", "project_id": project_id},
+    )
+    return get_asset(asset_id)  # type: ignore[return-value]
+
+
+def search(query: str | None, library: str | None, kind: str | None, tag: str | None) -> list[dict]:
+    where, params = ["status != 'archived'"], []
+    if library:
+        where.append("library_id = ?")
+        params.append(library)
+    if kind:
+        where.append("kind = ?")
+        params.append(kind)
+    if tag:
+        where.append("tags LIKE ?")
+        params.append(f'%"{tag}"%')
+    if query and query.strip():
+        ids = _fts_query(query.strip())
+        if not ids:
+            return []
+        marks = ",".join("?" * len(ids))
+        where.append(f"id IN ({marks})")
+        params.extend(ids)
+    rows = db.get_conn().execute(
+        f"SELECT * FROM assets WHERE {' AND '.join(where)} ORDER BY citation_count DESC, updated_at DESC",
+        params,
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------ agent tools
+def install_agent_tools() -> None:
+    from apm.runtime import tools
+
+    def _search(args: dict, ctx: "tools.ToolContext") -> dict:
+        results = search(args.get("query", ""), args.get("library"), args.get("kind"), args.get("tag"))
+        return {"results": [
+            {"id": a["id"], "title": a["title"], "kind": a["kind"], "library": a["library_id"],
+             "citations": a["citation_count"], "status": a["status"]} for a in results[:10]
+        ]}
+
+    def _read(args: dict, ctx: "tools.ToolContext") -> dict:
+        asset = get_asset(args.get("id", ""))
+        if not asset:
+            return {"found": False}
+        body = assetsrepo.read_asset_body(asset["library_id"], asset["id"])
+        return {"found": True, "title": asset["title"], "kind": asset["kind"], "content": body}
+
+    def _link(args: dict, ctx: "tools.ToolContext") -> dict:
+        asset = link_usage(
+            args.get("id", ""),
+            project_id=ctx.project_id,
+            artifact_path=args.get("artifact_path"),
+            conversation_id=ctx.conversation_id,
+            actor_type="agent",
+            actor_id=ctx.agent_actor,
+        )
+        return {"linked": asset["id"], "citations": asset["citation_count"]}
+
+    tools.register_asset_tools(_search, _read, _link)
+
+
+# -------------------------------------------------------------------- API
+class DepositIn(BaseModel):
+    source_project_id: str
+    artifact_path: str
+    commit: str | None = None
+    library: str
+    kind: str
+    title: str
+    tags: list[str] | None = None
+    conversation_id: str | None = None
+
+
+class LinkIn(BaseModel):
+    project_id: str
+    artifact_path: str | None = None
+    conversation_id: str | None = None
+
+
+@router.get("/assets")
+def list_assets(
+    library: str | None = None, kind: str | None = None, q: str | None = None, tag: str | None = None
+) -> dict:
+    return {"assets": search(q, library, kind, tag)}
+
+
+@router.post("/assets")
+def post_asset(body: DepositIn) -> dict:
+    return deposit(
+        source_project_id=body.source_project_id,
+        artifact_path=body.artifact_path,
+        commit=body.commit,
+        library=body.library,
+        kind=body.kind,
+        title=body.title,
+        tags=body.tags,
+        conversation_id=body.conversation_id,
+    )
+
+
+@router.post("/assets/{asset_id}/submit_review")
+def post_submit_review(asset_id: str) -> dict:
+    return submit_review(asset_id)
+
+
+@router.get("/assets/{asset_id}")
+def get_asset_detail(asset_id: str) -> dict:
+    asset = require_asset(asset_id)
+    asset["tags"] = json.loads(asset["tags"] or "[]")
+    asset["provenance"] = _links(asset_id, "provenance")
+    asset["usages"] = _links(asset_id, "usage")
+    try:
+        asset["content"] = assetsrepo.read_asset_body(asset["library_id"], asset_id)
+    except FileNotFoundError:
+        asset["content"] = None
+    return asset
+
+
+@router.post("/assets/{asset_id}/link")
+def post_link(asset_id: str, body: LinkIn) -> dict:
+    return link_usage(
+        asset_id, project_id=body.project_id, artifact_path=body.artifact_path,
+        conversation_id=body.conversation_id, actor_type="human",
+        actor_id=config.settings.user_id,
+    )
