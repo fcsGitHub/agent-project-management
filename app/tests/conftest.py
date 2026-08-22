@@ -25,6 +25,9 @@ def tmp_data(tmp_path, monkeypatch) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "fixtures").mkdir(parents=True, exist_ok=True)
     (data_dir / "content").mkdir(parents=True, exist_ok=True)
+    from apm.core.db import init_db
+
+    init_db()
     return data_dir
 
 
