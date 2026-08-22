@@ -14,6 +14,7 @@ export function Board() {
   const assignee = params.get("assignee") ?? "";
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<"board" | "list">("board");
 
   const board = useQuery({
     queryKey: ["board", pid, featureId],
@@ -21,6 +22,20 @@ export function Board() {
     enabled: !!pid,
   });
   const runs = useQuery({ queryKey: ["runs", pid], queryFn: () => api.listRuns(pid!), enabled: !!pid });
+  const approvals = useQuery({
+    queryKey: ["approvals", pid, "pending"],
+    queryFn: () => api.listApprovals({ status: "pending", project_id: pid }),
+    enabled: !!pid,
+    refetchInterval: 6_000,
+  });
+  const pendingByItem = useMemo(() => {
+    const m = new Map<string, import("../lib/api").Approval>();
+    for (const a of approvals.data?.approvals ?? []) {
+      const run = (runs.data?.runs ?? []).find((r) => r.id === a.run_id);
+      if (run?.item_id) m.set(run.item_id, a);
+    }
+    return m;
+  }, [approvals.data, runs.data]);
 
   const runByItem = useMemo(() => {
     const m = new Map<string, { id: string; status: string; conversation_id: string }>();
@@ -58,6 +73,14 @@ export function Board() {
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
         <span className="text-sm font-semibold">看板</span>
+        <div className="flex overflow-hidden rounded-lg border border-line">
+          {(["board", "list"] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)}
+              className={cx("px-2.5 py-1 text-xs", view === v ? "bg-accbg text-acc" : "text-mut hover:text-ink")}>
+              {v === "board" ? "▦ 看板" : "☰ 列表"}
+            </button>
+          ))}
+        </div>
         {featureId && <Badge tone="indigo">功能切片</Badge>}
         <div className="ml-auto flex items-center gap-2 text-xs">
           <select value={priority} onChange={(e) => setFilter("priority", e.target.value)}
@@ -83,7 +106,30 @@ export function Board() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
+      {view === "list" && (
+        <div className="p-4">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-line text-mut">
+                <th className="py-2">标题</th><th>概念</th><th>状态</th><th>优先级</th><th>执行者</th><th>更新</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches)).map((item) => (
+                <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
+                  <td className="py-2 font-medium">{item.title}</td>
+                  <td className="text-mut">{item.concept_id}</td>
+                  <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
+                  <td>{item.priority ?? "—"}</td>
+                  <td>{item.assignee_id ? `${item.assignee_type === "agent" ? "🤖" : "👤"} ${item.assignee_id}` : "—"}</td>
+                  <td className="text-mut">{item.updated_at?.slice(5, 16)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className={cx("min-h-0 flex-1 gap-3 overflow-x-auto p-4", view === "list" && "hidden")}>
         {(board.data?.buckets ?? []).map((b) => {
           const items = b.items.filter(matches);
           if (priority && !items.length) return null;
@@ -126,6 +172,18 @@ export function Board() {
                             >
                               {run.status === "running" ? "▶ 运行中" : run.status === "interrupted" ? "⏸ 挂起" : run.status === "succeeded" ? "✓ 完成" : "● " + run.status} · 查看对话 →
                             </Link>
+                          )}
+                          {item.status === "awaiting_review" && pendingByItem.get(item.id) && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await api.decide(pendingByItem.get(item.id)!.id, "approved", "看板内联批准");
+                                qc.invalidateQueries();
+                              }}
+                              className="mt-1.5 rounded-md bg-acc px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-500"
+                            >
+                              ✓ 内联批准
+                            </button>
                           )}
                         </div>
                       </div>

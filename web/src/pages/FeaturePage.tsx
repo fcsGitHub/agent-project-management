@@ -124,6 +124,9 @@ function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Arti
     queryFn: () => api.getArtifact(pid, openPath!),
     enabled: !!openPath,
   });
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   if (!artifacts.length)
     return <Empty icon="📄" title="暂无工件" hint="Agent 起草 PRD/WBS 后会出现在这里" />;
   return (
@@ -143,9 +146,35 @@ function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Arti
       <Drawer open={!!openPath} onClose={() => setOpenPath(null)} title={openPath ?? ""} width="50%">
         {art.data && (
           <div className="space-y-3">
-            <div className="prose prose-zinc prose-sm max-w-none text-ink">
-              <Markdown>{art.data.content}</Markdown>
-            </div>
+            {editing ? (
+              <div className="space-y-2">
+                <Textarea rows={18} value={draft} onChange={(e) => setDraft(e.target.value)}
+                  className="font-mono text-xs" />
+                <div className="flex justify-end gap-2">
+                  <span className="mr-auto text-xs text-mut">保存 = git commit（artifact.human_edited 入审计流）</span>
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>取消</Button>
+                  <Button size="sm" variant="primary" onClick={async () => {
+                    await fetch(`/api/projects/${pid}/artifacts/${openPath}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ content: draft, message: "human edit" }),
+                    });
+                    setEditing(false);
+                    qc.invalidateQueries({ queryKey: ["artifact", pid, openPath] });
+                    toast.success("已保存为新版本（commit）");
+                  }}>保存 commit</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="prose prose-zinc prose-sm max-w-none text-ink">
+                  <Markdown>{art.data.content}</Markdown>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => { setDraft(art.data.content); setEditing(true); }}>
+                  ✎ 编辑（Markdown 编辑器）
+                </Button>
+              </>
+            )}
             {art.data.diff_vs_previous && (
               <details>
                 <summary className="cursor-pointer text-xs text-mut">diff vs 上一版</summary>
