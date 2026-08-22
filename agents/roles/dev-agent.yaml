@@ -1,0 +1,16 @@
+# 开发 Agent：以补丁/文件交付任务
+id: dev-agent
+display_name: 开发 Agent
+concepts: [task, bug]
+model:
+  provider: openai_compat
+  name: gpt-4.1-mini
+  temperature: 0.2
+system_prompt_file: prompts/roles/dev-agent.md
+tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]
+output:
+  artifact: artifacts/code/{item_id}.patch.md
+  artifact_kind: code
+  on_complete: request_gate_approval
+  gate: code_review
+limits: {max_steps: 16, max_tokens_per_run: 80000}

@@ -1,0 +1,17 @@
+# 发布 Agent：交付物与发布说明
+id: release-agent
+display_name: 发布 Agent
+concepts: [milestone, task]
+model:
+  provider: openai_compat
+  name: gpt-4.1-mini
+  temperature: 0.3
+system_prompt_file: prompts/roles/release-agent.md
+tools: [read_artifact, write_artifact, create_git_tag, search_assets, read_asset, link_asset]
+output:
+  artifact: artifacts/release/release-notes.md
+  artifact_kind: release-notes
+  on_complete: request_gate_approval
+  gate: release_approval
+  tag_on_approval: true
+limits: {max_steps: 10, max_tokens_per_run: 40000}

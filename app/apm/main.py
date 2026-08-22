@@ -21,6 +21,10 @@ def create_app() -> FastAPI:
 
         init_db()
         projections.ensure_handlers_registered()
+        from apm.runtime.engine import install_runkeeper_hooks, recover_interrupted_runs
+
+        install_runkeeper_hooks()
+        recover_interrupted_runs()  # crash compensation (dsh mode)
         yield
 
     app = FastAPI(title="AgentPM", version="0.1.0", lifespan=lifespan)
@@ -33,12 +37,14 @@ def create_app() -> FastAPI:
     )
 
     from apm.content.artifacts import router as artifacts_router
+    from apm.domains.approvals import router as approvals_router
     from apm.domains.conversations import router as conversations_router
     from apm.domains.events_api import router as events_router
     from apm.domains.features import router as features_router
     from apm.domains.items import router as items_router
     from apm.domains.ontology import router as ontology_router
     from apm.domains.projects import router as projects_router
+    from apm.domains.runs import router as runs_router
     from apm.domains.stream import router as stream_router
     from apm.domains.system import router as system_router
 
@@ -51,6 +57,8 @@ def create_app() -> FastAPI:
     app.include_router(items_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")
     app.include_router(artifacts_router, prefix="/api")
+    app.include_router(approvals_router, prefix="/api")
+    app.include_router(runs_router, prefix="/api")
     return app
 
 

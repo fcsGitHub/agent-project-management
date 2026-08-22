@@ -28,6 +28,9 @@ def tmp_data(tmp_path, monkeypatch) -> Path:
     from apm.core.db import init_db
 
     init_db()
+    from apm.runtime.engine import reset_saver_for_tests
+
+    reset_saver_for_tests()
     return data_dir
 
 
@@ -37,3 +40,17 @@ def client(tmp_data) -> TestClient:
 
     with TestClient(create_app()) as c:
         yield c
+
+
+def wait_for(fn, timeout: float = 15.0, interval: float = 0.05):
+    """Poll fn() until truthy; raises AssertionError with last value on timeout."""
+    import time
+
+    deadline = time.time() + timeout
+    last = None
+    while time.time() < deadline:
+        last = fn()
+        if last:
+            return last
+        time.sleep(interval)
+    raise AssertionError(f"wait_for timeout, last={last!r}")

@@ -1,0 +1,16 @@
+# 架构 Agent：系统设计（MVP 不挂默认流程，文件就绪）
+id: architect-agent
+display_name: 架构 Agent
+concepts: [task, requirement]
+model:
+  provider: openai_compat
+  name: gpt-4.1-mini
+  temperature: 0.3
+system_prompt_file: prompts/roles/architect-agent.md
+tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]
+output:
+  artifact: artifacts/design.md
+  artifact_kind: design
+  on_complete: request_gate_approval
+  gate: design_review
+limits: {max_steps: 12, max_tokens_per_run: 60000}

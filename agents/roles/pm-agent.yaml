@@ -1,0 +1,17 @@
+# 产品经理 Agent：需求澄清与 PRD 起草
+id: pm-agent
+display_name: 产品经理 Agent
+concepts: [requirement, task]
+model:
+  provider: openai_compat
+  name: gpt-4.1-mini
+  temperature: 0.3
+system_prompt_file: prompts/roles/pm-agent.md
+tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]
+output:
+  artifact: artifacts/prd.md
+  artifact_kind: prd
+  schema: schemas/prd.schema.json
+  on_complete: request_gate_approval
+  gate: prd_review
+limits: {max_steps: 12, max_tokens_per_run: 60000}

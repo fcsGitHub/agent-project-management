@@ -1,0 +1,16 @@
+# 测试 Agent：测试报告与回归（MVP 不挂默认流程，文件就绪）
+id: qa-agent
+display_name: 测试 Agent
+concepts: [bug, task]
+model:
+  provider: openai_compat
+  name: gpt-4.1-mini
+  temperature: 0.2
+system_prompt_file: prompts/roles/qa-agent.md
+tools: [read_artifact, write_artifact, search_assets, read_asset, link_asset]
+output:
+  artifact: artifacts/test/report.md
+  artifact_kind: test-report
+  on_complete: request_gate_approval
+  gate: acceptance
+limits: {max_steps: 12, max_tokens_per_run: 60000}
