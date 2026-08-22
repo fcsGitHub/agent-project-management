@@ -54,6 +54,35 @@ _saver_lock = threading.Lock()
 _exec_lock = threading.Lock()  # serialize graph executions (SQLite single writer)
 _active_runs: dict[str, "RunEngine"] = {}
 _resume_requests: dict[str, str | None] = {}  # run_id -> instruction
+_active_execs = 0
+_active_execs_lock = threading.Lock()
+
+
+def wait_quiescent(timeout: float = 20.0) -> bool:
+    """Wait until no engine execution is in flight (test isolation)."""
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with _active_execs_lock:
+            if _active_execs == 0:
+                return True
+        time.sleep(0.05)
+    return False
+
+
+class _ExecTracker:
+    def __enter__(self):
+        global _active_execs
+        with _active_execs_lock:
+            _active_execs += 1
+        return self
+
+    def __exit__(self, *exc):
+        global _active_execs
+        with _active_execs_lock:
+            _active_execs -= 1
+        return False
 
 
 def get_saver() -> SqliteSaver:
@@ -165,6 +194,21 @@ def _item_status_for_start(role_id: str) -> str:
     return "in_progress"
 
 
+def _status_in_group(concept_id: str, project_id: str, group: str) -> str | None:
+    """Find a status of this concept within a five-bucket group (I6)."""
+    try:
+        from apm.domains.items import project_ontology
+
+        onto = project_ontology(project_id)
+        concept = onto.concept(concept_id)
+        for s in concept.states:
+            if s.get("group") == group:
+                return s["id"]
+    except Exception:
+        return None
+    return None
+
+
 def _move_item(item_id: str, project_id: str, status: str) -> None:
     from apm.domains.items import get_item
 
@@ -176,7 +220,15 @@ def _move_item(item_id: str, project_id: str, status: str) -> None:
         try:
             group = onto.validate_item_status(item["concept_id"], status)
         except Exception:
-            return
+            # Map through the bucket when the literal status doesn't exist in
+            # this ontology's concept (e.g. generic 'activity' vs 'task').
+            group = {"done": "done", "todo": "todo", "in_progress": "in_progress",
+                     "backlog": "backlog"}.get(status)
+            if group is None:
+                return
+            status = _status_in_group(item["concept_id"], project_id, group) or status
+            if item["status"] == status:
+                return
         events.emit(
             event_type="item.status_changed",
             agg_type="item",
@@ -198,6 +250,7 @@ class RunEngine:
         self.project_id = run["project_id"] or ""
         self.role = roles.get_role(run["agent_role"] or "dev-agent")
         self.conversation_id = run["conversation_id"]
+        self.gate = self._resolve_gate()
         self.tool_ctx = tools.ToolContext(
             project_id=self.project_id,
             run_id=run_id,
@@ -208,6 +261,33 @@ class RunEngine:
         self.stop_requested = False
         self._interrupted_midrun = False
         self.graph = self._build()
+
+    def _resolve_gate(self) -> str | None:
+        """Gates come from the project ontology when the role's default gate is
+        not part of it (generic projects remap prd_review → work_review etc.)."""
+        role_gate = self.role.output.get("gate")
+        if self.role.output.get("on_complete") != "request_gate_approval":
+            return role_gate
+        try:
+            from apm.domains.projects import get_project
+
+            project = get_project(self.project_id) or {}
+            onto_name = project.get("ontology")
+            if not onto_name:
+                return role_gate
+            from apm.domains.ontology import load_ontology
+
+            onto = load_ontology(onto_name)
+            gates = [p.get("gate") for p in onto.phases if p.get("gate")]
+            if role_gate in gates:
+                return role_gate
+            if not gates:
+                return None
+            if role_gate in ("release_approval",):
+                return gates[-1]
+            return gates[0]
+        except Exception:
+            return role_gate
 
     # ------------------------------------------------------------ graph
     def _context(self, state: RunState) -> dict[str, Any]:
@@ -396,7 +476,7 @@ class RunEngine:
 
     def _node_gate(self, state: RunState) -> RunState:
         self._check_stop()
-        gate = self.role.output.get("gate")
+        gate = self.gate
         on_complete = self.role.output.get("on_complete")
         if on_complete != "request_gate_approval" or not gate:
             return {**state, "decision": {"decision": "approved", "auto": True}}
@@ -470,8 +550,29 @@ class RunEngine:
                 return {**state, "outcome": f"tagged {tag}"}
             raise tools.ToolDenied(f"dangerous tool {e.tool} rejected")
 
+    def _resolve_apply_concept(self, preferred: str) -> str:
+        """Map the role's preferred concept onto the project ontology."""
+        from apm.domains.items import project_ontology
+
+        onto = project_ontology(self.project_id)
+        if preferred in onto.concepts:
+            return preferred
+        for cid in self.role.concepts:  # role-declared concepts present here
+            if cid in onto.concepts:
+                return cid
+        for cid, c in onto.concepts.items():  # concept binding this role
+            if self.role.id in c.agent_roles:
+                return cid
+        if len(onto.phases) > 1:  # concept of the first working phase
+            work_phase = onto.phases[1]["id"]
+            for cid, c in onto.concepts.items():
+                if c.default_phase == work_phase:
+                    return cid
+        return next(iter(onto.concepts))
+
     def _apply_create_items(self, state: RunState) -> RunState:
         apply_spec = self.role.output.get("apply") or {}
+        concept_id = self._resolve_apply_concept(apply_spec.get("concept", "task"))
         wbs = _parse_wbs_tasks(state.get("draft", ""))
         from apm.domains.conversations import get_conversation
         from apm.domains.items import create_item
@@ -483,7 +584,7 @@ class RunEngine:
         for t in wbs:
             item = create_item(
                 project_id=self.project_id,
-                concept_id=apply_spec.get("concept", "task"),
+                concept_id=concept_id,
                 title=t["title"],
                 feature_id=feature_id,
                 priority=t.get("priority"),
@@ -584,7 +685,7 @@ class RunEngine:
         )
 
     def execute(self) -> None:
-        with _exec_lock:
+        with _ExecTracker(), _exec_lock:
             try:
                 result = self.graph.invoke(
                     self._initial_state(), {"configurable": {"thread_id": self.run_id}}
@@ -599,7 +700,7 @@ class RunEngine:
                 self._emit_status("run.failed", {"error": str(e)})
                 self._set_conversation("active")
                 if self.run.get("item_id"):
-                    _move_item(self.run["item_id"], self.project_id, "open")
+                    _move_item(self.run["item_id"], self.project_id, "backlog")
                 return
             self._handle_result(result, resumed=False)
 
@@ -608,7 +709,7 @@ class RunEngine:
         interrupt), a decision dict answers a gate/tool interrupt."""
         from langgraph.types import Command
 
-        with _exec_lock:
+        with _ExecTracker(), _exec_lock:
             self.stop_requested = False
             self._emit_status("run.resumed", {"decision": (decision or {}).get("decision")})
             try:
@@ -637,7 +738,7 @@ class RunEngine:
             self._emit_status("run.failed", {"error": "rejected at gate", "decision": decision})
             self._set_conversation("active")
             if self.run.get("item_id"):
-                _move_item(self.run["item_id"], self.project_id, "open")
+                _move_item(self.run["item_id"], self.project_id, "backlog")
             return
         self._emit_status(
             "run.succeeded",

@@ -16,8 +16,12 @@ from apm.core import db
 
 
 @pytest.fixture()
-def tmp_data(tmp_path, monkeypatch) -> Path:
+def tmp_data(tmp_path, monkeypatch):
     """Isolated storage root; resets the DB singleton for the test."""
+    # Drain engine threads from previous tests before swapping the database.
+    from apm.runtime.engine import wait_quiescent
+
+    wait_quiescent()
     data_dir = tmp_path / "data"
     monkeypatch.setattr(config.settings, "data_dir", data_dir)
     monkeypatch.setattr(config.settings, "provider_mode", "replay")
@@ -31,7 +35,10 @@ def tmp_data(tmp_path, monkeypatch) -> Path:
     from apm.runtime.engine import reset_saver_for_tests
 
     reset_saver_for_tests()
-    return data_dir
+    yield data_dir
+    # Drain again before monkeypatch restores the real data_dir: lingering
+    # engine threads must never touch the developer's actual storage.
+    wait_quiescent()
 
 
 @pytest.fixture()

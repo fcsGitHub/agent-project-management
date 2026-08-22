@@ -6,6 +6,7 @@ from apm.domains import (  # noqa: F401
     features,
     items,
     ontology,
+    orchestrator_api,
     projects,
     runs,
     stream,
