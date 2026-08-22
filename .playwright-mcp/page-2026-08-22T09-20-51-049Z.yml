@@ -1,0 +1,196 @@
+- generic [ref=f5e21]:
+  - navigation [ref=f5e22]:
+    - link "Dashboard" [ref=f5e23] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338"
+    - link "Board" [ref=f5e29] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/board"
+    - link "Graph" [ref=f5e32] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/graph"
+    - link "Conversations" [ref=f5e37] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/conversations"
+    - link "Runs" [ref=f5e41] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/runs"
+    - link "Assets" [ref=f5e44] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f5e47] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/audit"
+    - link "本体" [ref=f5e51] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/ontology"
+    - link "项目列表" [ref=f5e56] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f5e59]:
+    - generic [ref=f5e60]: 功能
+    - link "MVP" [ref=f5e62] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/f/f_a385ff1d35"
+    - button "新功能" [ref=f5e64]
+  - generic [ref=f5e66]:
+    - banner [ref=f5e67]:
+      - generic [ref=f5e68]: 周报工具（演示）
+      - generic [ref=f5e69]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f5e70]
+      - link "1" [ref=f5e73] [cursor=pointer]:
+        - /url: "#/p/p_83f693f338/approvals"
+    - main [ref=f5e78]:
+      - generic [ref=f5e79]:
+        - generic [ref=f5e80]:
+          - generic [ref=f5e81]:
+            - generic [ref=f5e82]: 进度 · 任务 0/0 · 对话 2 · Runs 2
+            - generic [ref=f5e83]: 0%
+          - generic [ref=f5e85]:
+            - generic [ref=f5e86]: 需求池 ✓
+            - generic [ref=f5e87]: 需求分析 · PRD 评审 ✓
+            - generic [ref=f5e88]: 系统设计 · 设计评审 ●
+            - generic [ref=f5e89]: 任务计划 · 计划确认
+            - generic [ref=f5e90]: 开发 · 代码评审
+            - generic [ref=f5e91]: 测试 · 验收（DoD）
+            - generic [ref=f5e92]: 交付 · 发布批准
+          - link "MVP 2 分钟前" [ref=f5e94] [cursor=pointer]:
+            - /url: "#/p/p_83f693f338/f/f_a385ff1d35"
+            - generic [ref=f5e95]: MVP
+            - generic [ref=f5e97]: 2 分钟前
+          - generic [ref=f5e98]:
+            - link [ref=f5e99] [cursor=pointer]:
+              - /url: "#/p/p_83f693f338/c/c_a175d3a3e3"
+              - button "和 PM-Agent 谈需求 →" [ref=f5e100]
+            - button "生成交付（Release-Agent）" [ref=f5e101]
+        - generic [ref=f5e102]:
+          - generic [ref=f5e103]:
+            - generic [ref=f5e104]: 🔔 待我处理
+            - link "审批中心 →" [ref=f5e105] [cursor=pointer]:
+              - /url: "#/p/p_83f693f338/approvals"
+          - link "◆ plan_review 2 分钟前 · 计划 Agent 完成，请求阶段门 plan_review" [ref=f5e107] [cursor=pointer]:
+            - /url: "#/p/p_83f693f338/approvals"
+            - generic [ref=f5e108]: ◆ plan_review
+            - generic [ref=f5e109]: 2 分钟前 · 计划 Agent 完成，请求阶段门 plan_review
+        - generic [ref=f5e110]:
+          - generic [ref=f5e111]: 项目活动流（人机混排 · 实时）
+          - generic [ref=f5e112]:
+            - generic [ref=f5e113]:
+              - generic [ref=f5e114]: 2 分钟前
+              - generic [ref=f5e115]: ⚙️
+              - generic [ref=f5e116]: runtime
+              - generic [ref=f5e117]: conversation.status_changed
+            - generic [ref=f5e118]:
+              - generic [ref=f5e119]: 2 分钟前
+              - generic [ref=f5e120]: ⚙️
+              - generic [ref=f5e121]: runtime
+              - generic [ref=f5e122]: run.interrupted
+            - generic [ref=f5e123]:
+              - generic [ref=f5e124]: 2 分钟前
+              - generic [ref=f5e125]: 🤖
+              - generic [ref=f5e126]: runtime
+              - generic [ref=f5e127]: run.span_opened
+            - generic [ref=f5e128]:
+              - generic [ref=f5e129]: 2 分钟前
+              - generic [ref=f5e130]: ⚙️
+              - generic [ref=f5e131]: runtime
+              - generic [ref=f5e132]: approval.requested
+              - generic [ref=f5e133]: plan_review
+            - generic [ref=f5e134]:
+              - generic [ref=f5e135]: 2 分钟前
+              - generic [ref=f5e136]: 🤖
+              - generic [ref=f5e137]: runtime
+              - generic [ref=f5e138]: run.span_closed
+            - generic [ref=f5e139]:
+              - generic [ref=f5e140]: 2 分钟前
+              - generic [ref=f5e141]: 🤖
+              - generic [ref=f5e142]: runtime
+              - generic [ref=f5e143]: run.span_opened
+            - generic [ref=f5e144]:
+              - generic [ref=f5e145]: 2 分钟前
+              - generic [ref=f5e146]: 🤖
+              - generic [ref=f5e147]: planner-agent
+              - generic [ref=f5e148]: message.created
+              - generic [ref=f5e149]: "已起草 artifacts/wbs.md（commit `a9cae1fc`）"
+            - generic [ref=f5e150]:
+              - generic [ref=f5e151]: 2 分钟前
+              - generic [ref=f5e152]: 🤖
+              - generic [ref=f5e153]: runtime
+              - generic [ref=f5e154]: run.span_closed
+            - generic [ref=f5e155]:
+              - generic [ref=f5e156]: 2 分钟前
+              - generic [ref=f5e157]: 🤖
+              - generic [ref=f5e158]: runtime
+              - generic [ref=f5e159]: run.span_closed
+            - generic [ref=f5e160]:
+              - generic [ref=f5e161]: 2 分钟前
+              - generic [ref=f5e162]: 🤖
+              - generic [ref=f5e163]: planner-agent
+              - generic [ref=f5e164]: artifact.committed
+            - generic [ref=f5e165]:
+              - generic [ref=f5e166]: 2 分钟前
+              - generic [ref=f5e167]: 🤖
+              - generic [ref=f5e168]: runtime
+              - generic [ref=f5e169]: run.span_opened
+            - generic [ref=f5e170]:
+              - generic [ref=f5e171]: 2 分钟前
+              - generic [ref=f5e172]: 🤖
+              - generic [ref=f5e173]: runtime
+              - generic [ref=f5e174]: run.span_closed
+            - generic [ref=f5e175]:
+              - generic [ref=f5e176]: 2 分钟前
+              - generic [ref=f5e177]: 🤖
+              - generic [ref=f5e178]: runtime
+              - generic [ref=f5e179]: run.span_opened
+            - generic [ref=f5e180]:
+              - generic [ref=f5e181]: 2 分钟前
+              - generic [ref=f5e182]: 🤖
+              - generic [ref=f5e183]: runtime
+              - generic [ref=f5e184]: run.span_opened
+            - generic [ref=f5e185]:
+              - generic [ref=f5e186]: 2 分钟前
+              - generic [ref=f5e187]: 🤖
+              - generic [ref=f5e188]: runtime
+              - generic [ref=f5e189]: run.span_closed
+            - generic [ref=f5e190]:
+              - generic [ref=f5e191]: 2 分钟前
+              - generic [ref=f5e192]: 🤖
+              - generic [ref=f5e193]: runtime
+              - generic [ref=f5e194]: run.span_closed
+            - generic [ref=f5e195]:
+              - generic [ref=f5e196]: 2 分钟前
+              - generic [ref=f5e197]: 🤖
+              - generic [ref=f5e198]: runtime
+              - generic [ref=f5e199]: run.span_opened
+            - generic [ref=f5e200]:
+              - generic [ref=f5e201]: 2 分钟前
+              - generic [ref=f5e202]: 🤖
+              - generic [ref=f5e203]: runtime
+              - generic [ref=f5e204]: run.span_opened
+            - generic [ref=f5e205]:
+              - generic [ref=f5e206]: 2 分钟前
+              - generic [ref=f5e207]: ⚙️
+              - generic [ref=f5e208]: runtime
+              - generic [ref=f5e209]: conversation.status_changed
+            - generic [ref=f5e210]:
+              - generic [ref=f5e211]: 2 分钟前
+              - generic [ref=f5e212]: ⚙️
+              - generic [ref=f5e213]: runtime
+              - generic [ref=f5e214]: run.started
+            - generic [ref=f5e215]:
+              - generic [ref=f5e216]: 2 分钟前
+              - generic [ref=f5e217]: ⚙️
+              - generic [ref=f5e218]: orchestrator
+              - generic [ref=f5e219]: run.requested
+            - generic [ref=f5e220]:
+              - generic [ref=f5e221]: 2 分钟前
+              - generic [ref=f5e222]: ⚙️
+              - generic [ref=f5e223]: orchestrator
+              - generic [ref=f5e224]: conversation.created
+              - generic [ref=f5e225]: 计划确认
+            - generic [ref=f5e226]:
+              - generic [ref=f5e227]: 2 分钟前
+              - generic [ref=f5e228]: ⚙️
+              - generic [ref=f5e229]: runtime
+              - generic [ref=f5e230]: conversation.status_changed
+            - generic [ref=f5e231]:
+              - generic [ref=f5e232]: 2 分钟前
+              - generic [ref=f5e233]: ⚙️
+              - generic [ref=f5e234]: runtime
+              - generic [ref=f5e235]: run.succeeded
+              - generic [ref=f5e236]: artifacts/prd.md
+            - generic [ref=f5e237]:
+              - generic [ref=f5e238]: 2 分钟前
+              - generic [ref=f5e239]: 🤖
+              - generic [ref=f5e240]: runtime
+              - generic [ref=f5e241]: run.span_closed

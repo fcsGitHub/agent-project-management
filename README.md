@@ -97,3 +97,28 @@ AgentPM 把软件项目的**管理流程本身建模为一张可编排的图（P
 │ libraries/<库>/<资产>         │                                                 │
 └──────────────────────────────┴─────────────────────────────────────────────────┘
 ```
+
+## 开发与运行（实现已就绪）
+
+MVP 已按 [docs/10-development-plan.md](docs/10-development-plan.md) 迭代 I0–I13 完成：后端 FastAPI + 事件溯源内核 + LangGraph Runtime + 本体驱动域，前端 React（复刻 demo.html 设计令牌），冒烟基线 7 条全绿（`tools/smoke/`）。
+
+```bash
+# 一键起（Docker）
+docker compose up -d --build
+python tools/seed.py                 # 灌入演示数据（回放模式，无需 LLM key）
+# → 前端 http://localhost:5173  API http://localhost:8000/api/health
+
+# 本地开发
+cd app && pip install -r requirements.txt
+python -m uvicorn apm.main:app --port 8000 --reload
+cd web && pnpm install && pnpm dev   # http://localhost:5173（代理 /api → 8000）
+
+# 测试与冒烟（回放模式，确定性、不依赖模型/网络）
+cd app && python -m pytest           # 单测 + 集成
+python tools/smoke/run_smoke.py      # 累积冒烟基线（只增不减）
+```
+
+- **LLM 接入**：默认 `replay`（确定性回放，模板按 role+node 注入上下文）；`.env` 配 `APM_PROVIDER_MODE=openai`、`APM_LLM_API_BASE`、`APM_LLM_API_KEY` 后走真实模型（`record` 模式可录制 fixtures）。
+- **存储**：`data/` 下 SQLite（事件真源 + 投影 + checkpoints）与内容/资产 Git 仓；`POST /api/system/rebuild-projections` 可全量重放校验。
+- **本体/角色**：`ontologies/*.yaml` 与 `agents/roles/*.yaml` 改文件后 `POST /api/system/reload-ontologies` 即生效。
+- **迭代记录**：开发日志与状态看板见 docs/10 附录 A/B 与 §7。

@@ -1,0 +1,15 @@
+- generic [ref=f5e303]:
+  - generic [ref=f5e304]:
+    - generic [ref=f5e305]: AgentPM
+    - paragraph [ref=f5e306]: 人指挥 · Agent 执行 —— 以对话为中心的项目管理
+  - generic [ref=f5e307]:
+    - button "周报工具（演示） software-dev" [ref=f5e308]:
+      - generic [ref=f5e309]: 周报工具（演示）
+      - generic [ref=f5e310]: software-dev
+    - button "周报工具（演示） software-dev" [ref=f5e311]:
+      - generic [ref=f5e312]: 周报工具（演示）
+      - generic [ref=f5e313]: software-dev
+    - button "轻量调研（演示） generic" [ref=f5e314]:
+      - generic [ref=f5e315]: 轻量调研（演示）
+      - generic [ref=f5e316]: generic
+  - button "＋ 新建项目" [ref=f5e318]

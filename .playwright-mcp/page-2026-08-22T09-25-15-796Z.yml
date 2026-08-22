@@ -1,0 +1,72 @@
+- generic [ref=f6e3]:
+  - navigation [ref=f6e4]:
+    - link "Dashboard" [ref=f6e5] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338"
+    - link "Board" [ref=f6e11] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/board"
+    - link "Graph" [ref=f6e14] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/graph"
+    - link "Conversations" [ref=f6e19] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/conversations"
+    - link "Runs" [ref=f6e23] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/runs"
+    - link "Assets" [ref=f6e26] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f6e29] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/audit"
+    - link "本体" [ref=f6e33] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/ontology"
+    - link "项目列表" [ref=f6e38] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f6e41]:
+    - generic [ref=f6e42]: 功能
+    - link "MVP" [ref=f6e44] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/f/f_a385ff1d35"
+    - button "新功能" [ref=f6e46]
+  - generic [ref=f6e48]:
+    - banner [ref=f6e49]:
+      - generic [ref=f6e50]: 周报工具（演示）
+      - generic [ref=f6e51]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f6e52]
+      - link "1" [ref=f6e55] [cursor=pointer]:
+        - /url: "#/p/p_83f693f338/approvals"
+    - main [ref=f6e60]:
+      - generic [ref=f6e61]:
+        - generic [ref=f6e62]:
+          - generic [ref=f6e63]: 看板
+          - generic [ref=f6e64]:
+            - combobox [ref=f6e65]:
+              - option "优先级（全部）" [selected]
+              - option "高"
+              - option "中"
+              - option "低"
+            - combobox [ref=f6e66]:
+              - option "执行者（全部）" [selected]
+              - option "🤖 dev-agent"
+              - option "🤖 planner-agent"
+        - generic [ref=f6e67]:
+          - generic [ref=f6e68]:
+            - generic [ref=f6e69]:
+              - generic [ref=f6e70]: 待办池
+              - generic [ref=f6e71]: "0"
+            - generic [ref=f6e72]: 空
+          - generic [ref=f6e74]:
+            - generic [ref=f6e75]:
+              - generic [ref=f6e76]: 就绪
+              - generic [ref=f6e77]: "0"
+            - generic [ref=f6e78]: 空
+          - generic [ref=f6e80]:
+            - generic [ref=f6e81]:
+              - generic [ref=f6e82]: 进行中
+              - generic [ref=f6e83]: "0"
+            - generic [ref=f6e84]: 空
+          - generic [ref=f6e86]:
+            - generic [ref=f6e87]:
+              - generic [ref=f6e88]: 已完成
+              - generic [ref=f6e89]: "0"
+            - generic [ref=f6e90]: 空
+          - generic [ref=f6e92]:
+            - generic [ref=f6e93]:
+              - generic [ref=f6e94]: 已取消
+              - generic [ref=f6e95]: "0"
+            - generic [ref=f6e96]: 空

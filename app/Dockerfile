@@ -1,3 +1,4 @@
+# Build context = repo root (docker-compose.yml sets context: .)
 FROM python:3.12-slim
 
 WORKDIR /srv/app
@@ -5,10 +6,12 @@ WORKDIR /srv/app
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app/ /srv/app/
+COPY ontologies/ /srv/ontologies/
+COPY agents/ /srv/agents/
 
 ENV APM_DATA_DIR=/data
 EXPOSE 8000

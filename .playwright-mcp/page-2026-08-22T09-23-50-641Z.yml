@@ -1,0 +1,80 @@
+- generic [ref=f5e454]:
+  - navigation [ref=f5e455]:
+    - link "Dashboard" [ref=f5e456] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338"
+    - link "Board" [ref=f5e462] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/board"
+    - link "Graph" [ref=f5e465] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/graph"
+    - link "Conversations" [ref=f5e470] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/conversations"
+    - link "Runs" [ref=f5e474] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/runs"
+    - link "Assets" [ref=f5e477] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f5e480] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/audit"
+    - link "本体" [ref=f5e484] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/ontology"
+    - link "项目列表" [ref=f5e489] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f5e492]:
+    - generic [ref=f5e493]: 功能
+    - link "MVP" [ref=f5e495] [cursor=pointer]:
+      - /url: "#/p/p_83f693f338/f/f_a385ff1d35"
+    - button "新功能" [ref=f5e497]
+  - generic [ref=f5e499]:
+    - banner [ref=f5e500]:
+      - generic [ref=f5e501]: 周报工具（演示）
+      - generic [ref=f5e502]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f5e503]
+      - link "1" [ref=f5e506] [cursor=pointer]:
+        - /url: "#/p/p_83f693f338/approvals"
+    - main [ref=f5e511]:
+      - generic [ref=f5e512]:
+        - generic [ref=f5e513]:
+          - generic [ref=f5e514]: 看板
+          - generic [ref=f5e515]:
+            - combobox [ref=f5e516]:
+              - option "优先级（全部）" [selected]
+              - option "高"
+              - option "中"
+              - option "低"
+            - combobox [ref=f5e517]:
+              - option "执行者（全部）" [selected]
+              - option "🤖 dev-agent"
+              - option "🤖 planner-agent"
+        - generic [ref=f5e518]:
+          - generic [ref=f5e519]:
+            - generic [ref=f5e520]:
+              - generic [ref=f5e521]: 待办池
+              - generic [ref=f5e522]: "0"
+            - generic [ref=f5e523]: 空
+          - generic [ref=f5e525]:
+            - generic [ref=f5e526]:
+              - generic [ref=f5e527]: 就绪
+              - generic [ref=f5e528]: "0"
+            - generic [ref=f5e529]: 空
+          - generic [ref=f5e531]:
+            - generic [ref=f5e532]:
+              - generic [ref=f5e533]: 进行中
+              - generic [ref=f5e534]: "0"
+            - generic [ref=f5e535]: 空
+          - generic [ref=f5e537]:
+            - generic [ref=f5e538]:
+              - generic [ref=f5e539]: 已完成
+              - generic [ref=f5e540]: "0"
+            - generic [ref=f5e541]: 空
+          - generic [ref=f5e543]:
+            - generic [ref=f5e544]:
+              - generic [ref=f5e545]: 已取消
+              - generic [ref=f5e546]: "0"
+            - generic [ref=f5e547]: 空
+  - generic [ref=f5e551]:
+    - generic [ref=f5e552]:
+      - generic [ref=f5e553]:
+        - button "命令" [ref=f5e554]
+        - button "自然语言" [active] [ref=f5e555]
+      - textbox "试试：只看高优先级任务 / 打开审计页 / 批量批准" [ref=f5e570]
+      - generic [ref=f5e557]: ESC
+    - generic [ref=f5e558]: UI-Agent 将解析为页面动作：只读动作直接执行；写操作需确认（L1 级：导航 / 过滤 / 选择 / 批量审批）。

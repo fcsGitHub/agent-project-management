@@ -183,9 +183,11 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
     const p = a.params as Record<string, string>;
     if (a.action === "navigate") navigate(p.path);
     if (a.action === "set_filter") {
-      const usp = new URLSearchParams(location.search);
+      // hash routing: the real path lives in location.hash
+      const [hashPath, hashQuery] = (location.hash.slice(1) || "/").split("?");
+      const usp = new URLSearchParams(hashQuery ?? "");
       Object.entries(p).forEach(([k, v]) => usp.set(k, String(v)));
-      navigate(`${location.pathname}?${usp.toString()}`);
+      navigate(`${hashPath}?${usp.toString()}`);
     }
   }
 }

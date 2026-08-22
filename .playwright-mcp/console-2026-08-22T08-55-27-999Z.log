@@ -53,3 +53,399 @@
 [     153ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
 [     153ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
 [     153ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640206ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=c52306c0:20100
+[  640381ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640382ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640383ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640383ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640383ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640383ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640383ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640384ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640416ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640417ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640417ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640417ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640420ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640421ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640422ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:analysis-gate:prd_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:design-gate:design_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:prd_review-phase:design. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:planning-gate:plan_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:design_review-phase:planning. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:development-gate:code_review. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:plan_review-phase:development. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:testing-gate:acceptance. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:code_review-phase:testing. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for target handle id: "null", edge id: phase:release-gate:release_approval. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  640496ms] [WARNING] [React Flow]: Couldn't create edge for source handle id: "null", edge id: gate:acceptance-phase:release. Help: https://reactflow.dev/error#008 @ http://localhost:5173/node_modules/.vite/deps/@xyflow_react.js?v=15a6ffc5:3922
+[  820673ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  820823ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  821689ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  821833ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  826839ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  827855ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  831704ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  832720ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  832871ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  833886ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  838902ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  839917ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  842727ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  843739ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  844936ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  845944ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  850958ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  851976ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  853744ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  854754ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  856991ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  858000ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  863012ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  864022ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  864771ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  865784ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  869029ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  870037ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  875047ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  875801ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  876056ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  876812ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  881075ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  882089ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  886824ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  887101ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  887835ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  888111ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  893122ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  894131ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  897855ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  898861ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  899139ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  900155ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  905161ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  906171ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  908867ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  909880ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  911176ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  912189ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  917202ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  918211ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  919891ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  920899ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  923222ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  924238ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  929245ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  930255ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  930904ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  931912ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  935271ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  936277ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  940675ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=c52306c0:20100
+[  940752ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  940756ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/phases:0
+[  940757ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/runs?project_id=p_75c0fbba57:0
+[  940757ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects:0
+[  940758ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/features:0
+[  940759ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  940760ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/stream?project_id=p_75c0fbba57:0
+[  941771ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  941772ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/phases:0
+[  941774ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/runs?project_id=p_75c0fbba57:0
+[  941775ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects:0
+[  941775ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/features:0
+[  941775ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  946787ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  947806ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  951795ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  952809ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  952812ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  953821ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  958834ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  959854ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  962823ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  963844ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  964865ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  965890ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  970909ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  971926ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  973864ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  974871ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  976941ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  977949ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  982962ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  983975ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  984882ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  985898ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  988988ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  989997ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  995017ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  995907ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[  996030ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[  996919ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1001048ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1002060ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1006939ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1007077ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1007953ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1008091ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1013106ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1014119ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1017964ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1018974ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1019125ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1020137ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1025154ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1026161ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1026334ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=c52306c0:20100
+[ 1026392ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1026393ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/phases:0
+[ 1026394ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/runs?project_id=p_75c0fbba57:0
+[ 1026396ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects:0
+[ 1026396ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/features:0
+[ 1026396ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1026396ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/stream?project_id=p_75c0fbba57:0
+[ 1027412ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1027412ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/phases:0
+[ 1027414ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/runs?project_id=p_75c0fbba57:0
+[ 1027415ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects:0
+[ 1027415ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/features:0
+[ 1027415ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1032420ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1033434ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1037433ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1038447ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1038448ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1039458ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1044473ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1045488ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1048456ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1049466ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1050505ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1051512ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1056531ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1057543ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1059480ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1060491ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1062563ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1063567ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1068580ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1069598ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1070502ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1071513ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1074603ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1075610ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1080627ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1081522ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1081643ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1082536ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1086655ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1087664ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1092548ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1092670ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1093565ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1093687ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1098696ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1099703ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1103574ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1104585ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1104710ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1105725ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1110743ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1111757ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1114597ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1115613ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1116765ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1117775ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1122784ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1123791ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1125626ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1126640ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1128799ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1129813ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1134824ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1135833ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1136645ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1137658ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1140851ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1141861ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1146873ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1147675ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1147892ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1148686ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1152908ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1153913ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1158695ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1158926ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1159710ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1159940ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1165238ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1166340ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1169729ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1170740ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1171360ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1172370ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1177378ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1178391ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1180746ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1181756ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1183412ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1184422ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1189437ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1190455ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1191773ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1192793ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1195473ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1196481ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1201488ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1202496ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1202801ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1203806ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1207507ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1208518ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1213530ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1213826ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1214541ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1214838ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1219548ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1220555ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1224847ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1225561ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1225856ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1226570ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1231586ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1232604ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1235866ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1236875ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1237621ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1238633ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1243644ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1244654ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1246891ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/api/approvals?status=pending&project_id=p_75c0fbba57:0
+[ 1249672ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1250681ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1255707ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1256729ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1261748ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1262763ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1267784ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1268792ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1273813ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1274823ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1279838ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1280848ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1285859ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1286880ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1291902ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1292924ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1297932ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1298955ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1303979ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1305002ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1310013ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1311025ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1316044ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1317057ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1322066ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1323080ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1328096ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1329109ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1334122ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1335133ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1340151ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1341174ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1346198ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1347216ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1352228ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1353247ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1358268ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1359280ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1364297ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1365312ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1370324ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1371345ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1376360ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1377372ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1382387ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1383401ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1388419ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1389443ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1394453ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1395465ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1400485ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1401494ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1406515ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1407539ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1412558ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1413569ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1418584ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1419595ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1424613ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1425636ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1430656ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1431676ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1436691ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1437703ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1442719ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1443727ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1448747ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1449770ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1454789ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1455798ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1460812ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1461825ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1466841ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1467854ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1472869ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1473882ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1478905ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1479930ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1484945ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1485959ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1490970ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1491989ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1497016ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1498032ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1503043ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
+[ 1504066ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/projects/p_75c0fbba57/graph:0
