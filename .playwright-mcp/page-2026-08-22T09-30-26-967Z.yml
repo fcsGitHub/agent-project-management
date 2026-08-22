@@ -1,0 +1,143 @@
+- generic [ref=f7e3]:
+  - navigation [ref=f7e4]:
+    - link "Dashboard" [ref=f7e5] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c"
+    - link "Board" [ref=f7e11] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/board"
+    - link "Graph" [ref=f7e14] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/graph"
+    - link "Conversations" [ref=f7e19] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/conversations"
+    - link "Runs" [ref=f7e23] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/runs"
+    - link "Assets" [ref=f7e26] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f7e29] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/audit"
+    - link "本体" [ref=f7e33] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/ontology"
+    - link "项目列表" [ref=f7e38] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f7e41]:
+    - generic [ref=f7e42]: 功能
+    - link "MVP" [ref=f7e69] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/f/f_e3685a36e5"
+    - button "新功能" [ref=f7e46]
+  - generic [ref=f7e48]:
+    - banner [ref=f7e49]:
+      - generic [ref=f7e50]: 周报工具（演示）
+      - generic [ref=f7e70]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f7e51]
+      - link "审批中心" [ref=f7e54] [cursor=pointer]:
+        - /url: "#/p/p_5acc0f976c/approvals"
+    - main [ref=f7e58]:
+      - generic [ref=f7e59]:
+        - generic [ref=f7e60]:
+          - generic [ref=f7e61]: 看板
+          - generic [ref=f7e62]:
+            - button "▦ 看板" [ref=f7e63]
+            - button "☰ 列表" [ref=f7e64]
+          - generic [ref=f7e65]:
+            - combobox [ref=f7e66]:
+              - option "优先级（全部）" [selected]
+              - option "高"
+              - option "中"
+              - option "低"
+            - combobox [ref=f7e67]:
+              - option "执行者（全部）" [selected]
+              - option "🤖 dev-agent"
+              - option "🤖 planner-agent"
+        - table [ref=f7e72]:
+          - rowgroup [ref=f7e73]:
+            - row [ref=f7e74]:
+              - columnheader "标题" [ref=f7e75]
+              - columnheader "概念" [ref=f7e76]
+              - columnheader "状态" [ref=f7e77]
+              - columnheader "优先级" [ref=f7e78]
+              - columnheader "执行者" [ref=f7e79]
+              - columnheader "更新" [ref=f7e80]
+          - rowgroup [ref=f7e81]:
+            - row [ref=f7e82]:
+              - cell "T2 需求池与一句话需求录入" [ref=f7e83]
+              - cell "task" [ref=f7e84]
+              - cell "open" [ref=f7e85]
+              - cell "high" [ref=f7e87]
+              - cell "🤖 dev-agent" [ref=f7e88]
+              - cell "08-22T09:20" [ref=f7e89]
+            - row [ref=f7e90]:
+              - cell "T3 PRD 起草流水线（PM-Agent 子图）" [ref=f7e91]
+              - cell "task" [ref=f7e92]
+              - cell "open" [ref=f7e93]
+              - cell "high" [ref=f7e95]
+              - cell "🤖 dev-agent" [ref=f7e96]
+              - cell "08-22T09:20" [ref=f7e97]
+            - row [ref=f7e98]:
+              - cell "T4 阶段门与审批挂起机制" [ref=f7e99]
+              - cell "task" [ref=f7e100]
+              - cell "open" [ref=f7e101]
+              - cell "high" [ref=f7e103]
+              - cell "🤖 dev-agent" [ref=f7e104]
+              - cell "08-22T09:20" [ref=f7e105]
+            - row [ref=f7e106]:
+              - cell "T5 打断-注入-恢复链路" [ref=f7e107]
+              - cell "task" [ref=f7e108]
+              - cell "open" [ref=f7e109]
+              - cell "high" [ref=f7e111]
+              - cell "🤖 dev-agent" [ref=f7e112]
+              - cell "08-22T09:20" [ref=f7e113]
+            - row [ref=f7e114]:
+              - cell "T6 任务看板投影与过滤" [ref=f7e115]
+              - cell "task" [ref=f7e116]
+              - cell "open" [ref=f7e117]
+              - cell "medium" [ref=f7e119]
+              - cell "🤖 dev-agent" [ref=f7e120]
+              - cell "08-22T09:20" [ref=f7e121]
+            - row [ref=f7e122]:
+              - cell "T7 导入解析模块" [ref=f7e123]
+              - cell "task" [ref=f7e124]
+              - cell "open" [ref=f7e125]
+              - cell "medium" [ref=f7e127]
+              - cell "🤖 dev-agent" [ref=f7e128]
+              - cell "08-22T09:20" [ref=f7e129]
+            - row [ref=f7e130]:
+              - cell "T8 数据校验与清洗" [ref=f7e131]
+              - cell "task" [ref=f7e132]
+              - cell "open" [ref=f7e133]
+              - cell "medium" [ref=f7e135]
+              - cell "🤖 dev-agent" [ref=f7e136]
+              - cell "08-22T09:20" [ref=f7e137]
+            - row [ref=f7e138]:
+              - cell "T9 报告模板引擎" [ref=f7e139]
+              - cell "task" [ref=f7e140]
+              - cell "open" [ref=f7e141]
+              - cell "medium" [ref=f7e143]
+              - cell "🤖 dev-agent" [ref=f7e144]
+              - cell "08-22T09:20" [ref=f7e145]
+            - row [ref=f7e146]:
+              - cell "T10 周报导出（Markdown/CSV）" [ref=f7e147]
+              - cell "task" [ref=f7e148]
+              - cell "open" [ref=f7e149]
+              - cell "low" [ref=f7e151]
+              - cell "🤖 dev-agent" [ref=f7e152]
+              - cell "08-22T09:20" [ref=f7e153]
+            - row [ref=f7e154]:
+              - cell "T11 审计事件流查询与导出" [ref=f7e155]
+              - cell "task" [ref=f7e156]
+              - cell "open" [ref=f7e157]
+              - cell "low" [ref=f7e159]
+              - cell "🤖 dev-agent" [ref=f7e160]
+              - cell "08-22T09:20" [ref=f7e161]
+            - row [ref=f7e162]:
+              - cell "T12 端到端冒烟与文档" [ref=f7e163]
+              - cell "task" [ref=f7e164]
+              - cell "open" [ref=f7e165]
+              - cell "low" [ref=f7e167]
+              - cell "🤖 dev-agent" [ref=f7e168]
+              - cell "08-22T09:20" [ref=f7e169]
+            - row [ref=f7e170]:
+              - cell "T1 搭建项目骨架与内容仓" [ref=f7e171]
+              - cell "task" [ref=f7e172]
+              - cell "done" [ref=f7e173]
+              - cell "high" [ref=f7e175]
+              - cell "🤖 dev-agent" [ref=f7e176]
+              - cell "08-22T09:20" [ref=f7e177]

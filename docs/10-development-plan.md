@@ -299,7 +299,7 @@ agent-project-management/
 | 2026-08-22 | I7-I9+I11 | M2 前端完成：AppShell（暗色 rail 八项+功能栏+⌘K+审批铃铛）、SSE→TanStack Query 增量桥、对话视图（消息流/步骤行展开 span/打断-恢复/上下文抽屉 L1-L4+合并预览/内联审批横幅）、功能页三 Tab+简报卡、五桶看板（过滤/多选/批量"让 Agent 做"）、审批中心（diff 预览/批量/拒绝理由）、Runs 左树右甘特+人机交织时间线、React Flow 项目图（阶段/Gate/任务节点、状态着色、节点抽屉联到对话）。浏览器实测完整闭环通过。UI 组件为轻量自研（zinc+indigo 令牌与 demo.html 一致），Radix/shadcn 源码级替换列为后续 B 级意见。 |
 | 2026-08-22 | I10 | NL 命令层 L1：确定性规则解析器（导航/过滤/指派者/批量审批），本体词典可扩展；只读动作直执返回客户端应用，写操作 pending_confirm→confirm 后经审批域执行；ui_command.executed 事件携带 on_behalf_of；解析失败 422 + 候选列表降级。 |
 | 2026-08-22 | I12 | 资产域：资产仓 Git（frontmatter 元数据）、FTS5 中文 bigram 检索、沉淀路径 A（工件→draft→submit_review→asset_review Gate→批准发布）、Agent 三工具 search/read/link（read 触发 asset.consumed）、来源/引用双链与引用计数投影；工件抽屉"沉淀为资产"表单（本体 accepts 过滤）。 |
-| 2026-08-22 | I13+终验 | 部署与终验：docker-compose（api+web/nginx 代理 SSE）、种子脚本 tools/seed.py（回放模式全流程演示数据）、README 开发指南。冒烟 7 条全绿（tools/smoke/reports/latest.md：passed 10）；pytest 51 项全绿；pnpm build/vitest 通过；compose 起栈后 /api/health 健康检查通过。功能完备性核对（03 §5 MVP 列）逐行勾验：三级导航/消息树/打断恢复/提示词披露/五类对话（操作型=MVP 子集）/审批批量+改后恢复/工件 diff/看板过滤/NL L1/发布说明/审计/资产沉淀检索双链全部落地；"转对话"与功能小图为 V1.1/V1.2 计划项。 |
+| 2026-08-22 | I13+终验 | 部署与终验：docker-compose（api+web/nginx 代理 SSE）、种子脚本 tools/seed.py（回放模式全流程演示数据）、README 开发指南。冒烟 7 条全绿（tools/smoke/reports/latest.md：passed 10）；pytest 50 项全绿；pnpm build/vitest 通过；compose 起栈后 /api/health 健康检查通过。功能完备性核对（03 §5 MVP 列）逐行勾验：三级导航/消息树/打断恢复/提示词披露/五类对话（操作型=MVP 子集）/审批批量+改后恢复/工件 diff/看板过滤/NL L1/发布说明/审计/资产沉淀检索双链全部落地；"转对话"与功能小图为 V1.1/V1.2 计划项。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

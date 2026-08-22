@@ -1,0 +1,98 @@
+- generic [ref=f7e3]:
+  - navigation [ref=f7e4]:
+    - link "Dashboard" [ref=f7e5] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c"
+    - link "Board" [ref=f7e11] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/board"
+    - link "Graph" [ref=f7e14] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/graph"
+    - link "Conversations" [ref=f7e19] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/conversations"
+    - link "Runs" [ref=f7e23] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/runs"
+    - link "Assets" [ref=f7e26] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f7e29] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/audit"
+    - link "本体" [ref=f7e33] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/ontology"
+    - link "项目列表" [ref=f7e38] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f7e41]:
+    - generic [ref=f7e42]: 功能
+    - link "MVP" [ref=f7e69] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/f/f_e3685a36e5"
+    - button "新功能" [ref=f7e46]
+  - generic [ref=f7e48]:
+    - banner [ref=f7e49]:
+      - generic [ref=f7e50]: 周报工具（演示）
+      - generic [ref=f7e70]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f7e51]
+      - link "审批中心" [ref=f7e54] [cursor=pointer]:
+        - /url: "#/p/p_5acc0f976c/approvals"
+    - main [ref=f7e58]:
+      - generic [ref=f7e344]:
+        - generic [ref=f7e345]:
+          - generic [ref=f7e346]: MVP
+          - button "简报 L2 ✎" [ref=f7e347]
+          - button "＋ 对话" [ref=f7e348]
+        - generic [ref=f7e349]:
+          - button "看板切片12" [ref=f7e350]
+          - button "对话3" [ref=f7e351]
+          - button "工件4" [ref=f7e352]
+        - generic [ref=f7e353]:
+          - generic [ref=f7e442]:
+            - generic [ref=f7e443] [cursor=pointer]:
+              - generic [ref=f7e444]: i_1802ba1db4.patch.md
+              - generic [ref=f7e445]: artifacts/code/i_1802ba1db4.patch.md
+              - generic [ref=f7e446]: 2 版
+            - generic [ref=f7e448] [cursor=pointer]:
+              - generic [ref=f7e449]: prd.md
+              - generic [ref=f7e450]: artifacts/prd.md
+              - generic [ref=f7e451]:
+                - generic [ref=f7e452]: 2 版
+                - generic [ref=f7e453]: 可沉淀 → prd-template
+            - generic [ref=f7e454] [cursor=pointer]:
+              - generic [ref=f7e455]: login-regression.md
+              - generic [ref=f7e456]: artifacts/test/login-regression.md
+              - generic [ref=f7e457]: 1 版
+            - generic [ref=f7e459] [cursor=pointer]:
+              - generic [ref=f7e460]: wbs.md
+              - generic [ref=f7e461]: artifacts/wbs.md
+              - generic [ref=f7e462]: 1 版
+          - complementary [ref=f7e466]:
+            - generic [ref=f7e467]:
+              - generic [ref=f7e468]: artifacts/prd.md
+              - button "Esc ✕" [ref=f7e469]
+            - generic [ref=f7e471]:
+              - generic [ref=f7e472]:
+                - heading "PRD：周报工具（演示）" [level=1] [ref=f7e473]
+                - heading "1. 背景与目标" [level=2] [ref=f7e474]
+                - paragraph [ref=f7e475]: 基于以下需求起草 PRD：汇总 Git 提交与任务状态，自动生成周报
+                - heading "2. 用户故事" [level=2] [ref=f7e476]
+                - list [ref=f7e477]:
+                  - listitem [ref=f7e478]: 作为用户，我希望提交一句话需求，以便快速启动项目；
+                  - listitem [ref=f7e479]: 作为用户，我希望审批 Agent 产出的 PRD，以便控制方向；
+                  - listitem [ref=f7e480]: 作为用户，我希望随时打断并纠正 Agent，以便纠偏成本最低。
+                - heading "3. 功能范围" [level=2] [ref=f7e481]
+                - list [ref=f7e482]:
+                  - listitem [ref=f7e483]: 需求池与 PRD 起草
+                  - listitem [ref=f7e484]: 阶段门审批
+                  - listitem [ref=f7e485]: 任务看板与 Agent 派工
+                - heading "4. 非目标（边界）" [level=2] [ref=f7e486]
+                - list [ref=f7e487]:
+                  - listitem [ref=f7e488]: 不做多人权限体系；不做移动端。
+                - heading "5. 补充约束" [level=2] [ref=f7e489]
+                - list [ref=f7e490]:
+                  - listitem [ref=f7e491]: 必须兼容 Python 3.9，不要用 3.10+ 语法
+                  - listitem [ref=f7e492]: 按补充约束重拟 PRD
+                - heading "6. 验收标准" [level=2] [ref=f7e493]
+                - list [ref=f7e494]:
+                  - listitem [ref=f7e495]: PRD 覆盖上述用户故事；
+                  - listitem [ref=f7e496]: 所有补充约束逐条体现在功能范围或约束节；
+                  - listitem [ref=f7e497]: "通过 PRD 评审（gate: prd_review）。"
+              - button "✎ 编辑（Markdown 编辑器）" [ref=f7e498]
+              - group [ref=f7e499]:
+                - generic "diff vs 上一版" [ref=f7e500] [cursor=pointer]
+              - generic [ref=f7e501]: 版本史：aadf92e ← 8e5b73a
+              - button "📚 沉淀为资产" [ref=f7e502]

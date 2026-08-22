@@ -1,0 +1,141 @@
+- generic [ref=f7e3]:
+  - navigation [ref=f7e4]:
+    - link "Dashboard" [ref=f7e5] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c"
+    - link "Board" [ref=f7e11] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/board"
+    - link "Graph" [ref=f7e14] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/graph"
+    - link "Conversations" [ref=f7e19] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/conversations"
+    - link "Runs" [ref=f7e23] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/runs"
+    - link "Assets" [ref=f7e26] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f7e29] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/audit"
+    - link "本体" [ref=f7e33] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/ontology"
+    - link "项目列表" [ref=f7e38] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f7e41]:
+    - generic [ref=f7e42]: 功能
+    - link "MVP" [active] [ref=f7e69] [cursor=pointer]:
+      - /url: "#/p/p_5acc0f976c/f/f_e3685a36e5"
+    - button "新功能" [ref=f7e46]
+  - generic [ref=f7e48]:
+    - banner [ref=f7e49]:
+      - generic [ref=f7e50]: 周报工具（演示）
+      - generic [ref=f7e70]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f7e51]
+      - link "审批中心" [ref=f7e54] [cursor=pointer]:
+        - /url: "#/p/p_5acc0f976c/approvals"
+    - main [ref=f7e58]:
+      - generic [ref=f7e344]:
+        - generic [ref=f7e345]:
+          - generic [ref=f7e346]: MVP
+          - button "简报 L2 ✎" [ref=f7e347]
+          - button "＋ 对话" [ref=f7e348]
+        - generic [ref=f7e349]:
+          - button "看板切片12" [ref=f7e350]
+          - button "对话3" [ref=f7e351]
+          - button "工件4" [ref=f7e352]
+        - generic [ref=f7e354]:
+          - generic [ref=f7e355]:
+            - generic [ref=f7e356]:
+              - generic [ref=f7e357]: 待办池
+              - generic [ref=f7e358]: "11"
+            - generic [ref=f7e359]:
+              - link "T2 需求池与一句话需求录入 open 高优 🤖 dev-agent" [ref=f7e360] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e361]:
+                  - generic [ref=f7e362]: T2 需求池与一句话需求录入
+                  - generic [ref=f7e363]:
+                    - generic [ref=f7e364]: open
+                    - generic [ref=f7e365]: 高优
+                    - generic [ref=f7e366]: 🤖 dev-agent
+              - link "T3 PRD 起草流水线（PM-Agent 子图） open 高优 🤖 dev-agent" [ref=f7e367] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e368]:
+                  - generic [ref=f7e369]: T3 PRD 起草流水线（PM-Agent 子图）
+                  - generic [ref=f7e370]:
+                    - generic [ref=f7e371]: open
+                    - generic [ref=f7e372]: 高优
+                    - generic [ref=f7e373]: 🤖 dev-agent
+              - link "T4 阶段门与审批挂起机制 open 高优 🤖 dev-agent" [ref=f7e374] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e375]:
+                  - generic [ref=f7e376]: T4 阶段门与审批挂起机制
+                  - generic [ref=f7e377]:
+                    - generic [ref=f7e378]: open
+                    - generic [ref=f7e379]: 高优
+                    - generic [ref=f7e380]: 🤖 dev-agent
+              - link "T5 打断-注入-恢复链路 open 高优 🤖 dev-agent" [ref=f7e381] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e382]:
+                  - generic [ref=f7e383]: T5 打断-注入-恢复链路
+                  - generic [ref=f7e384]:
+                    - generic [ref=f7e385]: open
+                    - generic [ref=f7e386]: 高优
+                    - generic [ref=f7e387]: 🤖 dev-agent
+              - link "T6 任务看板投影与过滤 open 🤖 dev-agent" [ref=f7e388] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e389]:
+                  - generic [ref=f7e390]: T6 任务看板投影与过滤
+                  - generic [ref=f7e391]:
+                    - generic [ref=f7e392]: open
+                    - generic [ref=f7e393]: 🤖 dev-agent
+              - link "T7 导入解析模块 open 🤖 dev-agent" [ref=f7e394] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e395]:
+                  - generic [ref=f7e396]: T7 导入解析模块
+                  - generic [ref=f7e397]:
+                    - generic [ref=f7e398]: open
+                    - generic [ref=f7e399]: 🤖 dev-agent
+              - link "T8 数据校验与清洗 open 🤖 dev-agent" [ref=f7e400] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e401]:
+                  - generic [ref=f7e402]: T8 数据校验与清洗
+                  - generic [ref=f7e403]:
+                    - generic [ref=f7e404]: open
+                    - generic [ref=f7e405]: 🤖 dev-agent
+              - link "T9 报告模板引擎 open 🤖 dev-agent" [ref=f7e406] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e407]:
+                  - generic [ref=f7e408]: T9 报告模板引擎
+                  - generic [ref=f7e409]:
+                    - generic [ref=f7e410]: open
+                    - generic [ref=f7e411]: 🤖 dev-agent
+              - link "T10 周报导出（Markdown/CSV） open 🤖 dev-agent" [ref=f7e412] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e413]:
+                  - generic [ref=f7e414]: T10 周报导出（Markdown/CSV）
+                  - generic [ref=f7e415]:
+                    - generic [ref=f7e416]: open
+                    - generic [ref=f7e417]: 🤖 dev-agent
+              - link "T11 审计事件流查询与导出 open 🤖 dev-agent" [ref=f7e418] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e419]:
+                  - generic [ref=f7e420]: T11 审计事件流查询与导出
+                  - generic [ref=f7e421]:
+                    - generic [ref=f7e422]: open
+                    - generic [ref=f7e423]: 🤖 dev-agent
+              - link "T12 端到端冒烟与文档 open 🤖 dev-agent" [ref=f7e424] [cursor=pointer]:
+                - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+                - generic [ref=f7e425]:
+                  - generic [ref=f7e426]: T12 端到端冒烟与文档
+                  - generic [ref=f7e427]:
+                    - generic [ref=f7e428]: open
+                    - generic [ref=f7e429]: 🤖 dev-agent
+          - generic [ref=f7e430]:
+            - generic [ref=f7e431]:
+              - generic [ref=f7e432]: 已完成
+              - generic [ref=f7e433]: "1"
+            - link "T1 搭建项目骨架与内容仓 done 高优 🤖 dev-agent" [ref=f7e435] [cursor=pointer]:
+              - /url: "#/p/p_5acc0f976c/board?feature=f_e3685a36e5"
+              - generic [ref=f7e436]:
+                - generic [ref=f7e437]: T1 搭建项目骨架与内容仓
+                - generic [ref=f7e438]:
+                  - generic [ref=f7e439]: done
+                  - generic [ref=f7e440]: 高优
+                  - generic [ref=f7e441]: 🤖 dev-agent
