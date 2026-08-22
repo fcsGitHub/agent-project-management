@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Design tokens mirrored from demo.html (zinc neutrals + indigo accent). */
+@theme {
+  --color-bg: #f7f7f8;
+  --color-surface: #ffffff;
+  --color-ink: #18181b;
+  --color-mut: #71717a;
+  --color-line: #e7e7ea;
+  --color-acc: #6366f1;
+  --color-accbg: #eef2ff;
+  --color-ag: #8b5cf6;
+  --color-agbg: #f5f3ff;
+  --color-ok: #059669;
+  --color-okbg: #ecfdf5;
+  --color-okln: #a7f3d0;
+  --color-warn: #d97706;
+  --color-warnbg: #fffbeb;
+  --color-warnln: #fcd34d;
+  --color-dan: #dc2626;
+  --color-danbg: #fef2f2;
+  --color-rail: #18181b;
+  --font-sans: "Inter", "system-ui", -apple-system, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --radius-apm: 12px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+}
+
+/* Thin scrollbars in panes */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1,0 +1,1455 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentPM · 交互式 Demo（v0.3 设计 · 主要用户流程）</title>
+<style>
+/* ============================================================
+   设计语言：对标 Linear / Plane / Huly（docs/01 B 部分调研结论）
+   组件质感：shadcn/ui（zinc 中性色 + 单强调色 + Radix 圆角规范）
+   图标：Lucide 线性图标（正式实现直接复用 lucide-react）
+   ============================================================ */
+:root{
+  --font:"Inter","system-ui",-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,"SF Mono",Consolas,"Cascadia Code",monospace;
+  --bg:#f7f7f8; --surface:#ffffff; --s2:#fafafa; --s3:#f4f4f5;
+  --line:#e7e7ea; --line2:#d9d9de;
+  --ink:#18181b; --ink2:#3f3f46; --mut:#71717a; --mut2:#a1a1aa;
+  --acc:#6366f1; --acc2:#4f46e5; --accbg:#eef2ff; --accbg2:#e0e7ff;
+  --ag:#8b5cf6; --agbg:#f5f3ff;
+  --ok:#059669; --okbg:#ecfdf5; --okln:#a7f3d0;
+  --warn:#d97706; --warnbg:#fffbeb; --warnln:#fcd34d;
+  --dan:#dc2626; --danbg:#fef2f2;
+  --r:12px;
+  --sh1:0 1px 2px rgba(16,16,20,.05);
+  --sh2:0 1px 3px rgba(16,16,20,.06),0 8px 24px rgba(16,16,20,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:13px/1.65 var(--font);color:var(--ink);background:var(--bg);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--acc);text-decoration:none}
+::selection{background:#c7d2fe}
+svg.ic{vertical-align:-3px;flex:none}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:8px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#a1a1aa;background-clip:content-box;border:3px solid transparent}
+
+/* ===== 骨架 ===== */
+#app{display:flex;flex-direction:column;height:100vh}
+#topbar{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--line);z-index:30}
+#shell{flex:1;display:flex;min-height:0}
+#rail{width:58px;flex:none;background:linear-gradient(180deg,#141417,#1b1b20);display:flex;flex-direction:column;align-items:center;padding:10px 0 12px;gap:2px;z-index:20}
+#featcol{width:200px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:12px 10px;overflow:auto}
+#main{flex:1;min-width:0;overflow:auto;padding:20px 24px 48px}
+.view{max-width:1200px;margin:0 auto}
+
+/* ===== 顶栏 ===== */
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px;color:var(--ink);padding-right:10px}
+.logo .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff}
+.tsw{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--mut);font-size:12px;cursor:pointer;white-space:nowrap}
+.tsw:hover{border-color:var(--line2);color:var(--ink2)}
+.tsw b{color:var(--ink);font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.tsw .dot{width:7px;height:7px;border-radius:50%;background:var(--acc)}
+.tk{display:flex;align-items:center;gap:8px;width:340px;margin-left:10px;padding:6px 12px;border:1px solid var(--line);border-radius:9px;background:var(--s2);color:var(--mut2);font-size:12px;cursor:pointer}
+.tk:hover{border-color:var(--acc);background:var(--surface)}
+.tk kbd{margin-left:auto;font:10.5px var(--mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--surface);color:var(--mut)}
+.bell{position:relative;width:32px;height:32px;border-radius:8px;color:var(--mut);display:flex;align-items:center;justify-content:center}
+.bell:hover{background:var(--s3);color:var(--ink)}
+.bell .n{position:absolute;top:2px;right:1px;background:var(--dan);color:#fff;font-size:9.5px;font-weight:700;border-radius:8px;padding:0 4px;line-height:13px;border:1.5px solid var(--surface)}
+.avatar{width:27px;height:27px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:600}
+
+/* ===== 侧栏（深色） ===== */
+.rib{position:relative;width:42px;height:42px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:#83838d;transition:.15s}
+.rib small{font-size:7.5px;letter-spacing:.02em;transform:scale(.92)}
+.rib:hover{color:#e4e4e7;background:#ffffff10}
+.rib.on{color:#fff;background:linear-gradient(180deg,#6366f126,#6366f112)}
+.rib.on::before{content:"";position:absolute;left:-8px;top:10px;bottom:10px;width:2.5px;border-radius:2px;background:var(--acc)}
+.railsp{flex:1}
+.raildiv{width:26px;border-top:1px solid #ffffff14;margin:6px 0}
+
+/* ===== 通用 ===== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1)}
+.pad{padding:16px 18px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.hd h1{font-size:16.5px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.hd h1 .hic{width:30px;height:30px;border-radius:9px;background:var(--accbg);color:var(--acc);display:inline-flex;align-items:center;justify-content:center}
+.hd .sub{color:var(--mut);font-size:12px;padding-top:3px}
+.sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:8.5px;border:1px solid var(--line2);background:var(--surface);font-size:12.5px;font-weight:500;transition:.15s;white-space:nowrap;box-shadow:var(--sh1)}
+.btn:hover{border-color:#b8b8c0;background:var(--s2)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 1px 2px #4f46e555}
+.btn.pri:hover{background:var(--acc2);border-color:var(--acc2)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.ok:hover{filter:brightness(1.08)}
+.btn.dan{color:var(--dan);border-color:#fca5a5;background:var(--surface)}
+.btn.dan:hover{background:var(--danbg)}
+.btn.sm{padding:3.5px 10px;font-size:11.5px;border-radius:7px}
+.btn.ghost{border-color:transparent;background:transparent;box-shadow:none;color:var(--mut)}
+.btn.ghost:hover{color:var(--acc);background:var(--accbg)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:99px;font-size:11.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);cursor:pointer;white-space:nowrap;font-weight:500}
+.chip:hover{border-color:var(--line2)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip .cdot{width:6px;height:6px;border-radius:50%}
+.tag{display:inline-flex;align-items:center;gap:3px;padding:1.5px 7px;border-radius:5px;font-size:10.5px;background:var(--s3);color:var(--ink2);font-weight:500}
+.tag.b{background:var(--accbg);color:var(--acc2)}.tag.g{background:var(--okbg);color:var(--ok)}
+.tag.w{background:var(--warnbg);color:var(--warn)}.tag.r{background:var(--danbg);color:var(--dan)}
+.tag.p{background:var(--agbg);color:var(--ag)}
+.v{font-size:9px;color:var(--mut2);vertical-align:super;font-weight:400}
+.row{display:flex;align-items:center;gap:8px}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mb8{margin-bottom:8px}
+.mut{color:var(--mut)}.mut2{color:var(--mut2)}.sm{font-size:12px}.xs{font-size:10.5px}
+.b{font-weight:600}
+.hr{border-top:1px solid var(--line);margin:14px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.empty{padding:30px;text-align:center;color:var(--mut2);font-size:12.5px;border:1.5px dashed var(--line2);border-radius:var(--r);background:var(--s2)}
+.scroll{overflow:auto}
+.icb{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;flex:none}
+
+/* ===== 功能列 ===== */
+#featcol .ft{font-size:10px;font-weight:700;color:var(--mut2);letter-spacing:.12em;padding:4px 10px 8px}
+#featcol .fi{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:9px;color:var(--ink2);margin-bottom:2px;transition:.12s}
+#featcol .fi:hover{background:var(--s3)}
+#featcol .fi.on{background:var(--accbg);color:var(--acc2)}
+#featcol .fi .nm{font-weight:600;font-size:12.5px;display:flex;align-items:center;gap:6px}
+#featcol .fi .pb{height:3.5px;border-radius:99px;background:var(--s3);margin-top:6px;overflow:hidden}
+#featcol .fi .pb i{display:block;height:100%;border-radius:99px}
+#featcol .fi.on .pb{background:#ffffff99}
+#featcol .fi.on .pb i{background:var(--acc)}
+#featcol .fi .pc{float:right;font-size:10px;color:var(--mut2)}
+#featcol .newf{width:100%;padding:8px;color:var(--mut);border:1.5px dashed var(--line2);border-radius:9px;margin-top:10px;font-size:12px;display:flex;gap:6px;align-items:center;justify-content:center}
+#featcol .newf:hover{color:var(--acc);border-color:var(--acc);background:var(--accbg)}
+
+/* ===== Dashboard ===== */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{padding:14px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:.15s}
+.stat:hover{border-color:var(--line2);box-shadow:var(--sh2);transform:translateY(-1px)}
+.stat .icb{width:36px;height:36px;border-radius:10px}
+.stat .num{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.stat .lbl{font-size:11px;color:var(--mut);font-weight:500}
+.stat .sub{font-size:10.5px;color:var(--mut2);margin-top:2px}
+.stat.warnish .num{color:var(--warn)}
+.dashgrid{display:grid;grid-template-columns:370px 1fr;gap:16px;margin-top:16px}
+.apppanel{border:1px solid var(--warnln);border-left:3px solid var(--warn);background:linear-gradient(180deg,#fffdf5,#fff)}
+.apppanel .ph{display:flex;align-items:center;gap:8px;padding:13px 16px 9px}
+.apppanel .ph .icb{background:var(--warnbg);color:var(--warn);width:28px;height:28px;border-radius:8px}
+.apppanel .cnt{margin-left:auto;background:var(--warn);color:#fff;font-weight:700;border-radius:99px;padding:0 8px;font-size:11px;line-height:18px}
+.todo-item{display:flex;gap:11px;padding:11px 16px;border-top:1px solid #fdf6e3;cursor:pointer;transition:.12s}
+.todo-item:hover{background:#fffdf3}
+.todo-item .icb{width:28px;height:28px;border-radius:8px;margin-top:2px}
+.todo-item .b{font-size:12.5px}
+.todo-item .xs{margin-top:1px}
+.act{display:flex;gap:10px;padding:9px 16px;border-top:1px solid #f3f3f5;font-size:12.5px;cursor:pointer;transition:.1s}
+.act:hover{background:var(--s2)}
+.act .t{color:var(--mut2);font-size:10.5px;flex:none;width:34px;padding-top:2px;font-family:var(--mono)}
+.act .who{flex:none;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.act .who.ag{background:var(--agbg);color:var(--ag)}
+.act .who.hu{background:var(--accbg);color:var(--acc)}
+.mile{display:flex;align-items:center;gap:14px;padding:14px 18px}
+.mile .bar{flex:1;height:7px;border-radius:99px;background:var(--s3);overflow:hidden}
+.mile .bar i{display:block;height:100%;width:68%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:99px}
+.featbar .fb{padding:9px 14px;border-radius:9px;cursor:pointer;transition:.12s}
+.featbar .fb:hover{background:var(--s2)}
+.featbar .bar{height:5px;border-radius:99px;background:var(--s3);overflow:hidden;margin-top:5px}
+.featbar .bar i{display:block;height:100%;border-radius:99px}
+
+/* ===== 看板 ===== */
+.kan{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start}
+.kcol{background:var(--s3);border:1px solid #ececef;border-radius:var(--r);padding:8px;min-height:220px}
+.kcol .kh{font-size:11px;font-weight:600;color:var(--mut);padding:3px 6px 9px;display:flex;align-items:center;gap:6px}
+.kcol .kh .n{margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:99px;font-size:9.5px;padding:0 6px;color:var(--mut2);line-height:15px}
+.kcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 11px 10px 13px;margin-bottom:7px;box-shadow:var(--sh1);cursor:pointer;transition:.15s;overflow:hidden}
+.kcard:hover{border-color:#c9c9d1;box-shadow:var(--sh2);transform:translateY(-1px)}
+.kcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--prio-c,#d4d4d8)}
+.kcard .ttl{font-weight:600;font-size:12.5px;margin-bottom:6px;line-height:1.45}
+.kcard .meta{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--mut2)}
+.kcard .agen{display:inline-flex;align-items:center;gap:3px;background:var(--agbg);color:var(--ag);border-radius:5px;padding:1px 6px;font-size:10px;font-weight:500}
+.kcard .inline-ap{display:flex;gap:6px;margin-top:8px}
+.kcard .doit{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;background:var(--acc);color:#fff;padding:3px 8px;border-radius:6px;opacity:0;transition:.15s;box-shadow:0 2px 8px #6366f166}
+.kcard:hover .doit{opacity:1}
+
+/* ===== 对话 ===== */
+.convwrap{display:flex;flex-direction:column;height:calc(100vh - 50px - 40px);max-width:940px;margin:0 auto}
+.convhead{display:flex;align-items:center;gap:12px;padding:13px 18px;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2.5px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.pill.run{background:var(--accbg);color:var(--acc2)}
+.pill.pau{background:var(--warnbg);color:var(--warn)}
+.pill.done{background:var(--okbg);color:var(--ok)}
+.pill.await{background:var(--warnbg);color:var(--warn)}
+.pill .pd{width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.run .pd{animation:pp 1.2s infinite}
+@keyframes pp{0%,100%{opacity:1}50%{opacity:.3}}
+.ctxstrip{display:flex;align-items:center;gap:8px;padding:8px 18px;background:var(--s2);border:1px solid var(--line);border-bottom:0;font-size:12px;color:var(--ink2)}
+.ctxstrip .cchip{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line2);background:var(--surface);border-radius:99px;padding:2px 10px;color:var(--acc2);font-size:11px;font-weight:600;cursor:pointer}
+.ctxstrip .cchip:hover{border-color:var(--acc)}
+.msgs{flex:1;overflow:auto;padding:18px;background:linear-gradient(180deg,#fbfbfc,#f7f7f8);border:1px solid var(--line)}
+.msg{margin-bottom:16px;display:flex;gap:10px}
+.msg .mav{width:28px;height:28px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.msg.user .mav{background:var(--accbg);color:var(--acc)}
+.msg.agent .mav{background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff}
+.msg .mbody{min-width:0;flex:1}
+.msg .mhead{font-size:11px;color:var(--mut);margin-bottom:4px;display:flex;gap:7px;align-items:center}
+.msg .bubble{padding:11px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;max-width:94%;box-shadow:var(--sh1)}
+.msg.user .bubble{background:var(--accbg);border-color:var(--accbg2)}
+.msg .bubble ul{padding-left:18px}
+.step{display:flex;align-items:center;gap:9px;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--s2);font-size:12px;margin:7px 0 0;cursor:pointer;transition:.12s;font-family:var(--mono)}
+.step:hover{border-color:var(--accbg2);background:var(--surface)}
+.step .tic{color:var(--mut)}
+.step .res{color:var(--ok);font-size:11px;flex:none;margin-left:auto}
+.step .run{color:var(--acc);font-size:11px;flex:none;margin-left:auto;display:inline-flex;gap:5px;align-items:center}
+.step .dur{color:var(--mut2);font-size:10px;flex:none}
+.stepdetail{border:1px solid var(--line);border-top:0;border-radius:0 0 9px 9px;background:var(--surface);padding:11px 13px;font-size:11.5px;color:var(--ink2);margin:0 0 7px}
+.stepdetail pre{background:#131318;color:#d4d4fe;padding:11px;border-radius:8px;font-size:11px;overflow:auto;line-height:1.55;font-family:var(--mono)}
+.apcard{border:1px solid var(--warnln);border-left:3px solid var(--warn);background:linear-gradient(180deg,#fffdf7,#fff);border-radius:11px;padding:13px 15px;margin:12px 0;box-shadow:var(--sh1)}
+.apcard .apt{font-weight:700;font-size:12.5px;display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.apcard.dang{border-color:#fca5a5;border-left-color:var(--dan);background:linear-gradient(180deg,#fff7f7,#fff)}
+.apcard.okd{border-color:var(--okln);border-left-color:var(--ok);background:linear-gradient(180deg,#f4fdf9,#fff)}
+.banner{display:flex;align-items:center;gap:11px;padding:10px 18px;background:var(--warnbg);border:1px solid var(--warnln);border-bottom:0;font-size:12.5px;color:#92400e}
+.banner .icb{background:#fde68a33;color:var(--warn)}
+.banner.res{background:var(--okbg);border-color:var(--okln);color:#065f46}
+.banner.res .icb{background:#a7f3d033;color:var(--ok)}
+.convinput{display:flex;gap:8px;padding:11px;background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--r) var(--r)}
+.convinput input{flex:1;border:1px solid var(--line2);border-radius:9px;padding:9px 13px;outline:none;background:var(--s2)}
+.convinput input:focus{border-color:var(--acc);background:var(--surface)}
+
+/* ===== 功能页 ===== */
+.tabs{display:flex;gap:1px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{padding:8px 14px;font-size:12.5px;color:var(--mut);border-bottom:2px solid transparent;cursor:pointer;font-weight:500;display:flex;gap:6px;align-items:center}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--acc2);border-color:var(--acc);font-weight:600}
+.tab .n{background:var(--s3);border-radius:99px;font-size:9.5px;padding:0 6px;color:var(--mut2);line-height:15px}
+.convlist .ci{display:flex;align-items:center;gap:12px;padding:12px 15px;border:1px solid var(--line);border-radius:11px;background:var(--surface);margin-bottom:8px;cursor:pointer;transition:.13s;box-shadow:var(--sh1)}
+.convlist .ci:hover{border-color:var(--accbg2);box-shadow:var(--sh2);transform:translateY(-1px)}
+.artcard .ttl{font-weight:700;font-size:13px}
+.artifact-ic{width:34px;height:34px;border-radius:9px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:16px}
+
+/* ===== Graph ===== */
+.gnode{cursor:pointer}
+.gnode rect{fill:#fff;stroke:var(--line2);stroke-width:1.3;filter:url(#nsh)}
+.gnode:hover rect{stroke:var(--acc)}
+.gnode text{font-size:11px;fill:var(--ink2);font-weight:500}
+.gnode.done rect{stroke:#6ee7b7;fill:linear-gradient(#f2fdf8,#fff)}
+.gnode.done text{fill:#047857}
+.gnode.act rect{stroke:var(--acc);stroke-width:2;fill:#f4f5ff;animation:gl 2.2s infinite}
+.gnode.act text{fill:var(--acc2);font-weight:700}
+@keyframes gl{0%,100%{stroke-opacity:1}50%{stroke-opacity:.3}}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--mut);padding:4px 4px 10px;flex-wrap:wrap}
+.legend .lg{display:inline-flex;gap:5px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.flow{stroke-dasharray:5 5;animation:dashmove 1.1s linear infinite}
+@keyframes dashmove{to{stroke-dashoffset:-20}}
+
+/* ===== Runs ===== */
+.runsgrid{display:grid;grid-template-columns:290px 1fr;gap:16px;align-items:start}
+.runit{padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface);margin-bottom:8px;cursor:pointer;transition:.12s}
+.runit:hover{border-color:var(--line2);box-shadow:var(--sh2)}
+.runit.on{border-color:var(--acc);background:var(--accbg);box-shadow:0 0 0 3px #6366f11f}
+.tl{position:relative;padding-left:30px}
+.tl::before{content:"";position:absolute;left:10px;top:8px;bottom:8px;width:1.5px;background:var(--line2)}
+.tle{position:relative;margin-bottom:15px}
+.tle::before{content:"";position:absolute;left:-24.5px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2.5px solid var(--mut2)}
+.tle.human::before{border-color:var(--acc)}
+.tle.agent::before{border-color:var(--ag)}
+.tle .span{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;margin:3px 5px 3px 0;font-family:var(--mono);transition:.12s;box-shadow:var(--sh1)}
+.tle .span:hover{border-color:var(--ag);background:var(--agbg)}
+
+/* ===== 资产 ===== */
+.ashero{display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:var(--r);background:linear-gradient(120deg,#eef2ff,#f5f3ff 55%,#ecfdf5);border:1px solid var(--accbg2);margin-bottom:16px}
+.ashero .icb{width:40px;height:40px;border-radius:11px;background:var(--surface);color:var(--ag);border:1px solid var(--accbg2)}
+.ashero .st{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.ashero .sx{color:var(--ink2);font-size:12px}
+.assetgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:13px}
+.ascard{padding:14px 15px;cursor:pointer;transition:.15s}
+.ascard:hover{border-color:var(--accbg2);box-shadow:var(--sh2);transform:translateY(-2px)}
+.ascard .lt{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.ascard .ttl{font-weight:700;font-size:13px;margin:8px 0 6px;line-height:1.4}
+.ascard .cite{font-size:11px;color:var(--mut);display:flex;gap:5px;align-items:center}
+.chain{padding:9px 2px;border-bottom:1px dashed var(--line);font-size:12px;display:flex;gap:7px;align-items:baseline}
+.chain:last-child{border-bottom:0}
+
+/* ===== 审计 ===== */
+.evt{display:grid;grid-template-columns:44px 74px 190px 110px 1fr;gap:8px;padding:9px 15px;border-top:1px solid #f3f3f5;font-size:12px;align-items:baseline;cursor:pointer;transition:.08s}
+.evt:hover{background:var(--s2)}
+.evt .sq{color:var(--mut2);font-family:var(--mono);font-size:10.5px}
+.evt .ty{font-family:var(--mono);font-size:11px;font-weight:600}
+.evt .ac{display:inline-flex;gap:4px;align-items:center;font-size:11px}
+
+/* ===== 抽屉/弹窗/命令栏 ===== */
+#drawerWrap{position:fixed;inset:0;background:rgba(16,16,20,.35);backdrop-filter:blur(1.5px);z-index:80;display:none}
+#drawerWrap.open{display:block}
+#drawer{position:absolute;top:0;right:0;bottom:0;width:min(470px,94vw);background:var(--surface);box-shadow:-10px 0 40px rgba(16,16,20,.16);display:flex;flex-direction:column;transform:translateX(36px);opacity:0;transition:.22s}
+#drawerWrap.open #drawer{transform:none;opacity:1}
+#drawer .dh{display:flex;align-items:center;gap:10px;padding:15px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px}
+#drawer .db{flex:1;overflow:auto;padding:18px 20px}
+.layer{border:1px solid var(--line);border-radius:11px;margin-bottom:10px;overflow:hidden;transition:.12s}
+.layer .lh{display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--s2);cursor:pointer;font-size:12.5px;font-weight:600}
+.layer .lh:hover{background:var(--accbg)}
+.layer .lb{padding:12px 14px;border-top:1px dashed var(--line);font-size:12px;color:var(--ink2);background:var(--surface)}
+#modalWrap,#palWrap{position:fixed;inset:0;background:rgba(16,16,20,.42);z-index:90;display:none;align-items:flex-start;justify-content:center;padding-top:8vh}
+#modalWrap.open,#palWrap.open{display:flex}
+#modal{width:min(580px,94vw);background:var(--surface);border-radius:16px;box-shadow:0 24px 70px rgba(16,16,20,.28);max-height:82vh;display:flex;flex-direction:column;animation:pop .18s;border:1px solid var(--line)}
+@keyframes pop{from{transform:scale(.96) translateY(6px);opacity:0}}
+#modal .mh{padding:16px 22px;border-bottom:1px solid var(--line);font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:9px}
+#modal .mb{padding:18px 22px;overflow:auto}
+.fld{margin-bottom:13px}
+.fld label{display:block;font-size:11.5px;font-weight:600;color:var(--ink2);margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--line2);border-radius:9px;padding:8px 11px;outline:none;background:var(--s2)}
+.fld input:focus,.fld textarea:focus{border-color:var(--acc);background:var(--surface)}
+#pal{width:min(640px,94vw);background:var(--surface);border-radius:16px;box-shadow:0 24px 70px rgba(16,16,20,.3);overflow:hidden;animation:pop .16s;border:1px solid var(--line)}
+#pal .pin{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+#pal .pin input{flex:1;border:0;outline:none;font-size:14px;background:transparent}
+.nlpres{padding:10px 18px;border-bottom:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.palact{display:flex;align-items:flex-start;gap:11px;padding:12px 18px;border-top:1px solid #f4f4f6}
+.palact .st{width:19px;height:19px;border-radius:50%;flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.palact .api{font-family:var(--mono);font-size:10.5px;background:var(--s3);border-radius:6px;padding:2px 8px;color:var(--ink2);display:inline-block;margin-top:3px}
+.palres{padding:12px 18px;font-size:11px;color:var(--mut2);background:var(--s2);display:flex;gap:7px;align-items:center}
+
+/* ===== 导览 ===== */
+#tour{position:fixed;right:20px;bottom:20px;width:368px;background:var(--surface);border-radius:15px;box-shadow:0 16px 50px rgba(16,16,20,.24);border:1px solid var(--line);z-index:70;display:none;overflow:hidden}
+#tour.open{display:block;animation:pop .2s}
+#tour .tp{height:3.5px;background:var(--s3)}
+#tour .tp i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:.3s}
+#tour .th{padding:14px 18px 4px;font-weight:800;font-size:13.5px;display:flex;gap:9px;align-items:center}
+#tour .th .tag{flex:none}
+#tour .tb{padding:5px 18px 12px;font-size:12px;color:var(--ink2);line-height:1.7}
+#tour .tb .tip{color:var(--warn);font-weight:600}
+#tour .tf{padding:11px 15px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;background:var(--s2)}
+.hl{outline:3px solid var(--acc) !important;outline-offset:3px;border-radius:12px;box-shadow:0 0 0 9px #6366f126 !important;animation:hlb 1.6s infinite}
+@keyframes hlb{0%,100%{outline-color:var(--acc)}50%{outline-color:#a5b4fc}}
+
+/* ===== 欢迎页 ===== */
+#welcome{position:fixed;inset:0;background:radial-gradient(1200px 600px at 70% -10%,#312e8166,transparent),radial-gradient(900px 500px at 10% 110%,#312e8155,transparent),rgba(13,13,17,.72);backdrop-filter:blur(5px);z-index:100;display:flex;align-items:center;justify-content:center}
+#welcome .wc{width:min(760px,94vw);background:var(--surface);border-radius:20px;padding:32px 36px;box-shadow:0 40px 100px rgba(0,0,0,.4);border:1px solid #ffffff22}
+.whgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 20px}
+.wh{display:flex;gap:10px;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:var(--s2);transition:.15s}
+.wh:hover{border-color:var(--accbg2);background:var(--accbg);transform:translateY(-1px)}
+.wh .icb{width:30px;height:30px;border-radius:9px;flex:none}
+.wh b{font-size:12px;display:block}
+.wh span{font-size:10.5px;color:var(--mut);line-height:1.5;display:block;margin-top:2px}
+
+/* ===== Toast ===== */
+#toasts{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:#18181b;color:#fff;padding:10px 19px;border-radius:11px;font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:tin .25s;display:flex;gap:10px;align-items:center;max-width:78vw;border:1px solid #ffffff1a}
+.toast .td{width:7px;height:7px;border-radius:50%;background:var(--acc);flex:none}
+.toast.ok .td{background:#34d399}.toast.warn .td{background:#fbbf24}
+@keyframes tin{from{transform:translateY(12px);opacity:0}}
+.demo-tag{position:fixed;left:68px;bottom:12px;z-index:60;font-size:10.5px;color:var(--mut2);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:3px 11px;box-shadow:var(--sh1)}
+@media (max-width:1020px){.dashgrid,.runsgrid,.grid2,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.kan{grid-template-columns:repeat(2,1fr)}.whgrid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div class="logo"><span class="mark"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>AgentPM <span class="xs mut2" style="font-weight:500">v0.3</span></div>
+    <div class="tsw" id="swProj"><span class="dot"></span>项目: <b>电商App 2.0</b> <svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></div>
+    <div class="tsw" id="swFeat">功能: <b id="swFeatName">支付功能</b> <svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></div>
+    <div class="tk" data-act="palette"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>搜索 / 命令 / 自然语言… <kbd>⌘K</kbd></div>
+    <div class="sp"></div>
+    <button class="bell" data-act="approvals" title="审批中心"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="n" id="bellN">3</span></button>
+    <button class="bell" data-act="nav" data-arg="settings" title="设置"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg></button>
+    <div class="avatar" title="李雷（项目经理）">李</div>
+  </header>
+
+  <div id="shell">
+    <nav id="rail"></nav>
+    <aside id="featcol"></aside>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div id="drawerWrap"><aside id="drawer"></aside></div>
+<div id="modalWrap"></div>
+<div id="palWrap"></div>
+<div id="tour"></div>
+<div id="toasts"></div>
+<div class="demo-tag">静态演示数据 · 无后端 · 对应 v0.3 设计（docs/03 流程 0–9）</div>
+
+<div id="welcome">
+  <div class="wc">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="mark" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff"><svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+      <div><div style="font-weight:800;font-size:19px;letter-spacing:-.01em">AgentPM · 交互式 Demo</div>
+      <div style="color:var(--mut);font-size:12.5px;margin-top:2px">v0.3 方案设计的前端原型 —— 人指挥、Agent 执行的项目管理</div></div>
+    </div>
+    <div class="whgrid">
+      <div class="wh"><span class="icb" style="background:var(--agbg);color:var(--ag)"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span><div><b>人机同看板</b><span>卡片不因执行者是 Agent 而特殊化，仅徽标区分</span></div></div>
+      <div class="wh"><span class="icb" style="background:var(--warnbg);color:var(--warn)"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></span><div><b>随时打断恢复</b><span>checkpoint 落盘，刷新/重启无损，带新指令继续</span></div></div>
+      <div class="wh"><span class="icb" style="background:var(--accbg);color:var(--acc)"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span><div><b>轨迹即审计</b><span>一次事件存储，投影出状态/轨迹/审计三视图</span></div></div>
+      <div class="wh"><span class="icb" style="background:#fdf2f8;color:#db2777"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></span><div><b>一句话操作</b><span>NL 与页面同构（同一 API），写操作预览确认</span></div></div>
+      <div class="wh"><span class="icb" style="background:var(--okbg);color:var(--ok)"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg></span><div><b>资产复利</b><span>工件评审入库为组织资产，跨项目检索复用</span></div></div>
+      <div class="wh"><span class="icb" style="background:#eff6ff;color:#2563eb"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></span><div><b>本体驱动</b><span>ontology.yaml 定义概念/阶段图/角色/资产库</span></div></div>
+    </div>
+    <div class="xs mut" style="margin-bottom:16px">跟随 <b>15 步引导剧本</b> 走完 docs/03 流程 0–9，或自由浏览。所有数据为浏览器内模拟，审批 / 打断 / 入库等操作会实时改写状态并落入「审计」事件流。视觉与交互对标 Linear / Plane / Huly，正式实现复用 shadcn/ui 等开源组件（见设置页复用清单）。</div>
+    <div class="row">
+      <button class="btn pri" data-act="tourStart"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>开始引导流程（15 步）</button>
+      <button class="btn" data-act="free">自由浏览</button>
+      <span class="sp"></span>
+      <a class="sm" href="review.html" target="_blank">设计方案评审版 ↗</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   AgentPM Demo v2 — 视觉对标 Linear/Plane/Huly（shadcn 质感 + Lucide 图标）
+   结构：图标表 → 状态 S → 模拟数据 → 视图 → 抽屉/弹窗/命令栏 → 行为 → 导览
+================================================================ */
+
+/* ---------------- Lucide 图标表（正式实现用 lucide-react） ---------------- */
+const IC = {
+  dash:'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  kanban:'<path d="M6 5v11"/><path d="M12 5v6"/><path d="M18 5v14"/>',
+  graph:'<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  act:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  lib:'<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>',
+  audit:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',
+  pause:'<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  fork:'<circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  warn:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  spark:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+  inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  bot:'<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  arr:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  layers:'<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  flask:'<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  book:'<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  pencil:'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  pkg:'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/>',
+  hist:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  compass:'<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+  gitpr:'<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/>',
+  db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  cmd:'<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>',
+};
+const ic = (n, s=15, w=2) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${IC[n]||''}</svg>`;
+
+/* ---------------- 全局状态 ---------------- */
+const S = {
+  view:'dashboard', feature:'F1', featTab:'convs', convOpen:null,
+  bell:3, approvals:[], events:[], assets:[],
+  boardFilter:null, auditFilter:'all', runSel:'R-104',
+  lib:'all', assetQ:'', convB:{state:'running', note:''},
+  convA:{state:'await'},
+};
+
+/* ---------------- 模拟数据 ---------------- */
+const FEATURES = {
+  F1:{name:'支付功能', desc:'支付宝/微信支付、退款、对账', prog:62, color:'#6366f1'},
+  F2:{name:'用户中心', desc:'资料页、登录套件', prog:100, color:'#059669'},
+  F3:{name:'消息推送', desc:'推送服务选型与接入', prog:15, color:'#d97706'},
+};
+const CONVS = [
+  {id:'c1', f:'F1', kind:'起草型', agent:'pm-agent', title:'PRD 起草 · 支付功能', stateTxt:'待审', time:'2h 前'},
+  {id:'c2', f:'F1', kind:'执行型', agent:'dev-agent', title:'T7 支付接口开发', stateTxt:'执行中', time:'刚刚'},
+  {id:'c3', f:'F1', kind:'测试型', agent:'qa-agent', title:'支付回归测试报告', stateTxt:'已完成', time:'1d 前'},
+  {id:'c4', f:'F2', kind:'执行型', agent:'dev-agent', title:'用户资料页开发', stateTxt:'已完成', time:'3d 前'},
+  {id:'c5', f:'F2', kind:'评审型', agent:'pm-agent', title:'登录套件资产引用确认', stateTxt:'已完成', time:'3d 前'},
+];
+const ITEMS = [
+  {id:'T1', f:'F1', ttl:'支付网关选型（ADR-0007）', st:'done', prio:2, who:'李雷', hu:1},
+  {id:'T7', f:'F1', ttl:'支付接口开发', st:'in_progress', prio:1, who:'dev-agent'},
+  {id:'T3', f:'F1', ttl:'异常处理与重试机制', st:'awaiting_review', prio:1, who:'dev-agent'},
+  {id:'T4', f:'F1', ttl:'对账批处理任务', st:'backlog', prio:2, who:'—'},
+  {id:'B1', f:'F1', ttl:'金额格式化缺陷（分→元）', st:'todo', prio:1, who:'qa-agent', bug:1},
+  {id:'T6', f:'F2', ttl:'用户资料页', st:'done', prio:3, who:'dev-agent'},
+  {id:'T5', f:'F3', ttl:'推送服务选型', st:'backlog', prio:2, who:'—'},
+  {id:'T8', f:'F3', ttl:'推送 SDK 接入', st:'backlog', prio:3, who:'—'},
+];
+const COLS = [['backlog','待办池','#a1a1aa'],['todo','已领取','#f59e0b'],['in_progress','进行中','#6366f1'],['awaiting_review','待评审','#d97706'],['done','已完成','#059669']];
+const ARTIFACTS = {
+  F1:[
+    {id:'a1', name:'prd.md', icon:'📘', ttl:'支付功能 PRD', ver:'v3', sha:'a1f33c2', conv:'c1', time:'2h 前', sed:false},
+    {id:'a2', name:'design.md', icon:'📐', ttl:'支付模块设计', ver:'v2', sha:'77bd910', conv:'c1', time:'1d 前', sed:false},
+    {id:'a3', name:'test-report.md', icon:'🧪', ttl:'支付回归测试报告', ver:'v1', sha:'e0c44f8', conv:'c3', time:'1d 前', sed:false},
+  ],
+  F2:[{id:'a4', name:'test-report.md', icon:'🧪', ttl:'登录回归测试报告', ver:'v3', sha:'b21fe07', conv:'c4', time:'3d 前', sed:true}],
+  F3:[],
+};
+S.approvals = [
+  {id:'ap1', icon:'gate', kind:'Gate', ttl:'PRD 评审（prd_review Gate）', sub:'支付功能 · prd.md v3 · pm-agent 提请 · 2h 前', dang:false,
+   prev:'## 支付功能 PRD（摘录）\n- 支持支付宝 / 微信支付下单、退款\n- 对账：T+1 批处理，差异挂账\n- 验收：回归套件全绿，退款到账 ≤ 24h'},
+  {id:'ap2', icon:'warn', kind:'危险工具', ttl:'db.migrate（拟执行 DDL）', sub:'c2 · dev-agent 申请 · 刚刚', dang:true,
+   prev:'$ db-migrate add refund_ledger_table\n  + CREATE TABLE refund_ledger (...)\n  ⚠ 将修改生产影子库 schema'},
+  {id:'ap3', icon:'gate', kind:'Gate', ttl:'T3 代码评审（code_review Gate）', sub:'异常处理与重试 · dev-agent · 30 分钟前', dang:false,
+   prev:'diff --git a/pay/retry.py\n- raise RuntimeError(err)\n+ backoff = ExponentialBackoff(3)\n+ return backoff.run(fn)'},
+];
+S.assets = [
+  {id:'as1', lib:'doc', kind:'adr', ttl:'ADR-0007 支付网关选型', cite:3, upd:'3 天前', st:'published', tags:['支付','架构'], v:2,
+   prov:[['项目','电商App 1.0'],['对话','网关选型评审'],['工件','adr-0007.md · commit 5f2a']], use:[['电商App 2.0 · PRD 起草（pm-agent）'],['电商App 1.0 · 设计阶段']]},
+  {id:'as2', lib:'prod', kind:'prd-template', ttl:'PRD 模板 · 基础', cite:9, upd:'3 天前', st:'published', tags:['模板','PRD'], v:5,
+   prov:[['项目','周报工具'],['工件','prd.md']], use:[['电商App 2.0'],['会员积分项目'],['门店小程序']]},
+  {id:'as3', lib:'test', kind:'test-suite', ttl:'登录回归套件 v3', cite:12, upd:'1 周前', st:'deprecated', tags:['登录','回归'], v:3, repl:'as4',
+   prov:[['项目','电商App 1.0'],['对话','登录回归测试'],['工件','test-report.md']], use:[['电商App 1.0'],['会员积分项目']]},
+  {id:'as4', lib:'test', kind:'test-suite', ttl:'登录回归套件 v4', cite:5, upd:'1 周前', st:'published', tags:['登录','回归','多端'], v:4,
+   prov:[['项目','电商App 1.0（升级沉淀）'],['取代','登录回归套件 v3']], use:[['电商App 2.0 · 用户中心'],['会员积分项目']]},
+  {id:'as5', lib:'doc', kind:'brand-guide', ttl:'品牌规范 2026', cite:5, upd:'1 月前', st:'published', tags:['品牌','视觉'], v:1,
+   prov:[['项目','市场部年中立项']], use:[['官网改版'],['App 2.0 视觉走查']]},
+  {id:'as6', lib:'prod', kind:'api-spec', ttl:'接口设计规范 v2', cite:23, upd:'2 月前', st:'published', tags:['接口','规范'], v:2,
+   prov:[['项目','中台建设']], use:[['电商App 2.0'],['会员积分项目'],['门店小程序'],['数据平台']]},
+];
+const LIBS = {prod:['📦','产品库','#eef2ff','#4f46e5'], test:['🧪','测试库','#fffbeb','#b45309'], doc:['📚','文档库','#f5f3ff','#6d28d9']};
+const EVENTS_SEED = [
+  [1040,'21:28','approval.requested','🤖','dev-agent','gate:code_review · T3'],
+  [1039,'21:26','run.completed','🤖','dev-agent','R-103 prd 起草 · 1.2k tok'],
+  [1038,'21:26','artifact.committed','🤖','pm-agent','f1/prd.md a1f33c2'],
+  [1037,'21:26','message.created','👤','李雷','c1 · 修正退款时限'],
+  [1036,'21:12','task.moved','🤖','planner-agent','T7 → in_progress'],
+  [1035,'21:12','approval.granted','👤','李雷','gate:plan_confirm'],
+  [1034,'21:08','wbs.generated','🤖','planner-agent','12 项 · 4 功能'],
+  [1033,'20:57','approval.requested','🤖','pm-agent','gate:prd_review'],
+  [1032,'20:55','asset.consumed','🤖','pm-agent','as1 ADR-0007 · c1'],
+  [1031,'20:55','asset.linked','🤖','pm-agent','usage: as1 ← 电商App 2.0'],
+  [1030,'20:54','run.started','🤖','pm-agent','R-103 · L1+L2+L3 已装配'],
+  [1029,'20:54','conversation.created','👤','李雷','c1 起草型 · F1'],
+  [1028,'20:40','ui_command.executed','🤖','ui-agent','"看板只看高优先级" · 2 动作'],
+  [1027,'19:30','prompt.updated','👤','李雷','L1 宪章 v3 · +兼容约束'],
+  [1026,'18:10','approval.granted','👤','李雷','tool:db.migrate · policy=once'],
+];
+let EVT_SEQ = 1041;
+const RUNS = [
+  {id:'R-104', ttl:'T7 支付接口开发', agent:'dev-agent', st:'interrupted', time:'21:24–进行中', dur:'3m12s'},
+  {id:'R-103', ttl:'支付功能 PRD 起草', agent:'pm-agent', st:'done', time:'20:54–21:26', dur:'31m'},
+  {id:'R-102', ttl:'登录回归（用户中心）', agent:'qa-agent', st:'done', time:'昨天', dur:'12m'},
+  {id:'R-101', ttl:'WBS 拆解', agent:'planner-agent', st:'done', time:'昨天', dur:'4m'},
+];
+const TRAJ = [
+  {t:'21:24:02', who:'human', txt:'李雷 发送指令（L3：完成 T7 支付接口开发并自测）'},
+  {t:'21:24:03', who:'agent', span:{tool:'read_file', obj:'adr-0007.md', res:'✓', dur:'0.2s', attrs:{'apm.graph_node_id':'dev','apm.conversation_id':'c2','apm.actor_type':'agent','gen_ai.usage.tokens':2140}}},
+  {t:'21:24:05', who:'agent', span:{tool:'read_file', obj:'gateway/client.py', res:'✓', dur:'0.1s', attrs:{'apm.graph_node_id':'dev','gen_ai.usage.tokens':2510}}},
+  {t:'21:24:40', who:'agent', span:{tool:'write_file', obj:'pay_api.py', res:'diff↗', dur:'0.8s', attrs:{'apm.diff_ref':'pay_api.py@e77a1','apm.graph_node_id':'dev'}}},
+  {t:'21:25:10', who:'agent', txt:'计划：实现 pay_api → 补单测 → 自测（已展开为对话内步骤）'},
+  {t:'21:26:30', who:'human', txt:'李雷 ⏸ 打断（发现方向问题）→ checkpoint #12 已保存'},
+  {t:'21:27:02', who:'human', txt:'纠正指令："网络错误改成重试三次（指数退避）"'},
+  {t:'21:27:04', who:'agent', span:{tool:'write_file', obj:'pay/retry.py', res:'diff↗', dur:'0.6s', attrs:{'apm.graph_node_id':'dev'}}},
+  {t:'21:27:40', who:'agent', span:{tool:'run_tests', obj:'tests/test_pay_api.py', res:'✓ 12 passed', dur:'9.4s', attrs:{'apm.graph_node_id':'dev'}}},
+];
+const GN = [
+  {id:'pool', x:10,  y:44,  w:96,  gate:0, st:'done',  ttl:'需求池'},
+  {id:'req',  x:136, y:44,  w:110, gate:0, st:'done',  ttl:'需求分析', convs:1},
+  {id:'g1',   x:276, y:38,  w:88,  gate:1, st:'done',  ttl:'PRD 评审', pending:1},
+  {id:'dsn',  x:394, y:44,  w:96,  gate:0, st:'todo',  ttl:'系统设计'},
+  {id:'g2',   x:518, y:38,  w:88,  gate:1, st:'todo',  ttl:'设计评审'},
+  {id:'plan', x:636, y:44,  w:96,  gate:0, st:'done',  ttl:'任务计划'},
+  {id:'g3',   x:760, y:38,  w:88,  gate:1, st:'done',  ttl:'计划确认'},
+  {id:'dev',  x:760, y:154, w:88,  gate:0, st:'act',   ttl:'开发', convs:2},
+  {id:'g4',   x:636, y:148, w:88,  gate:1, st:'pend',  ttl:'代码评审', pending:1},
+  {id:'test', x:512, y:154, w:88,  gate:0, st:'todo',  ttl:'测试', convs:1},
+  {id:'g5',   x:388, y:148, w:88,  gate:1, st:'todo',  ttl:'验收 DoD'},
+  {id:'rel',  x:264, y:154, w:88,  gate:0, st:'todo',  ttl:'交付'},
+  {id:'g6',   x:140, y:148, w:88,  gate:1, st:'todo',  ttl:'发布批准', always:1},
+];
+const GE = [['pool','req'],['req','g1'],['g1','dsn'],['dsn','g2'],['g2','plan'],['plan','g3'],['g3','dev'],['dev','g4'],['g4','test'],['test','g5'],['g5','rel'],['rel','g6']];
+const GINFO = {
+  req:{in:'requirement.md', out:'prd.md', who:'PM-Agent（起草对话）', gate:'◆ PRD 评审'},
+  dsn:{in:'prd.md', out:'design.md', who:'Architect-Agent', gate:'◆ 设计评审（轻模板可跳过）'},
+  plan:{in:'prd+design', out:'wbs.md + 工作项树', who:'Planner-Agent', gate:'◆ 计划确认'},
+  dev:{in:'Task', out:'代码提交 + PR 描述', who:'Dev-Agent / 人（执行对话）', gate:'◆ 代码评审 + 危险操作即时审批'},
+  test:{in:'已合代码', out:'test-report.md + 缺陷回流', who:'QA-Agent（测试对话）', gate:'◆ 验收（DoD）'},
+  rel:{in:'验收通过', out:'release-notes.md + tag', who:'Release-Agent', gate:'◆ 发布批准（恒审）'},
+};
+const LAYERS = [
+  {k:'L0', name:'全局系统提示', vis:'高级模式可查看', edit:'仅部署配置', lock:1,
+   body:'产品内置：安全规范 / 输出格式 / 工具使用规范。<br><span class="mut2 sm">示例：「危险工具必须逐次审批；工件一律写入内容仓；回复语言跟随用户。」</span>'},
+  {k:'L1', name:'项目宪章 charter', vis:'设置页 · 对话抽屉第 1 层', edit:'项目管理员', ver:'v3 · 李雷 · 2 天前',
+   body:'<b>目标：</b>电商App 2.0，交付支付 / 会员 / 推送三功能。<br><b>边界：</b>不含跨境结算。<br><b>约束：</b>Python 3.12；复用既有网关封装。<br><b>本体：</b>software-dev · 概念 7 · 角色 5。'},
+  {k:'L2', name:'功能简报 brief', vis:'功能页「简报」卡 · 抽屉第 2 层', edit:'功能负责人', ver:'v2 · 1 天前',
+   body:'<b>PRD 摘录：</b>支付宝 / 微信下单与退款；T+1 对账。<br><b>验收：</b>回归全绿，退款到账 ≤ 24h。<br><b>相关：</b><a data-act="openAsset" data-arg="as1">ADR-0007 资产 ↗</a>'},
+  {k:'L3', name:'会话指令 instruction', vis:'对话顶部常驻摘要', edit:'任何人（本对话）', ver:'当前',
+   body:'「为 T7 完成支付接口开发与自测：对账单格式按 ADR-0007。」<br><span class="mut2 sm">编辑后可「重发生效」（作为新消息注入）。</span>'},
+  {k:'L4', name:'角色提示词 role', vis:'高级模式（角色管理页）', edit:'项目管理员', ver:'pm-agent.yaml@9c4d',
+   body:'<pre class="code" style="margin:6px 0 0">id: pm-agent\ngoal: 把需求变成可评审的 PRD\ntools: [search_assets, read_asset, write_artifact]\npermissions:\n  write: [artifacts/*]\n  dangerous: []   # fail-closed</pre>'},
+];
+const NLPRESETS = [
+  '打开资产库，搜索「支付」相关资产',
+  '把 T5 推送服务选型指派给 dev-agent 并创建执行对话',
+  '暂停正在执行的对话',
+  '看板只看高优先级',
+];
+const OSS = [
+  ['shadcn/ui + Radix','UI 组件体系（本 Demo 的质感基准）','MIT'],
+  ['lucide-react','全套线性图标','ISC'],
+  ['cmdk','⌘K 命令面板','MIT'],
+  ['React Flow (@xyflow)','项目图 DAG / 节点角标联动','MIT'],
+  ['Sonner','Toast 通知','MIT'],
+  ['TanStack Query / Table','数据层与表格','MIT'],
+  ['react-markdown + shiki','工件 Markdown 渲染 + 代码高亮','MIT'],
+  ['FastAPI + LangGraph + SQLite','后端与 Agent Runtime（07 册选型）','MIT'],
+];
+
+/* ---------------- 渲染：外壳 ---------------- */
+const NAVS = [
+  ['dashboard','dash','Dash','项目健康吗'],
+  ['board','kanban','Board','看板'],
+  ['graph','graph','Graph','项目图'],
+  ['convs','chat','会话','对话列表'],
+  ['runs','act','Runs','轨迹'],
+  ['assets','lib','资产','资产库'],
+  ['audit','audit','审计','事件流'],
+  ['settings','gear','设置','本体/角色'],
+];
+function renderChrome(){
+  document.getElementById('rail').innerHTML = NAVS.map(n=>
+    `<button class="rib ${S.view===n[0]||(n[0]==='convs'&&S.view==='conversation')?'on':''}" data-act="nav" data-arg="${n[0]}" title="${n[3]}">${ic(n[1],17)}<small>${n[2]}</small></button>`).join('')
+    + `<div class="railsp"></div><div class="raildiv"></div>
+       <button class="rib" data-act="tourStart" title="引导流程（15 步剧本）">${ic('compass',17)}<small>导览</small></button>`;
+  document.getElementById('featcol').innerHTML =
+    `<div class="ft">功能 / FEATURES</div>` +
+    Object.entries(FEATURES).map(([k,f])=>
+      `<button class="fi ${S.feature===k?'on':''}" data-act="openFeature" data-arg="${k}">
+        <span class="pc">${f.prog}%</span><span class="nm">${f.name}</span>
+        <span class="pb"><i style="width:${f.prog}%"></i></span></button>`).join('') +
+    `<button class="newf" data-act="noop">${ic('plus',12)} 新功能</button>`;
+  document.getElementById('swFeatName').textContent = FEATURES[S.feature].name;
+  const b = document.getElementById('bellN');
+  b.textContent = S.bell; b.style.display = S.bell>0 ? '' : 'none';
+}
+
+/* ---------------- 视图 ---------------- */
+function render(){
+  renderChrome();
+  const m = document.getElementById('main');
+  const V = {dashboard:vDash, board:vBoard, graph:vGraph, convs:vConvs, conversation:vConv, runs:vRuns, assets:vAssets, audit:vAudit, settings:vSettings, feature:vFeature};
+  m.innerHTML = `<div class="view">${(V[S.view]||vDash)()}</div>`;
+}
+const h1 = (icn, txt) => `<h1><span class="hic">${ic(icn,15)}</span>${txt}</h1>`;
+
+function vDash(){
+  const acts = [
+    ['21:26','ag','<b>dev-agent</b> 完成任务 T3，转入待评审','runs'],
+    ['21:25','hu','<b>李雷</b> 在「支付功能」打断 c2 并纠正指令','conversation'],
+    ['21:12','ag','<b>planner-agent</b> 创建 12 个工作项','board'],
+    ['20:57','ag','<b>pm-agent</b> 请求 PRD 评审','conversation'],
+    ['20:55','ag','<b>pm-agent</b> 引用资产 ADR-0007（search_assets 命中）','assets'],
+    ['19:30','hu','<b>李雷</b> 更新 L1 项目宪章 → v3','settings'],
+  ];
+  const nAp = S.approvals.length;
+  return `
+  <div class="hd">${h1('dash','项目健康吗？')}<span class="sub">Dashboard 首屏只回答这一个问题</span><span class="sp"></span>
+    <span class="chip on">里程碑 v0.1</span><span class="chip">功能: 全部</span></div>
+  <div class="stats">
+    <div class="card stat" data-act="nav" data-arg="convs"><span class="icb" style="background:var(--accbg);color:var(--acc)">${ic('chat',16)}</span>
+      <div><div class="num">2</div><div class="lbl">进行中的对话</div><div class="sub">dev-agent 执行 T7 · 刚刚有活动</div></div></div>
+    <div class="card stat warnish" data-act="approvals"><span class="icb" style="background:var(--warnbg);color:var(--warn)">${ic('inbox',16)}</span>
+      <div><div class="num">${nAp}</div><div class="lbl">待我处理</div><div class="sub">Gate ×${S.approvals.filter(a=>!a.dang).length} · 危险工具 ×${S.approvals.filter(a=>a.dang).length} —— 点击处理</div></div></div>
+    <div class="card stat" data-act="nav" data-arg="runs"><span class="icb" style="background:var(--agbg);color:var(--ag)">${ic('act',16)}</span>
+      <div><div class="num">46</div><div class="lbl">本周 Agent Runs</div><div class="sub">$12.8 · 1.2M tokens · dev 31 / pm 9 / qa 6</div></div></div>
+    <div class="card stat" data-act="nav" data-arg="assets"><span class="icb" style="background:var(--okbg);color:var(--ok)">${ic('lib',16)}</span>
+      <div><div class="num">${S.assets.length}</div><div class="lbl">组织资产</div><div class="sub">被引用 ${S.assets.reduce((s,a)=>s+a.cite,0)} 次 · 项目是临时的，资产是复利的</div></div></div>
+  </div>
+  <div class="card mile mt16"><b style="font-size:13px">v0.1 · 68%</b><div class="bar"><i></i></div><span class="sm mut">剩 8 任务 · 预计 9-02</span></div>
+  <div class="dashgrid">
+    <div>
+      <div class="apppanel dash-pending">
+        <div class="ph"><span class="icb">${ic('inbox',14)}</span><b style="font-size:13px">待我处理</b><span class="cnt">${nAp}</span></div>
+        ${nAp ? S.approvals.map(a=>`
+          <div class="todo-item" data-act="openAp" data-arg="${a.id}">
+            <span class="icb ${a.dang?'style="background:var(--danbg);color:var(--dan)"':'style="background:var(--warnbg);color:var(--warn)"'}">${ic(a.dang?'warn':'gate2',14)}</span>
+            <div><div class="b">${a.ttl}</div><div class="xs mut">${a.sub}</div></div>
+            <span class="sp"></span><span class="mut2">${ic('arr',13)}</span></div>`).join('')
+        : `<div style="padding:18px 16px" class="sm mut">${ic('check',13)} 全部处理完毕</div>`}
+      </div>
+      <div class="card featbar mt12">
+        <div class="row pad" style="padding-bottom:4px"><b style="font-size:12.5px">功能进度</b><span class="sp"></span><span class="xs mut2">点击进入功能页</span></div>
+        ${Object.entries(FEATURES).map(([k,f])=>`
+          <div class="fb" data-act="openFeature" data-arg="${k}"><div class="row sm"><span class="nm b" style="font-size:12px">${f.name}</span><span class="sp"></span><span class="mut2">${f.prog}%</span></div>
+          <div class="bar"><i style="width:${f.prog}%;background:${f.color}"></i></div></div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:330px;display:flex;flex-direction:column">
+        <div class="row pad" style="padding-bottom:6px"><b style="font-size:12.5px">项目活动流</b><span class="tag p">${ic('spark',10)} 实时 · 人机混排 · SSE</span></div>
+        <div class="scroll" style="flex:1">${acts.map(a=>`
+          <div class="act" data-act="nav" data-arg="${a[3]}"><span class="t">${a[0]}</span><span class="who ${a[1]}">${a[1]==='ag'?ic('bot',12):ic('user',12)}</span><span>${a[2]}</span></div>`).join('')}</div>
+      </div>
+      <div class="row mt12" style="align-items:stretch">
+        <div class="card pad row" style="flex:1.2;gap:10px"><span class="icb" style="background:var(--s3);color:var(--mut)">${ic('layers',15)}</span><div><div class="xs mut">本体</div><div class="b sm">software-dev</div><div class="xs mut2">概念 7 · 阶段 7+6 · 角色 5</div></div></div>
+        <div class="card pad row" style="flex:1;gap:10px;cursor:pointer" data-act="editCharter"><span class="icb" style="background:var(--s3);color:var(--mut)">${ic('book',15)}</span><div><div class="xs mut">项目宪章（L1）</div><div class="b sm">v3 · 2 天前</div><div class="xs mut2">点击查看分层</div></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+/* gate 小图标（避免嵌套引号问题） */
+IC.gate2 = IC.shield;
+
+function vBoard(){
+  const items = S.boardFilter ? ITEMS.filter(i=>i.prio===1) : ITEMS;
+  return `
+  <div class="hd">${h1('kanban','看板')}<span class="sub">列由本体 lifecycle 驱动 · 待评审列内联批准 · 悬停卡片可派给 Agent</span><span class="sp"></span>
+    <span class="chip ${S.boardFilter?'on':''}" data-act="bf" data-arg="high">${ic('spark',11)} 只看高优先级</span>
+    <span class="chip">视图</span><span class="chip">分组: 功能</span></div>
+  <div class="kan">${COLS.map(c=>{
+    const cs = items.filter(i=>i.st===c[0]);
+    return `<div class="kcol"><div class="kh"><i style="width:7px;height:7px;border-radius:50%;background:${c[2]}"></i>${c[1]}<span class="n">${cs.length}</span></div>
+      ${cs.map(i=>`
+      <div class="kcard" style="--prio-c:${i.prio===1?'#ef4444':i.prio===2?'#f59e0b':'#d4d4d8'}" data-act="itemCard" data-arg="${i.id}">
+        <span class="doit" data-act="letAgent" data-arg="${i.id}">${ic('play',9)} 让 Agent 做</span>
+        <div class="ttl">${i.ttl}</div>
+        <div class="meta"><span class="tag">${i.id}</span>
+          ${i.hu?'<span class="tag b">'+ic('user',9)+' 李雷</span>':i.who!=='—'?`<span class="agen">${ic('bot',9)} ${i.who}</span>`:'<span class="mut2">未指派</span>'}
+          ${i.bug?'<span class="tag r">bug · 回流</span>':''}</div>
+        ${i.st==='awaiting_review'?`<div class="inline-ap"><button class="btn sm ok" data-act="inlineAp" data-arg="${i.id}">${ic('check',10)} 批准</button><button class="btn sm dan" data-act="inlineRj" data-arg="${i.id}">${ic('x',10)}</button></div>`:''}
+      </div>`).join('') || `<div class="xs mut2" style="padding:6px 6px">—</div>`}
+    </div>`;}).join('')}
+  </div>`;
+}
+
+function vConvs(){
+  return `
+  <div class="hd">${h1('chat','对话')}<span class="sub">项目 → 功能 → 对话 · 一切人机交互的原子单元（${FEATURES[S.feature].name}）</span></div>
+  ${convList(CONVS.filter(c=>c.f===S.feature))}`;
+}
+function convList(list){
+  if(!list.length) return `<div class="empty">${ic('spark',16)}<br>此功能还没有对话<br><button class="btn pri sm mt8" data-act="letAgentF">从一句话开始，让 Agent 拆任务 →</button></div>`;
+  return `<div class="convlist">${list.map(c=>{
+    const p = c.stateTxt==='执行中'?'run':c.stateTxt==='待审'?'await':'done';
+    const pi = p==='run'?'play':p==='await'?'pause':'check';
+    return `
+    <div class="ci" data-act="openConv" data-arg="${c.id}">
+      <span class="pill ${p}">${ic(pi,10)}${c.stateTxt}</span>
+      <div style="flex:1"><div class="b">${c.title}</div>
+        <div class="xs mut" style="margin-top:2px"><span class="tag p">${c.kind}</span> ${ic('bot',10)} ${c.agent}</div></div>
+      <span class="xs mut2">${c.time}</span>
+    </div>`;}).join('')}</div>`;
+}
+
+function vFeature(){
+  const f = FEATURES[S.feature];
+  const arts = ARTIFACTS[S.feature]||[];
+  const items = ITEMS.filter(i=>i.f===S.feature);
+  const cl = CONVS.filter(c=>c.f===S.feature);
+  const tabs = [['convs','对话',cl.length],['board','看板切片',items.length],['graph','小图',0],['arts','工件',arts.length]];
+  let body='';
+  if(S.featTab==='convs') body = convList(cl);
+  else if(S.featTab==='board') body = `<div class="kan">${COLS.map(c=>{
+    const cs=items.filter(i=>i.st===c[0]);
+    return `<div class="kcol"><div class="kh"><i style="width:7px;height:7px;border-radius:50%;background:${c[2]}"></i>${c[1]}<span class="n">${cs.length}</span></div>${cs.map(i=>`
+      <div class="kcard" style="--prio-c:${i.prio===1?'#ef4444':i.prio===2?'#f59e0b':'#d4d4d8'}" data-act="itemCard" data-arg="${i.id}"><div class="ttl">${i.ttl}</div>
+      <div class="meta"><span class="tag">${i.id}</span>${i.hu?'<span class="tag b">李雷</span>':i.who!=='—'?`<span class="agen">${ic('bot',9)} ${i.who}</span>`:'<span class="mut2">未指派</span>'}</div></div>`).join('')}</div>`;}).join('')}</div>`;
+  else if(S.featTab==='graph') body = `<div class="empty">功能内依赖小图 · V1.2 提供（D1 图编排的切片视图）</div>`;
+  else body = arts.length ? `<div class="grid3">${arts.map(a=>`
+    <div class="card artcard" data-act="openArt" data-arg="${S.feature}:${a.id}">
+      <div class="row"><span class="artifact-ic">${a.icon}</span><div><div class="ttl">${a.ttl}</div>
+      <div class="xs mut">${a.name} · ${a.ver} · ${a.sha.slice(0,7)} · ${a.time}</div></div></div>
+      <div class="row mt12"><button class="btn sm" data-act="openArt" data-arg="${S.feature}:${a.id}">预览 / diff</button>
+      ${a.sed?'<span class="tag g">'+ic('check',9)+' 已沉淀入库</span>':`<button class="btn sm pri" data-act="sediment" data-arg="${S.feature}:${a.id}">${ic('lib',11)} 沉淀为资产</button>`}</div>
+    </div>`).join('')}</div>` : `<div class="empty">暂无工件</div>`;
+  return `
+  <div class="hd">${h1('layers','功能 · '+f.name)}<span class="sub">${f.desc}</span><span class="sp"></span>
+    <button class="btn" data-act="editBrief">${ic('book',12)} 简报 (L2)</button>
+    <button class="btn" data-act="newConv">${ic('plus',12)} 对话</button>
+    <button class="btn pri" data-act="letAgentF">${ic('spark',12)} 让 Agent 做</button></div>
+  <div class="tabs">${tabs.map(t=>`<div class="tab ${S.featTab===t[0]?'on':''}" data-act="featTab" data-arg="${t[0]}">${t[0]==='graph'?'小图':t[0]==='arts'?'工件 '+ic('file',11):t[0]}${t[0]==='graph'?' <span class="v">V1.2</span>':''}${t[2]?` <span class="n">${t[2]}</span>`:''}</div>`).join('')}</div>
+  ${body}`;
+}
+
+/* ---- 对话视图 ---- */
+function vConv(){
+  const id = S.convOpen;
+  if(id==='c1') return convA();
+  if(id==='c2') return convB();
+  const c = CONVS.find(x=>x.id===id);
+  return `
+  <div class="convwrap">
+    <div class="convhead"><div><b>${c.title}</b><div class="xs mut" style="margin-top:2px"><span class="tag p">${c.kind}</span> ${ic('bot',10)} ${c.agent} · 已完成</div></div></div>
+    <div class="msgs">
+      ${msgUser('李雷 · 3d 前', id==='c3'?'执行登录+支付回归测试，输出测试报告。':'按接口设计规范 v2 完成资料页开发并自测。')}
+      ${msgAgent(c.agent, id==='c3'
+        ? `${step('book','search_assets("登录 回归")','✓ 命中 <a data-act="openAsset" data-arg="as4">登录回归套件 v4</a>（被 5 项目引用）','0.3s',null)}${step('flask','run_suite','✓ 38 通过 / 0 失败','12m',null)}<br>📄 测试报告已生成 <b>test-report.md</b>（工件已入内容仓）`
+        : `${step('book','read_asset as6 接口设计规范','✓','0.2s',null)}${step('wrench','write_file profile.py','diff↗','0.7s',null)}${step('flask','run_tests','✓ 21 passed','8.1s',null)}<br>✅ 完成并请求验收`)}
+    </div>
+    <div class="convinput"><input placeholder="向 ${c.agent} 追问…"><button class="btn pri" data-act="sendMsg">发送</button></div>
+  </div>`;
+}
+const msgUser = (h, txt) => `<div class="msg user"><span class="mav">${ic('user',13)}</span><div class="mbody"><div class="mhead">${h}</div><div class="bubble">${txt}</div></div></div>`;
+const msgAgent = (h, inner) => `<div class="msg agent"><span class="mav">${ic('bot',14)}</span><div class="mbody"><div class="mhead">${h}</div><div class="bubble">${inner}</div></div></div>`;
+
+function convA(){
+  const a = S.convA;
+  return `
+  <div class="convwrap">
+    <div class="convhead">
+      <div><b>${a.state==='planner'?'PRD 起草 → 计划接续':'PRD 起草 · 支付功能'}</b>
+      <div class="xs mut" style="margin-top:2px"><span class="tag p">起草型</span> ${ic('bot',10)} pm-agent · <span class="pill ${a.state==='await'?'await':'done'}">${a.state==='await'?'待 PRD 评审':'评审已通过'}</span></div></div>
+      <span class="sp"></span><button class="btn sm" data-act="fork">${ic('fork',11)} 分叉</button>
+    </div>
+    <div class="ctxstrip">${ic('layers',12)} <b>L3 摘要：</b>基于一句话需求起草支付 PRD <span class="sp"></span>
+      <span class="cchip" data-act="ctx">${ic('book',10)} 上下文 · 展开分层 (L1–L4)</span></div>
+    <div class="msgs">
+      ${msgUser('李雷 · 20:54','基于一句话需求起草支付功能 PRD：<br>支持支付宝 / 微信下单与退款、T+1 对账；复用既有网关封装。')}
+      ${msgAgent('pm-agent · 20:55',
+        `先查组织资产里有没有相关沉淀：
+        ${step('book','search_assets("支付 网关")','✓ 命中 1 条','0.3s','s1')}
+        ${detail('s1',`命中 <b>ADR-0007 支付网关选型</b>（📚文档库 · 被 3 项目引用）<div class="row mt8"><button class="btn sm" data-act="openAsset" data-arg="as1">打开资产</button><span class="xs mut2">asset.consumed + usage 链已登记</span></div>`)}
+        ${step('book','read_asset as1','✓','0.2s',null)}
+        ${step('wrench','write_file f1/prd.md','diff↗ · v3','1.2s','s2')}
+        ${detail('s2',`<pre>@@ 支付功能 PRD @@
++- 支持支付宝 / 微信支付下单、退款
++- 对账：T+1 批处理，差异挂账
++- 验收：回归套件全绿，退款到账 ≤ 24h</pre>`)}
+        <br>PRD 已生成（<a data-act="openArt" data-arg="F1:a1">prd.md v3</a>），请求 <b>PRD 评审</b>。`)}
+      ${a.state==='await' ? `
+      <div class="apcard"><div class="apt">${ic('shield',13)} Gate 审批 · prd_review</div>
+        <div class="sm mut mb8">看渲染文档 / diff 后决定；批准后 planner-agent 自动接续拆解 WBS。</div>
+        <pre class="code">## 支付功能 PRD（摘录）
+- 支付宝 / 微信下单、退款
+- 对账：T+1 批处理，差异挂账
+- 验收：回归全绿 · 退款到账 ≤ 24h</pre>
+        <div class="row mt8"><button class="btn ok" data-act="approve" data-arg="ap1">${ic('check',12)} 批准</button>
+        <button class="btn dan" data-act="reject" data-arg="ap1">${ic('x',12)} 拒绝</button>
+        <button class="btn" data-act="modifyResume" data-arg="ap1">${ic('pencil',12)} 修改后恢复</button>
+        <span class="xs mut2">转对话评审 · V1.1</span></div></div>`
+      : `<div class="apcard okd"><div class="apt">${ic('check',13)} 已批准（李雷 · 刚刚）</div><div class="sm">审批事件已落审计：approval.granted · gate:prd_review</div></div>
+      ${msgAgent('planner-agent · 刚刚', 'PRD 已确认，接续拆解 WBS：<br>' + step('spark','generate_wbs','✓ 12 工作项 · 4 功能切片','3.8s',null) + '<br>📋 已建 <a data-act="nav" data-arg="board">看板</a>，请求「计划确认」Gate。')}`}
+    </div>
+    <div class="convinput"><input placeholder="向 pm-agent 追问或修改 PRD…（发送即注入对话）"><button class="btn pri" data-act="sendMsg">发送</button></div>
+  </div>`;
+}
+
+function convB(){
+  const b = S.convB, st = b.state;
+  const pill = st==='running'?`<span class="pill run"><span class="pd"></span>执行中</span>`:st==='paused'?`<span class="pill pau">${ic('pause',10)}已挂起</span>`:`<span class="pill done">${ic('check',10)}待验收</span>`;
+  return `
+  <div class="convwrap">
+    <div class="convhead">
+      <div><b>T7 支付接口开发</b><div class="xs mut" style="margin-top:2px"><span class="tag p">执行型</span> ${ic('bot',10)} dev-agent · 绑定图节点「开发」· Run R-104 · ${pill}</div></div>
+      <span class="sp"></span>
+      ${st==='running'?`<button class="btn sm" style="border-color:#fca5a5;color:var(--dan)" data-act="pauseConv">${ic('pause',11)} 打断</button>`:''}
+      ${st==='paused'?`<button class="btn sm pri" data-act="resumeConv">${ic('play',11)} 继续</button>`:''}
+      <button class="btn sm" data-act="fork">${ic('fork',11)} 分叉</button>
+    </div>
+    <div class="ctxstrip">${ic('layers',12)} <b>L3 摘要：</b>为 T7 完成支付接口开发并自测 <span class="sp"></span>
+      <span class="cchip" data-act="ctx">${ic('book',10)} 上下文 · 展开分层 (L1–L4)</span></div>
+    ${st==='paused'?`<div class="banner"><span class="icb" style="width:26px;height:26px">${ic('pause',13)}</span><div><b>已在当前工具调用后挂起</b> · checkpoint #12 已落盘 · 已完成的 2 个文件保留 · run.interrupted 已落审计</div></div>`:''}
+    ${st==='done'?`<div class="banner res"><span class="icb" style="width:26px;height:26px">${ic('check',13)}</span><div><b>已完成，等待验收</b>（卡片转待评审 · 可去审批中心或对话内验收）</div></div>`:''}
+    <div class="msgs">
+      ${msgUser('李雷 · 21:24','为 T7 完成支付接口开发与自测：对账单格式按 <a data-act="openAsset" data-arg="as1">ADR-0007</a>。')}
+      ${msgAgent('dev-agent · 21:24',
+        `${step('book','read_file adr-0007.md（资产引用）','✓','0.2s','b1')}
+        ${detail('b1',`读取 📚文档库资产 <b>ADR-0007</b> v2 · 来源链：电商App 1.0 / 网关选型评审<div class="xs mut2 mt8">span 属性：apm.graph_node_id=dev · asset_id=as1</div>`)}
+        ${step('book','read_file gateway/client.py','✓','0.1s',null)}
+        ${step('wrench','write_file pay_api.py','diff↗','0.8s','b2')}
+        ${detail('b2',`<pre>@@ class PayApi @@
++ def create(self, channel, amount):
++     gw = self.gateway(channel)
++     return gw.charge(amount, fmt=ADR0007_FMT)
++ def refund(self, order_id, amount):
++     ...</pre>`)} `)}
+      <div class="apcard okd"><div class="apt">${ic('warn',13)} db.migrate · 已批准（仅此一次）</div>
+        <div class="sm">21:04 · 李雷逐次批准 · fail-closed：dangerous 工具默认拒绝，未批准前 Agent 阻塞等待</div></div>
+      ${st==='running'?`
+      ${msgAgent('dev-agent · 执行中',
+        `${step('wrench','write_file tests/test_pay_api.py','<span class="run"><span class="pd" style="width:6px;height:6px;border-radius:50%;background:var(--acc);display:inline-block;animation:pp 1.2s infinite"></span>执行中</span>','—',null)}
+        <div class="sm mut mt8">${ic('zap',11)} 发送消息即可打断并注入新指令（打断 &lt; 1s，不等模型返回）</div>`)}`:''}
+      ${st==='paused'?`
+      <div class="msg agent"><span class="mav">${ic('bot',14)}</span><div class="mbody"><div class="mhead">dev-agent · 挂起于 checkpoint #12</div>
+        <div class="bubble sm mut">${ic('pause',11)} write_file tests/test_pay_api.py — 已冻结（未完成步骤不入日志，配平事件 run.interrupted）</div></div></div>
+      ${b.note?msgUser('李雷 · 刚刚', b.note) + msgAgent('dev-agent · 已接收新指令','✓ 新指令已注入，将在「继续」时随 checkpoint 一并生效。'):''}`:''}
+      ${st==='done'?`
+      ${msgUser('李雷 · 刚刚', b.note||'网络错误的处理不对。')}
+      ${msgAgent('dev-agent · 刚刚',`收到，按新指令调整：
+        ${step('wrench','write_file pay/retry.py','diff↗','0.6s','b3')}
+        ${detail('b3',`<pre>- raise RuntimeError(err)\n+ backoff = ExponentialBackoff(retries=3)\n+ return backoff.run(fn)</pre>`)}
+        ${step('flask','run_tests tests/test_pay_api.py','✓ 12 passed','9.4s',null)}
+        <br>✅ 完成并请求验收。`)}`:''}
+    </div>
+    <div class="convinput">
+      <input id="convBInput" placeholder="${st==='running'?'输入消息 = 打断 + 注入指令…（试试：网络错误改成重试三次）':'补充指令（可选），点「继续」带指令恢复…'}" data-in="convB">
+      ${st==='paused'?`<button class="btn pri" data-act="resumeConv">${ic('play',11)} 继续并生效</button>`:st==='done'?`<button class="btn ok" data-act="noop">${ic('check',12)} 验收</button>`:`<button class="btn pri" data-act="sendNote">发送（打断注入）</button>`}
+    </div>
+  </div>`;
+}
+IC.zap = '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>';
+
+function step(icn,txt,res,dur,detailId){
+  return `<div class="step" ${detailId?`data-act="toggleStep" data-arg="${detailId}"`:''}>
+    <span class="tic">${ic(icn,12)}</span><span style="font-family:var(--font);font-size:12px">${txt}</span>
+    <span class="res">${res}</span><span class="dur">${dur}</span></div>`;
+}
+function detail(id,html){ return `<div class="stepdetail" id="d-${id}" style="display:none">${html}</div>`; }
+
+/* ---- Graph ---- */
+function vGraph(){
+  const pos = id => GN.find(n=>n.id===id);
+  const edges = GE.map(([a,b],i)=>{const A=pos(a),B=pos(b);
+    const x1=A.x+A.w/2, y1=A.y+22, x2=B.x+B.w/2, y2=B.y+22;
+    const mid=(y1+y2)/2;
+    const active = a==='g3';
+    return `<path d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" fill="none" stroke="${active?'#6366f1':A.st==='done'?'#6ee7b7':'#dcdce2'}" stroke-width="${active?2.4:1.8}" ${active?'class="flow"':''} marker-end="url(#arr)"/>`;}).join('');
+  const nodes = GN.map(n=>{
+    const cls = n.st==='done'?'done':n.st==='act'?'act':'';
+    if(n.gate){
+      return `<g class="gnode ${cls}" data-act="gnode" data-arg="${n.id}">
+        <rect x="${n.x}" y="${n.y}" width="${n.w}" height="44" transform="rotate(45 ${n.x+n.w/2} ${n.y+22})" rx="6" style="fill:${n.st==='done'?'#f0fdf4':n.st==='pend'?'#fffbeb':'#fff'};stroke:${n.st==='done'?'#6ee7b7':n.st==='pend'?'#fcd34d':'#d9d9de'};stroke-width:1.5"/>
+        <text x="${n.x+n.w/2}" y="${n.y+26}" text-anchor="middle" style="font-size:10px;fill:${n.st==='done'?'#047857':n.st==='pend'?'#b45309':'#71717a'};font-weight:${n.st==='pend'?700:500}">${n.ttl}</text>
+        ${n.pending?`<g><circle cx="${n.x+n.w-2}" cy="${n.y+2}" r="8.5" fill="#dc2626" stroke="#fff" stroke-width="1.5"/><text x="${n.x+n.w-2}" y="${n.y+5.5}" text-anchor="middle" style="fill:#fff;font-size:9.5px;font-weight:700">${n.pending}</text></g>`:''}
+      </g>`;
+    }
+    return `<g class="gnode ${cls}" data-act="gnode" data-arg="${n.id}">
+      <rect x="${n.x}" y="${n.y}" width="${n.w}" height="44" rx="10"/>
+      <text x="${n.x+n.w/2}" y="${n.y+26}" text-anchor="middle">${n.ttl}</text>
+      ${n.convs?`<g><rect x="${n.x+n.w-27}" y="${n.y-9}" width="26" height="16" rx="8" fill="#8b5cf6" stroke="#fff" stroke-width="1.5"/><text x="${n.x+n.w-14}" y="${n.y+2.5}" text-anchor="middle" style="fill:#fff;font-size:9px;font-weight:700">💬${n.convs}</text></g>`:''}
+    </g>`;}).join('');
+  return `
+  <div class="hd">${h1('graph','项目图（Phase Graph）')}<span class="sub">阶段横切功能 · Gate 是图上的审批节点 · 点节点看契约与对话绑定</span>
+    <span class="sp"></span><span class="chip">编辑模式 <span class="v">V1.2</span></span></div>
+  <div class="card pad">
+    <div class="legend">
+      <span class="lg"><i style="background:#dcdce2;border:1px solid #c9c9cf"></i>未开始</span>
+      <span class="lg"><i style="background:#6ee7b7"></i>已完成</span>
+      <span class="lg"><i style="background:#e0e7ff;border:1.5px solid #6366f1"></i>进行中（开发）</span>
+      <span class="lg"><i style="background:#fffbeb;border:1.5px solid #fcd34d;transform:rotate(45deg)"></i>Gate 节点</span>
+      <span class="lg"><span style="background:#dc2626;color:#fff;border-radius:99px;font-size:9px;padding:1px 6px;font-weight:700">1</span>待审 Gate</span>
+      <span class="lg"><span style="background:#8b5cf6;color:#fff;border-radius:99px;font-size:9px;padding:1px 6px;font-weight:700">💬2</span>绑定对话</span>
+    </div>
+    <div id="gspace"><svg viewBox="0 0 880 240" style="width:100%;min-width:640px">
+      <defs>
+        <filter id="nsh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.09"/></filter>
+        <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#b8b8c0"/></marker>
+      </defs>
+      ${edges}${nodes}</svg></div>
+  </div>
+  <div class="card pad mt12 sm mut row" style="gap:8px">${ic('gitpr',13)} 缺陷回流：QA 阶段 Bug 作为新工作项回流开发，图上形成迭代环 ——「图」优于线性流水线（B1 已回流 → 开发）。</div>`;
+}
+
+/* ---- Runs ---- */
+function vRuns(){
+  return `
+  <div class="hd">${h1('act','Runs · 轨迹浏览器')}<span class="sub">人机交织时间线 · span 带 apm.* 属性（OTel GenAI 对齐）</span><span class="sp"></span>
+    <span class="chip on">全部</span><span class="chip">${ic('bot',10)} Agent</span><span class="chip">${ic('user',10)} 人</span><span class="chip">甘特视图 <span class="v">V1.2</span></span></div>
+  <div class="runsgrid">
+    <div>${RUNS.map(r=>`
+      <div class="runit ${S.runSel===r.id?'on':''}" data-act="runSel" data-arg="${r.id}">
+        <div class="row"><b style="font-family:var(--mono);font-size:11.5px">${r.id}</b><span class="sp"></span>
+        <span class="tag ${r.st==='done'?'g':'w'}">${r.st==='done'?'done':'interrupted'}</span></div>
+        <div class="sm b" style="margin-top:2px">${r.ttl}</div><div class="xs mut">${ic('bot',9)} ${r.agent} · ${r.time} · ${r.dur}</div></div>`).join('')}
+    </div>
+    <div class="card pad">
+      <div class="row mb8"><b>R-104 · T7 支付接口开发</b><span class="tag p">${ic('bot',9)} dev-agent</span><span class="sp"></span>
+        <button class="btn sm" data-act="openConv" data-arg="c2">打开对话 ${ic('arr',11)}</button></div>
+      <div class="tl">${TRAJ.map(e=> e.span ? `
+        <div class="tle agent"><div class="xs mut" style="font-family:var(--mono)">${e.t} · ${ic('bot',9)}</div>
+          <span class="span" data-act="span" data-arg="${e.t}">${ic('wrench',10)} ${e.span.tool} <span class="mut2">${e.span.obj}</span> <span style="color:var(--ok)">${e.span.res}</span> · ${e.span.dur} ⌄</span></div>`
+        : `<div class="tle ${e.who}"><div class="xs mut" style="font-family:var(--mono)">${e.t} · ${e.who==='human'?ic('user',9):ic('bot',9)}</div><div class="sm" style="margin-top:2px">${e.txt}</div></div>`).join('')}
+      </div>
+      <div class="hr"></div>
+      <div class="xs mut">左树右甘特 / 活动流 / 图×轨迹联动为另三种轨迹投影（05 §3）· 时间滑块回放 <span class="v">V1.2</span></div>
+    </div>
+  </div>`;
+}
+
+/* ---- Assets ---- */
+function vAssets(){
+  const q = S.assetQ.trim().toLowerCase();
+  let list = S.assets.filter(a=> S.lib==='all'||a.lib===S.lib);
+  if(q) list = list.filter(a=> (a.ttl+a.kind+(a.tags||[]).join('')).toLowerCase().includes(q));
+  const totalCite = S.assets.reduce((s,a)=>s+a.cite,0);
+  return `
+  <div class="hd">${h1('lib','资产库')}<span class="sub">组织级累计资产 · 沉淀-复用飞轮</span><span class="sp"></span>
+    <button class="btn" data-act="noop">${ic('spark',12)} 沉淀建议清单 <span class="v">V1.2</span></button></div>
+  <div class="ashero">
+    <span class="icb">${ic('lib',18)}</span>
+    <div style="flex:1"><div class="st">项目是临时的，资产是复利的</div>
+      <div class="sx">三库 · ${S.assets.length} 资产 · 被引用 <b>${totalCite}</b> 次 · 工件经 asset_review Gate 入库，来源/引用双链留痕</div></div>
+    <span class="tag g">${ic('check',10)} 本周 +1 入库</span>
+  </div>
+  <div class="row mb8">
+    ${[['all','全部',null]].concat(Object.entries(LIBS).map(([k,v])=>[k,v[1],v[3]])).map(l=>
+      `<span class="chip ${S.lib===l[0]?'on':''}" data-act="lib" data-arg="${l[0]}">${l[0]!=='all'?`<span class="cdot" style="background:${S.lib===l[0]?'#fff':l[2]}"></span>`:''}${l[1]}</span>`).join('')}
+    <span class="sp"></span>
+    <input id="assetQ" placeholder="${ic('search',11)} 搜索资产（FTS5：标题 / kind / 标签）…" value="${S.assetQ}" data-in="assetQ"
+      style="border:1px solid var(--line2);border-radius:9px;padding:7px 13px;width:280px;outline:none;background:var(--surface)" >
+    <span class="chip">kind</span><span class="chip">状态</span>
+  </div>
+  <div class="sm mut mb8" style="margin-left:2px">MVP：FTS5 + 元数据过滤 · V1.3 语义检索（向量）· V2 标签本体治理 —— 检索同样接入 ⌘K 与自然语言</div>
+  ${list.length?`<div class="assetgrid">${list.map(a=>{
+    const L = LIBS[a.lib];
+    return `
+    <div class="card ascard" data-act="openAsset" data-arg="${a.id}">
+      <div class="row"><span class="lt" style="background:${L[2]};color:${L[3]}">${ic(a.lib==='test'?'flask':a.lib==='prod'?'pkg':'book',14)}</span>
+        <span class="sp"></span>${a.st==='deprecated'?'<span class="tag r">'+ic('warn',9)+' 已淘汰</span>':'<span class="tag g">published</span>'}</div>
+      <div class="ttl">${a.ttl}</div>
+      <div class="cite">${ic('link',10)} 被 <b>${a.cite}</b> 项目引用 · ${a.kind} · v${a.v} · ${a.upd}</div>
+    </div>`;}).join('')}</div>`
+  :`<div class="empty">${ic('search',16)}<br>没有命中「${S.assetQ}」的资产<br><span class="xs mut2">提示：功能页工件卡有「沉淀为资产」入口，入库走 asset_review Gate</span></div>`}`;
+}
+
+/* ---- Audit ---- */
+function vAudit(){
+  const f = S.auditFilter;
+  let evs = S.events;
+  if(f!=='all') evs = evs.filter(e=>e[2].startsWith(f));
+  const CLR = {'approval.':'#d97706','task.':'#6366f1','conversation.':'#0ea5e9','asset.':'#059669','ui_command.':'#db2777','prompt.':'#8b5cf6'};
+  const dot = t => {const k=Object.keys(CLR).find(p=>t.startsWith(p)); return k?`<span class="cdot" style="width:7px;height:7px;border-radius:50%;background:${CLR[k]};display:inline-block"></span>`:'';};
+  return `
+  <div class="hd">${h1('audit','审计')}<span class="sub">一切皆事件 · 状态 = fold(events) · append-only</span><span class="sp"></span>
+    <button class="btn sm" data-act="exportAudit">${ic('dl',11)} 导出 CSV / JSONL</button></div>
+  <div class="row mb8">
+    ${[['all','全部',null],['approval.','审批','#d97706'],['task.','工作项','#6366f1'],['conversation.','对话','#0ea5e9'],['asset.','资产','#059669'],['ui_command.','NL 操作','#db2777'],['prompt.','提示词','#8b5cf6']].map(x=>
+      `<span class="chip ${f===x[0]?'on':''}" data-act="evtF" data-arg="${x[0]}">${x[2]&&f!==x[0]?`<span class="cdot" style="background:${x[2]}"></span>`:''}${x[1]}</span>`).join('')}
+    <span class="sp"></span><span class="chip">本周</span><span class="chip">actor</span>
+  </div>
+  <div class="card" style="overflow:hidden">
+    <div class="evt" style="font-weight:700;color:var(--mut);background:var(--s2);border-top:0">
+      <span>#</span><span>时间</span><span>${ic('act',10)} 事件类型</span><span>actor</span><span>对象 / payload 摘要</span></div>
+    ${evs.map(e=>`<div class="evt" data-act="evt" data-arg="${e[0]}">
+      <span class="sq">${e[0]}</span><span class="sq">${e[1]}</span>
+      <span class="ty" style="color:${(()=>{const k=Object.keys(CLR).find(p=>e[2].startsWith(p));return k?CLR[k]:'#52525b'})()}">${dot(e[2])} ${e[2]}</span>
+      <span class="ac">${e[3]==='👤'?ic('user',11):ic('bot',11)} ${e[4]}</span><span>${e[5]}</span></div>`).join('')}
+  </div>
+  <div class="sm mut mt8 row" style="gap:7px">${ic('hist',12)} 行点击展开 payload / 关联 span / 工件 diff；可跳转对应对话轨迹（05）· 导出本身被审计</div>`;
+}
+
+/* ---- Settings ---- */
+function vSettings(){
+  return `
+  <div class="hd">${h1('gear','设置')}<span class="sub">本体 · 角色 · 权限（只读浏览，编辑器 V2）</span></div>
+  <div class="grid2">
+    <div class="card pad">
+      <div class="row mb8">${ic('layers',14)} <b>ontology · software-dev</b><span class="sp"></span><span class="tag g">${ic('check',9)} 校验通过</span></div>
+      <pre class="code" style="background:#131318;color:#d4d4fe;border-radius:10px;padding:14px;font-size:11.5px;line-height:1.65;font-family:var(--mono)">concepts:
+  - {id: feature, name: 功能, relations: [contains-item]}
+  - {id: task, states: [backlog, todo, in_progress,
+        awaiting_review, done]}
+  - {id: bug, extends: task, backflow: dev}   # 缺陷回流
+artifactKinds:
+  - {id: prd,         deposits-to: prd-template}
+  - {id: test-report, deposits-to: test-suite}
+assetKinds:            # v0.3：资产管理划归本体
+  - {id: test-suite, lib: test}
+  - {id: adr,        lib: doc}
+  - {id: prd-template, lib: prod}
+libraries:
+  - {id: prod, name: 产品库, accepts: [prd-template, api-spec]}
+  - {id: test, name: 测试库, accepts: [test-suite]}
+  - {id: doc,  name: 文档库, accepts: [adr, brand-guide]}</pre>
+      <div class="xs mut mt8 row" style="gap:6px">${ic('spark',11)} 本体决定：看板列（lifecycle）、工件→资产沉淀映射（deposits-to）、入库校验（accepts）、NL 词典</div>
+    </div>
+    <div>
+      <div class="card pad mb12">
+        <div class="row mb8">${ic('bot',14)} <b>Agent 角色</b><span class="xs mut" style="margin-left:4px">YAML 声明 · 权限三档 read/write/dangerous</span></div>
+        ${[['pm-agent','起草 PRD · 拆需求','search_assets, read_asset, write_artifact','p'],['planner-agent','WBS 拆解与排期','write_items','p'],['dev-agent','执行开发任务','read/write_file, run_tests, db.migrate ⚠','p'],['qa-agent','测试与缺陷回流','run_suite, create_bug','p'],['ui-agent','自然语言操作页面（NL as UI）','= 前端全部应用 API','b']].map(r=>`
+        <div class="chain"><b style="width:88px;flex:none">${ic('bot',10)} ${r[0]}</b><span class="sm mut" style="flex:1">${r[1]}</span><span class="tag ${r[3]}">${r[2]}</span></div>`).join('')}
+      </div>
+      <div class="card pad mb12">
+        <div class="row mb8">${ic('shield',14)} <b>审批策略</b></div>
+        <div class="chain sm">Gate：PRD / 计划 / 代码评审 / 验收 / 发布 —— 恒审</div>
+        <div class="chain sm">危险工具：fail-closed，逐次批准（allowed-once）</div>
+        <div class="chain sm">低风险写操作：策略放权（V1.3 起可按角色配置）</div>
+      </div>
+      <div class="card pad">
+        <div class="row mb8">${ic('pkg',14)} <b>正式实现 · 开源复用清单</b><span class="xs mut" style="margin-left:4px">本 Demo 的视觉/交互即按这些组件设计</span></div>
+        ${OSS.map(o=>`<div class="chain"><b style="font-family:var(--mono);font-size:11px">${o[0]}</b><span class="sm mut" style="flex:1">${o[1]}</span><span class="tag g">${o[2]}</span></div>`).join('')}
+        <div class="xs mut2 mt8">详见 docs/07 §技术选型与复用 · 优先复用成熟开源件，自研仅限事件内核与图编排胶水层</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- 抽屉 ---------------- */
+function openDrawer(html, title){
+  document.getElementById('drawer').innerHTML =
+    `<div class="dh">${title}<span class="sp"></span><button class="btn sm ghost" data-act="closeDrawer">${ic('x',13)}</button></div><div class="db">${html}</div>`;
+  document.getElementById('drawerWrap').classList.add('open');
+}
+function closeDrawer(){ document.getElementById('drawerWrap').classList.remove('open'); }
+
+function drawerCtx(){
+  openDrawer(`
+    <div class="sm mut mb8">有效提示词 = 四层叠加，上层对下层继承、下层可覆盖。每层默认折叠、<b>可见 / 可编辑 / 可版本化</b>。</div>
+    ${LAYERS.map((l,i)=>`
+    <div class="layer"><div class="lh" data-act="layer" data-arg="${i}">
+      <span class="tag ${l.k==='L1'||l.k==='L2'?'b':l.k==='L3'?'w':'p'}">${l.k}</span>${l.name}<span class="sp"></span>
+      <span class="xs mut2">${l.lock?'🔒 ':''}${l.ver||l.vis}</span></div>
+      <div class="lb" id="ly-${i}" style="display:none">${l.body}
+        <div class="xs mut2 mt8">${l.vis} · 可编辑：${l.edit}${l.lock?'':'　<button class="btn sm" data-act="noop">'+ic('pencil',10)+' 编辑（生成版本）</button>'}</div></div>
+    </div>`).join('')}
+    <button class="btn" data-act="merged">${ic('book',12)} 查看合并后的有效提示词（含来源标注）</button>
+    <div id="mergedBox" style="display:none" class="mt8">
+      <pre class="code" style="background:#131318;color:#d4d4fe;border-radius:10px;padding:13px;font-family:var(--mono);font-size:11px">[L0·全局] 安全规范 / 输出格式 / 工具使用规范 …
+[L1·宪章 v3] 目标：电商App 2.0 三功能；边界：不含跨境结算 …
+[L2·简报 v2] PRD 摘录：支付宝/微信下单退款；T+1 对账 …
+[L3·指令] 为 T7 完成支付接口开发并自测 …
+[L4·角色 pm-agent] goal: 把需求变成可评审的 PRD …</pre>
+      <div class="xs mut2">dsh 原则：模型可见即入日志 —— 每段都能被检查</div></div>`, '上下文 · 提示词分层披露');
+}
+
+function drawerApprovals(){
+  openDrawer(`
+    ${S.approvals.length ? S.approvals.map(a=>`
+    <div class="card pad mb8" id="ap-${a.id}" style="border-color:${a.dang?'#fca5a5':'var(--warnln)'}">
+      <div class="row"><span class="icb" style="width:28px;height:28px;border-radius:8px;background:${a.dang?'var(--danbg);color:var(--dan)':'var(--warnbg);color:var(--warn)'}">${ic(a.dang?'warn':'shield',13)}</span><b>${a.ttl}</b><span class="sp"></span>
+        <span class="tag ${a.dang?'r':'w'}">${a.kind}</span></div>
+      <div class="xs mut mt8">${a.sub}</div>
+      <pre class="code" style="background:#131318;color:#d4d4fe;max-height:130px;margin-top:9px;border-radius:9px;padding:11px;font-family:var(--mono);font-size:11px">${a.prev}</pre>
+      <div class="row mt8">
+        <button class="btn ok" data-act="approve" data-arg="${a.id}">${ic('check',12)} 批准${a.dang?'（仅此一次）':''}</button>
+        <button class="btn dan" data-act="reject" data-arg="${a.id}">${ic('x',12)} 拒绝</button>
+        <button class="btn" data-act="modifyResume" data-arg="${a.id}">${ic('pencil',12)} 修改后恢复</button>
+      </div>
+      <div class="xs mut2 mt8">转对话评审 · V1.1 ｜ 决定与策略均落审计事件</div>
+    </div>`).join('') : `<div class="empty">${ic('check',14)}<br>全部处理完毕</div>`}
+    <div class="xs mut2">批量处理与策略放权见 06 §3.7</div>`, `${ic('inbox',13)} 审批中心（${S.approvals.length}）`);
+}
+
+function drawerAsset(id){
+  const a = S.assets.find(x=>x.id===id); if(!a) return;
+  const L = LIBS[a.lib];
+  openDrawer(`
+    <div class="row"><span class="lt" style="width:34px;height:34px;border-radius:9px;background:${L[2]};color:${L[3]};display:inline-flex;align-items:center;justify-content:center">${ic(a.lib==='test'?'flask':a.lib==='prod'?'pkg':'book',15)}</span>
+      <div><div class="xs mut">${L[1]} · ${a.kind}</div><div style="font-size:15px;font-weight:800">${a.ttl}</div></div></div>
+    <div class="xs mut mt8">v${a.v} · 被 ${a.cite} 项目引用 · 更新 ${a.upd} ${(a.tags||[]).map(t=>`<span class="tag" style="margin-left:3px">${t}</span>`).join('')}</div>
+    ${a.st==='deprecated'?`<div class="apcard" style="margin:10px 0"><div class="apt">${ic('hist',13)} 已有替代版本</div><div class="sm mt8">此资产被 <a data-act="openAsset" data-arg="${a.repl}">v${a.v+1}</a> 取代（supersedes 链），新引用将指向新版。</div></div>`:''}
+    <div class="card pad" style="padding:11px 13px;margin-top:10px">
+      <div class="b sm mb8">正文预览（asset.md · Git commit）</div>
+      <pre class="code" style="background:#131318;color:#d4d4fe;max-height:140px;border-radius:9px;padding:11px;font-family:var(--mono);font-size:11px"># ${a.ttl}
+
+## 适用场景 / 用法
+（正文存于资产仓 libraries/${a.lib}/${a.id}/asset.md，此处为预览）</pre></div>
+    <div class="mt12 b sm">${ic('hist',11)} 来源链 provenance（它从哪来）</div>
+    ${(a.prov||[]).map(p=>`<div class="chain"><span class="mut2">${p[0]} →</span> ${p[1]}</div>`).join('')}
+    <div class="mt12 b sm">${ic('link',11)} 引用链 usage（谁在用）</div>
+    ${(a.use||[]).map(p=>`<div class="chain"><span class="mut2">引用 →</span> ${p[0]}</div>`).join('') || '<div class="chain mut2">暂无引用</div>'}
+    <div class="row mt12">
+      <button class="btn pri" data-act="linkAsset" data-arg="${a.id}">${ic('dl',12)} 引用到当前项目</button>
+      <button class="btn" data-act="noop">${ic('pencil',12)} 编辑草稿</button>
+      <button class="btn dan" data-act="noop">${ic('warn',12)} 提请淘汰</button>
+    </div>
+    <div class="xs mut2 mt8">Agent 侧同样入口：search_assets / read_asset / link_asset（qa-agent、pm-agent 已装备）</div>`, '资产详情');
+}
+
+function drawerArtifact(fk, aid){
+  const a = (ARTIFACTS[fk]||[]).find(x=>x.id===aid); if(!a) return;
+  openDrawer(`
+    <div class="row"><span class="artifact-ic" style="width:38px;height:38px;font-size:17px">${a.icon}</span><div><b style="font-size:15px">${a.ttl}</b>
+      <div class="xs mut">${a.name} · ${a.ver} · <span style="font-family:var(--mono)">${a.sha}</span> · ${a.time}</div></div></div>
+    <div class="card pad mt12" style="padding:11px 13px"><div class="b sm mb8">diff（最近提交）</div>
+      <pre class="code" style="background:#131318;color:#d4d4fe;max-height:170px;border-radius:9px;padding:11px;font-family:var(--mono);font-size:11px">${a.id==='a3' ? `# 支付回归测试报告 v1
+- 套件：38 用例（下单 16 / 退款 12 / 对账 10）
+- 结果：38 通过 · 0 失败 · 2 跳过
+- 结论：满足验收 DoD，建议沉淀为回归资产
++ 来源：Run R-102 · 对话 c3 · commit e0c44f8` : `@@ ${a.name} @@
++ 摘录预览（渲染文档与完整 diff 见正式版）`}</pre></div>
+    <div class="chain"><span class="mut2">来源对话 →</span> <a data-act="openConv" data-arg="${a.conv}">打开 ${a.conv}</a></div>
+    <div class="chain"><span class="mut2">存储 →</span> 内容仓 artifacts/${fk}/${a.name}（项目态，Git）</div>
+    <div class="hr"></div>
+    ${a.sed ? '<div class="apcard okd"><b>'+ic('check',12)+' 已沉淀入库</b><div class="sm mt8">见资产库 · 来源链指向本工件</div></div>' : `
+    <div class="apcard"><div class="apt">${ic('lib',13)} 工件 → 资产（跨过项目边界）</div>
+      <div class="sm">工件是<b>项目态、易失</b>；资产是<b>组织态、被治理与复用</b>。入库走 <b>asset_review Gate</b>，来源链自动留痕。</div>
+      <button class="btn pri mt8" data-act="sediment" data-arg="${fk}:${a.id}">${ic('lib',12)} 沉淀为资产…</button></div>`}`, `工件 · ${a.name}`);
+}
+
+function drawerNode(id){
+  const n = GN.find(x=>x.id===id); const info = GINFO[id];
+  const convMap = {req:['c1','PRD 起草 · pm-agent'], dev:['c2','T7 执行 · dev-agent','c4','资料页 · dev-agent'], test:['c3','回归测试 · qa-agent']};
+  const cl = convMap[id]||[];
+  const pend = n.pending ? `<div class="apcard mt8"><div class="apt">${n.gate?ic('shield',13):ic('warn',13)} 待审 ${n.pending} 项</div>
+    <div class="sm">在审批中心处理${n.gate?'（Gate 审批）':'（危险工具 / 代码评审）'}</div>
+    <button class="btn sm mt8" data-act="approvals">去审批中心 ${ic('arr',11)}</button></div>` : '';
+  openDrawer(`
+    <div class="row"><b style="font-size:15px">${n.gate?'◆ ':''}${n.ttl}</b><span class="sp"></span>
+      <span class="tag ${n.st==='done'?'g':n.st==='act'?'b':n.st==='pend'?'w':''}">${n.gate?'Gate':'阶段'} · ${n.st==='done'?'已完成':n.st==='act'?'进行中':n.st==='pend'?'待审':'未开始'}</span></div>
+    ${info?`<table style="width:100%;font-size:12px;margin-top:12px;border-collapse:collapse" class="card">
+      <tr><td class="mut pad" style="width:58px;padding:7px 13px">输入</td><td class="pad" style="padding:7px 13px">${info.in}</td></tr>
+      <tr style="border-top:1px solid var(--line)"><td class="mut pad" style="padding:7px 13px">执行者</td><td class="pad" style="padding:7px 13px">${info.who}</td></tr>
+      <tr style="border-top:1px solid var(--line)"><td class="mut pad" style="padding:7px 13px">产出</td><td class="pad" style="padding:7px 13px">${info.out}</td></tr>
+      <tr style="border-top:1px solid var(--line)"><td class="mut pad" style="padding:7px 13px">Gate</td><td class="pad" style="padding:7px 13px">${info.gate}</td></tr></table>`
+    :`<div class="sm mut mt8">${n.gate?'阶段门：不通过则回流上一阶段（图上形成迭代环）':'需求进入口：一句话 / 描述 / 链接，提交即入池'}</div>`}
+    ${pend}
+    ${cl.length?`<div class="mt12 b sm">${ic('chat',11)} 绑定对话（${cl.length/2}）</div>
+      ${[0,2].filter(i=>cl[i]).map(i=>`<div class="chain"><a data-act="openConv" data-arg="${cl[i]}">${cl[i+1]}</a></div>`).join('')}
+      <button class="btn mt8" data-act="nav" data-arg="runs">在轨迹中查看（图 × 轨迹联动）${ic('arr',11)}</button>`:''}
+    <div class="xs mut2 mt8">联动原理：Orchestrator 在 Run 启动时注入 apm.graph_node_id，轨迹 span 与图节点双向可跳（05 §3.5）</div>`, `图节点 · ${n.ttl}`);
+}
+
+function drawerSpan(t){
+  const e = TRAJ.find(x=>x.t===t && x.span); if(!e) return;
+  const sp = e.span;
+  openDrawer(`<b style="font-family:var(--mono);font-size:13px">${sp.tool} · ${sp.obj}</b>
+    <div class="xs mut mt8">${t} · ${sp.dur} · 结果 ${sp.res}</div>
+    <div class="b sm mt12 mb8">span 属性（OTel GenAI semconv + apm.* 扩展）</div>
+    <pre class="code" style="background:#131318;color:#d4d4fe;border-radius:10px;padding:13px;font-family:var(--mono);font-size:11.5px">${Object.entries(sp.attrs).map(([k,v])=>`${k}: ${v}`).join('\n')}</pre>
+    <div class="xs mut2 mt8">轨迹 / 审计 / 状态三视图同源于事件与 span（「一份存储，三种投影」）</div>`, 'span 详情');
+}
+
+/* ---------------- 弹窗 ---------------- */
+function openModal(html, title){
+  document.getElementById('modalWrap').innerHTML =
+    `<div id="modal"><div class="mh">${title}<span class="sp"></span><button class="btn sm ghost" data-act="closeModal">${ic('x',13)}</button></div>
+     <div class="mb">${html}</div></div>`;
+  document.getElementById('modalWrap').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalWrap').classList.remove('open'); }
+
+function modalFooter(buttonsHtml){
+  const bar = document.createElement('div');
+  bar.className='row'; bar.style.cssText='border-top:1px solid var(--line);padding-top:14px;margin-top:4px';
+  bar.innerHTML = buttonsHtml;
+  document.querySelector('#modal .mb').appendChild(bar);
+}
+function modalNewProject(){
+  openModal(`
+    <div class="sm mut mb8">三字段极简建项（5 分钟内见到第一个 Agent 产出）· 本体决定项目「长什么样」</div>
+    <div class="fld"><label>项目名</label><input value="会员积分小程序"></div>
+    <div class="fld"><label>一句话需求</label><input value="积分获取、兑换与过期提醒"></div>
+    <div class="fld"><label>模板</label><select><option>轻量（需求→计划→开发→交付）</option><option>完整（七阶段）</option></select></div>
+    <div class="fld"><label>本体 ontology</label><select><option>software-dev（软件研发）</option><option>marketing-campaign（营销活动）</option></select>
+      <div class="xs mut2 mt8">建项即实例化：概念类型 / 阶段图 / 角色 / 资产库映射</div></div>`, `${ic('plus',14)} 新建项目`);
+  modalFooter(`<button class="btn pri" data-act="submitProject">创建项目</button><span class="sp"></span><span class="xs mut2">将落盘 project.created / feature.created / repo.init</span>`);
+}
+function modalSediment(arg){
+  const [fk,aid] = arg.split(':');
+  const a = (ARTIFACTS[fk]||[]).find(x=>x.id===aid); if(!a) return;
+  openModal(`
+    <div class="sm mut mb8">工件（项目态）→ 资产（组织态）。目标库已按本体 deposits-to 自动推荐，kind 按 schema 校验。</div>
+    <div class="fld"><label>目标库（accepts 过滤）</label><select><option>🧪 测试库（accepts: test-suite）</option></select></div>
+    <div class="fld"><label>资产类型 kind</label><select><option>test-suite</option></select></div>
+    <div class="fld"><label>标题</label><input value="支付回归套件 v1"></div>
+    <div class="fld"><label>标签</label><input value="支付, 回归, 电商"></div>
+    <div class="fld"><label>正文（预览，来自 ${a.name}）</label><textarea rows="4">38 用例（下单 16 / 退款 12 / 对账 10）· 全绿 · 附 Run R-102 轨迹</textarea></div>
+    <div class="xs mut2">提交后：asset.drafted → asset.in_review → 生成 <b>asset_review Gate</b> 审批；批准后写入资产仓并登记来源链（项目/工件/commit/对话）</div>`, `${ic('lib',14)} 沉淀为资产`);
+  modalFooter(`<button class="btn pri" data-act="submitAsset">提交入库评审</button><button class="btn" data-act="closeModal">取消</button>`);
+}
+
+/* ---------------- ⌘K 命令栏 ---------------- */
+function openPalette(nl){
+  document.getElementById('palWrap').innerHTML = `
+  <div id="pal">
+    <div class="pin">${ic('cmd',15)}
+      <div class="row" style="gap:2px"><span class="chip ${nl?'':'on'}" data-act="palMode" data-arg="cmd">命令</span><span class="chip ${nl?'on':''}" data-act="palMode" data-arg="nl">自然语言</span></div>
+      <input id="palIn" placeholder="${nl?'试试：把 T5 指派给 dev-agent 并创建执行对话':'搜索动作 / 对象…'}">
+    </div>
+    ${nl?`<div class="nlpres"><span class="xs mut2">示例：</span>${NLPRESETS.map((p,i)=>`<span class="chip" data-act="nlPreset" data-arg="${i}">${p}</span>`).join('')}</div>`:''}
+    <div id="palBody" style="max-height:340px;overflow:auto">
+      ${nl?'':`<div class="palact"><span class="st" style="background:var(--accbg);color:var(--acc)">${ic('lib',10)}</span><div><b class="sm">打开资产库</b><div class="xs mut">导航 · 只读动作直接执行</div></div></div>
+      <div class="palact"><span class="st" style="background:var(--accbg);color:var(--acc)">${ic('chat',10)}</span><div><b class="sm">新建执行对话（当前功能）</b><div class="xs mut">写操作 · 预览 + 确认</div></div></div>
+      <div class="palact"><span class="st" style="background:var(--warnbg);color:var(--warn)">${ic('pause',10)}</span><div><b class="sm">打断正在执行的对话</b><div class="xs mut">dangerous 侧 · 二次确认</div></div></div>`}
+    </div>
+    <div class="palres">${ic('spark',11)} 页面每个可见操作都能被一句话完成 —— NL 与 UI 调用同一组 REST API（06 §5）</div>
+  </div>`;
+  document.getElementById('palWrap').classList.add('open');
+  const inp = document.getElementById('palIn');
+  if(nl && inp) inp.focus();
+}
+function closePalette(){ document.getElementById('palWrap').classList.remove('open'); }
+let NL_ACTS = [], NL_IDX = null;
+function nlRun(q){
+  const body = document.getElementById('palBody');
+  const acts = [];
+  if(/资产|搜索/.test(q)) acts.push({tier:'read', api:'GET /api/assets?q=支付', txt:'打开资产库并检索「支付」', run:()=>{S.assetQ=(q.match(/[「『]([^」』]+)/)||[])[1]||'支付'; S.lib='all'; S.view='assets'; render();}});
+  if(/优先级|看板/.test(q)) acts.push({tier:'read', api:'PUT /ui/board {filter:"prio=high"}', txt:'看板过滤：只看高优先级', run:()=>{S.boardFilter='high'; S.view='board'; render();}});
+  if(/指派|创建|执行对话/.test(q)) acts.push({tier:'write', api:'POST /api/conversations {feature:"消息推送", item:"T5", agent:"dev-agent"}', txt:'为 T5 创建执行型对话并指派 dev-agent', run:()=>{
+      CONVS.unshift({id:'c'+(CONVS.length+6), f:'F3', kind:'执行型', agent:'dev-agent', title:'T5 推送服务选型 · 执行', stateTxt:'执行中', time:'刚刚'});
+      addEvt('ui_command.executed','🤖','ui-agent','F3 · T5 执行型 · on_behalf_of=李雷');}});
+  if(/暂停|打断/.test(q)) acts.push({tier:'write', api:'POST /api/conversations/c2/interrupt', txt:'打断正在执行的对话（c2 · T7）', run:()=>{S.view='conversation'; S.convOpen='c2'; render(); pauseConv();}});
+  if(!acts.length){
+    body.innerHTML = `<div class="palact"><span class="st" style="background:var(--warnbg);color:var(--warn)">?</span>
+      <div><b class="sm">未能解析</b>，不猜。降级为命令模式，试试：</div></div>` +
+      NLPRESETS.map((p,i)=>`<div class="palact"><span class="st" style="background:var(--s3);color:var(--mut)">${ic('arr',10)}</span><div class="sm" style="cursor:pointer" data-act="nlPreset" data-arg="${i}">${p}</div></div>`).join('');
+    return;
+  }
+  NL_IDX = {done:0};
+  body.innerHTML = acts.map((a,i)=>`
+    <div class="palact" id="nla-${i}"><span class="st" style="background:${a.tier==='read'?'var(--okbg)':'var(--warnbg)'};color:${a.tier==='read'?'var(--ok)':'var(--warn)'}">${a.tier==='read'?'✓':'▸'}</span>
+      <div style="flex:1"><div class="sm b">${a.txt} <span class="xs mut2">(${a.tier==='read'?'只读 · 直接执行':'写操作 · 需确认'})</span></div>
+      <span class="api">${a.api}</span></div>
+      ${a.tier==='read'?`<button class="btn sm" data-act="nlDo" data-arg="${i}">执行</button>`:`<span class="row"><button class="btn sm pri" data-act="nlConfirm" data-arg="${i}">确认</button><button class="btn sm" data-act="nlCancel">取消</button></span>`}
+    </div>`).join('');
+  NL_ACTS = acts;
+}
+function nlExec(i){
+  const a = NL_ACTS[i]; if(!a) return;
+  a.run();
+  const el = document.getElementById('nla-'+i);
+  if(el){ el.querySelector('.st').textContent='✓'; el.querySelector('.st').style.background='var(--okbg)'; el.querySelector('.st').style.color='var(--ok)';
+    el.querySelectorAll('button').forEach(b=>b.remove()); }
+  NL_IDX.done++;
+  addEvt('ui_command.executed','🤖','ui-agent', `“${document.getElementById('palIn').value.slice(0,26)}…” · ${NL_IDX.done}/${NL_ACTS.length} 动作`);
+  toast('✓ 已完成操作 · 事件已落审计', 'ok');
+  setTimeout(closePalette, 700);
+}
+
+/* ---------------- 行为 ---------------- */
+function toast(msg, type){
+  const t = document.createElement('div');
+  t.className = 'toast '+(type||''); t.innerHTML = `<span class="td"></span>` + msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity=0;setTimeout(()=>t.remove(),400)}, 2600);
+}
+function addEvt(type, em, actor, subj){
+  S.events.unshift([EVT_SEQ++, '刚刚', type, em, actor, subj]);
+  if(S.view==='audit') render();
+}
+function pauseConv(){
+  if(S.convB.state!=='running') return;
+  S.convB.state='paused';
+  addEvt('run.interrupted','👤','李雷','c2 · checkpoint #12 · R-104');
+  render();
+  toast('⏸ 已打断 · checkpoint 已保存 · 消息发送即注入新指令','warn');
+}
+function approve(id){
+  const i = S.approvals.findIndex(a=>a.id===id); if(i<0) return;
+  const a = S.approvals[i]; S.approvals.splice(i,1); S.bell=Math.max(0,S.bell-1);
+  addEvt('approval.granted','👤','李雷', (a.kind==='Gate'?'gate:':'tool:')+a.ttl.split('（')[0] + (a.dang?' · policy=once':''));
+  if(id==='ap1'){ S.convA.state='planner'; closeDrawer(); S.view='conversation'; S.convOpen='c1'; render(); toast('✓ PRD 已批准 · planner-agent 自动接续拆解 WBS','ok'); }
+  else if(id==='ap-asset'){
+    S.assets.unshift({id:'as9', lib:'test', kind:'test-suite', ttl:'支付回归套件 v1', cite:1, upd:'刚刚', st:'published', tags:['支付','回归','电商'], v:1,
+      prov:[['项目','电商App 2.0'],['对话','c3 支付回归测试'],['工件','test-report.md · commit e0c44f8'],['Run','R-102']], use:[['电商App 2.0 · 本项目']]});
+    addEvt('asset.published','👤','李雷','as9 支付回归套件 v1 → 测试库');
+    addEvt('asset.linked','👤','李雷','provenance: as9 ← 电商App 2.0/f1/test-report.md');
+    closeModal(); closeDrawer();
+    S.view='assets'; S.lib='test'; render();
+    toast('✓ 资产已入库（Git commit）· 来源链已登记','ok');
+  }
+  else { closeDrawer(); render(); toast('✓ 已批准 · 决定已落审计','ok'); }
+}
+function reject(id){
+  const i = S.approvals.findIndex(a=>a.id===id); if(i<0) return;
+  const a = S.approvals[i]; S.approvals.splice(i,1); S.bell=Math.max(0,S.bell-1);
+  addEvt('approval.denied','👤','李雷', a.ttl.split('（')[0]+' · 理由：需修改');
+  closeDrawer(); render(); toast('✗ 已拒绝 · Agent 将收到拒绝原因并调整','warn');
+}
+
+/* ---------------- 导览（15 步） ---------------- */
+const TOUR = [
+ {t:'项目健康吗？', d:'Dashboard 首屏只回答一个问题：四张关键指标卡 + 待我处理 + 人机混排活动流 + 功能进度。', f:()=>{S.view='dashboard';render();}, hl:'.stats'},
+ {t:'新建项目 · 5 分钟上手（流程 0）', d:'三字段极简表单：名称 / 一句话需求 / 模板。本体决定项目「长什么样」——概念、阶段图、角色、资产库映射。', f:()=>modalNewProject(), hl:'#modal', skip:()=>closeModal()},
+ {t:'需求起草 · 人机对话（流程 0/2）', d:'起草型对话挂在功能下。PM-Agent 先 search_assets 命中组织资产 ADR-0007，再起草 PRD —— 资产闭环在需求阶段就生效。点折叠步骤可展开。', f:()=>{S.view='conversation';S.convOpen='c1';render();}, hl:'.convhead'},
+ {t:'提示词按层披露（评审点）', d:'默认只见 L3 摘要一行；点「上下文」展开 L0–L4。每层可见 / 可编辑 / 可版本化，底部可看合并后的有效提示词（模型可见即入日志）。', f:()=>{if(S.view!=='conversation'||S.convOpen!=='c1'){S.view='conversation';S.convOpen='c1';render();}drawerCtx();}, hl:'#drawer', skip:()=>closeDrawer()},
+ {t:'Gate 审批（流程 4）', d:'PRD 评审是图上的 Gate 节点。审批中心可批准 / 拒绝 / 修改后恢复；试试「批准」——planner-agent 会自动接续拆 WBS。', f:()=>{closeDrawer();drawerApprovals();}, hl:'#drawer', tip:'点「✓ 批准」看接续效果，再点下一步', skip:()=>closeDrawer()},
+ {t:'看板 · 派工（流程 2）', d:'五桶状态由本体 lifecycle 驱动；待评审列内联批准；悬停卡片「▶ 让 Agent 做」即可创建执行型对话。', f:()=>{closeDrawer();S.view='board';render();}, hl:'.kan'},
+ {t:'执行对话 · 派工-观察-纠正（流程 2）', d:'工具调用折叠为一行：工具 + 对象 + 结果 + 耗时，点击展开 diff。危险工具 db.migrate 此前已被逐次批准（fail-closed）。', f:()=>{S.view='conversation';S.convOpen='c2';render();}, hl:'.convhead'},
+ {t:'打断-修改-恢复（流程 3 · 核心场景）', d:'点「⏸ 打断」：Run 在当前工具调用后挂起，checkpoint 落盘，已完成文件保留。输入纠正指令后「继续」即带新指令恢复。', f:()=>{if(S.convB.state==='running'){pauseConv();}}, hl:'.banner', skip:()=>{}},
+ {t:'Graph × 轨迹联动', d:'阶段图横切功能，Gate 是图上节点（虚线流动 = 当前推进路径）。节点角标 = 绑定对话数与待审数；点「开发」看契约与对话绑定。', f:()=>{S.view='graph';render();drawerNode('dev');}, hl:'#gspace', skip:()=>closeDrawer()},
+ {t:'Runs 轨迹浏览器', d:'人机交织时间线：👤 指令 → 🤖 spans → 👤 打断 → 纠正 → 恢复。点任一 span 看 OTel 属性（graph_node_id / conversation_id / diff_ref）。', f:()=>{closeDrawer();S.view='runs';render();}, hl:'.runsgrid'},
+ {t:'自然语言操作页面（流程 5）', d:'⌘K 切自然语言模式：只读动作直接执行，写操作逐条预览 + 确认，永不静默执行；原文与解析都落 ui_command 事件。试试示例。', f:()=>openPalette(true), hl:'#pal', skip:()=>closePalette()},
+ {t:'沉淀为资产（流程 9 · A）', d:'测试报告工件 →「沉淀为资产」：库与 kind 由本体 deposits-to 推荐，提交后生成 asset_review Gate。', f:()=>{closePalette();S.view='feature';S.feature='F1';S.featTab='arts';render();drawerArtifact('F1','a3');}, hl:'#drawer', skip:()=>closeDrawer()},
+ {t:'入库评审 → 发布', d:'刚才的提交出现在审批中心。批准后资产写入资产仓（Git），状态 published，来源链（项目/对话/工件/commit）自动登记。', f:()=>{if(!S.approvals.some(a=>a.id==='ap-asset')){S.approvals.unshift({id:'ap-asset',icon:'gate',kind:'Gate',ttl:'资产入库评审（asset_review Gate）',sub:'测试库 · test-suite · 支付回归套件 v1',dang:false,prev:'# 支付回归套件 v1\n38 用例 · 全绿 · 来源 Run R-102'});S.bell++;addEvt('asset.drafted','👤','李雷','支付回归套件 v1 → 测试库');addEvt('approval.requested','👤','李雷','gate:asset_review');} drawerApprovals();}, hl:'#drawer', tip:'点「✓ 批准」看入库效果，再点下一步'},
+ {t:'资产检索与复用（流程 9 · B）', d:'三库一检：FTS + 元数据过滤（V1.3 语义检索）。Agent 侧同样有 search_assets / read_asset / link_asset。引用到项目即登记 usage 链、引用数 +1。', f:()=>{S.view='assets';S.lib='all';S.assetQ='支付';render();}, hl:'.ashero'},
+ {t:'审计回溯（流程 8）', d:'一切皆事件：状态 = fold(events)。彩色过滤审批 / 资产 / NL 操作；刚才每一步操作都已实时落在这里。', f:()=>{S.view='audit';render();}, hl:'.card'},
+];
+let tourIdx = -1;
+function tourStart(i){ tourIdx = (i==null? 0 : i); renderTour(); }
+function renderTour(){
+  const el = document.getElementById('tour');
+  if(tourIdx<0||tourIdx>=TOUR.length){ el.classList.remove('open'); document.querySelectorAll('.hl').forEach(x=>x.classList.remove('hl')); if(tourIdx>=TOUR.length){toast('🎉 引导流程结束 · 可自由浏览或重启导览','ok'); tourIdx=-1;} return; }
+  const st = TOUR[tourIdx];
+  document.querySelectorAll('.hl').forEach(x=>x.classList.remove('hl'));
+  st.f();
+  setTimeout(()=>{
+    const t = document.querySelector(st.hl);
+    if(t){ t.classList.add('hl'); t.scrollIntoView({block:'center', behavior:'instant'}); }
+  },60);
+  el.className='open';
+  el.innerHTML = `
+    <div class="tp"><i style="width:${(tourIdx+1)/TOUR.length*100}%"></i></div>
+    <div class="th"><span class="tag b">步骤 ${tourIdx+1}/${TOUR.length}</span>${st.t}</div>
+    <div class="tb">${st.d}${st.tip?`<div class="mt8 tip">${ic('spark',11)} ${st.tip}</div>`:''}</div>
+    <div class="tf">
+      <button class="btn sm ghost" data-act="tourEnd">退出</button><span class="sp"></span>
+      <button class="btn sm" data-act="tourPrev" ${tourIdx===0?'disabled':''}>上一步</button>
+      <button class="btn sm pri" data-act="tourNext">${tourIdx===TOUR.length-1?'完成 ✓':'下一步 '+ic('arr',11)}</button>
+    </div>`;
+}
+function tourNext(){ const st=TOUR[tourIdx]; if(st&&st.skip)st.skip(); tourIdx++; renderTour(); }
+function tourPrev(){ const st=TOUR[tourIdx]; if(st&&st.skip)st.skip(); tourIdx=Math.max(0,tourIdx-1); renderTour(); }
+
+/* ---------------- 事件委托 ---------------- */
+document.addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]');
+  if(!el) { if(e.target.id==='drawerWrap') closeDrawer(); if(e.target.id==='modalWrap'||e.target.id==='palWrap'){closeModal();closePalette();} return; }
+  const act = el.dataset.act, arg = el.dataset.arg;
+  switch(act){
+    case 'nav': S.view=arg; closeDrawer(); render(); break;
+    case 'openFeature': S.feature=arg; S.view='feature'; S.featTab='convs'; render(); break;
+    case 'featTab': S.featTab=arg; render(); break;
+    case 'openConv': S.view='conversation'; S.convOpen=arg; closeDrawer(); render(); break;
+    case 'palette': openPalette(true); break;
+    case 'palMode': openPalette(arg==='nl'); break;
+    case 'nlPreset': document.getElementById('palIn').value = NLPRESETS[+arg]; nlRun(NLPRESETS[+arg]); break;
+    case 'nlDo': case 'nlConfirm': nlExec(+arg); break;
+    case 'nlCancel': closePalette(); break;
+    case 'approvals': drawerApprovals(); break;
+    case 'openAp': drawerApprovals(); break;
+    case 'approve': approve(arg); break;
+    case 'reject': reject(arg); break;
+    case 'modifyResume': toast('✎ 修改后恢复：编辑对象 → 保存并批准，Agent 带修改继续','warn'); break;
+    case 'inlineAp': addEvt('approval.granted','👤','李雷','inline: '+arg+' code_review'); toast('✓ 已批准 '+arg,'ok'); break;
+    case 'inlineRj': addEvt('approval.denied','👤','李雷','inline: '+arg); break;
+    case 'ctx': drawerCtx(); break;
+    case 'layer': {const b=document.getElementById('ly-'+arg); b.style.display = b.style.display==='none'?'':'none'; break;}
+    case 'merged': {const b=document.getElementById('mergedBox'); b.style.display = b.style.display==='none'?'':'none'; break;}
+    case 'toggleStep': {const d=document.getElementById('d-'+arg); if(d) d.style.display=d.style.display==='none'?'':'none'; break;}
+    case 'pauseConv': pauseConv(); break;
+    case 'resumeConv': {const inp=document.getElementById('convBInput'); S.convB.note = inp&&inp.value? inp.value : ''; S.convB.state='done';
+      addEvt('run.resumed','👤','李雷','c2 · 携带新指令 · checkpoint #12');
+      addEvt('run.completed','🤖','dev-agent','R-104 · 12 tests passed');
+      render(); toast('▸ 已从 checkpoint 恢复并完成 · 转入待验收','ok'); break;}
+    case 'sendNote': {const inp=document.getElementById('convBInput'); if(!inp.value){toast('输入纠正指令，例如：网络错误改成重试三次（指数退避）');break;} S.convB.note=inp.value; pauseConv(); break;}
+    case 'sendMsg': toast('✓ 消息已注入对话（message.created）','ok'); break;
+    case 'fork': addEvt('conversation.forked','👤','李雷','parent=c2 · seed=msg#12'); toast('⑂ 已从此消息分叉新枝（血统 parent+seed 已记录）','ok'); break;
+    case 'gnode': drawerNode(arg); break;
+    case 'runSel': S.runSel=arg; render(); break;
+    case 'span': drawerSpan(arg); break;
+    case 'lib': S.lib=arg; render(); break;
+    case 'openAsset': closeDrawer(); drawerAsset(arg); break;
+    case 'linkAsset': {const a=S.assets.find(x=>x.id===arg); if(a){a.cite++; addEvt('asset.consumed','👤','李雷',a.id+' '+a.ttl+' · 电商App 2.0'); addEvt('asset.linked','👤','李雷','usage: '+a.id+' ← 电商App 2.0'); drawerAsset(arg); toast('📥 已引用到当前项目 · usage 链与引用数已更新','ok');} break;}
+    case 'openArt': {const [fk,aid]=arg.split(':'); drawerArtifact(fk,aid); break;}
+    case 'sediment': {closeDrawer(); modalSediment(arg); break;}
+    case 'submitAsset': {if(!S.approvals.some(x=>x.id==='ap-asset')){S.approvals.unshift({id:'ap-asset',icon:'gate',kind:'Gate',ttl:'资产入库评审（asset_review Gate）',sub:'测试库 · test-suite · 支付回归套件 v1',dang:false,prev:'# 支付回归套件 v1\n38 用例 · 全绿 · 来源 Run R-102'}); S.bell++;} addEvt('asset.drafted','👤','李雷','支付回归套件 v1 → 测试库'); addEvt('approval.requested','👤','李雷','gate:asset_review'); closeModal(); drawerApprovals(); toast('已生成入库评审（asset_review Gate）· 见审批中心','warn'); break;}
+    case 'evtF': S.auditFilter=arg; render(); break;
+    case 'evt': toast('行展开：payload / 关联 span / diff ↗（正式版能力）'); break;
+    case 'exportAudit': addEvt('audit.exported','👤','李雷','filters='+S.auditFilter+' · 1044 rows'); toast('⬇ 导出任务已创建 · 导出本身已被审计','ok'); break;
+    case 'bf': S.boardFilter = S.boardFilter?'':'high'; render(); break;
+    case 'itemCard': toast('工作项详情抽屉：描述 / 工件切片 / 绑定对话（正式版能力）'); break;
+    case 'letAgent': toast('▶ 已创建执行型对话（dev-agent · 继承任务卡上下文 L3）','ok'); addEvt('conversation.created','👤','李雷',arg+' · 执行型 · dev-agent'); break;
+    case 'letAgentF': S.featTab='convs'; toast('▶ 从一句话开始：输入需求，PM-Agent 拆任务并建对话','ok'); break;
+    case 'newConv': toast('＋ 新对话：起草 / 执行 / 评审 / 临时 四型（L1+L2 自动继承）'); break;
+    case 'editBrief': drawerCtx(); break;
+    case 'editCharter': drawerCtx(); break;
+    case 'tourStart': document.getElementById('welcome').style.display='none'; tourStart(0); break;
+    case 'tourNext': tourNext(); break;
+    case 'tourPrev': tourPrev(); break;
+    case 'tourEnd': tourIdx=-1; document.querySelectorAll('.hl').forEach(x=>x.classList.remove('hl')); document.getElementById('tour').classList.remove('open'); break;
+    case 'free': document.getElementById('welcome').style.display='none'; break;
+    case 'closeDrawer': closeDrawer(); break;
+    case 'closeModal': closeModal(); break;
+    case 'submitProject': closeModal(); addEvt('project.created','👤','李雷','会员积分小程序 · ontology=software-dev · 模板=轻量'); addEvt('feature.created','🤖','pm-agent','MVP（首个功能）'); toast('🎉 项目就绪 · 下一步：「和 PM-Agent 谈需求」','ok'); break;
+    case 'noop': break;
+  }
+});
+document.addEventListener('input', e=>{
+  const t = e.target.closest('[data-in]');
+  if(!t) return;
+  if(t.dataset.in==='assetQ'){ S.assetQ = t.value; const pos=t.selectionStart; render(); const ni=document.getElementById('assetQ'); if(ni){ni.focus();ni.setSelectionRange(pos,pos);} }
+});
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openPalette(true); }
+  if(e.key==='Escape'){ closeDrawer(); closeModal(); closePalette(); }
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='palIn'){ nlRun(document.activeElement.value); }
+});
+
+/* ---------------- 启动 ---------------- */
+S.events = EVENTS_SEED.map(x=>[...x]);
+render();
+</script>
+</body>
+</html>

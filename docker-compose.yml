@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: ./app
+    environment:
+      APM_DATA_DIR: /data
+      APM_PROVIDER_MODE: ${APM_PROVIDER_MODE:-replay}
+      APM_LLM_API_BASE: ${APM_LLM_API_BASE:-}
+      APM_LLM_API_KEY: ${APM_LLM_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - apm-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_BASE: /api
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  apm-data:

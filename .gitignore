@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / web
+node_modules/
+web/dist/
+*.tsbuildinfo
+
+# Runtime data (SQLite, content repos, fixtures written at runtime)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Env & IDE
+.env
+.env.local
+.idea/
+.vscode/
+*.swp
+
+# Smoke reports
+tools/smoke/reports/
