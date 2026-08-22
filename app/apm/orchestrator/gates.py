@@ -12,7 +12,7 @@ def pending_approvals(project_id: str | None = None) -> list[dict]:
         where.append("project_id = ?")
         params.append(project_id)
     rows = db.get_conn().execute(
-        f"SELECT * FROM approvals WHERE {' AND '.join(where)} ORDER BY requested_at DESC"
+        f"SELECT * FROM approvals WHERE {' AND '.join(where)} ORDER BY requested_at DESC", params
     ).fetchall()
     out = []
     for r in rows:

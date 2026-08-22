@@ -5,6 +5,7 @@ from apm.domains import (  # noqa: F401
     events_api,
     features,
     items,
+    nl,
     ontology,
     orchestrator_api,
     projects,
