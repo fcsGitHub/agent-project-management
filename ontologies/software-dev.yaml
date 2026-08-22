@@ -1,0 +1,104 @@
+# software-dev 本体：软件研发完整七阶段（默认模板）
+# 结构见 docs/08-ontology.md §3：concepts/relations/phases/board_defaults/asset_kinds/libraries
+name: software-dev
+version: 1
+display_name: 软件研发（完整流程）
+competency_questions:
+  - 需求是否都经过 PRD 评审才进入设计与计划？
+  - 哪些任务被依赖阻塞，阻塞了多久？
+  - 每个阶段门（Gate）的审批等待时间是否超标？
+  - 值得复用的工件是否都沉淀进了资产库？
+
+concepts:
+  - id: requirement
+    name: 需求
+    icon: 📥
+    default_phase: intake
+    states:
+      - {id: captured, name: 已捕获, group: backlog}
+      - {id: clarified, name: 已澄清, group: todo}
+      - {id: confirmed, name: 已确认, group: done}
+    fields:
+      - {id: source, name: 来源, type: string}
+    artifact_kinds:
+      - {id: requirement}
+    agent_roles: [pm-agent]
+
+  - id: task
+    name: 任务
+    icon: 🧩
+    default_phase: development
+    states:
+      - {id: open, name: 待办, group: backlog}
+      - {id: ready, name: 就绪, group: todo}
+      - {id: in_progress, name: 进行中, group: in_progress}
+      - {id: awaiting_review, name: 待评审, group: in_progress}
+      - {id: done, name: 完成, group: done}
+      - {id: cancelled, name: 取消, group: cancelled}
+    fields:
+      - {id: estimate_hours, name: 预估工时, type: number}
+    artifact_kinds:
+      - {id: prd, deposits_to: prd-template}
+      - {id: design}
+      - {id: wbs}
+      - {id: code}
+    agent_roles: [planner-agent, dev-agent]
+
+  - id: bug
+    name: 缺陷
+    icon: 🐞
+    default_phase: testing
+    states:
+      - {id: open, name: 打开, group: backlog}
+      - {id: fixing, name: 修复中, group: in_progress}
+      - {id: fixed, name: 已修复, group: in_progress}
+      - {id: verified, name: 已验证, group: done}
+      - {id: wont_fix, name: 不予修复, group: cancelled}
+    fields:
+      - {id: severity, name: 严重度, type: enum, values: [P0, P1, P2, P3]}
+    artifact_kinds:
+      - {id: test-report, deposits_to: test-suite}
+    agent_roles: [qa-agent, dev-agent]
+
+  - id: milestone
+    name: 里程碑
+    icon: 🚩
+    default_phase: release
+    states:
+      - {id: planned, name: 已规划, group: todo}
+      - {id: in_progress, name: 进行中, group: in_progress}
+      - {id: achieved, name: 已达成, group: done}
+    artifact_kinds:
+      - {id: release-notes}
+    agent_roles: [release-agent]
+
+# 内核固定关系（无需声明）：contains / depends_on / produces / consumes
+relations:
+  - {id: verifies, name: 验证, domain: bug, range: task}
+  - {id: duplicates, name: 重复于, domain: requirement, range: requirement}
+
+phases:
+  - {id: intake, name: 需求池, gate: null}
+  - {id: analysis, name: 需求分析, gate: prd_review}
+  - {id: design, name: 系统设计, gate: design_review}
+  - {id: planning, name: 任务计划, gate: plan_review}
+  - {id: development, name: 开发, gate: code_review}
+  - {id: testing, name: 测试, gate: acceptance}
+  - {id: release, name: 交付, gate: release_approval}
+
+board_defaults:
+  group_by: lifecycle
+
+asset_kinds:
+  - {id: prd-template, name: PRD 模板, library: product}
+  - {id: requirement-pattern, name: 需求模式, library: product}
+  - {id: release-notes-template, name: 发布说明模板, library: product}
+  - {id: test-suite, name: 测试套件, library: test}
+  - {id: acceptance-checklist, name: 验收清单, library: test}
+  - {id: adr, name: 架构决策记录, library: doc}
+  - {id: guide, name: 指南规范, library: doc}
+
+libraries:
+  - {id: product, name: 产品库, accepts: [prd-template, requirement-pattern, release-notes-template]}
+  - {id: test, name: 测试库, accepts: [test-suite, acceptance-checklist]}
+  - {id: doc, name: 文档库, accepts: [adr, guide]}

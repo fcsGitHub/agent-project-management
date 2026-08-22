@@ -1,0 +1,69 @@
+# generic 本体：通用轻流程（需求 → 执行 → 交付三阶段）
+name: generic
+version: 1
+display_name: 通用轻流程
+competency_questions:
+  - 每条目标是否有活动在支撑？
+  - 交付物是否都通过了交付审批？
+  - 哪些活动被依赖卡住？
+
+concepts:
+  - id: objective
+    name: 目标
+    icon: 🎯
+    default_phase: intake
+    states:
+      - {id: drafted, name: 草拟, group: backlog}
+      - {id: active, name: 推进中, group: todo}
+      - {id: achieved, name: 已达成, group: done}
+    artifact_kinds:
+      - {id: brief, deposits_to: brief-template}
+    agent_roles: [pm-agent]
+
+  - id: activity
+    name: 活动
+    icon: ⚡
+    default_phase: execute
+    states:
+      - {id: planned, name: 已计划, group: backlog}
+      - {id: ready, name: 就绪, group: todo}
+      - {id: doing, name: 进行中, group: in_progress}
+      - {id: review, name: 待评审, group: in_progress}
+      - {id: done, name: 完成, group: done}
+      - {id: dropped, name: 已放弃, group: cancelled}
+    artifact_kinds:
+      - {id: work-doc}
+    agent_roles: [dev-agent]
+
+  - id: outcome
+    name: 交付物
+    icon: 📦
+    default_phase: deliver
+    states:
+      - {id: draft, name: 草稿, group: backlog}
+      - {id: submitted, name: 已提交, group: in_progress}
+      - {id: accepted, name: 已验收, group: done}
+    artifact_kinds:
+      - {id: deliverable}
+    agent_roles: [release-agent]
+
+relations:
+  - {id: supports, name: 支撑, domain: activity, range: objective}
+
+phases:
+  - {id: intake, name: 需求, gate: null}
+  - {id: execute, name: 执行, gate: work_review}
+  - {id: deliver, name: 交付, gate: delivery_approval}
+
+board_defaults:
+  group_by: lifecycle
+
+asset_kinds:
+  - {id: brief-template, name: 简报模板, library: product}
+  - {id: checklist, name: 检查清单, library: test}
+  - {id: guide, name: 指南规范, library: doc}
+
+libraries:
+  - {id: product, name: 产品库, accepts: [brief-template]}
+  - {id: test, name: 测试库, accepts: [checklist]}
+  - {id: doc, name: 文档库, accepts: [guide]}

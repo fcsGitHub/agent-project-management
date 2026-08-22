@@ -39,5 +39,19 @@ class Settings(BaseSettings):
     def fixtures_dir(self) -> Path:
         return self.data_dir / "fixtures"
 
+    @property
+    def repo_root(self) -> Path:
+        """Monorepo root (holds ontologies/, agents/, docs/)."""
+        here = Path(__file__).resolve()  # app/apm/config.py
+        return here.parents[2]
+
+    @property
+    def ontology_dir(self) -> Path:
+        return self.repo_root / "ontologies"
+
+    @property
+    def agents_dir(self) -> Path:
+        return self.repo_root / "agents"
+
 
 settings = Settings()
