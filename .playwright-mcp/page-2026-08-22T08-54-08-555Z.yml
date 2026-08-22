@@ -1,0 +1,85 @@
+- generic [ref=f1e15]:
+  - navigation [ref=f1e16]:
+    - link "Dashboard" [ref=f1e17] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57"
+    - link "Board" [ref=f1e23] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/board"
+    - link "Graph" [ref=f1e26] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/graph"
+    - link "Conversations" [ref=f1e31] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/conversations"
+    - link "Runs" [ref=f1e35] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/runs"
+    - link "Assets" [ref=f1e38] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f1e41] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/audit"
+    - link "本体" [ref=f1e45] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/ontology"
+    - link "项目列表" [ref=f1e50] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f1e53]:
+    - generic [ref=f1e54]: 功能
+    - link "MVP" [ref=f1e56] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/f/f_98aa41822a"
+    - button "新功能" [ref=f1e58]
+  - generic [ref=f1e60]:
+    - banner [ref=f1e61]:
+      - generic [ref=f1e62]: lianh
+      - generic [ref=f1e63]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f1e64]
+      - link "审批中心" [ref=f1e67] [cursor=pointer]:
+        - /url: "#/p/p_75c0fbba57/approvals"
+    - main [ref=f1e71]:
+      - generic [ref=f1e125]:
+        - generic [ref=f1e126]:
+          - generic [ref=f1e127]:
+            - generic [ref=f1e128]: 进度 · 任务 0/0 · 对话 0 · Runs 0
+            - generic [ref=f1e129]: 0%
+          - generic [ref=f1e131]:
+            - generic [ref=f1e132]: 需求池 ●
+            - generic [ref=f1e133]: 需求分析 · PRD 评审 ●
+            - generic [ref=f1e134]: 系统设计 · 设计评审
+            - generic [ref=f1e135]: 任务计划 · 计划确认
+            - generic [ref=f1e136]: 开发 · 代码评审
+            - generic [ref=f1e137]: 测试 · 验收（DoD）
+            - generic [ref=f1e138]: 交付 · 发布批准
+          - link "MVP 2 分钟前" [ref=f1e140] [cursor=pointer]:
+            - /url: "#/p/p_75c0fbba57/f/f_98aa41822a"
+            - generic [ref=f1e141]: MVP
+            - generic [ref=f1e143]: 2 分钟前
+          - generic [ref=f1e144]:
+            - link [ref=f1e145] [cursor=pointer]:
+              - /url: "#/p/p_75c0fbba57/c/c_3a6b2b662d"
+              - button "和 PM-Agent 谈需求 →" [ref=f1e146]
+            - button "生成交付（Release-Agent）" [ref=f1e147]
+        - generic [ref=f1e148]:
+          - generic [ref=f1e149]:
+            - generic [ref=f1e150]: 🔔 待我处理
+            - link "审批中心 →" [ref=f1e151] [cursor=pointer]:
+              - /url: "#/p/p_75c0fbba57/approvals"
+          - generic [ref=f1e152]: 暂无待审批 ✓
+        - generic [ref=f1e154]:
+          - generic [ref=f1e155]: 项目活动流（人机混排 · 实时）
+          - generic [ref=f1e156]:
+            - generic [ref=f1e157]:
+              - generic [ref=f1e158]: 2 分钟前
+              - generic [ref=f1e159]: ⚙️
+              - generic [ref=f1e160]: u_admin
+              - generic [ref=f1e161]: project.template_applied
+            - generic [ref=f1e162]:
+              - generic [ref=f1e163]: 2 分钟前
+              - generic [ref=f1e164]: ⚙️
+              - generic [ref=f1e165]: u_admin
+              - generic [ref=f1e166]: conversation.created
+              - generic [ref=f1e167]: PRD 起草
+            - generic [ref=f1e168]:
+              - generic [ref=f1e169]: 2 分钟前
+              - generic [ref=f1e170]: 👤
+              - generic [ref=f1e171]: u_admin
+              - generic [ref=f1e172]: feature.created
+            - generic [ref=f1e173]:
+              - generic [ref=f1e174]: 2 分钟前
+              - generic [ref=f1e175]: 👤
+              - generic [ref=f1e176]: u_admin
+              - generic [ref=f1e177]: project.created

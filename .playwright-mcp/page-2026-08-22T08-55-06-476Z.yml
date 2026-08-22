@@ -1,0 +1,52 @@
+- generic [ref=f1e15]:
+  - navigation [ref=f1e16]:
+    - link "Dashboard" [ref=f1e17] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57"
+    - link "Board" [ref=f1e23] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/board"
+    - link "Graph" [ref=f1e26] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/graph"
+    - link "Conversations" [ref=f1e31] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/conversations"
+    - link "Runs" [ref=f1e35] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/runs"
+    - link "Assets" [ref=f1e38] [cursor=pointer]:
+      - /url: "#/assets"
+    - link "Audit" [ref=f1e41] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/audit"
+    - link "本体" [ref=f1e45] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/ontology"
+    - link "项目列表" [ref=f1e50] [cursor=pointer]:
+      - /url: "#/"
+  - complementary [ref=f1e53]:
+    - generic [ref=f1e54]: 功能
+    - link "MVP" [ref=f1e56] [cursor=pointer]:
+      - /url: "#/p/p_75c0fbba57/f/f_98aa41822a"
+    - button "新功能" [ref=f1e58]
+  - generic [ref=f1e60]:
+    - banner [ref=f1e61]:
+      - generic [ref=f1e62]: lianh
+      - generic [ref=f1e63]: software-dev
+      - button "⌘K 命令 / 自然语言" [ref=f1e64]
+      - link "1" [ref=f1e196] [cursor=pointer]:
+        - /url: "#/p/p_75c0fbba57/approvals"
+    - main [ref=f1e71]:
+      - generic [ref=f1e219]:
+        - generic [ref=f1e220]:
+          - generic [ref=f1e221]: 审批中心
+          - generic [ref=f1e222]: 1 待处理
+        - generic [ref=f1e225]:
+          - checkbox [ref=f1e226]
+          - generic [ref=f1e227]:
+            - generic [ref=f1e228]:
+              - generic [ref=f1e229]: ◆ plan_review
+              - generic [ref=f1e230]: 🤖 planner-agent
+              - generic [ref=f1e231]: 刚刚
+              - link "转入对话 →" [ref=f1e232] [cursor=pointer]:
+                - /url: "#/p/p_75c0fbba57/c/c_1ed5649464"
+            - generic [ref=f1e233]: 计划 Agent 完成，请求阶段门 plan_review
+            - button "预览 artifacts/wbs.md（commit 5f2e7a1f）· diff" [ref=f1e234]
+          - generic [ref=f1e235]:
+            - button "批准" [ref=f1e236]
+            - button "修改后恢复" [ref=f1e237]
+            - button "拒绝…" [ref=f1e238]

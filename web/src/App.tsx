@@ -1,30 +1,134 @@
+import { useState } from "react";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-
-type Health = { status: string; version: string; provider_mode: string };
+import { api } from "./lib/api";
+import { AppShell } from "./components/AppShell";
+import { Dashboard } from "./pages/Dashboard";
+import { Board } from "./pages/Board";
+import { FeaturePage } from "./pages/FeaturePage";
+import { ConversationView } from "./pages/ConversationView";
+import { ConversationsPage } from "./pages/ConversationsPage";
+import { RunsPage } from "./pages/RunsPage";
+import { GraphView } from "./pages/GraphView";
+import { ApprovalsPage } from "./pages/ApprovalsPage";
+import { AssetsPage } from "./pages/AssetsPage";
+import { AuditPage } from "./pages/AuditPage";
+import { OntologyPage } from "./pages/OntologyPage";
 
 export default function App() {
-  const { data, isLoading } = useQuery<Health>({
-    queryKey: ["health"],
-    queryFn: async () => {
-      const r = await fetch("/api/health");
-      if (!r.ok) throw new Error(`health ${r.status}`);
-      return r.json();
-    },
-  });
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<ProjectPicker />} />
+        <Route path="/p/:pid" element={<AppShell />}>
+          <Route index element={<Dashboard />} />
+          <Route path="board" element={<Board />} />
+          <Route path="f/:fid" element={<FeaturePage />} />
+          <Route path="c/:cid" element={<ConversationView />} />
+          <Route path="conversations" element={<ConversationsPage />} />
+          <Route path="runs" element={<RunsPage />} />
+          <Route path="graph" element={<GraphView />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="audit" element={<AuditPage />} />
+          <Route path="ontology" element={<OntologyPage />} />
+        </Route>
+        <Route path="/assets" element={<AssetsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
+  );
+}
+
+/** Redirect to the first project when one exists, else show the picker. */
+function ProjectPicker() {
+  const { data, isLoading } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  if (isLoading) return <div className="p-8 text-sm text-mut">加载中…</div>;
+  return <PickerInner projects={data?.projects ?? []} />;
+}
+
+import { Button, Card, Input, Textarea, Modal, Badge } from "./components/ui";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+
+function PickerInner({ projects }: { projects: { id: string; name: string; ontology: string; status: string }[] }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(!!projects.length ? false : true);
+  const [name, setName] = useState("");
+  const [req, setReq] = useState("");
+  const [ontology, setOntology] = useState("software-dev");
+  const [busy, setBusy] = useState(false);
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="rounded-[12px] border border-line bg-surface p-8 text-center shadow-sm">
-        <div className="text-lg font-semibold">AgentPM</div>
-        <p className="mt-2 text-sm text-mut">
-          {isLoading
-            ? "正在连接后端…"
-            : data
-              ? `后端就绪 · ${data.version} · provider=${data.provider_mode}`
-              : "后端不可用——请先启动 API（uvicorn apm.main:app）"}
-        </p>
-        <p className="mt-4 text-xs text-mut">前端骨架（I0）· 页面将在后续迭代装配</p>
+    <div className="flex h-full items-center justify-center bg-bg p-6">
+      <div className="w-full max-w-xl space-y-4">
+        <div className="text-center">
+          <div className="text-xl font-bold">AgentPM</div>
+          <p className="mt-1 text-sm text-mut">人指挥 · Agent 执行 —— 以对话为中心的项目管理</p>
+        </div>
+        <Card className="divide-y divide-line">
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => navigate(`/p/${p.id}`)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
+            >
+              <span className="flex-1 text-sm font-medium">{p.name}</span>
+              <Badge tone="violet">{p.ontology}</Badge>
+            </button>
+          ))}
+          {!projects.length && (
+            <div className="px-4 py-10 text-center text-sm text-mut">
+              还没有项目——从一句话需求开始，PM-Agent 会帮你拆任务
+            </div>
+          )}
+        </Card>
+        <div className="text-center">
+          <Button variant="primary" onClick={() => setOpen(true)}>＋ 新建项目</Button>
+        </div>
       </div>
+
+      <Modal open={open} onClose={() => setOpen(false)} title="新建项目">
+        <div className="space-y-3">
+          <Input placeholder="项目名称" value={name} onChange={(e) => setName(e.target.value)} />
+          <Textarea rows={3} placeholder="一句话需求（PM-Agent 将据此起草 PRD）" value={req} onChange={(e) => setReq(e.target.value)} />
+          <div className="flex gap-2">
+            {[
+              { id: "software-dev", label: "软件研发 · 完整七阶段" },
+              { id: "generic", label: "通用轻流程 · 三阶段" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setOntology(t.id)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs ${
+                  ontology === t.id ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+            <Button
+              variant="primary"
+              disabled={!name.trim() || busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const p = await api.createProject({ name, ontology, requirement: req });
+                  await qc.invalidateQueries({ queryKey: ["projects"] });
+                  navigate(`/p/${p.id}`);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              创建并初始化
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
