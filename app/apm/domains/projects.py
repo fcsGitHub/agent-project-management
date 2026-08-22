@@ -106,6 +106,9 @@ def apply_project_template(project_id: str, ontology_name: str, requirement: str
         from apm.content.gitrepo import init_project_repo
 
         init_project_repo(project_id, charter=initial_charter(name_of(project_id), requirement, ontology_name), ontology_name=ontology_name)
+        from apm.content.prompts import seed_role_prompts
+
+        seed_role_prompts(project_id)
         created["content_repo"] = True
     except ImportError:
         pass

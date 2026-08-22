@@ -340,6 +340,9 @@ def build_context(conversation: dict) -> dict:
 
 
 def update_prompt_layer(conversation: dict, level: str, content: str) -> dict:
+    from apm import config as apm_config
+    from apm.content import prompts as prompt_files
+
     if level == "L1":
         events.emit(
             event_type="prompt.updated",
@@ -360,7 +363,15 @@ def update_prompt_layer(conversation: dict, level: str, content: str) -> dict:
             project_id=conversation["project_id"],
             payload={"charter": content},
         )
+        prompt_files.write_prompt(
+            conversation["project_id"],
+            "prompts/charter.md",
+            content,
+            actor_type="human",
+            actor_id=apm_config.settings.user_id,
+        )
     elif level == "L3":
+        git_path = f"prompts/conversations/{conversation['id']}/instruction.md"
         events.emit(
             event_type="prompt.updated",
             agg_type="conversation",
@@ -369,7 +380,7 @@ def update_prompt_layer(conversation: dict, level: str, content: str) -> dict:
             payload={
                 "level": "L3_instruction",
                 "content": content,
-                "git_path": f"prompts/conversations/{conversation['id']}/instruction.md",
+                "git_path": git_path,
                 "conversation_id": conversation["id"],
             },
         )
@@ -379,6 +390,13 @@ def update_prompt_layer(conversation: dict, level: str, content: str) -> dict:
             agg_id=conversation["id"],
             project_id=conversation["project_id"],
             payload={"instruction": content},
+        )
+        prompt_files.write_prompt(
+            conversation["project_id"],
+            git_path,
+            content,
+            actor_type="human",
+            actor_id=apm_config.settings.user_id,
         )
     else:
         raise HTTPException(status_code=422, detail=f"level '{level}' is not editable in MVP (L1/L3 only)")

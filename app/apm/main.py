@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    from apm.content.artifacts import router as artifacts_router
     from apm.domains.conversations import router as conversations_router
     from apm.domains.events_api import router as events_router
     from apm.domains.features import router as features_router
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(features_router, prefix="/api")
     app.include_router(items_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")
+    app.include_router(artifacts_router, prefix="/api")
     return app
 
 
