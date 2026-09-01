@@ -191,6 +191,42 @@ agent-project-management/
 
 **M3 审阅点（正式，终验）**：按 07 冒烟脚本逐条验收 + 03 §5 功能完备性核对表逐行核对 MVP 列。
 
+### M4 · 本体构建闭环（semantica 融合，I14-I16，约 9 人日）
+
+> v0.5 新增（2026-09-02）。MVP 终验后，按"调研开源吸收优点"协议启动的第一里程碑：把 semantica v0.6.7 的本体构建模式（从数据推断类型 + provenance + 版本化）裁剪进项目管理域（映射与取舍见 08 §8）。
+
+| 迭代 | 主题 | 对应 08 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I14 | 本体归纳 Ontology Learning（learn/apply + provenance） | 08 §8.2 | — | 3d |
+| I15 | 本体版本化语义 diff 与迁移 | 08 §8.1 | deepdiff（或手写投影 diff） | 3d |
+| I16 | CQ 可回答性检查（Competency Question 验收锚点落地） | 08 §8.1 | — | 3d |
+
+#### I14 · 本体归纳（3d）
+
+- 任务：`POST /api/ontologies/{name}/learn`——扫描该本体下全部项目投影数据（items/item_relations/assets+links/runs），按 08 §8.2 四规则产出候选提案（`candidates`，带 provenance：规则 id/支持计数/样本 id）与观察项（`observations`，零使用概念）；`POST /api/ontologies/{name}/apply`——勾选候选合并为本体 patch，过校验器后写回 `ontologies/<name>.yaml`（version+1），发 `ontology.updated` 事件（含 diff 与 provenance 摘要）并热重载；本体页新增"从项目数据学习"面板（候选勾选 + provenance 折叠 + 应用）。
+- DoD（并入冒烟 8）：四规则信号数据全部命中且 provenance 可溯；apply 后校验通过、version+1、事件落审计流；L2 场景 apply 后同型关系通过建卡校验；重复 learn 幂等（已应用候选不再出现）。
+- 演示路径：本体页点"扫描项目数据"→ 勾选候选 → 应用 → v+1 生效。
+
+#### I15 · 本体版本化语义 diff 与迁移（3d）
+
+- 任务：`GET /api/ontologies/{name}/diff?from=v1&to=v2`——结构化语义 diff（concepts/relations/phases/assetKinds 的增删改，非文本 diff）；影响分析（被删概念引用的工作项/关系清单，阻塞级标红）；`ontology.updated` 事件历史查询与回放视图。
+- DoD（并入冒烟 8 扩展）：删除被引用概念时 diff 报告阻塞影响清单；diff 结果与事件 payload 一致。
+- 演示路径：连续两次 apply 后查 diff 与影响分析。
+
+#### I16 · CQ 可回答性检查（3d）
+
+- 任务：每条 competencyQuestion 声明支撑数据面（映射到投影表/事件类型）；`GET /api/ontologies/{name}/cq-check` 报告每条 CQ 的覆盖状态（可回答/缺数据/缺映射）与证据摘要；本体页 CQ 卡片显示检查结果。
+- DoD（并入冒烟 8 扩展）：software-dev 四条 CQ 全部可回答；generic 项目 CQ 检查含"缺数据"状态。
+- 演示路径：本体页 CQ 卡片逐条展开证据。
+
+**M4 审阅点**：冒烟 8 + 08 §8.3 验收锚点四项全过。
+
+### 4.6 冒烟脚本 × 迭代落点（续）
+
+| 冒烟条 | 首次全绿迭代 |
+| --- | --- |
+| 8 本体归纳 learn→apply→version+1→幂等 | I14 |
+
 ### 4.5 与 07 §4 里程碑的对应与差异
 
 | 07 里程碑 | 本计划 | 差异说明 |
@@ -276,6 +312,9 @@ agent-project-management/
 | I12 Runs/审计/本体页 + 资产域 | 已完成 | 2026-08-22 | 2026-08-22 | 左树右甘特+人机时间线、审计过滤导出、本体页、资产全链+FTS5+Agent 三工具 |
 | I13 部署 + 全量冒烟 + 打磨 | 已完成 | 2026-08-22 | 2026-08-22 | compose 一键起、种子脚本、冒烟 7 条全绿、空状态/⌘K/引导 |
 | **M3 终验** | 已完成 | 2026-08-22 | 2026-08-22 | 冒烟 7 条全绿 + 03 §5 核对表 MVP 列全勾（见附录 A 验证记录） |
+| I14 本体归纳 Ontology Learning | 已完成 | 2026-09-02 | 2026-09-02 | learn/apply API、四条确定性规则+provenance、本体页学习面板；冒烟 8 全绿 |
+| I15 本体版本化语义 diff 与迁移 | 未开始 | — | — | M4 |
+| I16 CQ 可回答性检查 | 未开始 | — | — | M4 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -300,6 +339,8 @@ agent-project-management/
 | 2026-08-22 | I10 | NL 命令层 L1：确定性规则解析器（导航/过滤/指派者/批量审批），本体词典可扩展；只读动作直执返回客户端应用，写操作 pending_confirm→confirm 后经审批域执行；ui_command.executed 事件携带 on_behalf_of；解析失败 422 + 候选列表降级。 |
 | 2026-08-22 | I12 | 资产域：资产仓 Git（frontmatter 元数据）、FTS5 中文 bigram 检索、沉淀路径 A（工件→draft→submit_review→asset_review Gate→批准发布）、Agent 三工具 search/read/link（read 触发 asset.consumed）、来源/引用双链与引用计数投影；工件抽屉"沉淀为资产"表单（本体 accepts 过滤）。 |
 | 2026-08-22 | I13+终验 | 部署与终验：docker-compose（api+web/nginx 代理 SSE）、种子脚本 tools/seed.py（回放模式全流程演示数据）、README 开发指南。冒烟 7 条全绿（tools/smoke/reports/latest.md：passed 10）；pytest 50 项全绿；pnpm build/vitest 通过；compose 起栈后 /api/health 健康检查通过。功能完备性核对（03 §5 MVP 列）逐行勾验：三级导航/消息树/打断恢复/提示词披露/五类对话（操作型=MVP 子集）/审批批量+改后恢复/工件 diff/看板过滤/NL L1/发布说明/审计/资产沉淀检索双链全部落地；"转对话"与功能小图为 V1.1/V1.2 计划项。 |
+| 2026-09-02 | M4 启动 | 按持续迭代协议（MVP 完成后调研开源吸收优点）：调研 semantica v0.6.7（OntologyGenerator infer_classes/infer_properties、provenance、VersionManager、CQ），裁剪映射进 08 §8「本体构建闭环」；新增 M4 = I14 本体归纳 / I15 语义 diff / I16 CQ 检查。范围变更记录：MVP 计划外新增里程碑，理由 = 用户目标第 2 条（融合 semantica 本体构建模式）+ 原路线 V2「从数据归纳概念」提前，对估时影响 +9 人日。 |
+| 2026-09-02 | I14 | 本体归纳落地：`POST /api/ontologies/{name}/learn`（确定性规则 L1 字段显式化/L2 关系补注册/L3 沉淀链接补全/L4 角色覆盖，候选带 provenance：规则+support+样本 id；observations 输出零使用概念）→ `POST /api/ontologies/{name}/apply`（patch 合并→校验器把关→YAML version+1→ontology.updated 事件含 diff 摘要→热重载）；幂等（已应用候选不再提出）；未知/过期候选 422 fail-closed。Settings 新增 ontology_dir_override（测试隔离本体目录，写回不碰源仓）；conftest 加 isolated_ontologies 夹具。本体页新增学习面板（勾选+provenance 展示+应用）。测试 55 项绿（新增 4+1）；冒烟基线 11 条全绿（新增冒烟 8）。下一步入口：I15 本体版本化语义 diff 与迁移。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

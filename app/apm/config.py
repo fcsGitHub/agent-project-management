@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Single-user MVP: the human actor behind every UI action.
     user_id: str = "u_admin"
     user_name: str = "李雷"
+    # Tests redirect ontology YAML here (learning writes back to this dir).
+    ontology_dir_override: Path | None = None
 
     model_config = {"env_prefix": "APM_", "env_file": ".env", "extra": "ignore"}
 
@@ -47,6 +49,8 @@ class Settings(BaseSettings):
 
     @property
     def ontology_dir(self) -> Path:
+        if self.ontology_dir_override is not None:
+            return self.ontology_dir_override
         return self.repo_root / "ontologies"
 
     @property

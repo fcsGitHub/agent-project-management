@@ -61,3 +61,24 @@ def wait_for(fn, timeout: float = 15.0, interval: float = 0.05):
             return last
         time.sleep(interval)
     raise AssertionError(f"wait_for timeout, last={last!r}")
+
+
+@pytest.fixture()
+def isolated_ontologies(tmp_path, monkeypatch):
+    """Copy the real ontologies/ into tmp and point settings at the copy.
+
+    Ontology learning (M4-I14) writes back ontology YAML; tests and smoke must
+    never mutate the repository's source files. Reload clears the name cache.
+    """
+    import shutil
+
+    from apm import config
+
+    dst = tmp_path / "ontologies"
+    shutil.copytree(config.settings.ontology_dir, dst)
+    monkeypatch.setattr(config.settings, "ontology_dir_override", dst)
+    from apm.domains import ontology as ontology_mod
+
+    ontology_mod.reload_all()
+    yield dst
+    ontology_mod.reload_all()

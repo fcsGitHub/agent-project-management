@@ -118,9 +118,48 @@ libraries:
 - 本体可导出为模板包（YAML + 角色包 + 提示词模板）放入内容仓 `templates/`，跨项目复制即用；
 - V3 引入"本体市场"：社区共享模板包（借鉴 semantica 的生态位，但以文件而非服务形式）。
 
+## 8. 本体构建闭环（v0.5，M4：semantica 构建模式融合）
+
+MVP 的本体是纯手写静态 YAML。V1.x 起吸收 semantica v0.6.7 的**本体构建模式**（Ontology Generator：`generate_ontology(data)` → infer_classes / infer_properties / optimize，不依赖 LLM；每条推断带 provenance；validate → optimize 流水线），把它裁剪进本项目的治理模型——**数据仍在变多，本体跟着长**，但增长必须经人审（受控演化，对应 §5 的受控破坏性变更）。
+
+### 8.1 与 semantica 的映射（裁剪后）
+
+| semantica 构件 | 本项目落法（I14 起） | 裁剪理由 |
+| --- | --- | --- |
+| `OntologyGenerator.generate_ontology(data)` → infer_classes/infer_properties | `POST /api/ontologies/{name}/learn`：确定性规则扫描该本体下全部项目的投影数据，产出候选变更提案 | 不引 NLP/NER；本域数据是结构化投影，SQL 聚合即可推断，零 LLM、可重放可测 |
+| 推断带 Provenance（来源可溯） | 每条候选带 `provenance`：规则 id、支持计数、样本（item/run/link id ≤3） | 直接沿用"一次存储支撑投影与审计"的既有架构 |
+| `validate → optimize` 流水线 | learn 产出两类输出：`candidates`（可执行提案）+ `observations`（纯统计：零使用概念等，不进 apply） | optimize 中的"剪枝"只建议不自动执行，删除永远是人审后的手工决定 |
+| `VersionManager.create_version/diff` | apply = 写回 `ontologies/<name>.yaml`（version+1）+ `ontology.updated` 事件（payload 含 diff 与 provenance 摘要）；I15 补语义 diff 查询与迁移 | 版本真源 = YAML version + 事件流；Git diff 作为文件层佐证 |
+| Competency Questions（§2 既有） | I16：CQ 可回答性检查（每条 CQ 映射到支撑数据面并报告覆盖） | — |
+
+**明确仍不做**：RDF/OWL 序列化、SPARQL、推理机一致性、双时态事实、本体图可视化（维持 §2 取舍）。
+
+### 8.2 学习规则（I14，全部确定性）
+
+| # | 规则 | 信号（数据面） | 提案 |
+| --- | --- | --- | --- |
+| L1 | `add-field`（infer_properties） | 概念的工作项被填了 `priority`/`estimate_hours` 但概念未声明对应字段 | 概念补 typed field |
+| L2 | `register-relation`（一致性护栏） | `item_relations` 出现本体未注册的关系类型（历史遗留/手工改动） | 注册 relation（domain/range 取概念对众数） |
+| L3 | `wire-deposit`（沉淀链接补全） | 已发布资产的 provenance link 指向工件 kind A，但声明 A 的概念未把 A `deposits_to` 该资产 kind | 补 `deposits_to` 映射（09 §3 飞轮补漏） |
+| L4 | `add-role`（角色覆盖） | Run 在概念 X 的工作项上用了角色 R，但 X.agent_roles 未含 R | 概念补角色绑定 |
+
+观察项（不进 apply）：`unused-concepts`（跨项目零使用概念，提示可精简——呼应 semantica optimize）。
+
+### 8.3 闭环流程
+
+```
+learn（扫描投影数据 → 候选+provenance+observations）
+  → 人审（本体页勾选；provenance 折叠可查样本）
+  → apply（合并 patch → 校验器把关 → 写回 YAML version+1 → ontology.updated 事件 → 热重载）
+  → 重建 learn 为空（幂等自检：数据已被本体覆盖）
+```
+
+**验收锚点（M4-I14）**：① 造出 4 类信号数据后 learn 全部命中且 provenance 可溯；② apply 后本体校验通过、version 递增、事件流含 `ontology.updated`（含 diff）；③ L2 场景下 apply 后同型关系可通过建卡 API 校验（本体补齐解锁数据）；④ 重复 learn 不再产生已应用候选（幂等）。
+
 ## 7. 与 MVP / 路线图的关系
 
 - **MVP**：内核校验器 + 两套内置本体 + 本体页（只读浏览 + 校验状态）+ YAML 手工定制路径 + **三库 assetKinds/libraries 注册（09）**；
+- **M4（V1.x 本体构建闭环，§8）**：I14 本体归纳（learn/apply + provenance）、I15 本体版本化语义 diff 与迁移、I16 CQ 可回答性检查；
 - **V1.2**：表单化本体编辑器（概念/关系/阶段/资产类型的增删改，带破坏性变更检查）、marketing 等第三套内置本体；
 - **V2**：本体驱动 NL 词典的完整覆盖、资产标签受控词表、从工作项数据归纳概念的辅助工具（semantica "从数据推断类型"的轻量版）；
 - **V3**：本体与资产模板市场、跨本体语义映射（若多项目组织需要）。

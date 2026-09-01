@@ -63,6 +63,17 @@ export type Ontology = {
   asset_kinds: { id: string; name: string; library: string }[];
   libraries: { id: string; name: string; accepts: string[] }[];
 };
+export type OntologyCandidate = {
+  id: string; kind: string; summary: string;
+  patch: Record<string, unknown>;
+  provenance: { rule: string; support: number; sample_item_ids?: string[]; sample_run_ids?: string[]; sample_asset_ids?: string[] };
+};
+export type OntologyLearnResult = {
+  ontology: string; version: number;
+  scanned: { projects: number; items: number; relations: number; artifact_links: number };
+  candidates: OntologyCandidate[];
+  observations: { unused_concepts: string[] };
+};
 export type Artifact = {
   path: string; kind: string; commit: string; updated_at?: string; versions: number; deposits_to?: string;
 };
@@ -171,6 +182,15 @@ export const api = {
   getOntology: (nameOrPid: string, isProject = false) =>
     req<Ontology>(isProject ? `/projects/${nameOrPid}/ontology` : `/ontologies/${nameOrPid}`),
   listOntologies: () => req<{ ontologies: { name: string; display_name: string; valid: boolean; errors: string[] }[] }>("/ontologies"),
+
+  // Ontology learning (M4-I14, docs/08 §8)
+  learnOntology: (name: string) =>
+    req<OntologyLearnResult>(`/ontologies/${name}/learn`, { method: "POST" }),
+  applyOntology: (name: string, candidateIds: string[]) =>
+    req<{ name: string; version: number; applied: { id: string; kind: string; summary: string }[] }>(
+      `/ontologies/${name}/apply`,
+      { method: "POST", body: JSON.stringify({ candidate_ids: candidateIds }) },
+    ),
 
   // Assets (I12)
   listAssets: (params?: { library?: string; kind?: string; q?: string }) => {

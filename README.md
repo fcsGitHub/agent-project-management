@@ -100,7 +100,7 @@ AgentPM 把软件项目的**管理流程本身建模为一张可编排的图（P
 
 ## 开发与运行（实现已就绪）
 
-MVP 已按 [docs/10-development-plan.md](docs/10-development-plan.md) 迭代 I0–I13 完成：后端 FastAPI + 事件溯源内核 + LangGraph Runtime + 本体驱动域，前端 React（复刻 demo.html 设计令牌），冒烟基线 7 条全绿（`tools/smoke/`）。
+MVP 已按 [docs/10-development-plan.md](docs/10-development-plan.md) 迭代 I0–I13 完成：后端 FastAPI + 事件溯源内核 + LangGraph Runtime + 本体驱动域，前端 React（复刻 demo.html 设计令牌），冒烟基线 7 条全绿（`tools/smoke/`）。MVP 后持续迭代（M4）：融合 semantica 本体构建模式——**本体学习**（I14，从项目数据归纳本体变更候选：扫描→人审→应用，带 provenance，冒烟基线增至 11 条）；I15 语义 diff / I16 CQ 检查进行中。
 
 ```bash
 # 一键起（Docker）

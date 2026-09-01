@@ -8,6 +8,7 @@ from apm.domains import (  # noqa: F401
     items,
     nl,
     ontology,
+    ontology_learn,
     orchestrator_api,
     projects,
     runs,
