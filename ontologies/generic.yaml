@@ -67,3 +67,12 @@ libraries:
   - {id: product, name: 产品库, accepts: [brief-template]}
   - {id: test, name: 测试库, accepts: [checklist]}
   - {id: doc, name: 文档库, accepts: [guide]}
+
+# CQ 可回答性映射（I16）：故意留一个缺数据、一个缺映射，演示三态报告。
+cq_mappings:
+  - question: 每条目标是否有活动在支撑？
+    supports:
+      - {source: items}
+  - question: 交付物是否都通过了交付审批？
+    supports:
+      - {source: approvals}

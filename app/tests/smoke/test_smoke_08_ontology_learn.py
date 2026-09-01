@@ -109,3 +109,24 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     assert any(w["kind"] == "concept-removed-unused" and w["concept"] == "milestone"
                for w in d2["impact"]["warnings"])
     assert d2["to_validation_errors"] == []
+
+    # --- I16: CQ answerability — software-dev fully answerable with evidence ---
+    events.emit(event_type="approval.requested", agg_type="approval", agg_id="apr_smoke8",
+                project_id=pid, payload={"kind": "gate",
+                                         "snapshot": {"gate": "prd_review", "title": "PRD 评审"}})
+    events.emit(event_type="approval.granted", agg_type="approval", agg_id="apr_smoke8",
+                payload={"comment": "通过"})
+    events.emit(event_type="asset.drafted", agg_type="asset", agg_id="asset_smoke8", project_id=pid,
+                payload={"library": "test", "kind": "test-suite", "title": "冒烟套件",
+                         "tags": [], "commit": "c0ffee", "status": "draft"})
+    cq = client.get("/api/ontologies/software-dev/cq-check").json()
+    assert cq["checked"] == 4 and all(q["status"] == "answerable" for q in cq["questions"])
+    ev = {e["source"]: e for q in cq["questions"] for e in q["evidence"]}
+    assert ev["approvals"]["count"] == 1 and ev["assets"]["count"] == 1
+    assert ev["relations"]["count"] >= 1 and ev["items"]["count"] >= 3
+
+    # generic keeps deliberate gaps: mapped-but-empty (no_data) and no mapping (unmapped).
+    client.post("/api/projects", json={"name": "轻项目CQ", "ontology": "generic"})
+    cq2 = client.get("/api/ontologies/generic/cq-check").json()
+    statuses = {q["question"]: q["status"] for q in cq2["questions"]}
+    assert "no_data" in statuses.values() and "unmapped" in statuses.values()

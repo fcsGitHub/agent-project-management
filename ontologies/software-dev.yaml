@@ -102,3 +102,22 @@ libraries:
   - {id: product, name: 产品库, accepts: [prd-template, requirement-pattern, release-notes-template]}
   - {id: test, name: 测试库, accepts: [test-suite, acceptance-checklist]}
   - {id: doc, name: 文档库, accepts: [adr, guide]}
+
+# CQ 可回答性映射（I16，docs/08 §8.1）：每条验收锚点声明支撑数据面。
+cq_mappings:
+  - question: 需求是否都经过 PRD 评审才进入设计与计划？
+    supports:
+      - {source: approvals, kinds: [gate]}
+      - {source: events, event_types: [approval.requested, approval.granted, approval.rejected]}
+  - question: 哪些任务被依赖阻塞，阻塞了多久？
+    supports:
+      - {source: relations}
+      - {source: items}
+  - question: 每个阶段门（Gate）的审批等待时间是否超标？
+    supports:
+      - {source: approvals}
+      - {source: events, event_types: [approval.requested, approval.granted]}
+  - question: 值得复用的工件是否都沉淀进了资产库？
+    supports:
+      - {source: assets}
+      - {source: artifacts}

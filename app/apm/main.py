@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
     from apm.domains.ontology import router as ontology_router
     from apm.domains.ontology_learn import router as ontology_learn_router
     from apm.domains.ontology_versions import router as ontology_versions_router
+    from apm.domains.ontology_cq import router as ontology_cq_router
     from apm.domains.orchestrator_api import router as orchestrator_router
     from apm.domains.projects import router as projects_router
     from apm.domains.runs import router as runs_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(ontology_router, prefix="/api")
     app.include_router(ontology_learn_router, prefix="/api")
     app.include_router(ontology_versions_router, prefix="/api")
+    app.include_router(ontology_cq_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(features_router, prefix="/api")
     app.include_router(items_router, prefix="/api")

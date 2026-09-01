@@ -21,6 +21,8 @@ router = APIRouter(tags=["ontology"])
 
 KERNEL_RELATIONS = ("contains", "depends_on", "produces", "consumes")
 BUCKETS = ("backlog", "todo", "in_progress", "done", "cancelled")
+# CQ support surfaces (docs/08 §8.1, I16): projections/event types that can answer a CQ.
+CQ_SOURCES = ("items", "relations", "approvals", "assets", "runs", "events", "artifacts")
 
 GATE_LABELS = {
     "prd_review": "PRD 评审",
@@ -225,6 +227,25 @@ def validate_ontology_dict(d: dict[str, Any]) -> list[str]:
             dep = ak.get("deposits_to")
             if dep and dep not in kind_ids:
                 errors.append(f"concept '{c.get('id')}' artifact kind '{ak.get('id')}': deposits_to '{dep}' unknown")
+
+    # CQ answerability mappings (I16): each maps one declared question to data surfaces.
+    questions = d.get("competency_questions", [])
+    seen_cq: set[str] = set()
+    for m in d.get("cq_mappings") or []:
+        q = m.get("question") if isinstance(m, dict) else None
+        if q not in questions:
+            errors.append(f"cq_mapping question not in competency_questions: {q}")
+        elif q in seen_cq:
+            errors.append(f"duplicate cq_mapping for question: {q}")
+        seen_cq.add(q or "")
+        supports = (m.get("supports") or []) if isinstance(m, dict) else []
+        if not supports:
+            errors.append(f"cq_mapping for '{q}': supports is required")
+        for s in supports:
+            if not isinstance(s, dict) or s.get("source") not in CQ_SOURCES:
+                errors.append(f"cq_mapping for '{q}': unknown support source {s}")
+            elif s.get("source") == "events" and not s.get("event_types"):
+                errors.append(f"cq_mapping for '{q}': events source requires event_types")
     return errors
 
 

@@ -105,6 +105,11 @@ export type OntologyDiff = {
   summary: string;
   to_validation_errors: string[];
 };
+export type CqEvidence = { source: string; count: number; summary: string };
+export type CqCheck = {
+  name: string; checked: number; summary: string;
+  questions: { question: string; status: "answerable" | "no_data" | "unmapped"; evidence: CqEvidence[] }[];
+};
 export type Artifact = {
   path: string; kind: string; commit: string; updated_at?: string; versions: number; deposits_to?: string;
 };
@@ -230,6 +235,7 @@ export const api = {
     if (toV != null) q.set("to_version", String(toV));
     return req<OntologyDiff>(`/ontologies/${name}/diff?${q.toString()}`);
   },
+  cqCheck: (name: string) => req<CqCheck>(`/ontologies/${name}/cq-check`),
 
   // Assets (I12)
   listAssets: (params?: { library?: string; kind?: string; q?: string }) => {

@@ -29,6 +29,11 @@ export function OntologyPage() {
     queryFn: () => api.getOntologyHistory(o?.name ?? ""),
     enabled: !!o,
   });
+  const cq = useQuery({
+    queryKey: ["ontology-cq", pid],
+    queryFn: () => api.cqCheck(o!.name),
+    enabled: !!o,
+  });
 
   if (!o) return <div className="p-6 text-sm text-mut">加载本体…</div>;
 
@@ -56,6 +61,7 @@ export function OntologyPage() {
       setSelected(new Set());
       await qc.invalidateQueries({ queryKey: ["ontology", pid] });
       await qc.invalidateQueries({ queryKey: ["ontology-history", pid] });
+      await qc.invalidateQueries({ queryKey: ["ontology-cq", pid] });
     } catch (e) {
       toast.error(`应用失败：${e instanceof Error ? e.message : e}`);
     } finally {
@@ -118,11 +124,34 @@ export function OntologyPage() {
       />
 
       <div>
-        <div className="mb-2 text-xs font-semibold text-mut">Competency Questions（验收锚点）</div>
-        <Card className="p-3">
-          <ul className="space-y-1 text-xs">
-            {o.competency_questions.map((q, i) => <li key={i}>❓ {q}</li>)}
-          </ul>
+        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-mut">
+          Competency Questions（验收锚点 · I16 可回答性检查）
+          {cq.data && <Badge tone={allAnswerable(cq.data) ? "green" : "amber"}>{cq.data.summary}</Badge>}
+        </div>
+        <Card className="divide-y divide-line">
+          {cq.data?.questions.map((q) => (
+            <div key={q.question} className="px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs">❓ {q.question}</span>
+                <CqStatusBadge status={q.status} />
+              </div>
+              {q.evidence.length > 0 && (
+                <div className="mt-1 space-y-0.5 pl-4">
+                  {q.evidence.map((e) => (
+                    <div key={e.source} className="font-mono text-[10px] text-mut">
+                      {SOURCE_LABEL[e.source] ?? e.source}：{e.count > 0 ? `✓ ${e.count}` : "× 0"} — {e.summary}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {q.status === "unmapped" && (
+                <div className="mt-1 pl-4 text-[10px] text-mut">
+                  未声明支撑数据面——在 ontology.yaml 的 cq_mappings 中为该问题补充 supports。
+                </div>
+              )}
+            </div>
+          ))}
+          {!cq.data && <div className="px-3 py-2 text-xs text-mut">检查中…</div>}
         </Card>
       </div>
 
@@ -191,6 +220,25 @@ function libIcon(id: string) {
 const KIND_TONE: Record<string, string> = {
   add_field: "indigo", add_relation: "amber", wire_deposit: "violet", add_role: "green",
 };
+
+const SOURCE_LABEL: Record<string, string> = {
+  items: "工作项", relations: "关系", approvals: "审批", assets: "资产",
+  runs: "Agent 运行", events: "事件流", artifacts: "内容仓工件",
+};
+
+const CQ_STATUS: Record<string, { label: string; tone: string }> = {
+  answerable: { label: "可回答", tone: "green" },
+  no_data: { label: "缺数据", tone: "amber" },
+  unmapped: { label: "缺映射", tone: "neutral" },
+};
+
+const allAnswerable = (c: { questions: { status: string }[] }) =>
+  c.questions.every((q) => q.status === "answerable");
+
+function CqStatusBadge({ status }: { status: string }) {
+  const s = CQ_STATUS[status] ?? { label: status, tone: "neutral" };
+  return <Badge tone={s.tone as never}>{s.label}</Badge>;
+}
 
 /** Version timeline + semantic diff with data impact analysis (M4-I15). */
 function VersionPanel({
