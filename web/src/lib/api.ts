@@ -74,6 +74,37 @@ export type OntologyLearnResult = {
   candidates: OntologyCandidate[];
   observations: { unused_concepts: string[] };
 };
+export type OntologyVersionEvent = {
+  event_id: number; ts: string; actor_id: string;
+  previous_version: number; version: number; applied_count: number;
+  applied: { id: string; kind: string; summary: string; provenance_rule: string }[];
+  summary: string;
+};
+export type OntologyHistory = {
+  name: string; current_version: number; snapshots: number[];
+  history: OntologyVersionEvent[];
+};
+export type OntologyDiff = {
+  name: string; from_version: number; to_version: number;
+  diff: {
+    concepts: {
+      added: { id: string; name?: string }[]; removed: { id: string; name?: string }[];
+      modified: { id: string; name: string; changes: { type: string; detail: string }[] }[];
+    };
+    relations: { added: { id: string; name?: string }[]; removed: { id: string; name?: string }[] };
+    phases: { added: { id: string; name?: string }[]; removed: { id: string; name?: string }[] };
+    asset_kinds: { added: { id: string; name?: string }[]; removed: { id: string; name?: string }[] };
+  };
+  impact: {
+    blocking: { kind: string; concept?: string; relation?: string; detail: string;
+                item_count?: number; reference_count?: number;
+                sample_items?: { id: string; title: string }[] }[];
+    warnings: { kind: string; concept?: string; relation?: string; phase?: string;
+                asset_kind?: string; detail: string }[];
+  };
+  summary: string;
+  to_validation_errors: string[];
+};
 export type Artifact = {
   path: string; kind: string; commit: string; updated_at?: string; versions: number; deposits_to?: string;
 };
@@ -191,6 +222,14 @@ export const api = {
       `/ontologies/${name}/apply`,
       { method: "POST", body: JSON.stringify({ candidate_ids: candidateIds }) },
     ),
+  getOntologyHistory: (name: string) =>
+    req<OntologyHistory>(`/ontologies/${name}/history`),
+  getOntologyDiff: (name: string, fromV?: number, toV?: number) => {
+    const q = new URLSearchParams();
+    if (fromV != null) q.set("from_version", String(fromV));
+    if (toV != null) q.set("to_version", String(toV));
+    return req<OntologyDiff>(`/ontologies/${name}/diff?${q.toString()}`);
+  },
 
   // Assets (I12)
   listAssets: (params?: { library?: string; kind?: string; q?: string }) => {

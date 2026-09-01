@@ -9,6 +9,7 @@ semantica 融合（M4-I14）：OntologyGenerator 的"从数据推断类型"轻�
 """
 from __future__ import annotations
 
+import copy
 import json
 from collections import Counter
 
@@ -201,6 +202,7 @@ def _apply(name: str, body: dict) -> dict:
     if not path.exists():
         raise OntologyError(f"ontology file not found: {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    original = copy.deepcopy(raw)  # pre-apply state, archived as v{old} below
     concepts = {c["id"]: c for c in raw.get("concepts", [])}
 
     for cid in chosen_ids:
@@ -225,6 +227,13 @@ def _apply(name: str, body: dict) -> dict:
         raise HTTPException(status_code=422, detail={"apply_failed_validation": errors})
     old_version = int(raw.get("version") or 1)
     raw["version"] = old_version + 1
+
+    # Version snapshots (I15): keep both sides of this transition diffable.
+    from apm.domains.ontology_versions import snapshot_version
+
+    snapshot_version(name, old_version, original)
+    snapshot_version(name, raw["version"], raw)
+
     path.write_text(
         yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
 

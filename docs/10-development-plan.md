@@ -313,7 +313,7 @@ agent-project-management/
 | I13 部署 + 全量冒烟 + 打磨 | 已完成 | 2026-08-22 | 2026-08-22 | compose 一键起、种子脚本、冒烟 7 条全绿、空状态/⌘K/引导 |
 | **M3 终验** | 已完成 | 2026-08-22 | 2026-08-22 | 冒烟 7 条全绿 + 03 §5 核对表 MVP 列全勾（见附录 A 验证记录） |
 | I14 本体归纳 Ontology Learning | 已完成 | 2026-09-02 | 2026-09-02 | learn/apply API、四条确定性规则+provenance、本体页学习面板；冒烟 8 全绿 |
-| I15 本体版本化语义 diff 与迁移 | 未开始 | — | — | M4 |
+| I15 本体版本化语义 diff 与迁移 | 已完成 | 2026-09-02 | 2026-09-02 | 版本快照（apply 双写）、语义 diff + 阻塞影响分析、ontology.updated 事件历史 API、本体页版本时间线与 diff 面板；冒烟 8 扩展全绿 |
 | I16 CQ 可回答性检查 | 未开始 | — | — | M4 |
 
 ## 8. 开发执行风险（补充 07 §6）
@@ -341,6 +341,7 @@ agent-project-management/
 | 2026-08-22 | I13+终验 | 部署与终验：docker-compose（api+web/nginx 代理 SSE）、种子脚本 tools/seed.py（回放模式全流程演示数据）、README 开发指南。冒烟 7 条全绿（tools/smoke/reports/latest.md：passed 10）；pytest 50 项全绿；pnpm build/vitest 通过；compose 起栈后 /api/health 健康检查通过。功能完备性核对（03 §5 MVP 列）逐行勾验：三级导航/消息树/打断恢复/提示词披露/五类对话（操作型=MVP 子集）/审批批量+改后恢复/工件 diff/看板过滤/NL L1/发布说明/审计/资产沉淀检索双链全部落地；"转对话"与功能小图为 V1.1/V1.2 计划项。 |
 | 2026-09-02 | M4 启动 | 按持续迭代协议（MVP 完成后调研开源吸收优点）：调研 semantica v0.6.7（OntologyGenerator infer_classes/infer_properties、provenance、VersionManager、CQ），裁剪映射进 08 §8「本体构建闭环」；新增 M4 = I14 本体归纳 / I15 语义 diff / I16 CQ 检查。范围变更记录：MVP 计划外新增里程碑，理由 = 用户目标第 2 条（融合 semantica 本体构建模式）+ 原路线 V2「从数据归纳概念」提前，对估时影响 +9 人日。 |
 | 2026-09-02 | I14 | 本体归纳落地：`POST /api/ontologies/{name}/learn`（确定性规则 L1 字段显式化/L2 关系补注册/L3 沉淀链接补全/L4 角色覆盖，候选带 provenance：规则+support+样本 id；observations 输出零使用概念）→ `POST /api/ontologies/{name}/apply`（patch 合并→校验器把关→YAML version+1→ontology.updated 事件含 diff 摘要→热重载）；幂等（已应用候选不再提出）；未知/过期候选 422 fail-closed。Settings 新增 ontology_dir_override（测试隔离本体目录，写回不碰源仓）；conftest 加 isolated_ontologies 夹具。本体页新增学习面板（勾选+provenance 展示+应用）。测试 55 项绿（新增 4+1）；冒烟基线 11 条全绿（新增冒烟 8）。下一步入口：I15 本体版本化语义 diff 与迁移。 |
+| 2026-09-02 | I15 | 本体版本化落地：新增 `app/apm/domains/ontology_versions.py`——apply 时双写版本快照（`data/ontology_history/<name>/v<N>.yaml`，旧版+新版，data/ 已 gitignore）；`GET /api/ontologies/{name}/diff`（语义 diff：concepts 增删改含字段/状态/角色/工件种类级变更 + relations/phases/asset_kinds 增删；影响分析：被删概念仍被工作项引用=阻塞、被删关系仍有数据行=阻塞，无引用删除/阶段/资产类型残留=警告；to=当前版本永远读活文件，支持对磁盘手工改动先做影响分析；活文件校验错误作 warnings 呈现不阻断分析）；`GET /api/ontologies/{name}/history`（ontology.updated 事件时间线+快照清单）。关键语义决策：**from 侧快照优先、to 侧活文件优先**——否则手改后 from==to 同源导致 diff 为空（开发中踩过）。本体页新增版本时间线（逐事件"对比"按钮）与 diff 渲染（增删改 chip+阻塞红卡+警告灰条）。测试 58 项绿（新增 3）；冒烟 8 扩展至二次 apply→v3→history→diff→手改阻塞分析，11 条全绿。下一步入口：I16 CQ 可回答性检查。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

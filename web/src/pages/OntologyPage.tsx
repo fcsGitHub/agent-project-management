@@ -1,10 +1,11 @@
 /** Ontology page: read-only browsing of the project's type system + validation
- *  + the ontology-learning flywheel (M4-I14, docs/08 §8: scan → review → apply). */
+ *  + the ontology-learning flywheel (M4-I14, docs/08 §8: scan → review → apply)
+ *  + versioning with semantic diff & impact analysis (M4-I15). */
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
-import { api, type OntologyLearnResult } from "../lib/api";
+import { api, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
 import { Badge, Button, Card } from "../components/ui";
 
 export function OntologyPage() {
@@ -20,6 +21,14 @@ export function OntologyPage() {
   const [scanning, setScanning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [diff, setDiff] = useState<OntologyDiff | null>(null);
+  const [diffing, setDiffing] = useState(false);
+
+  const history = useQuery({
+    queryKey: ["ontology-history", pid],
+    queryFn: () => api.getOntologyHistory(o?.name ?? ""),
+    enabled: !!o,
+  });
 
   if (!o) return <div className="p-6 text-sm text-mut">加载本体…</div>;
 
@@ -46,10 +55,22 @@ export function OntologyPage() {
       setScan(null);
       setSelected(new Set());
       await qc.invalidateQueries({ queryKey: ["ontology", pid] });
+      await qc.invalidateQueries({ queryKey: ["ontology-history", pid] });
     } catch (e) {
       toast.error(`应用失败：${e instanceof Error ? e.message : e}`);
     } finally {
       setApplying(false);
+    }
+  };
+
+  const runDiff = async (fromV: number, toV?: number) => {
+    setDiffing(true);
+    try {
+      setDiff(await api.getOntologyDiff(o!.name, fromV, toV));
+    } catch (e) {
+      toast.error(`diff 失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setDiffing(false);
     }
   };
 
@@ -87,6 +108,13 @@ export function OntologyPage() {
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
         onLearn={runLearn} onApply={runApply} onToggle={toggle}
+      />
+
+      <VersionPanel
+        currentVersion={o.version}
+        history={history.data}
+        diff={diff} diffing={diffing}
+        onDiff={runDiff}
       />
 
       <div>
@@ -158,6 +186,121 @@ export function OntologyPage() {
 
 function libIcon(id: string) {
   return { product: "📦", test: "🧪", doc: "📚" }[id] ?? "🗃️";
+}
+
+const KIND_TONE: Record<string, string> = {
+  add_field: "indigo", add_relation: "amber", wire_deposit: "violet", add_role: "green",
+};
+
+/** Version timeline + semantic diff with data impact analysis (M4-I15). */
+function VersionPanel({
+  currentVersion, history, diff, diffing, onDiff,
+}: {
+  currentVersion: number;
+  history?: { current_version: number; snapshots: number[]; history: { event_id: number; ts: string; previous_version: number; version: number; applied_count: number; applied: { id: string; kind: string; summary: string }[]; summary: string }[] };
+  diff: OntologyDiff | null; diffing: boolean;
+  onDiff: (fromV: number, toV?: number) => void;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold">◷ 版本与影响分析</span>
+        <Badge tone="neutral">v{currentVersion} · 快照 {history?.snapshots.length ?? 0} 份</Badge>
+        <span className="ml-auto text-[11px] text-mut">semantica VersionManager 轻量版（docs/08 §8.1）</span>
+      </div>
+      {history && history.history.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {history.history.map((h) => (
+            <div key={h.event_id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-bg px-3 py-1.5">
+              <span className="font-mono text-[11px] text-mut">v{h.previous_version} → v{h.version}</span>
+              <span className="text-xs text-ink">{h.summary}</span>
+              {h.applied.slice(0, 3).map((a) => (
+                <Badge key={a.id} tone={(KIND_TONE[a.kind] ?? "neutral") as never}>
+                  {a.kind}
+                </Badge>
+              ))}
+              {h.applied.length > 3 && <span className="text-[10px] text-mut">+{h.applied.length - 3}</span>}
+              <Button size="sm" variant="ghost" className="ml-auto" disabled={diffing}
+                      onClick={() => onDiff(h.previous_version, h.version)}>
+                对比
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {history && history.history.length === 0 && (
+        <p className="mt-2 text-xs text-mut">
+          尚无版本事件——在本体学习中应用候选后，这里会出现版本时间线；也可对磁盘上的手工改动做影响分析。
+        </p>
+      )}
+      {diff && <DiffView d={diff} />}
+    </Card>
+  );
+}
+
+function DiffView({ d }: { d: OntologyDiff }) {
+  const g = d.diff;
+  const chip = (label: string, removed = false) => (
+    <span key={label}
+          className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${removed ? "bg-red-500/10 text-dan" : "bg-green-500/10 text-emerald-600"}`}>
+      {removed ? "−" : "+"}{label}
+    </span>
+  );
+  return (
+    <div className="mt-3 space-y-2 border-t border-line pt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold">v{d.from_version} → v{d.to_version} 语义 diff</span>
+        <span className="text-[11px] text-mut">{d.summary}</span>
+      </div>
+      {(g.concepts.added.length > 0 || g.concepts.removed.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1 text-xs">
+          <span className="text-mut">概念：</span>
+          {g.concepts.added.map((c) => chip(c.name || c.id))}
+          {g.concepts.removed.map((c) => chip(c.name || c.id, true))}
+        </div>
+      )}
+      {g.concepts.modified.map((m) => (
+        <div key={m.id} className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs">
+          <span className="font-medium">~ {m.name}</span>
+          {m.changes.map((c, i) => (
+            <span key={i} className="ml-2 font-mono text-[10px] text-amber-600">{c.type}:{c.detail}</span>
+          ))}
+        </div>
+      ))}
+      {(["relations", "phases", "asset_kinds"] as const).map((k) => {
+        const label = { relations: "关系", phases: "阶段", asset_kinds: "资产类型" }[k];
+        return (g[k].added.length > 0 || g[k].removed.length > 0) ? (
+          <div key={k} className="flex flex-wrap items-center gap-1 text-xs">
+            <span className="text-mut">{label}：</span>
+            {g[k].added.map((c) => chip(c.name || c.id))}
+            {g[k].removed.map((c) => chip(c.name || c.id, true))}
+          </div>
+        ) : null;
+      })}
+      {d.impact.blocking.length > 0 && (
+        <div className="space-y-1">
+          {d.impact.blocking.map((b, i) => (
+            <div key={i} className="rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-1.5 text-xs text-dan">
+              ⛔ {b.detail}
+              {b.sample_items?.map((s) => (
+                <span key={s.id} className="ml-2 font-mono text-[10px] text-mut">{s.title}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {d.impact.warnings.length > 0 && (
+        <div className="rounded-lg border border-dashed border-line px-3 py-1.5 text-[11px] text-mut">
+          {d.impact.warnings.map((w, i) => <div key={i}>· {w.detail}</div>)}
+        </div>
+      )}
+      {d.to_validation_errors.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-600">
+          当前文件校验问题：{d.to_validation_errors.join("；")}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const RULE_META: Record<string, { label: string; tone: string }> = {

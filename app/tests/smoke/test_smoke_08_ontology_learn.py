@@ -71,3 +71,41 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     r = client.post("/api/ontologies/software-dev/apply",
                     json={"candidate_ids": ["add-field:bug:priority"]})
     assert r.status_code == 422
+
+    # --- I15: versioning — second apply → v3, then history + semantic diff ---
+    client.post(f"/api/projects/{pid}/items",
+                json={"concept_id": "task", "title": "实现接口", "priority": "P2"})
+    scan3 = client.post("/api/ontologies/software-dev/learn").json()
+    chosen3 = [c for c in scan3["candidates"] if c["id"] == "add-field:task:priority"]
+    assert chosen3, scan3["candidates"]
+    out3 = client.post("/api/ontologies/software-dev/apply",
+                       json={"candidate_ids": [chosen3[0]["id"]]}).json()
+    assert out3["version"] == 3
+
+    hist = client.get("/api/ontologies/software-dev/history").json()
+    assert hist["current_version"] == 3
+    assert [h["version"] for h in hist["history"]] == [2, 3]
+    assert hist["snapshots"] == [1, 2, 3]
+
+    d = client.get("/api/ontologies/software-dev/diff",
+                   params={"from_version": 1, "to_version": 3}).json()
+    assert "blocks" in [x["id"] for x in d["diff"]["relations"]["added"]]
+    by_cid = {c["id"]: c for c in d["diff"]["concepts"]["modified"]}
+    assert "field-added:priority" in [f"{c['type']}:{c['detail']}" for c in by_cid["task"]["changes"]]
+    assert not d["impact"]["blocking"] and d["to_validation_errors"] == []
+
+    # Impact analysis on a hand-edit: drop the in-use bug concept and the
+    # `blocks` relation directly on disk, then diff snapshot v3 → current.
+    import yaml as _yaml
+    onto_file = isolated_ontologies / "software-dev.yaml"
+    raw = _yaml.safe_load(onto_file.read_text(encoding="utf-8"))
+    raw["concepts"] = [c for c in raw["concepts"] if c["id"] not in ("bug", "milestone")]
+    raw["relations"] = [x for x in raw["relations"] if x["id"] not in ("verifies", "blocks")]
+    onto_file.write_text(_yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    d2 = client.get("/api/ontologies/software-dev/diff", params={"from_version": 3}).json()
+    blocking = {(b["kind"], b.get("concept") or b.get("relation")) for b in d2["impact"]["blocking"]}
+    assert ("concept-removed-in-use", "bug") in blocking
+    assert ("relation-removed-in-use", "blocks") in blocking
+    assert any(w["kind"] == "concept-removed-unused" and w["concept"] == "milestone"
+               for w in d2["impact"]["warnings"])
+    assert d2["to_validation_errors"] == []
