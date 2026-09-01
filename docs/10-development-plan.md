@@ -314,7 +314,8 @@ agent-project-management/
 | **M3 终验** | 已完成 | 2026-08-22 | 2026-08-22 | 冒烟 7 条全绿 + 03 §5 核对表 MVP 列全勾（见附录 A 验证记录） |
 | I14 本体归纳 Ontology Learning | 已完成 | 2026-09-02 | 2026-09-02 | learn/apply API、四条确定性规则+provenance、本体页学习面板；冒烟 8 全绿 |
 | I15 本体版本化语义 diff 与迁移 | 已完成 | 2026-09-02 | 2026-09-02 | 版本快照（apply 双写）、语义 diff + 阻塞影响分析、ontology.updated 事件历史 API、本体页版本时间线与 diff 面板；冒烟 8 扩展全绿 |
-| I16 CQ 可回答性检查 | 未开始 | — | — | M4 |
+| I16 CQ 可回答性检查 | 已完成 | 2026-09-02 | 2026-09-02 | cq_mappings 声明式映射 + 校验器、/cq-check 三态报告（可回答/缺数据/缺映射）+ 证据摘要、本体页 CQ 卡片；冒烟 8 扩展全绿 |
+| **M4 里程碑审阅（正式）** | 已完成 | 2026-09-02 | 2026-09-02 | 冒烟 8 + 08 §8.3 四项验收锚点全过 + 浏览器实测演示路径（截图 docs/m4-review-ontology-page.png，见附录 B） |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -342,12 +343,19 @@ agent-project-management/
 | 2026-09-02 | M4 启动 | 按持续迭代协议（MVP 完成后调研开源吸收优点）：调研 semantica v0.6.7（OntologyGenerator infer_classes/infer_properties、provenance、VersionManager、CQ），裁剪映射进 08 §8「本体构建闭环」；新增 M4 = I14 本体归纳 / I15 语义 diff / I16 CQ 检查。范围变更记录：MVP 计划外新增里程碑，理由 = 用户目标第 2 条（融合 semantica 本体构建模式）+ 原路线 V2「从数据归纳概念」提前，对估时影响 +9 人日。 |
 | 2026-09-02 | I14 | 本体归纳落地：`POST /api/ontologies/{name}/learn`（确定性规则 L1 字段显式化/L2 关系补注册/L3 沉淀链接补全/L4 角色覆盖，候选带 provenance：规则+support+样本 id；observations 输出零使用概念）→ `POST /api/ontologies/{name}/apply`（patch 合并→校验器把关→YAML version+1→ontology.updated 事件含 diff 摘要→热重载）；幂等（已应用候选不再提出）；未知/过期候选 422 fail-closed。Settings 新增 ontology_dir_override（测试隔离本体目录，写回不碰源仓）；conftest 加 isolated_ontologies 夹具。本体页新增学习面板（勾选+provenance 展示+应用）。测试 55 项绿（新增 4+1）；冒烟基线 11 条全绿（新增冒烟 8）。下一步入口：I15 本体版本化语义 diff 与迁移。 |
 | 2026-09-02 | I15 | 本体版本化落地：新增 `app/apm/domains/ontology_versions.py`——apply 时双写版本快照（`data/ontology_history/<name>/v<N>.yaml`，旧版+新版，data/ 已 gitignore）；`GET /api/ontologies/{name}/diff`（语义 diff：concepts 增删改含字段/状态/角色/工件种类级变更 + relations/phases/asset_kinds 增删；影响分析：被删概念仍被工作项引用=阻塞、被删关系仍有数据行=阻塞，无引用删除/阶段/资产类型残留=警告；to=当前版本永远读活文件，支持对磁盘手工改动先做影响分析；活文件校验错误作 warnings 呈现不阻断分析）；`GET /api/ontologies/{name}/history`（ontology.updated 事件时间线+快照清单）。关键语义决策：**from 侧快照优先、to 侧活文件优先**——否则手改后 from==to 同源导致 diff 为空（开发中踩过）。本体页新增版本时间线（逐事件"对比"按钮）与 diff 渲染（增删改 chip+阻塞红卡+警告灰条）。测试 58 项绿（新增 3）；冒烟 8 扩展至二次 apply→v3→history→diff→手改阻塞分析，11 条全绿。下一步入口：I16 CQ 可回答性检查。 |
+| 2026-09-02 | I16 | CQ 可回答性落地：新增 `app/apm/domains/ontology_cq.py`——ontology YAML 顶层可选 `cq_mappings`（question 精确匹配 competency_questions + supports 数据面声明，source 枚举 items/relations/approvals/assets/runs/events/artifacts，可带 concepts/relation_types/kinds/event_types 过滤），校验器新增四条规则（question 存在、不重复、supports 非空、events 必带 event_types）；`GET /api/ontologies/{name}/cq-check` 三态报告——answerable（任一支撑面有数据）/no_data（映射了但全空）/unmapped（未声明），证据摘要含计数+分布+样例；内置本体 software-dev 四条 CQ 全映射、generic 留一缺数据一缺映射；本体页 CQ 卡片升级为逐条状态徽标+证据行。测试 61 项绿（新增 3）；冒烟 8 扩展 CQ 全链（software-dev 四条可回答 + generic 三态）。 |
+| 2026-09-02 | M4 审阅 | **M4 里程碑正式审阅通过**：① 冒烟基线 11 条全绿（pytest 61 项绿）；② 08 §8.3 四项验收锚点逐项核对（见附录 B）；③ 浏览器实测演示路径：起 uvicorn（临时数据目录、回放模式）+ seed.py + pnpm dev → 本体页「扫描项目数据」→ 候选（L1 任务×priority，support 12 + provenance 样本）→ 勾选应用 → v2 + 时间线 + 「对比」语义 diff（~任务 field-added:priority）→ CQ 卡片「可回答 4 · 缺数据 0 · 缺映射 0」逐条证据；截图 docs/m4-review-ontology-page.png。审阅意见 2 条 B 级（见附录 B），无 A 级。M4（semantica 本体构建模式融合）至此闭环。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
 | 日期 | 迭代/里程碑 | 意见 | 级 | 处置与落点 |
 | --- | --- | --- | --- | --- |
+| 2026-09-02 | M4 正式审阅 | 08 §8.3 验收锚点逐项核对：① 四类信号（L1 priority×12 / L2 遗留关系 / L3 沉淀链接 / L4 角色覆盖）learn 全命中且 provenance 可溯 ✓；② apply 后校验通过、version 递增、事件流含 ontology.updated（含 diff 摘要）✓；③ L2 场景 apply 后同型关系通过建卡 API 校验 ✓；④ 重复 learn 幂等（已应用候选不再出现）✓。浏览器演示路径实测通过（截图 docs/m4-review-ontology-page.png）。 | — | 里程碑通过 |
+| 2026-09-02 | M4 正式审阅 | CQ 证据行的 events 源是全局计数（不按项目过滤），多项目同本体时口径偏大 | B | 排入后续迭代任务清单（可在 evidence 的 events 源加 project_id 过滤；不影响单项目正确性） |
+| 2026-09-02 | M4 正式审阅 | 本体学习/版本面板未做权限分层（单用户 MVP 无影响，多租户时 apply 应挂审批） | B | 入附录 C backlog（对齐 07 §5 V2 治理） |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
 对齐 07 §5 扩展路线：V1.1 多人协作与上下文完善 / V1.2 会话深化 + QA 域 + 本体资产编辑 / V1.3 可观测与语义检索 / V2 规则引擎 + 沙箱 + 资产治理 / V3 规模化与生态。审阅中的 C 级意见在此登记，MVP 结束后统一排期。
+
+M4 审阅登记（2026-09-02）：本体学习/版本面板的 apply 权限分层与审批挂接（单用户 MVP 无影响；V2 治理范畴）。
