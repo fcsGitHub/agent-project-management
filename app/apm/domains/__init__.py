@@ -10,6 +10,7 @@ from apm.domains import (  # noqa: F401
     ontology,
     ontology_cq,
     ontology_learn,
+    ontology_pack,
     ontology_versions,
     orchestrator_api,
     projects,

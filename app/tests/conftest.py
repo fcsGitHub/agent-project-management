@@ -77,8 +77,15 @@ def isolated_ontologies(tmp_path, monkeypatch):
     dst = tmp_path / "ontologies"
     shutil.copytree(config.settings.ontology_dir, dst)
     monkeypatch.setattr(config.settings, "ontology_dir_override", dst)
+    # Ontology pack import writes role/prompt files here too — isolate agents/.
+    agents_dst = tmp_path / "agents"
+    shutil.copytree(config.settings.agents_dir, agents_dst)
+    monkeypatch.setattr(config.settings, "agents_dir_override", agents_dst)
     from apm.domains import ontology as ontology_mod
+    from apm.runtime import roles as roles_mod
 
     ontology_mod.reload_all()
+    roles_mod.reset_roles()
     yield dst
     ontology_mod.reload_all()
+    roles_mod.reset_roles()

@@ -145,3 +145,19 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     cq2 = client.get("/api/ontologies/generic/cq-check").json()
     statuses = {q["question"]: q["status"] for q in cq2["questions"]}
     assert "no_data" in statuses.values() and "unmapped" in statuses.values()
+
+    # --- I18: template pack — export → rename-import → build with the import ---
+    pack = client.get("/api/ontologies/software-dev/export").json()
+    assert pack["format"] == "agentpm-ontology-pack"
+    assert {x["id"] for x in pack["roles"]} >= {"pm-agent", "dev-agent"}
+    imp = client.post("/api/ontologies/import",
+                      json={"pack": pack, "as_name": "software-dev-lite"}).json()
+    assert imp["name"] == "software-dev-lite"
+    assert all(x["action"] == "reused" for x in imp["roles"])
+    p2 = client.post("/api/projects",
+                     json={"name": "轻研发", "ontology": "software-dev-lite"}).json()
+    g2 = client.get(f"/api/projects/{p2['id']}/graph").json()
+    assert len([n for n in g2["nodes"] if n["kind"] == "phase"]) == 7
+    # Name conflict is rejected fail-closed.
+    assert client.post("/api/ontologies/import",
+                       json={"pack": pack, "as_name": "software-dev"}).status_code == 409

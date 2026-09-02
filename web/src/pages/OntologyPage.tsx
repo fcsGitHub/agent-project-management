@@ -23,6 +23,10 @@ export function OntologyPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [diff, setDiff] = useState<OntologyDiff | null>(null);
   const [diffing, setDiffing] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importName, setImportName] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const history = useQuery({
     queryKey: ["ontology-history", pid],
@@ -96,6 +100,37 @@ export function OntologyPage() {
     }
   };
 
+  const exportPack = async () => {
+    try {
+      const pack = await api.exportOntology(o!.name);
+      const blob = new Blob([JSON.stringify(pack, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${o!.name}-pack.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success("模板包已导出（本体 + 角色 + 提示词模板）");
+    } catch (e) {
+      toast.error(`导出失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const doImport = async () => {
+    setImporting(true);
+    try {
+      const pack = JSON.parse(importText);
+      const r = await api.importOntology(pack, importName.trim());
+      toast.success(`已导入为 ${r.name} v${r.version}（角色：${r.roles.map((x) => `${x.id}:${x.action}`).join("、") || "无"}）`);
+      setImportOpen(false);
+      setImportText("");
+      setImportName("");
+    } catch (e) {
+      toast.error(`导入失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -113,8 +148,32 @@ export function OntologyPage() {
           <Badge tone={o.errors.length ? "red" : "green"}>
             {o.errors.length ? `校验失败（${o.errors.length}）` : "校验通过 ✓"}
           </Badge>
-          <span className="ml-auto font-mono text-xs text-mut">ontology/ontology.yaml</span>
+          <span className="ml-auto flex items-center gap-2">
+            <span className="font-mono text-xs text-mut">ontology/ontology.yaml</span>
+            <Button size="sm" variant="ghost" onClick={exportPack}>⬇ 导出模板包</Button>
+            <Button size="sm" variant="ghost" onClick={() => setImportOpen((v) => !v)}>⬆ 导入</Button>
+          </span>
         </div>
+        {importOpen && (
+          <div className="mt-3 space-y-2 rounded-lg border border-line bg-bg p-3">
+            <div className="flex items-center gap-2">
+              <input
+                className="w-56 rounded-lg border border-line bg-surface px-2 py-1 text-xs"
+                placeholder="导入为本体名（如 software-dev-lite）"
+                value={importName} onChange={(e) => setImportName(e.target.value)}
+              />
+              <Button size="sm" variant="primary" disabled={importing || !importName.trim() || !importText.trim()} onClick={doImport}>
+                {importing ? "导入中…" : "导入"}
+              </Button>
+              <span className="text-[10px] text-mut">同名本体拒绝导入（409）；已存在的角色复用不覆盖。</span>
+            </div>
+            <textarea
+              className="h-32 w-full rounded-lg border border-line bg-surface p-2 font-mono text-[10px]"
+              placeholder="粘贴模板包 JSON（本体页「导出模板包」所得）"
+              value={importText} onChange={(e) => setImportText(e.target.value)}
+            />
+          </div>
+        )}
         {o.errors.length > 0 && (
           <ul className="mt-2 space-y-0.5 text-xs text-dan">
             {o.errors.map((e, i) => <li key={i}>· {e}</li>)}

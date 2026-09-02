@@ -242,6 +242,13 @@ export const api = {
     return req<OntologyDiff>(`/ontologies/${name}/diff?${q.toString()}`);
   },
   cqCheck: (name: string) => req<CqCheck>(`/ontologies/${name}/cq-check`),
+  exportOntology: (name: string) =>
+    req<Record<string, unknown>>(`/ontologies/${name}/export`),
+  importOntology: (pack: Record<string, unknown>, asName: string) =>
+    req<{ name: string; version: number; roles: { id: string; action: string }[] }>(
+      `/ontologies/import`,
+      { method: "POST", body: JSON.stringify({ pack, as_name: asName }) },
+    ),
 
   // Assets (I12)
   listAssets: (params?: { library?: string; kind?: string; q?: string }) => {

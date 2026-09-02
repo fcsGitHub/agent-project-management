@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     user_name: str = "李雷"
     # Tests redirect ontology YAML here (learning writes back to this dir).
     ontology_dir_override: Path | None = None
+    # Tests redirect agents/ here (ontology pack import writes role files).
+    agents_dir_override: Path | None = None
 
     model_config = {"env_prefix": "APM_", "env_file": ".env", "extra": "ignore"}
 
@@ -55,6 +57,8 @@ class Settings(BaseSettings):
 
     @property
     def agents_dir(self) -> Path:
+        if self.agents_dir_override is not None:
+            return self.agents_dir_override
         return self.repo_root / "agents"
 
 
