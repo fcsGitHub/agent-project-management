@@ -51,6 +51,22 @@ export function OntologyPage() {
     }
   };
 
+  const runLearnLlm = async () => {
+    setScanning(true);
+    try {
+      const r = await api.learnOntologyLlm(o.name);
+      setScan(r);
+      setSelected(new Set());
+      if (r.llm?.error) toast.warning(`LLM 层降级：${r.llm.error}（pattern 层结果不受影响）`);
+      else if (!r.candidates.length) toast.info("LLM 层与数据面均无可归纳的变更候选");
+      else toast.success(`LLM 层：接受 ${r.llm?.accepted ?? 0} 条（合并 ${r.llm?.merged ?? 0} 条）`);
+    } catch (e) {
+      toast.error(`LLM 扫描失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const runApply = async () => {
     if (!selected.size) return;
     setApplying(true);
@@ -113,7 +129,7 @@ export function OntologyPage() {
 
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
-        onLearn={runLearn} onApply={runApply} onToggle={toggle}
+        onLearn={runLearn} onLearnLlm={runLearnLlm} onApply={runApply} onToggle={toggle}
       />
 
       <VersionPanel
@@ -356,15 +372,16 @@ const RULE_META: Record<string, { label: string; tone: string }> = {
   "L2-register-relation": { label: "关系补注册", tone: "amber" },
   "L3-wire-deposit": { label: "沉淀链接补全", tone: "violet" },
   "L4-add-role": { label: "角色覆盖", tone: "green" },
+  "LLM-curate": { label: "LLM 建议", tone: "violet" },
 };
 
-/** Ontology-learning panel (semantica 模式融合)：scan data → review → apply. */
+/** Ontology-learning panel (semantica 模式)：pattern 扫描 / LLM 建议 → review → apply. */
 function LearnPanel({
-  scan, scanning, applying, selected, onLearn, onApply, onToggle,
+  scan, scanning, applying, selected, onLearn, onLearnLlm, onApply, onToggle,
 }: {
   scan: OntologyLearnResult | null; scanning: boolean; applying: boolean;
   selected: Set<string>;
-  onLearn: () => void; onApply: () => void; onToggle: (id: string) => void;
+  onLearn: () => void; onLearnLlm: () => void; onApply: () => void; onToggle: (id: string) => void;
 }) {
   return (
     <Card className="p-4">
@@ -380,6 +397,9 @@ function LearnPanel({
           <Button size="sm" variant="outline" disabled={scanning || applying} onClick={onLearn}>
             {scanning ? "扫描中…" : scan ? "重新扫描" : "扫描项目数据"}
           </Button>
+          <Button size="sm" variant="outline" disabled={scanning || applying} onClick={onLearnLlm}>
+            ✨ LLM 建议
+          </Button>
           {scan && scan.candidates.length > 0 && (
             <Button size="sm" variant="primary" disabled={applying || !selected.size} onClick={onApply}>
               {applying ? "应用中…" : `应用选中（${selected.size}）`}
@@ -387,6 +407,12 @@ function LearnPanel({
           )}
         </span>
       </div>
+      {scan?.llm && (
+        <div className="mt-2 font-mono text-[10px] text-mut">
+          LLM 层（{scan.llm.provider_mode}）：原始 {scan.llm.raw} · 接受 {scan.llm.accepted} · 与 pattern 层合并 {scan.llm.merged} · 低置信丢弃 {scan.llm.dropped_low_confidence}
+          {scan.llm.error ? ` · 降级：${scan.llm.error}` : ""}
+        </div>
+      )}
       {scan && (
         <div className="mt-3 space-y-2">
           {scan.candidates.map((c) => {
@@ -400,14 +426,21 @@ function LearnPanel({
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-1.5">
                     <Badge tone={rule.tone as never}>{rule.label}</Badge>
+                    {c.provenance.channels?.includes("llm") && (
+                      <Badge tone="violet">LLM{c.provenance.confidence != null ? ` · ${c.provenance.confidence}` : ""}</Badge>
+                    )}
                     <span className="text-xs text-ink">{c.summary}</span>
                   </span>
                   <span className="mt-1 block font-mono text-[10px] text-mut">
                     {c.provenance.rule} · support {c.provenance.support}
+                    {c.provenance.channels?.length ? ` · 通道 ${c.provenance.channels.join("+")}` : ""}
                     {c.provenance.sample_item_ids?.length ? ` · 样本 ${c.provenance.sample_item_ids.join(", ")}` : ""}
                     {c.provenance.sample_run_ids?.length ? ` · runs ${c.provenance.sample_run_ids.join(", ")}` : ""}
                     {c.provenance.sample_asset_ids?.length ? ` · assets ${c.provenance.sample_asset_ids.join(", ")}` : ""}
                   </span>
+                  {c.provenance.llm_rationale && (
+                    <span className="mt-0.5 block text-[10px] text-mut">💬 {c.provenance.llm_rationale}</span>
+                  )}
                 </span>
               </label>
             );

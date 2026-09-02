@@ -205,6 +205,32 @@ def _self_check(c):
     return "PASS" if not issues else "ISSUES: " + "; ".join(issues)
 
 
+def _ontology_curator_curate(c):
+    """LLM 层回放模板（08 §8.4）：从注入上下文确定性地产出建议候选 JSON。
+
+    真实行为在 openai 模式下由提示词驱动；回放层按同输入给同输出，
+    保证 learn-llm 在 CI 无模型可测。启发：命名覆盖的工件→资产沉淀去向。
+    """
+    import json
+
+    suggestions = []
+    for ak in c.get("artifact_kinds_without_deposit", []):
+        kind_id = ak["id"]
+        for asset_kind in c.get("asset_kinds", []):
+            if kind_id != asset_kind and kind_id in asset_kind:
+                suggestions.append({
+                    "op": "wire_deposit",
+                    "concept": ak["concept"],
+                    "artifact_kind": kind_id,
+                    "deposits_to": asset_kind,
+                    "confidence": 0.72,
+                    "rationale": f"资产类型 {asset_kind} 命名覆盖工件 {kind_id}，"
+                                 f"且该工件尚无沉淀去向（LLM 层建议，人审后生效）",
+                })
+                break
+    return json.dumps({"candidates": suggestions}, ensure_ascii=False)
+
+
 _TEMPLATES = {
     "pm-agent/analyze": _pm_analyze,
     "pm-agent/draft": _pm_draft,
@@ -224,4 +250,5 @@ _TEMPLATES = {
     "architect-agent/analyze": _arch_analyze,
     "architect-agent/draft": _arch_draft,
     "architect-agent/self_check": _self_check,
+    "ontology-curator/curate": _ontology_curator_curate,
 }

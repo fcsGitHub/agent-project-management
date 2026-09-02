@@ -94,6 +94,21 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     assert "field-added:priority" in [f"{c['type']}:{c['detail']}" for c in by_cid["task"]["changes"]]
     assert not d["impact"]["blocking"] and d["to_validation_errors"] == []
 
+    # --- I17: LLM layer (replay provider) — suggestion pattern rules can't see ---
+    out_llm = client.post("/api/ontologies/software-dev/learn-llm").json()
+    assert out_llm["llm"]["provider_mode"] == "replay" and out_llm["llm"]["accepted"] >= 1
+    by_id = {c["id"]: c for c in out_llm["candidates"]}
+    llm_cand = by_id["wire-deposit:milestone:release-notes:release-notes-template"]
+    assert llm_cand["provenance"]["channels"] == ["llm"]
+    assert llm_cand["provenance"]["confidence"] >= 0.65
+    out4 = client.post("/api/ontologies/software-dev/apply",
+                       json={"candidate_ids": [llm_cand["id"]]}).json()
+    assert out4["version"] == 4
+    # Idempotent: wired deposits no longer suggested.
+    out_llm2 = client.post("/api/ontologies/software-dev/learn-llm").json()
+    assert "wire-deposit:milestone:release-notes:release-notes-template" not in {
+        c["id"] for c in out_llm2["candidates"]}
+
     # Impact analysis on a hand-edit: drop the in-use bug concept and the
     # `blocks` relation directly on disk, then diff snapshot v3 → current.
     import yaml as _yaml

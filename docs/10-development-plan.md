@@ -221,6 +221,36 @@ agent-project-management/
 
 **M4 审阅点**：冒烟 8 + 08 §8.3 验收锚点四项全过。
 
+### M5 · V1.x 协作与归纳增强（I17-I19，约 11 人日）
+
+> v0.6 新增（2026-09-02）。M4 审阅后按持续迭代协议开启的新一轮：调研结论（docs/01 §C.3.1，semantica extractor 方法链 + 置信度 + provenance 纪律）转化为开发计划；另清偿 M4 审阅 B 级意见。
+
+| 迭代 | 主题 | 对应 08 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I17 | LLM 辅助本体归纳（learn-llm 通道 + confidence + 去重合并）+ B 级修复（CQ events 证据按项目过滤） | 08 §8.4 | Provider Adapter（既有） | 3d |
+| I18 | 本体模板包导出/导入（YAML + 角色包 + 提示词模板，跨项目复用，08 §6 落地） | 08 §6 | — | 3d |
+| I19 | 多人协作基础（用户注册表、assignee 真实身份、审计按人过滤） | 07 §5 V1.1 | — | 5d |
+
+#### I17 · LLM 辅助本体归纳（3d）
+
+- 任务：`POST /api/ontologies/{name}/learn-llm`——组装提示词（本体现状 + 各概念使用统计 + 工件标题清单）经 Provider Adapter 调 `ontology-curator` 角色（新角色 YAML + 提示词 L4），解析 JSON 候选（op 限 add_field/add_relation/wire_deposit/add_role），confidence<0.65 丢弃，与规则候选去重合并；回放模式由 replay 模板按注入上下文确定性产出（可测），openai 模式即真实抽取；本体页学习面板分区展示（LLM 徽标 + confidence）。B 级修复：`cq-check` 的 events 证据按该本体项目过滤。
+- DoD（并入冒烟 8）：回放模式下 learn-llm 产出确定性候选且带 confidence≥0.65 与来源 provenance；与规则候选重复时不重复提出；apply 复用既有链路（校验/版本+1/事件）；CQ events 证据在多项目下按项目过滤。
+- 演示路径：学习面板点「LLM 建议」→ 候选带 confidence 徽标 → 勾选应用 → v+1。
+
+#### I18 · 本体模板包导出/导入（3d）
+
+- 任务：`GET /api/ontologies/{name}/export`——打包 ontology.yaml + 引用的角色 YAML + 提示词模板为单 JSON/YAML 包；`POST /api/ontologies/import`——校验后落盘为新区（改名防冲突）；本体页导出/导入入口。
+- DoD（并入冒烟 8）：导出→改名导入→新本体可建项目且阶段图/字段正确；非法包 422。
+- 演示路径：导出 software-dev → 导入为 software-dev-lite → 用它建项目。
+
+#### I19 · 多人协作基础（5d）
+
+- 任务：users 表（注册表投影 user.* 事件）、登录身份选择（单机多身份切换）、items.assignee 关联真实用户、审计/审批按人过滤、`on_behalf_of` 与真实身份打通。
+- DoD（并入冒烟）：双身份操作产生按人可分审计流；assignee 过滤看板。
+- 演示路径：切换身份 → 指派 → 审批中心按人过滤。
+
+**M5 审阅点**：冒烟 8 + 各迭代 DoD + 浏览器演示路径。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -316,6 +346,9 @@ agent-project-management/
 | I15 本体版本化语义 diff 与迁移 | 已完成 | 2026-09-02 | 2026-09-02 | 版本快照（apply 双写）、语义 diff + 阻塞影响分析、ontology.updated 事件历史 API、本体页版本时间线与 diff 面板；冒烟 8 扩展全绿 |
 | I16 CQ 可回答性检查 | 已完成 | 2026-09-02 | 2026-09-02 | cq_mappings 声明式映射 + 校验器、/cq-check 三态报告（可回答/缺数据/缺映射）+ 证据摘要、本体页 CQ 卡片；冒烟 8 扩展全绿 |
 | **M4 里程碑审阅（正式）** | 已完成 | 2026-09-02 | 2026-09-02 | 冒烟 8 + 08 §8.3 四项验收锚点全过 + 浏览器实测演示路径（截图 docs/m4-review-ontology-page.png，见附录 B） |
+| I17 LLM 辅助本体归纳 + B级修复 | 进行中 | 2026-09-02 | — | M5 启动（docs/01 §C.3.1 调研转化）：learn-llm 通道 + confidence + 去重合并；CQ events 证据按项目过滤 |
+| I18 本体模板包导出/导入 | 未开始 | — | — | M5 |
+| I19 多人协作基础 | 未开始 | — | — | M5 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -345,6 +378,7 @@ agent-project-management/
 | 2026-09-02 | I15 | 本体版本化落地：新增 `app/apm/domains/ontology_versions.py`——apply 时双写版本快照（`data/ontology_history/<name>/v<N>.yaml`，旧版+新版，data/ 已 gitignore）；`GET /api/ontologies/{name}/diff`（语义 diff：concepts 增删改含字段/状态/角色/工件种类级变更 + relations/phases/asset_kinds 增删；影响分析：被删概念仍被工作项引用=阻塞、被删关系仍有数据行=阻塞，无引用删除/阶段/资产类型残留=警告；to=当前版本永远读活文件，支持对磁盘手工改动先做影响分析；活文件校验错误作 warnings 呈现不阻断分析）；`GET /api/ontologies/{name}/history`（ontology.updated 事件时间线+快照清单）。关键语义决策：**from 侧快照优先、to 侧活文件优先**——否则手改后 from==to 同源导致 diff 为空（开发中踩过）。本体页新增版本时间线（逐事件"对比"按钮）与 diff 渲染（增删改 chip+阻塞红卡+警告灰条）。测试 58 项绿（新增 3）；冒烟 8 扩展至二次 apply→v3→history→diff→手改阻塞分析，11 条全绿。下一步入口：I16 CQ 可回答性检查。 |
 | 2026-09-02 | I16 | CQ 可回答性落地：新增 `app/apm/domains/ontology_cq.py`——ontology YAML 顶层可选 `cq_mappings`（question 精确匹配 competency_questions + supports 数据面声明，source 枚举 items/relations/approvals/assets/runs/events/artifacts，可带 concepts/relation_types/kinds/event_types 过滤），校验器新增四条规则（question 存在、不重复、supports 非空、events 必带 event_types）；`GET /api/ontologies/{name}/cq-check` 三态报告——answerable（任一支撑面有数据）/no_data（映射了但全空）/unmapped（未声明），证据摘要含计数+分布+样例；内置本体 software-dev 四条 CQ 全映射、generic 留一缺数据一缺映射；本体页 CQ 卡片升级为逐条状态徽标+证据行。测试 61 项绿（新增 3）；冒烟 8 扩展 CQ 全链（software-dev 四条可回答 + generic 三态）。 |
 | 2026-09-02 | M4 审阅 | **M4 里程碑正式审阅通过**：① 冒烟基线 11 条全绿（pytest 61 项绿）；② 08 §8.3 四项验收锚点逐项核对（见附录 B）；③ 浏览器实测演示路径：起 uvicorn（临时数据目录、回放模式）+ seed.py + pnpm dev → 本体页「扫描项目数据」→ 候选（L1 任务×priority，support 12 + provenance 样本）→ 勾选应用 → v2 + 时间线 + 「对比」语义 diff（~任务 field-added:priority）→ CQ 卡片「可回答 4 · 缺数据 0 · 缺映射 0」逐条证据；截图 docs/m4-review-ontology-page.png。审阅意见 2 条 B 级（见附录 B），无 A 级。M4（semantica 本体构建模式融合）至此闭环。 |
+| 2026-09-02 | M5 启动 | 按持续迭代协议开启新一轮调研：semantica v0.6.7 Semantic Extraction（方法降级链 llm→ml→pattern、置信度 0.65–0.85、实体级 provenance、先共指消解后抽关系），结论入 docs/01 §C.3.1——本项目 L1–L4 规则即链中 pattern 层，LLM 通道为链顶层、汇入同一人审 apply。新增 M5 = I17 LLM 辅助归纳（+清偿 M4 审阅 B 级：CQ events 证据按项目过滤）/ I18 本体模板包 / I19 多人协作基础。范围变更：计划外新增里程碑，理由 = 目标第 5 条（调研吸收优点持续推进），估时 +11 人日。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

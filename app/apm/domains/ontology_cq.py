@@ -76,9 +76,18 @@ def _evidence(support: dict, pids: list[str], conn) -> dict:
         summary = dist(Counter(r["agent_role"] or "?" for r in rows), "运行")
     elif source == "events":
         declared = support.get("event_types") or []
-        per = {t: conn.execute(
-            "SELECT COUNT(*) AS n FROM events WHERE event_type = ?", (t,)).fetchone()["n"]
-            for t in declared}
+        ph = ",".join("?" for _ in pids) or "''"
+        per = {}
+        for t in declared:
+            # 本体项目的作用域事件 + 全局事件（project_id 为空，如资产门审批）；
+            # 其他项目的事件不计入（M4 审阅 B 级修复）。
+            n = conn.execute(
+                f"SELECT COUNT(*) AS n FROM events WHERE event_type = ?"
+                f" AND (project_id IN ({ph}) OR project_id = '')",
+                (t, *pids)).fetchone()["n"] if pids else conn.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE event_type = ? AND project_id = ''",
+                (t,)).fetchone()["n"]
+            per[t] = n
         count = sum(per.values())
         summary = " · ".join(f"{t}×{n}" for t, n in per.items())
     elif source == "artifacts":

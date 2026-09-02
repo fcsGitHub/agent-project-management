@@ -33,6 +33,8 @@ FIELD_DEFS = {
                  "values": ["P0", "P1", "P2", "P3"]},
     "estimate_hours": {"id": "estimate_hours", "name": "预估工时", "type": "number"},
 }
+# semantica 抽取链纪律（docs/01 §C.3.1）：低于阈值的 LLM 建议不展示。
+LLM_CONFIDENCE_FLOOR = 0.65
 
 
 def _ontology_path(name: str):
@@ -188,8 +190,166 @@ def _learn(name: str) -> dict:
     }
 
 
-def _apply(name: str, body: dict) -> dict:
+def _llm_candidates(name: str, onto) -> tuple[list[dict], dict]:
+    """LLM 层（docs/08 §8.4）：Provider Adapter 调 ontology-curator，返回候选与统计。
+
+    失败降级（semantica fallback 链精神）：解析/provider 出错时返回空候选 + error，
+    pattern 层（确定性规则）结果不受影响。
+    """
+    conn = db.get_conn()
+    pids = _projects_using(name, conn)
+    items_count: Counter = Counter()
+    if pids:
+        ph = ",".join("?" for _ in pids)
+        for r in conn.execute(
+                f"SELECT concept_id, COUNT(*) AS n FROM items WHERE project_id IN ({ph})"
+                " GROUP BY concept_id", pids).fetchall():
+            items_count[r["concept_id"] or "?"] = r["n"]
+
+    artifact_kinds_without_deposit = []
+    for c in onto.concepts.values():
+        for ak in c.artifact_kinds:
+            ak_id = ak["id"] if isinstance(ak, dict) else ak
+            if not (isinstance(ak, dict) and ak.get("deposits_to")):
+                artifact_kinds_without_deposit.append({"id": ak_id, "concept": c.id})
+
+    context = {
+        "ontology": {"name": name, "version": onto.version,
+                     "concepts": [c.id for c in onto.concepts.values()]},
+        "concept_usage": dict(items_count),
+        "artifact_kinds_without_deposit": artifact_kinds_without_deposit,
+        "asset_kinds": [k["id"] for k in onto.asset_kinds],
+        "relations": onto.relation_ids(),
+    }
+    from apm.runtime.provider import get_provider
+
+    system_prompt = (config.settings.agents_dir / "prompts/roles/ontology-curator.md")
+    try:
+        sys_text = system_prompt.read_text(encoding="utf-8")
+    except OSError:
+        sys_text = "你是本体策展 Agent，输出 JSON 候选。"
+    completion = get_provider().complete(
+        role="ontology-curator",
+        node="curate",
+        messages=[{"role": "system", "content": sys_text},
+                  {"role": "user", "content": json.dumps(context, ensure_ascii=False)}],
+        context=context,
+    )
+    stats = {"provider_mode": get_provider().mode, "fixture_key": completion.fixture_key,
+             "raw": 0, "accepted": 0, "dropped_low_confidence": 0, "error": None}
+    try:
+        payload = json.loads(completion.text)
+        raw = payload.get("candidates", []) if isinstance(payload, dict) else []
+    except (json.JSONDecodeError, AttributeError):
+        stats["error"] = "llm output is not valid JSON"
+        return [], stats
+
+    op_to_kind = {"add_field": "add_field", "add_relation": "add_relation",
+                  "wire_deposit": "wire_deposit", "add_role": "add_role"}
+    out: list[dict] = []
+    for c in raw if isinstance(raw, list) else []:
+        stats["raw"] += 1
+        confidence = float(c.get("confidence") or 0)
+        if confidence < LLM_CONFIDENCE_FLOOR:
+            stats["dropped_low_confidence"] += 1
+            continue
+        op = c.get("op")
+        if op not in op_to_kind:
+            continue
+        cand = _llm_candidate_shape(op, c, onto)
+        if cand is None:
+            continue
+        cand["provenance"]["confidence"] = round(confidence, 2)
+        cand["provenance"]["rationale"] = str(c.get("rationale", ""))[:300]
+        cand["provenance"]["channels"] = ["llm"]
+        cand["provenance"]["rule"] = "LLM-curate"
+        out.append(cand)
+        stats["accepted"] += 1
+    return out, stats
+
+
+def _llm_candidate_shape(op: str, c: dict, onto) -> dict | None:
+    """Normalize one LLM suggestion into the shared candidate shape (id 工整可 apply)。"""
+    concept = c.get("concept")
+    try:
+        if op == "add_field":
+            fid = c.get("field_id") or c.get("field")
+            if not isinstance(fid, str) or fid not in FIELD_DEFS:
+                return None
+            cid = c.get("concept")
+            if cid not in onto.concepts:
+                return None
+            return {"id": f"add-field:{cid}:{FIELD_DEFS[fid]['id']}", "kind": "add_field",
+                    "summary": f"[LLM] 概念「{onto.concepts[cid].name}」建议补字段 {FIELD_DEFS[fid]['id']}",
+                    "patch": {"op": "add_field", "concept": cid, "field": dict(FIELD_DEFS[fid])},
+                    "provenance": {}}
+        if op == "add_relation":
+            rel = c.get("relation") or {}
+            rid, dom, rng = rel.get("id"), rel.get("domain"), rel.get("range")
+            if not rid or dom not in onto.concepts or rng not in onto.concepts:
+                return None
+            return {"id": f"register-relation:{rid}", "kind": "add_relation",
+                    "summary": f"[LLM] 建议注册关系「{rid}」（{dom} → {rng}）",
+                    "patch": {"op": "add_relation",
+                              "relation": {"id": rid, "name": rel.get("name", rid),
+                                           "domain": dom, "range": rng}},
+                    "provenance": {}}
+        if op == "wire_deposit":
+            cid, ak, dep = c.get("concept"), c.get("artifact_kind"), c.get("deposits_to")
+            declared = {a["id"] if isinstance(a, dict) else a
+                        for cc in onto.concepts.values() for a in cc.artifact_kinds}
+            asset_ids = {k["id"] for k in onto.asset_kinds}
+            if cid not in onto.concepts or ak not in declared or dep not in asset_ids:
+                return None
+            return {"id": f"wire-deposit:{cid}:{ak}:{dep}", "kind": "wire_deposit",
+                    "summary": f"[LLM] 已声明工件 {ak} 建议沉淀到资产类型 {dep}",
+                    "patch": {"op": "wire_deposit", "concept": cid,
+                              "artifact_kind": ak, "deposits_to": dep},
+                    "provenance": {}}
+        if op == "add_role":
+            cid, role = c.get("concept"), c.get("role")
+            if cid not in onto.concepts or not role:
+                return None
+            return {"id": f"add-role:{cid}:{role}", "kind": "add_role",
+                    "summary": f"[LLM] 概念「{onto.concepts[cid].name}」建议绑定角色 {role}",
+                    "patch": {"op": "add_role", "concept": cid, "role": role},
+                    "provenance": {}}
+    except (KeyError, AttributeError):
+        return None
+    return None
+
+
+def _scan(name: str, with_llm: bool) -> dict:
+    """learn 结果 = pattern 层；with_llm 时叠加 LLM 层候选并去重合并（08 §8.4）。"""
     scan = _learn(name)
+    if not with_llm:
+        return scan
+    try:
+        onto = load_ontology(name)
+        llm_cands, stats = _llm_candidates(name, onto)
+    except Exception as e:  # provider/装配失败不阻断 pattern 层
+        scan["llm"] = {"provider_mode": "unavailable", "error": str(e)[:200],
+                       "raw": 0, "accepted": 0, "merged": 0, "dropped_low_confidence": 0}
+        return scan
+    by_id = {c["id"]: c for c in scan["candidates"]}
+    merged = 0
+    for cand in llm_cands:
+        existing = by_id.get(cand["id"])
+        if existing:
+            channels = set(existing["provenance"].get("channels") or ["pattern"])
+            channels.update(cand["provenance"]["channels"])
+            existing["provenance"]["channels"] = sorted(channels)
+            existing["provenance"]["llm_rationale"] = cand["provenance"]["rationale"]
+            merged += 1
+        else:
+            scan["candidates"].append(cand)
+    stats["merged"] = merged
+    scan["llm"] = stats
+    return scan
+
+
+def _apply(name: str, body: dict) -> dict:
+    scan = _scan(name, with_llm=True)  # LLM 候选与规则候选共用同一 apply 链路
     by_id = {c["id"]: c for c in scan["candidates"]}
     chosen_ids = body.get("candidate_ids") or []
     unknown = [cid for cid in chosen_ids if cid not in by_id]
@@ -262,6 +422,12 @@ def _apply(name: str, body: dict) -> dict:
 @router.post("/ontologies/{name}/learn")
 def learn(name: str) -> dict:
     return _learn(name)
+
+
+@router.post("/ontologies/{name}/learn-llm")
+def learn_llm(name: str) -> dict:
+    """LLM 层归纳（docs/08 §8.4）：pattern 候选 + LLM 候选去重合并。"""
+    return _scan(name, with_llm=True)
 
 
 @router.post("/ontologies/{name}/apply")

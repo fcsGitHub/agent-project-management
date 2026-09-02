@@ -156,6 +156,19 @@ learn（扫描投影数据 → 候选+provenance+observations）
 
 **验收锚点（M4-I14）**：① 造出 4 类信号数据后 learn 全部命中且 provenance 可溯；② apply 后本体校验通过、version 递增、事件流含 `ontology.updated`（含 diff）；③ L2 场景下 apply 后同型关系可通过建卡 API 校验（本体补齐解锁数据）；④ 重复 learn 不再产生已应用候选（幂等）。
 
+### 8.4 LLM 辅助归纳（v0.6，M5-I17：semantica extractor 方法链融合）
+
+semantica v0.6.7 的抽取方法是**降级链**（`llm → ml → pattern`，上层空则走下层；LLM 对"隐式实体与自定义标签 schema"召回率最高，pattern 层零依赖兜底）。本项目的确定性学习规则（§8.2 L1–L4）恰好是链中的 **pattern 层**。M5 把链补全到 LLM 层：
+
+| semantica 构件 | 本项目落法（I17） | 裁剪 |
+| --- | --- | --- |
+| `llm` 抽取方法（高召回） | `POST /api/ontologies/{name}/learn-llm`：组装提示词（本体现状 + 数据统计 + 工件清单/摘要），经 Provider Adapter 调用 `ontology-curator` 角色 → JSON 候选 | 不引 NER/ML 层；军规 5——回放模式确定性可测，真实模型仅在人工验收 |
+| 置信度阈值 0.65–0.85 | LLM 候选带 `confidence`，低于 0.65 不展示 | — |
+| 实体级 provenance | LLM 候选 provenance 记来源工件 path+commit | — |
+| 候选去重 | 与规则候选（§8.2）同 id 时合并 provenance、只提一条 | 共指消解不做（结构化投影无共指） |
+
+**流程与治理不变**：LLM 候选与规则候选进入同一个 learn/apply 人审通道（kind=`llm_*`），apply 复用同一 patch/校验/版本化/事件链路——**LLM 只建议，人批准，校验器把关**。提示词角色为新增 `agents/roles/ontology-curator.yaml`（提示词 L4 文件化同既有机制）。
+
 ## 7. 与 MVP / 路线图的关系
 
 - **MVP**：内核校验器 + 两套内置本体 + 本体页（只读浏览 + 校验状态）+ YAML 手工定制路径 + **三库 assetKinds/libraries 注册（09）**；

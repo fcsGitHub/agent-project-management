@@ -66,13 +66,17 @@ export type Ontology = {
 export type OntologyCandidate = {
   id: string; kind: string; summary: string;
   patch: Record<string, unknown>;
-  provenance: { rule: string; support: number; sample_item_ids?: string[]; sample_run_ids?: string[]; sample_asset_ids?: string[] };
+  provenance: { rule: string; support: number; channels?: string[]; confidence?: number;
+                llm_rationale?: string;
+                sample_item_ids?: string[]; sample_run_ids?: string[]; sample_asset_ids?: string[] };
 };
 export type OntologyLearnResult = {
   ontology: string; version: number;
   scanned: { projects: number; items: number; relations: number; artifact_links: number };
   candidates: OntologyCandidate[];
   observations: { unused_concepts: string[] };
+  llm?: { provider_mode: string; raw: number; accepted: number; merged: number;
+          dropped_low_confidence: number; error?: string | null };
 };
 export type OntologyVersionEvent = {
   event_id: number; ts: string; actor_id: string;
@@ -222,6 +226,8 @@ export const api = {
   // Ontology learning (M4-I14, docs/08 §8)
   learnOntology: (name: string) =>
     req<OntologyLearnResult>(`/ontologies/${name}/learn`, { method: "POST" }),
+  learnOntologyLlm: (name: string) =>
+    req<OntologyLearnResult>(`/ontologies/${name}/learn-llm`, { method: "POST" }),
   applyOntology: (name: string, candidateIds: string[]) =>
     req<{ name: string; version: number; applied: { id: string; kind: string; summary: string }[] }>(
       `/ontologies/${name}/apply`,
