@@ -87,5 +87,10 @@ def isolated_ontologies(tmp_path, monkeypatch):
     ontology_mod.reload_all()
     roles_mod.reset_roles()
     yield dst
+    # Undo overrides BEFORE reloading: teardown finalizers run reverse to setup,
+    # so monkeypatch would otherwise restore the paths *after* this reload and
+    # leave the cache holding the isolated copy.
+    config.settings.ontology_dir_override = None
+    config.settings.agents_dir_override = None
     ontology_mod.reload_all()
     roles_mod.reset_roles()

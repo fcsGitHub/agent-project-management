@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from apm.core import db
 from apm.core.bus import event_bus
+from apm import config
 
 Handler = Callable[[sqlite3.Connection, "Event"], None]
 
@@ -72,11 +73,13 @@ def emit(
     agg_id: str,
     project_id: str = "",
     actor_type: str = "human",
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
     payload: dict[str, Any] | None = None,
 ) -> Event:
     """Append one event, fold it into projections, then broadcast on the bus."""
     from apm.core import projections
+
+    actor_id = actor_id or config.settings.user_id  # 当前身份（M5-I19）
 
     with db.tx() as conn:
         prev = conn.execute("SELECT id FROM events ORDER BY id DESC LIMIT 1").fetchone()
@@ -110,6 +113,7 @@ def query_events(
     agg_id: str | None = None,
     event_type: str | None = None,
     actor_type: str | None = None,
+    actor_id: str | None = None,
     since_id: int = 0,
     limit: int = 100,
     offset: int = 0,
@@ -130,6 +134,9 @@ def query_events(
     if actor_type:
         where.append("actor_type = ?")
         params.append(actor_type)
+    if actor_id:
+        where.append("actor_id = ?")
+        params.append(actor_id)
     clause = " AND ".join(where)
     conn = db.get_conn()
     total = conn.execute(f"SELECT COUNT(*) c FROM events WHERE {clause}", params).fetchone()["c"]

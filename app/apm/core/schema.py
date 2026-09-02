@@ -98,6 +98,14 @@ CREATE TABLE IF NOT EXISTS prompt_layers (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS items (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -231,6 +239,7 @@ def create_all(conn: sqlite3.Connection) -> None:
 def drop_projections(conn: sqlite3.Connection) -> None:
     """Used by rebuild-projections: wipe caches, replay events through projectors."""
     for table in (
+        "users",
         "ui_commands",
         "asset_links",
         "assets",

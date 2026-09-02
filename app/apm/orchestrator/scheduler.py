@@ -76,7 +76,7 @@ def ready_reason(item: dict) -> str | None:
     return None
 
 
-def start_item(item: dict, actor_type: str = "human", actor_id: str = "u_admin") -> dict:
+def start_item(item: dict, actor_type: str = "human", actor_id: str | None = None) -> dict:
     """Create (or reuse) an executing conversation and launch the assigned agent."""
     from apm.domains.conversations import create_conversation, get_conversation
 
@@ -112,7 +112,7 @@ def start_item(item: dict, actor_type: str = "human", actor_id: str = "u_admin")
             "reused": False}
 
 
-def batch_start(item_ids: list[str], actor_type: str = "human", actor_id: str = "u_admin") -> dict:
+def batch_start(item_ids: list[str], actor_type: str = "human", actor_id: str | None = None) -> dict:
     from apm.domains.items import get_item
 
     started, skipped = [], []

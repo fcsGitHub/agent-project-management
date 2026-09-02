@@ -17,4 +17,5 @@ from apm.domains import (  # noqa: F401
     runs,
     stream,
     system,
+    users,
 )

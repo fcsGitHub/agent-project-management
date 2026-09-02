@@ -174,7 +174,7 @@ def create_conversation(
     instruction: str | None = None,
     item_id: str | None = None,
     actor_type: str = "human",
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
 ) -> dict:
     if kind not in CONVERSATION_KINDS:
         raise HTTPException(status_code=422, detail=f"kind must be one of {CONVERSATION_KINDS}")
@@ -230,7 +230,7 @@ def add_message(
     content: str,
     role: str = "user",
     actor_type: str = "human",
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
     span_id: str | None = None,
     injected: bool = False,
     parent_id: str | None = None,

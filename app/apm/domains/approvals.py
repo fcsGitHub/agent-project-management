@@ -326,6 +326,7 @@ def list_approvals(
     status: str | None = None,
     project_id: str | None = None,
     kind: str | None = None,
+    decided_by: str | None = None,
     limit: int = 100,
 ) -> dict:
     where, params = ["1=1"], []
@@ -338,6 +339,9 @@ def list_approvals(
     if kind:
         where.append("kind = ?")
         params.append(kind)
+    if decided_by:  # M5-I19: 审批按决策人过滤
+        where.append("reviewer_id = ?")
+        params.append(decided_by)
     rows = db.get_conn().execute(
         f"SELECT * FROM approvals WHERE {' AND '.join(where)} ORDER BY requested_at DESC LIMIT ?",
         params + [limit],

@@ -42,7 +42,9 @@ def test_prev_event_chain(tmp_data):
 
 def test_events_api_filters_and_pagination(client, tmp_data):
     _emit_n(7)
-    r = client.get("/api/events?limit=3")
+    # Scope to the test aggregate: boot may append its own bootstrap events
+    # (e.g. the default user), so unfiltered totals are not absolute.
+    r = client.get("/api/events", params={"agg_type": "test", "limit": 3})
     assert r.status_code == 200
     body = r.json()
     assert body["total"] == 7
@@ -101,10 +103,13 @@ def test_replay_consistency_with_random_event_stream(tmp_data):
 
 
 def test_rebuild_endpoint(client, tmp_data):
+    from apm.core import db as _db
+
     _emit_n(4)
+    total = _db.get_conn().execute("SELECT COUNT(*) c FROM events").fetchone()["c"]
     r = client.post("/api/system/rebuild-projections")
     assert r.status_code == 200
-    assert r.json()["events_replayed"] == 4
+    assert r.json()["events_replayed"] == total  # 含 boot 自举事件（默认用户注册）
 
 
 def test_sse_stream_receives_events(tmp_data):

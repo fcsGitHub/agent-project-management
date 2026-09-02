@@ -150,7 +150,7 @@ def record_human_action(
     name: str,
     io: dict[str, Any] | None = None,
     conversation_id: str | None = None,
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
 ) -> str:
     """Human actions get trajectory spans too (docs/04 §4)."""
     sid = new_id("sp")

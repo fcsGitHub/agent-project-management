@@ -242,6 +242,16 @@ export const api = {
     return req<OntologyDiff>(`/ontologies/${name}/diff?${q.toString()}`);
   },
   cqCheck: (name: string) => req<CqCheck>(`/ontologies/${name}/cq-check`),
+
+  // Users / identity (M5-I19)
+  listUsers: () =>
+    req<{ users: { id: string; name: string; email?: string | null }[]; current: string; current_name: string }>("/users"),
+  registerUser: (name: string) =>
+    req<{ id: string; name: string }>("/users", { method: "POST", body: JSON.stringify({ name }) }),
+  switchIdentity: (userId: string) =>
+    req<{ current: string; name: string; previous: string }>(
+      "/session/identity", { method: "POST", body: JSON.stringify({ user_id: userId }) },
+    ),
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
   importOntology: (pack: Record<string, unknown>, asName: string) =>

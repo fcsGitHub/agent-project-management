@@ -10,6 +10,7 @@ import { api } from "../lib/api";
 import { connectStream } from "../lib/sse";
 import { Badge, Button, Modal, Input, Textarea, cx } from "./ui";
 import { CommandBar } from "./CommandBar";
+import { toast } from "sonner";
 
 const RAIL = [
   { to: "", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -143,6 +144,7 @@ export function AppShell() {
               </span>
             )}
           </Link>
+          <IdentitySwitcher />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />
@@ -196,5 +198,80 @@ function NewFeatureModal({ open, onClose, pid, onCreated }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Identity switcher (M5-I19): 单机多身份——切换后所有操作归到该身份的审计流。 */
+function IdentitySwitcher() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+
+  const switchTo = async (uid: string) => {
+    try {
+      const r = await api.switchIdentity(uid);
+      toast.success(`已切换身份：${r.name}（${r.current}）`);
+      setOpen(false);
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`切换失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const register = async () => {
+    if (!newName.trim()) return;
+    try {
+      const u = await api.registerUser(newName.trim());
+      setNewName("");
+      await qc.invalidateQueries({ queryKey: ["users"] });
+      await switchTo(u.id);
+    } catch (e) {
+      toast.error(`注册失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut hover:border-acc hover:text-acc"
+        title="切换身份（单机多身份）"
+      >
+        👤 {users.data?.current_name ?? "…"}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-40 w-60 rounded-xl border border-line bg-surface p-2 shadow-lg">
+          <div className="space-y-0.5">
+            {users.data?.users.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => switchTo(u.id)}
+                className={cx(
+                  "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-bg",
+                  u.id === users.data?.current && "text-acc",
+                )}
+              >
+                <span>{u.id === users.data?.current ? "●" : "○"}</span>
+                <span className="font-medium">{u.name}</span>
+                <span className="ml-auto font-mono text-[10px] text-mut">{u.id}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-2">
+            <input
+              className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 py-1 text-xs"
+              placeholder="新身份姓名"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && register()}
+            />
+            <Button size="sm" variant="outline" onClick={register} disabled={!newName.trim()}>
+              注册
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

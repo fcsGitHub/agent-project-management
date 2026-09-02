@@ -73,7 +73,7 @@ def create_feature(
     title: str,
     brief: str | None = None,
     actor_type: str = "human",
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
     sort_order: int = 0,
 ) -> dict:
     fid = new_id("f")

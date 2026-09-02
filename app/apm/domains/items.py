@@ -118,7 +118,7 @@ def create_item(
     assignee_id: str | None = None,
     estimate_hours: float | None = None,
     actor_type: str = "human",
-    actor_id: str = "u_admin",
+    actor_id: str | None = None,
 ) -> dict:
     onto = project_ontology(project_id)
     try:
@@ -204,7 +204,7 @@ def list_items(
     rows = db.get_conn().execute(
         f"SELECT * FROM items WHERE {' AND '.join(where)} ORDER BY created_at", params
     ).fetchall()
-    return [dict(r) for r in rows]
+    return [_with_assignee_name(dict(r)) for r in rows]
 
 
 BUCKET_NAMES = {
@@ -261,6 +261,25 @@ class ItemIn(BaseModel):
     estimate_hours: float | None = None
 
 
+def _ensure_human_assignee(assignee_type: str | None, assignee_id: str | None) -> None:
+    """Human assignees must be registered identities (M5-I19). Role assignees are free."""
+    if assignee_type == "human" and assignee_id:
+        row = db.get_conn().execute(
+            "SELECT 1 FROM users WHERE id = ?", (assignee_id,)).fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=422,
+                detail=f"unknown user '{assignee_id}' (register via POST /api/users)")
+
+
+def _with_assignee_name(item: dict) -> dict:
+    if item.get("assignee_type") == "human" and item.get("assignee_id"):
+        row = db.get_conn().execute(
+            "SELECT name FROM users WHERE id = ?", (item["assignee_id"],)).fetchone()
+        item["assignee_name"] = row["name"] if row else item["assignee_id"]
+    return item
+
+
 class ItemPatch(BaseModel):
     title: str | None = None
     priority: str | None = None
@@ -278,6 +297,7 @@ class RelationIn(BaseModel):
 
 @router.post("/projects/{project_id}/items")
 def post_item(project_id: str, body: ItemIn) -> dict:
+    _ensure_human_assignee(body.assignee_type, body.assignee_id)
     return create_item(
         project_id=project_id,
         concept_id=body.concept_id,
@@ -321,7 +341,7 @@ def get_item_detail(item_id: str) -> dict:
         (item_id, item_id),
     ).fetchall()
     item["relations"] = [dict(r) for r in rels]
-    return item
+    return _with_assignee_name(item)
 
 
 @router.patch("/items/{item_id}")
@@ -332,6 +352,9 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
         new_status = changes.pop("status")
         item = change_status(item, new_status)
     if "assignee_type" in changes or "assignee_id" in changes:
+        _ensure_human_assignee(
+            changes.get("assignee_type", item["assignee_type"]),
+            changes.get("assignee_id", item["assignee_id"]))
         events.emit(
             event_type="item.assigned",
             agg_type="item",
