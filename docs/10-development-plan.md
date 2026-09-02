@@ -251,6 +251,35 @@ agent-project-management/
 
 **M5 审阅点**：冒烟 8 + 各迭代 DoD + 浏览器演示路径。
 
+### M6 · 类型系统深化（吸收 OpenProject/Plane，I20-I22，约 9 人日）
+
+> v0.7 新增（2026-09-02）。调研结论见 docs/01 §D：OpenProject 自定义字段（八格式+双层激活+可过滤标记）、Plane 工作项类型（六属性+按属性分组看板）、LangGraph 1.0.9→1.2.11 升级评估（同大版本，可升）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I20 | 自定义字段值落地（items.custom_fields JSON + boolean/multiselect 新字段类型 + 按本体校验 + 过滤） | 01 §D.4①② | — | 3d |
+| I21 | 看板按自定义字段分组 + 卡片字段展示（boardDefaults 支持字段维度） | 01 §D.4③ | — | 3d |
+| I22 | LangGraph 1.2.11 升级验证（升级→全量回归→打断-恢复演示；红则回退 pin 1.0.9 记录） | 01 §D.3 | langgraph | 3d |
+
+#### I20 · 自定义字段值（3d）
+
+- 任务：本体字段类型扩展 **boolean / multiselect**（校验器：multiselect 必带 values、值必须 ∈ values）；`items.custom_fields` JSON 列（schema + 存量库 ALTER 迁移）；item.created/updated 透传；API 层按概念字段校验（未声明字段 422、类型不匹配 422）；`GET /items` 增 `cf=<field>:<value>` 过滤；内置 software-dev 演示字段（bug.regression:boolean、task.tags:multiselect）。
+- DoD（并入冒烟 9）：三类新类型读写正确；未声明/类型错/越界值 fail-closed；multiselect 多值存储；rebuild 后投影一致。
+- 演示路径：API 建带 custom_fields 的工作项 → cf 过滤命中。
+
+#### I21 · 看板字段分组与展示（3d）
+
+- 任务：看板 API/前端支持按自定义字段分组（boardDefaults.group-by: field:<id>）；卡片渲染自定义字段徽标；功能页工作项表展示列。
+- DoD（并入冒烟 9）：分组 API 返回正确桶；前端看板按字段分组可见（浏览器验证）。
+- 演示路径：看板切"按 tags 分组"。
+
+#### I22 · LangGraph 升级验证（3d）
+
+- 任务：requirements 升 langgraph==1.2.11 → 全量 pytest/冒烟 → 浏览器打断-注入-恢复演示；失败则回退 1.0.9 并在附录 A 记录原因。
+- DoD：全绿 + 演示通过，或回退有记录。
+
+**M6 审阅点**：冒烟 9 + I20/I21 DoD + 浏览器字段分组演示。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -350,6 +379,9 @@ agent-project-management/
 | I18 本体模板包导出/导入 | 已完成 | 2026-09-02 | 2026-09-02 | export 单 JSON 包（本体+角色+提示词）、import 改名防冲突+校验+角色复用/创建+ontology.imported 事件；冒烟 8 扩展全绿 |
 | I19 多人协作基础 | 已完成 | 2026-09-02 | 2026-09-02 | users 表（user.* 事件投影+自举）、身份切换（session.identity_switched 事件）、emit 身份透传、human 指派校验+assignee_name、events actor_id/approvals decided_by 过滤、顶栏切换菜单；冒烟 9 全绿 |
 | **M5 里程碑审阅（正式）** | 已完成 | 2026-09-02 | 2026-09-02 | 冒烟 12 条 + 各迭代 DoD + 浏览器演示路径（身份切换→指派→按人审计→LLM 建议→模板包导入导出，截图 docs/m5-review-collab-page.png，见附录 B） |
+| I20 自定义字段值落地 | 进行中 | 2026-09-02 | — | M6 启动（docs/01 §D 调研转化）：boolean/multiselect 字段类型 + items.custom_fields + 校验 + 过滤 |
+| I21 看板字段分组与展示 | 未开始 | — | — | M6 |
+| I22 LangGraph 1.2.11 升级验证 | 未开始 | — | — | M6 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -383,6 +415,7 @@ agent-project-management/
 | 2026-09-02 | I17 | LLM 层归纳落地：新角色 `ontology-curator`（YAML + 提示词 L4 `agents/prompts/roles/ontology-curator.md`，输出契约 = 纯 JSON 候选）；`POST /api/ontologies/{name}/learn-llm`——组装上下文（概念清单/使用统计/无沉淀工件种类/资产类型/关系）→ Provider Adapter（回放模板 `ontology-curator/curate` 按"命名覆盖"启发确定性产出，openai 模式即真实抽取）→ JSON 归一化为既有 4 类 patch 候选 → confidence<0.65 丢弃 → 与 pattern 候选按 id 合并（provenance.channels = pattern/llm 双通道标注 + llm_rationale）；JSON 损坏/提供方异常 → 优雅降级仅报 error，pattern 层不受影响（fallback 链精神）；apply 改用合并扫描，LLM 候选经同一校验/版本+1/事件链路。回放模板曾误放在 `_TEMPLATES` 字典之后导致 NameError（已修——模板函数必须在注册表之前定义，记入 HANDOFF 坑）。B 级修复：cq-check events 证据 = 本体项目事件 + 全局（project_id=''）事件，其他项目不计。测试 65 项绿（新增 4：唯一候选 apply/合并去重/低置信丢弃与降级/CQ 事件过滤）；冒烟 8 扩展 learn-llm→apply v4→幂等，11 条全绿；pnpm build/vitest 通过。下一步入口：I18 本体模板包导出/导入。 |
 | 2026-09-02 | I18 | 本体模板包落地：新增 `app/apm/domains/ontology_pack.py`——`GET /api/ontologies/{name}/export`（单 JSON 包：ontology + 概念引用的角色 YAML + 角色提示词 L4，缺角色记 missing_roles）；`POST /api/ontologies/import`（as_name 改名防冲突 409、validate_ontology_dict 把关 422、角色文件「存在即复用、缺失才创建」绝不覆盖、`ontology.imported` 事件落审计、热重载本体与角色注册表）。Settings.agents_dir_override + conftest 隔离 agents/ 树——导入写角色文件从此不可能污染源仓。本体页头部加「⬇ 导出模板包」（blob 下载）与「⬆ 导入」面板（粘贴包 JSON+新名字）。测试 70 项绿（新增 5：包结构/导出容错/改名导入+建项目+事件/冲突与坏包 422/新角色创建+注册表生效）；冒烟 8 扩展导出→改名导入→新建项目→冲突 409，11 条全绿；pnpm build/vitest 通过。下一步入口：I19 多人协作基础。 |
 | 2026-09-02 | I19 | 多人协作基础落地：新增 `app/apm/domains/users.py`——users 表（schema + drop_projections 同步）与 `user.registered/updated` 投影（事件溯源一致，rebuild 可重建）；启动自举默认用户（users 空才发 `user.registered`，幂等）；`GET /api/users` / `POST /api/users`（id 派生：ASCII slug，中文姓名退化为 u+短随机；非法字符 422）/ `POST /api/session/identity`（切换落 `session.identity_switched` 事件，from/to 可审计）。**emit 身份透传**：core/events.emit 的 actor_id 默认改为运行时读 `settings.user_id`，并全仓清扫域函数层硬编码（events/items/features/conversations/scheduler/spans 五处）——切换身份后一切操作归属新身份审计流。items human 指派必须为注册用户（fail-closed 422）、role 指派自由；items 投影附 assignee_name。`GET /api/events` 增 actor_id、`GET /api/approvals` 增 decided_by。前端顶栏身份切换菜单。测试 75 项绿（新增 4 + 内核测试修正：聚合过滤代替绝对总数、rebuild 计数动态化——boot 自举事件会进流）；冒烟基线增至 **12 条**全绿（新增冒烟 9：双身份按人可分审计流+指派校验+过滤）。**踩坑**：夹具 teardown 顺序——monkeypatch 还原在夹具后置代码之后执行，isolated_ontologies 必须先显式清 override 再 reload，否则隔离副本残留本体缓存引发"unknown concept"跨用例污染（套跑才暴露）。下一步入口：M5 审阅。 |
+| 2026-09-02 | M5 审阅 + M6 启动 | **M5 里程碑正式审阅通过**（附录 B：各迭代 DoD 全对 + 浏览器演示注册「QA 王」→ LLM 建议 → 应用 v2，截图 docs/m5-review-collab-page.png；本次演示同时隔离 data+ontologies，M4 教训落实）。随即开启新一轮调研（目标第 5 条）：OpenProject 自定义字段（八格式+双层激活+可过滤标记）、Plane 工作项类型（六属性+按属性分组）、LangGraph 1.0.9→1.2.11 评估（同大版本可升），结论入 docs/01 §D。新增 M6 = I20 自定义字段值 / I21 看板字段分组 / I22 LangGraph 升级验证。范围变更：计划外新增里程碑，理由 = 目标第 5 条（调研吸收优点持续推进），估时 +9 人日。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
