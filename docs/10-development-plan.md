@@ -391,6 +391,7 @@ agent-project-management/
 | 2026-09-02 | M4 正式审阅 | 08 §8.3 验收锚点逐项核对：① 四类信号（L1 priority×12 / L2 遗留关系 / L3 沉淀链接 / L4 角色覆盖）learn 全命中且 provenance 可溯 ✓；② apply 后校验通过、version 递增、事件流含 ontology.updated（含 diff 摘要）✓；③ L2 场景 apply 后同型关系通过建卡 API 校验 ✓；④ 重复 learn 幂等（已应用候选不再出现）✓。浏览器演示路径实测通过（截图 docs/m4-review-ontology-page.png）。 | — | 里程碑通过 |
 | 2026-09-02 | M4 正式审阅 | CQ 证据行的 events 源是全局计数（不按项目过滤），多项目同本体时口径偏大 | B | 排入后续迭代任务清单（可在 evidence 的 events 源加 project_id 过滤；不影响单项目正确性） |
 | 2026-09-02 | M4 正式审阅 | 本体学习/版本面板未做权限分层（单用户 MVP 无影响，多租户时 apply 应挂审批） | B | 入附录 C backlog（对齐 07 §5 V2 治理） |
+| 2026-09-02 | M5 正式审阅 | 各迭代 DoD 核对：I17 回放候选确定性+confidence≥0.65+与 pattern 合并不重复+apply 同链路 ✓，CQ events 按项目过滤 ✓；I18 导出→改名导入→新本体建项目（7 阶段图继承）✓，同名 409/坏包 422 ✓，角色复用不覆盖 ✓；I19 双身份按人可分审计流 ✓，human 指派未知用户 fail-closed ✓，assignee 过滤看板切片 ✓，审批 decided_by 过滤 ✓。浏览器演示（本次**同时隔离** data 与 ontologies 目录——M4 教训落实）：注册「QA 王」→ 自动切换（顶栏 👤 QA 王）→ 本体页「✨ LLM 建议」→ 2 条 LLM 候选（0.72，通道 llm）→ 勾选应用 → v2 + 时间线；导出/导入入口在位。截图 docs/m5-review-collab-page.png。 | — | 里程碑通过 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
