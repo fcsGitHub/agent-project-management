@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-02 更新 · M5 启动，I17 完成）
+# HANDOFF —— 写给下一个新会话（2026-09-02 更新 · M5 进行中，I17/I18 完成）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -29,18 +29,22 @@
   - JSON 损坏/provider 异常 → 优雅降级（llm.error），pattern 层不受影响（fallback 链精神）；
   - 前端学习面板加「✨ LLM 建议」按钮 + LLM 徽标/confidence/rationale/层统计行；
   - **B 级修复**（M4 审阅遗留）：`cq-check` 的 events 证据按本体项目过滤（保留全局 project_id='' 事件）。
-- **当前验证状态**：pytest **65 项全绿**；冒烟基线 **11 条全绿**（冒烟 8 覆盖 learn/apply/版本化/CQ/LLM 全链）；`pnpm build`/`pnpm vitest` 通过。
+- **I18 本体模板包（本轮完成，commit `4873523`）**：
+  - `GET /api/ontologies/{name}/export`：单 JSON 包（format=`agentpm-ontology-pack`）= ontology.yaml + 概念引用的角色 YAML + 角色提示词模板（L4）；缺角色文件记 `missing_roles` 不阻断。
+  - `POST /api/ontologies/import`：`as_name` 改名防冲突（已存在 **409**）→ `validate_ontology_dict` 把关（422）→ 角色文件「存在即复用、缺失才创建」（**绝不覆盖既有角色/提示词**）→ 落盘 → 热重载本体+角色注册表 → `ontology.imported` 事件落审计流。
+  - Settings 新增 `agents_dir_override`，conftest `isolated_ontologies` 夹具现在**同时隔离 agents/ 树**（导入写角色文件从此不可能污染源仓）。
+  - 前端本体页头部：「⬇ 导出模板包」（blob 下载 `<name>-pack.json`）+「⬆ 导入」面板（粘贴包 JSON + 新名字）。
+- **当前验证状态**：pytest **70 项全绿**；冒烟基线 **11 条全绿**（冒烟 8 覆盖 learn/apply/版本化/CQ/LLM/模板包全链）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
 
-**没有硬阻塞。** 遗留 B 级意见（docs/10 附录 B）：① ~~CQ events 证据未按项目过滤~~ **I17 已修**；② 本体学习/版本面板 apply 无权限分层（单用户 MVP 无影响，V2 治理范畴，见附录 C）。另：本体版本快照存 `data/ontology_history/`（运行时目录），无事件级完整 YAML 归档——"从事件重建任意版本"留作备选。
+**没有硬阻塞。** 遗留 B 级意见（docs/10 附录 B/C）：本体学习/版本面板 apply 无权限分层（单用户 MVP 无影响，V2 治理范畴）。另：本体版本快照存 `data/ontology_history/`（运行时目录），无事件级完整 YAML 归档；模板包导入的本体不含其项目历史数据（只含类型系统与角色——这是设计）。
 
 ## 4. 下一步是什么（按序）
 
-1. **I18 · 本体模板包导出/导入**（docs/10 M5 表，估 3d）：`GET /api/ontologies/{name}/export` 打包 ontology.yaml + 引用角色 YAML + 提示词模板；`POST /api/ontologies/import` 校验后落盘（改名防冲突）；本体页导出/导入入口。DoD：导出→改名导入→新本体可建项目且阶段图/字段正确；非法包 422。
-2. **I19 · 多人协作基础**（估 5d）：users 表（user.* 事件投影）、身份切换、assignee 真实身份、审计/审批按人过滤。
-3. **M5 审阅**：冒烟 + 各迭代 DoD + 浏览器演示路径。
-4. M5 之后：继续按目标第 5 条调研 → 更新计划 → 推进（未完成的调研候选：OpenProject/Plane 类型系统细节——上轮搜索超时，别当成已调研；LangGraph 版本升级评估）。
+1. **I19 · 多人协作基础**（docs/10 M5 表，估 5d）：users 表（`user.*` 事件投影）、登录身份选择（单机多身份切换）、items.assignee 关联真实用户、审计/审批按人过滤、`on_behalf_of` 打通。DoD：双身份操作产生按人可分审计流；assignee 过滤看板。
+2. **M5 审阅**：冒烟 + 各迭代 DoD + 浏览器演示路径（本体页：LLM 建议 → 应用 → 版本对比 → 导出 → 导入）。
+3. M5 之后：继续按目标第 5 条调研 → 更新计划 → 推进（未完成的调研候选：OpenProject/Plane 类型系统细节——搜索超时未完成，别当成已调研；LangGraph 版本升级评估）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -57,7 +61,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 65 项，应全绿
+cd app && python -m pytest            # 70 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 11 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
@@ -66,4 +70,4 @@ cd app && python -m uvicorn apm.main:app --port 8000 --reload
 # 一键起（Docker）：docker compose up -d --build && python tools/seed.py
 ```
 
-关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 本体学习 `app/apm/domains/ontology_learn.py`（含 learn-llm LLM 层）+ 本体版本化 `app/apm/domains/ontology_versions.py` + CQ 检查 `app/apm/domains/ontology_cq.py`；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；编排 `app/apm/orchestrator/`；前端本体页 `web/src/pages/OntologyPage.tsx`。
+关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 本体学习 `app/apm/domains/ontology_learn.py`（含 learn-llm LLM 层）+ 本体版本化 `app/apm/domains/ontology_versions.py` + CQ 检查 `app/apm/domains/ontology_cq.py` + **模板包 `app/apm/domains/ontology_pack.py`**；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；编排 `app/apm/orchestrator/`；前端本体页 `web/src/pages/OntologyPage.tsx`。
