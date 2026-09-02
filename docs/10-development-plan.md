@@ -347,7 +347,7 @@ agent-project-management/
 | I16 CQ 可回答性检查 | 已完成 | 2026-09-02 | 2026-09-02 | cq_mappings 声明式映射 + 校验器、/cq-check 三态报告（可回答/缺数据/缺映射）+ 证据摘要、本体页 CQ 卡片；冒烟 8 扩展全绿 |
 | **M4 里程碑审阅（正式）** | 已完成 | 2026-09-02 | 2026-09-02 | 冒烟 8 + 08 §8.3 四项验收锚点全过 + 浏览器实测演示路径（截图 docs/m4-review-ontology-page.png，见附录 B） |
 | I17 LLM 辅助本体归纳 + B级修复 | 已完成 | 2026-09-02 | 2026-09-02 | learn-llm 通道（回放确定性 + confidence 0.65 阈值 + 去重合并 + 优雅降级）、apply 共链路；CQ events 证据按项目过滤；冒烟 8 扩展全绿 |
-| I18 本体模板包导出/导入 | 未开始 | — | — | M5 |
+| I18 本体模板包导出/导入 | 已完成 | 2026-09-02 | 2026-09-02 | export 单 JSON 包（本体+角色+提示词）、import 改名防冲突+校验+角色复用/创建+ontology.imported 事件；冒烟 8 扩展全绿 |
 | I19 多人协作基础 | 未开始 | — | — | M5 |
 
 ## 8. 开发执行风险（补充 07 §6）
@@ -380,6 +380,7 @@ agent-project-management/
 | 2026-09-02 | M4 审阅 | **M4 里程碑正式审阅通过**：① 冒烟基线 11 条全绿（pytest 61 项绿）；② 08 §8.3 四项验收锚点逐项核对（见附录 B）；③ 浏览器实测演示路径：起 uvicorn（临时数据目录、回放模式）+ seed.py + pnpm dev → 本体页「扫描项目数据」→ 候选（L1 任务×priority，support 12 + provenance 样本）→ 勾选应用 → v2 + 时间线 + 「对比」语义 diff（~任务 field-added:priority）→ CQ 卡片「可回答 4 · 缺数据 0 · 缺映射 0」逐条证据；截图 docs/m4-review-ontology-page.png。审阅意见 2 条 B 级（见附录 B），无 A 级。M4（semantica 本体构建模式融合）至此闭环。 |
 | 2026-09-02 | M5 启动 | 按持续迭代协议开启新一轮调研：semantica v0.6.7 Semantic Extraction（方法降级链 llm→ml→pattern、置信度 0.65–0.85、实体级 provenance、先共指消解后抽关系），结论入 docs/01 §C.3.1——本项目 L1–L4 规则即链中 pattern 层，LLM 通道为链顶层、汇入同一人审 apply。新增 M5 = I17 LLM 辅助归纳（+清偿 M4 审阅 B 级：CQ events 证据按项目过滤）/ I18 本体模板包 / I19 多人协作基础。范围变更：计划外新增里程碑，理由 = 目标第 5 条（调研吸收优点持续推进），估时 +11 人日。 |
 | 2026-09-02 | I17 | LLM 层归纳落地：新角色 `ontology-curator`（YAML + 提示词 L4 `agents/prompts/roles/ontology-curator.md`，输出契约 = 纯 JSON 候选）；`POST /api/ontologies/{name}/learn-llm`——组装上下文（概念清单/使用统计/无沉淀工件种类/资产类型/关系）→ Provider Adapter（回放模板 `ontology-curator/curate` 按"命名覆盖"启发确定性产出，openai 模式即真实抽取）→ JSON 归一化为既有 4 类 patch 候选 → confidence<0.65 丢弃 → 与 pattern 候选按 id 合并（provenance.channels = pattern/llm 双通道标注 + llm_rationale）；JSON 损坏/提供方异常 → 优雅降级仅报 error，pattern 层不受影响（fallback 链精神）；apply 改用合并扫描，LLM 候选经同一校验/版本+1/事件链路。回放模板曾误放在 `_TEMPLATES` 字典之后导致 NameError（已修——模板函数必须在注册表之前定义，记入 HANDOFF 坑）。B 级修复：cq-check events 证据 = 本体项目事件 + 全局（project_id=''）事件，其他项目不计。测试 65 项绿（新增 4：唯一候选 apply/合并去重/低置信丢弃与降级/CQ 事件过滤）；冒烟 8 扩展 learn-llm→apply v4→幂等，11 条全绿；pnpm build/vitest 通过。下一步入口：I18 本体模板包导出/导入。 |
+| 2026-09-02 | I18 | 本体模板包落地：新增 `app/apm/domains/ontology_pack.py`——`GET /api/ontologies/{name}/export`（单 JSON 包：ontology + 概念引用的角色 YAML + 角色提示词 L4，缺角色记 missing_roles）；`POST /api/ontologies/import`（as_name 改名防冲突 409、validate_ontology_dict 把关 422、角色文件「存在即复用、缺失才创建」绝不覆盖、`ontology.imported` 事件落审计、热重载本体与角色注册表）。Settings.agents_dir_override + conftest 隔离 agents/ 树——导入写角色文件从此不可能污染源仓。本体页头部加「⬇ 导出模板包」（blob 下载）与「⬆ 导入」面板（粘贴包 JSON+新名字）。测试 70 项绿（新增 5：包结构/导出容错/改名导入+建项目+事件/冲突与坏包 422/新角色创建+注册表生效）；冒烟 8 扩展导出→改名导入→新建项目→冲突 409，11 条全绿；pnpm build/vitest 通过。下一步入口：I19 多人协作基础。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
