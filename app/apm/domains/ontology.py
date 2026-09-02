@@ -177,6 +177,13 @@ def validate_ontology_dict(d: dict[str, Any]) -> list[str]:
                 errors.append(f"concept '{cid}' state '{s.get('id')}': group must be one of {BUCKETS}")
         if len(c.get("fields", [])) > 10:
             errors.append(f"concept '{cid}': >10 fields")
+        # Field types (docs/01 §D.4): string/enum/number/date/ref + M6 boolean/multiselect.
+        for f in c.get("fields", []):
+            ftype = f.get("type")
+            if ftype not in ("string", "enum", "number", "date", "ref", "boolean", "multiselect"):
+                errors.append(f"concept '{cid}' field '{f.get('id')}': unknown type '{ftype}'")
+            if ftype in ("enum", "multiselect") and not f.get("values"):
+                errors.append(f"concept '{cid}' field '{f.get('id')}': {ftype} requires values")
         known_phases = {p.get("id") for p in d.get("phases", [])}
         if c.get("default_phase") and c["default_phase"] not in known_phases:
             errors.append(f"concept '{cid}': unknown default_phase '{c['default_phase']}'")

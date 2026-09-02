@@ -20,8 +20,8 @@ def _proj_item_created(conn, e):
     p = e.payload
     conn.execute(
         "INSERT INTO items (id, project_id, feature_id, parent_id, concept_id, title, status,"
-        " status_group, priority, assignee_type, assignee_id, estimate_hours, created_at,"
-        " updated_at, version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+        " status_group, priority, assignee_type, assignee_id, estimate_hours, custom_fields, created_at,"
+        " updated_at, version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
         (
             e.agg_id,
             e.project_id,
@@ -35,6 +35,7 @@ def _proj_item_created(conn, e):
             p.get("assignee_type"),
             p.get("assignee_id"),
             p.get("estimate_hours"),
+            json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
             e.ts,
             e.ts,
         ),
@@ -49,8 +50,13 @@ def _proj_item_updated(conn, e):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
+    if "custom_fields" in p:
+        sets.append("custom_fields = ?")
+        params.append(
+            json.dumps(p["custom_fields"], ensure_ascii=False) if p["custom_fields"] else None)
     if sets:
-        sets.append("updated_at = ?", "version = version + 1")
+        sets.append("updated_at = ?")
+        sets.append("version = version + 1")
         params.extend([e.ts, e.agg_id])
         conn.execute(f"UPDATE items SET {', '.join(sets)} WHERE id = ?", params)
 
@@ -69,9 +75,12 @@ def _proj_item_status(conn, e):
 def _proj_item_assigned(conn, e):
     p = e.payload
     conn.execute(
-        "UPDATE items SET assignee_type = ?, assignee_id = ?, updated_at = ?, version = version + 1"
+        "UPDATE items SET assignee_type = ?, assignee_id = ?,"
+        " custom_fields = COALESCE(?, custom_fields), updated_at = ?, version = version + 1"
         " WHERE id = ?",
-        (p.get("assignee_type"), p.get("assignee_id"), e.ts, e.agg_id),
+        (p.get("assignee_type"), p.get("assignee_id"),
+         json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
+         e.ts, e.agg_id),
     )
 
 
@@ -88,7 +97,7 @@ def _proj_item_related(conn, e):
 # ---------------------------------------------------------------- helpers
 def get_item(item_id: str) -> dict | None:
     row = db.get_conn().execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return dict(row) if row else None
+    return _parse_cf(dict(row)) if row else None
 
 
 def require_item(item_id: str) -> dict:
@@ -117,10 +126,12 @@ def create_item(
     assignee_type: str | None = None,
     assignee_id: str | None = None,
     estimate_hours: float | None = None,
+    custom_fields: dict | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
 ) -> dict:
     onto = project_ontology(project_id)
+    _validate_custom_fields(onto, concept_id, custom_fields)
     try:
         concept = onto.concept(concept_id)
         status = status or concept.initial_status()
@@ -143,6 +154,7 @@ def create_item(
             "status": status,
             "status_group": group,
             "priority": priority,
+            "custom_fields": custom_fields,
             "assignee_type": assignee_type,
             "assignee_id": assignee_id,
             "estimate_hours": estimate_hours,
@@ -204,7 +216,7 @@ def list_items(
     rows = db.get_conn().execute(
         f"SELECT * FROM items WHERE {' AND '.join(where)} ORDER BY created_at", params
     ).fetchall()
-    return [_with_assignee_name(dict(r)) for r in rows]
+    return [_parse_cf(_with_assignee_name(dict(r))) for r in rows]
 
 
 BUCKET_NAMES = {
@@ -259,6 +271,7 @@ class ItemIn(BaseModel):
     assignee_type: str | None = None
     assignee_id: str | None = None
     estimate_hours: float | None = None
+    custom_fields: dict | None = None
 
 
 def _ensure_human_assignee(assignee_type: str | None, assignee_id: str | None) -> None:
@@ -272,12 +285,47 @@ def _ensure_human_assignee(assignee_type: str | None, assignee_id: str | None) -
                 detail=f"unknown user '{assignee_id}' (register via POST /api/users)")
 
 
+def _parse_cf(item: dict) -> dict:
+    if isinstance(item.get("custom_fields"), str):
+        try:
+            item["custom_fields"] = json.loads(item["custom_fields"])
+        except json.JSONDecodeError:
+            item["custom_fields"] = {}
+    return item
+
+
 def _with_assignee_name(item: dict) -> dict:
     if item.get("assignee_type") == "human" and item.get("assignee_id"):
         row = db.get_conn().execute(
             "SELECT name FROM users WHERE id = ?", (item["assignee_id"],)).fetchone()
         item["assignee_name"] = row["name"] if row else item["assignee_id"]
     return item
+
+
+def _validate_custom_fields(onto, concept_id: str, cf: dict) -> None:
+    """Custom field values must match the concept's declared fields (M6-I20)."""
+    concept = onto.concept(concept_id)
+    declared = {f["id"]: f for f in concept.fields}
+    for k, v in (cf or {}).items():
+        spec = declared.get(k)
+        if spec is None:
+            raise HTTPException(status_code=422,
+                                detail=f"custom field '{k}' not declared on concept '{concept_id}'")
+        ftype = spec.get("type")
+        ok = {
+            "string": lambda v: isinstance(v, str),
+            "date": lambda v: isinstance(v, str) and len(v) >= 8,
+            "ref": lambda v: isinstance(v, str),
+            "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+            "boolean": lambda v: isinstance(v, bool),
+            "enum": lambda v: v in (spec.get("values") or []),
+            "multiselect": lambda v: isinstance(v, list) and bool(v)
+            and all(x in (spec.get("values") or []) for x in v),
+        }[ftype]
+        if not ok(v):
+            raise HTTPException(
+                status_code=422,
+                detail=f"custom field '{k}' (type {ftype}) invalid value: {v!r}")
 
 
 class ItemPatch(BaseModel):
@@ -288,6 +336,7 @@ class ItemPatch(BaseModel):
     assignee_type: str | None = None
     assignee_id: str | None = None
     feature_id: str | None = None
+    custom_fields: dict | None = None
 
 
 class RelationIn(BaseModel):
@@ -309,6 +358,7 @@ def post_item(project_id: str, body: ItemIn) -> dict:
         assignee_type=body.assignee_type,
         assignee_id=body.assignee_id,
         estimate_hours=body.estimate_hours,
+        custom_fields=body.custom_fields,
     )
 
 
@@ -320,17 +370,26 @@ def get_items(
     status_group: str | None = None,
     assignee_id: str | None = None,
     priority: str | None = None,
+    cf: str | None = None,
 ) -> dict:
-    return {
-        "items": list_items(
-            project_id=project_id,
-            feature_id=feature_id,
-            concept_id=concept_id,
-            status_group=status_group,
-            assignee_id=assignee_id,
-            priority=priority,
-        )
-    }
+    items = list_items(
+        project_id=project_id,
+        feature_id=feature_id,
+        concept_id=concept_id,
+        status_group=status_group,
+        assignee_id=assignee_id,
+        priority=priority,
+    )
+    if cf:  # "field:value" — multiselect 值为包含匹配（M6-I20）
+        field, _, expected = cf.partition(":")
+        def _hit(it):
+            got = (it.get("custom_fields") or {}).get(field)
+            if isinstance(got, list):
+                return expected in got
+            return got == expected or (isinstance(got, bool) and expected in ("true", "false")
+                                       and got == (expected == "true"))
+        items = [it for it in items if _hit(it)]
+    return {"items": items}
 
 
 @router.get("/items/{item_id}")
@@ -341,13 +400,16 @@ def get_item_detail(item_id: str) -> dict:
         (item_id, item_id),
     ).fetchall()
     item["relations"] = [dict(r) for r in rels]
-    return _with_assignee_name(item)
+    return _parse_cf(_with_assignee_name(item))
 
 
 @router.patch("/items/{item_id}")
 def patch_item(item_id: str, body: ItemPatch) -> dict:
     item = require_item(item_id)
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "custom_fields" in changes:
+        onto = project_ontology(item["project_id"])
+        _validate_custom_fields(onto, item["concept_id"], changes["custom_fields"])
     if "status" in changes:
         new_status = changes.pop("status")
         item = change_status(item, new_status)

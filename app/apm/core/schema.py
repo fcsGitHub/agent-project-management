@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS items (
   assignee_type TEXT,
   assignee_id TEXT,
   estimate_hours REAL,
+  custom_fields TEXT,
   milestone_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

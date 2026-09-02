@@ -37,6 +37,7 @@ concepts:
       - {id: cancelled, name: 取消, group: cancelled}
     fields:
       - {id: estimate_hours, name: 预估工时, type: number}
+      - {id: tags, name: 标签, type: multiselect, values: [frontend, backend, infra]}
     artifact_kinds:
       - {id: prd, deposits_to: prd-template}
       - {id: design}
@@ -56,6 +57,7 @@ concepts:
       - {id: wont_fix, name: 不予修复, group: cancelled}
     fields:
       - {id: severity, name: 严重度, type: enum, values: [P0, P1, P2, P3]}
+      - {id: regression, name: 回归风险, type: boolean}
     artifact_kinds:
       - {id: test-report, deposits_to: test-suite}
     agent_roles: [qa-agent, dev-agent]

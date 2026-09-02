@@ -26,7 +26,8 @@ def test_smoke_09_multi_identity_collaboration(client, tmp_data):
         pid = p["id"]
         r = client.post(f"/api/projects/{pid}/items",
                         json={"concept_id": "bug", "title": "登录失败", "priority": "P1",
-                              "assignee_type": "human", "assignee_id": "qa-li"})
+                              "assignee_type": "human", "assignee_id": "qa-li",
+                              "custom_fields": {"regression": True}})
         assert r.status_code == 200, r.text
 
         # Per-person audit stream: qa-li's events are separable from u_admin's.
@@ -55,6 +56,11 @@ def test_smoke_09_multi_identity_collaboration(client, tmp_data):
         mine = client.get(f"/api/projects/{pid}/items",
                           params={"assignee_id": "qa-li"}).json()["items"]
         assert len(mine) == 1
+
+        # Custom-field filter (M6-I20): boolean match on regression.
+        cf_hits = client.get(f"/api/projects/{pid}/items",
+                             params={"cf": "regression:true"}).json()["items"]
+        assert len(cf_hits) == 1 and cf_hits[0]["custom_fields"] == {"regression": True}
 
         # Switch back; identity change is itself auditable.
         r = client.post("/api/session/identity", json={"user_id": "u_admin"}).json()

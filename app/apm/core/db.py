@@ -62,6 +62,10 @@ def init_db() -> None:
     with _lock:
         conn = get_conn()
         schema.create_all(conn)
+        # Lightweight migration: 存量库补 items.custom_fields（M6-I20）。
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(items)").fetchall()}
+        if "custom_fields" not in cols:
+            conn.execute("ALTER TABLE items ADD COLUMN custom_fields TEXT")
         conn.commit()
 
 
