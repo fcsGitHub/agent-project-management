@@ -148,3 +148,38 @@ GET /api/projects/{project_id}/feed.atom?key={feed_key}
 
 - `/report` 与看板/列表同读语义（项目内读取开放）；
 - `/my/work` **指派即授权**：被指派者恒可见自己的活跃项（否则网络模式下被指派者反而看不到自己的工作）；Gate 清单仅项目 Owner 或实例管理员可见——与 `approval.requested` 通知的接收人决策同源。
+
+## 10. 里程碑与时间线（M13-I41/I42/I43）
+
+### 10.1 里程碑
+
+里程碑是**截止日期锚点**（Plane v1.16 语义：与 sprint 式时间盒正交），把工作项聚到一个 deadline 下：
+
+| API | 说明 |
+| --- | --- |
+| `POST /api/projects/{id}/milestones` | 创建（title + due_date 必填，ISO 日期；status 初始 planned） |
+| `GET /api/projects/{id}/milestones` | 列表（按 due_date 排序，含进度） |
+| `GET /api/milestones/{id}` | 详情（进度 + 关联工作项清单） |
+| `PATCH /api/milestones/{id}` | 改标题/描述/截止日/状态 |
+| `DELETE /api/milestones/{id}` | 删除（关联工作项保留，milestone_id 悬空） |
+
+- 状态取值优先本体 milestone 概念的 states（software-dev：planned / in_progress / achieved），本体未声明时回退通用集；
+- **进度口径**：done 比例 = 关联项中 done 数 ÷ 非 cancelled 总数；逾期数 = 里程碑截止日已过时的活跃关联项数；
+- 工作项在**创建时**（`POST .../items` 带 `milestone_id`）或之后（`PATCH /items/{id}`）关联；未知/跨项目里程碑 422。
+
+### 10.2 工作项排期日期
+
+`items.start_date` / `items.due_date`（ISO 日期，可空，创建与 PATCH 均可设置）——时间线条形的定位依据；**报表「超期」口径自 M13 起为三级回退**：item.due_date → due 类自定义字段 → 滞留（见 §9.2）。
+
+### 10.3 时间线视图
+
+`#/p/{pid}/timeline`（侧栏「时间线」）：
+
+- 日期轴自动适配数据范围（周刻度 + 今日竖线）；
+- 行 = 概念（按本体声明名），条形 = 有起止日期的工作项（已完成绿 / 已取消灰 / 活跃蓝 / **依赖冲突红**）；
+- 菱形 = 里程碑，定位在其截止日，悬停显示进度；
+- `depends_on` 关系中「后置项开始早于前置项截止」视为冲突：红条 + 红色虚线连接（同行走行底边缘）；**只提示不自动改期**（OpenProject 的依赖传播改期留 backlog）。
+
+### 10.4 事件导出
+
+`GET /api/projects/{id}/events/export`（NDJSON，`application/x-ndjson`）：按全局追加序逐行输出项目事件（含 prev_event_id 链位），末行校验和（events 数 / sha256 / 首行 prev / 间隙数）。**导出是补充性数据出口，不是备份**（备份见 docs/11 §5）；跨项目间隙（gaps>0）属正常——全局链包含其他项目的事件。

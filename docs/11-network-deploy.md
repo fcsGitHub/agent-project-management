@@ -61,3 +61,28 @@ server {
 ```
 
 compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`；只需追加第 2 节的环境变量。
+
+
+## 5. 备份与恢复（M13-I43）
+
+原则（GitLab 官方教训移植，docs/01 §L.3）：**导出不等于备份**——事件导出仅是补充性数据出口，真正的备份以存储层为准。
+
+### 5.1 需要备份的内容
+
+| 内容 | 位置 | 说明 |
+| --- | --- | --- |
+| 事件流 + 全部投影 | `data_dir/apm.db`（SQLite 单文件） | 唯一事实源；投影可由事件重建，但直接备份文件最简 |
+| 工件资产仓 | `data_dir/content/`（Git 仓） | 工件 Markdown 及其历史 |
+| 本体/角色/模板 | `ontologies/`、`agents/` | 内置文件可从发行版恢复，导入/生成的必须备份 |
+| 会话签名密钥 | `data_dir/secret.key` | 丢失则全部会话失效（重新登录即可，非致命） |
+
+### 5.2 备份方式
+
+- **停机冷备（最简可靠）**：停止 api 进程后拷贝 `data_dir/` 整目录（SQLite 单文件 + Git 仓直接可拷）；
+- **在线热备**：SQLite 处于 WAL 模式，`sqlite3 data/apm.db ".backup backup.db"` 可在线取一致性快照；`content/` 为 Git 仓可 `git bundle` 或直接 rsync；
+- **事件导出（补充）**：`GET /api/projects/{id}/events/export`（NDJSON，按全局追加序，含 prev_event_id 链与校验和行）——用于单项目异地留存/审计，不作为恢复手段（恢复 = 重放：`POST /api/system/rebuild-projections` 可由事件流重建全部投影）。
+
+### 5.3 恢复
+
+1. 还原 `data_dir/`（或用备份的 apm.db 替换）→ 启动 api → `POST /api/system/rebuild-projections` 校验投影一致（`events_replayed` 应等于事件总数）；
+2. 只剩事件导出文件时：新建库 → 按序重放 NDJSON（人工/脚本，MVP 未内建导入——live==replay 保证重放即重建）。
