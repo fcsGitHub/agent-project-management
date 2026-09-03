@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 进行中，I26/I27 完成）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 三个迭代完成，待正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -68,7 +68,12 @@
   - 成员管理 API `GET/POST/PATCH/DELETE /projects/{id}/members`（owner 或实例管理员可管；末位 owner 保护 422；未知用户 422、非成员 404、重复 409）；`POST /users` 支持可选 password（管理员建号）；
   - network 写门禁升级：`project_id_for_path` 路径→项目解析（items/conversations/runs/approvals/artifacts 反查），viewer/非成员写 403 + `access.denied` 审计（admin 豁免）；前端本体页「项目成员」面板；
   - **边界（I28 收口）**：会话→actor 归账仍走 settings.user_id，登录人身份强制落 I28。
-- **当前验证状态**：pytest **97 项全绿**；冒烟基线 **14 条全绿**（含成员断言）；`pnpm build`/`pnpm vitest` 通过。
+- **I28 网络协作收尾（本轮完成）**：
+  - **会话→actor 归账打通**：events.py actor ContextVar（middleware 设登录人，线程池端点继承 context，域层零改动），emit 归账顺序=显式参 > 会话 > settings.user_id；冒烟 14 断言 qa-wang 写 item.created actor=qa-wang、自建项目 owner=qa-wang；
+  - `/session/identity` network 模式 422（切换=登出重登）；前端 `/login` 登录页 + api 层 401 自动跳登录 + 顶栏按 `/auth/me` source 分流（session→⭐/👤+登出，local→原切换菜单）；
+  - 部署文档 `docs/11-network-deploy.md`（auth_mode/admin_password/secret_key/TTL、管理员建号流程、角色与归账规则、nginx 反代 HTTPS+SSE）；
+  - 浏览器验证（隔离 network 模式）：未登录写 401 → 登录页 → 模板建项目 → 顶栏 ⭐李雷+登出（截图 docs/i28-login-session-chip.png）。
+- **当前验证状态**：pytest **97 项全绿**；冒烟基线 **14 条全绿**（14 = 认证+成员+归账全程）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
 
@@ -76,9 +81,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I28 · 网络协作收尾**（docs/10 §M8 表，估 3d）：会话→actor 归账打通（登录人即事件 actor，替代 settings.user_id 依赖）；登录态替代身份切换（network 模式顶栏=登录人）；前端登录页（network 模式 401 跳转）；compose 部署文档（反代 HTTPS、auth_mode）；双账号协作冒烟。
-2. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
-3. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
+1. **M8 正式审阅**（docs/10 §M8）：冒烟 14 + I26/I27/I28 DoD 核对 + 浏览器双账号协作演示（network 登录→建号→成员角色→归账审计，可复演 I28 截图路径）+ 附录 B 审阅记录 + 审阅截图。
+2. M8 审阅通过后：**新一轮开源调研**（目标第 5 条）→ 定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO/OIDC）。
+3. 调研后按新计划继续迭代开发。
 
 ## 5. 有哪些坑不要再踩
 
