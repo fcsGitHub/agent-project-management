@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M11-I36 完成，下一步 I37 通知偏好与收尾）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M11-I37 完成，下一步 M11 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -112,16 +112,6 @@
 - **M10 正式审阅通过（`25b7ff6`，附录 B）**：
   - 审阅时点 HEAD `08af0c5` 重跑 pytest 113/冒烟 16 全绿；I32/I33/I34 DoD 逐项核对（secret 不入事件/rebuild 存活/签名逐字节比对/重试留痕 attempts=4/写路径零阻塞/replay-ping/通知纯投影/确定性 id/notify 防循环归账）；
   - 浏览器复演（python 接收桩）：UI 建 webhook → secret 弹窗 → API 建缺陷 → 接收桩实测签名投递（delivery ID 与留痕一致）→ 投递历史「已送达 HTTP 200 · 1次 · 15ms」→ 指派触发通知 → 铃铛徽标「1」；截图 docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png。
-  - 新域 `app/apm/domains/mailer.py`：`APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量可选（未配置=通道整体静默关闭，`smtp_configured()` 直通，行为与 M11 前一致；465 自动 SMTP_SSL、其余 STARTTLS 可关）；
-  - **收件人决策单源化**：notifications.py 抽出 `plan_notifications(conn, event)` 纯函数，通知投影与邮件 hook 共用（两通道收件人永不失配）；post-emit hook 只入队 + `apm-mailer` 守护线程即时发送（EmailMessage 纯文本，超时 10s）；`email.notified/failed` 留痕（agg_id 确定性 `em_{源事件id}_{用户}`）；
-  - 单测 5 项（默认关闭/即时发信/无邮箱跳过/故障留痕/慢 SMTP 不阻塞写路径）+ **冒烟 17**；**pytest 119 全绿、冒烟 17 GREEN、vitest/build 绿**。
-  - users 加 feed_key（运行态凭据，CREATE+ALTER 迁移）；新域 `app/apm/domains/feed.py`；
-  - GET /me/feed-key（查看/首次生成——owner 可反复读，与 webhook secret 一次性语义刻意区分）+ POST /me/feed-key/rotate（换发旧 key 即 401）；
-  - GET /projects/{id}/feed.atom?key=：key 认证绕过 cookie；**权限裁剪防 Redmine #20173 式泄漏**（admin 全见/成员按角色/local 配置用户；非成员 403+access.denied 带 path）；Atom 1.0 XML（saxutils 转义、latest 30、content-type=application/atom+xml）；
-  - 单测 3 项 + 冒烟 17 扩展 feed 断言；**pytest 122 全绿、冒烟 17 GREEN、vitest/build 绿**。
-  - 新域 `app/apm/domains/mailer.py`：`APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量可选（未配置=通道整体静默关闭，`smtp_configured()` 直通，行为与 M11 前一致；465 自动 SMTP_SSL、其余 STARTTLS 可关）；
-  - **收件人决策单源化**：notifications.py 抽出 `plan_notifications(conn, event)` 纯函数，通知投影与邮件 hook 共用（两通道收件人永不失配）；post-emit hook 只入队 + `apm-mailer` 守护线程即时发送（EmailMessage 纯文本，超时 10s）；`email.notified/failed` 留痕（agg_id 确定性 `em_{源事件id}_{用户}`）；
-  - 单测 5 项（默认关闭/即时发信/无邮箱跳过/故障留痕/慢 SMTP 不阻塞写路径）+ **冒烟 17**；**pytest 119 全绿、冒烟 17 GREEN、vitest/build 绿**。
 - **M11 已定义（本提交，docs/01 §J + docs/10 §M11）**：调研 Redmine 邮件通知（只做即时无内建 digest、SMTP 走环境配置层、外部 relay 推荐）与 Atom feed（per-user key 认证、私有项目数据曾泄漏进全局 feed #20173——权限裁剪按 key 用户可见性）→ **M11 = 邮件通知与 Atom 订阅（I35 邮件通道 SMTP env 可选未配则静默关闭 / I36 Atom 订阅 feed + feed key + 冒烟 17 / I37 通知偏好前端与收尾审阅，约 9 人日）**；digest、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
 - **M11-I35 邮件通知通道（本轮完成）**：
   - 新域 `app/apm/domains/mailer.py`：`APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量可选（未配置=通道整体静默关闭，`smtp_configured()` 直通，行为与 M11 前一致；465 自动 SMTP_SSL、其余 STARTTLS 可关）；
@@ -132,7 +122,11 @@
   - GET /me/feed-key（查看/首次生成——owner 可反复读，与 webhook secret 一次性语义刻意区分）+ POST /me/feed-key/rotate（换发旧 key 即 401）；
   - GET /projects/{id}/feed.atom?key=：key 认证绕过 cookie；**权限裁剪防 Redmine #20173 式泄漏**（admin 全见/成员按角色/local 配置用户；非成员 403+access.denied 带 path）；Atom 1.0 XML（saxutils 转义、latest 30、content-type=application/atom+xml）；
   - 单测 3 项 + 冒烟 17 扩展 feed 断言；**pytest 122 全绿、冒烟 17 GREEN、vitest/build 绿**。
-- **当前验证状态**：pytest **122 项全绿**；冒烟基线 **17 条全绿**（17 = 邮件+feed 全程）；`pnpm vitest`/`pnpm build` 绿。
+- **M11-I37 通知偏好前端与收尾（本轮完成）**：
+  - users 加 `email_notify`（默认 1，CREATE+ALTER 迁移）；`POST /api/notifications/prefs`（按 effective_actor 更新自身）+ GET /notifications 响应带 `email_enabled`；mailer 入队过滤 `email_notify=0`——**开关语义：只停邮件、站内通知照常**（通知=事实投影，邮件=可选投递介质）；
+  - NotificationsBell 增「通知偏好」区：邮件开关（即时 POST prefs）+ feed key 显示/换发/复制订阅链接；api.ts 增 setNotificationPrefs/getFeedKey/rotateFeedKey；
+  - test_mailer 第 6 项（开关后邮件止、站内 unread 照增）；docs/12 §8「邮件通知与 Atom 订阅」（SMTP env 表 + 阅读器订阅指引）；**pytest 123 全绿、冒烟 17 GREEN、vitest/build 绿**。
+- **当前验证状态**：pytest **123 项全绿**；冒烟基线 **17 条全绿**（17 = 邮件+feed 全程）；`pnpm vitest`/`pnpm build` 绿。
 - **M10-I33 webhook 前端与运维（本轮完成）**：
   - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
   - 前端本体页「Webhooks 出站」面板：创建表单（URL+订阅芯片）、**secret 一次性弹窗**（rotate 换发）、Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+重发）；api.ts 增 7 方法 + 2 类型；
@@ -146,9 +140,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M11-I37 开工：通知偏好前端与收尾**（docs/10 §M11）：用户级邮件开关（关=不发邮件、站内照常）；设置区 feed key 管理入口（显示/换发/复制订阅链接）；docs/12 §8 邮件与订阅章节（SMTP env 表 + 阅读器订阅指引）；**M11 正式审阅**（冒烟 17 + I35/I36/I37 DoD + 演示：邮件投递留痕 + feed 订阅 + 通知偏好）。
-2. I37 通知偏好前端与收尾（用户级邮件开关 + feed key 管理入口 + docs/12 §8）→ **M11 正式审阅**（冒烟 17 + DoD + 演示：邮件投递留痕 + feed 订阅 + 通知偏好）。
-3. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M12。
+1. **M11 正式审阅**（模式同 M8/M9/M10，见 HANDOFF §4 审阅清单）：审阅时点 HEAD 重跑全量（pytest 123/冒烟 17）→ I35/I36/I37 DoD 逐项核对 → 浏览器隔离复演「邮件投递留痕 + feed 订阅 + 通知偏好」→ 附录 B 记录 → 「M11 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研（目标协议第 1 条，候选：SSO/OIDC、本体版本事件级归档、移动端适配、报表增强）→ 定 M12 → 按新计划开工。
 
 ## 5. 有哪些坑不要再踩
 
@@ -167,6 +160,7 @@
 - **`items` 投影对 custom_fields 是整列覆盖**（I20 踩坑、I29 再防一次）：任何「改一个字段」的路径都必须合并现值后再发 item.updated，直接透传部分 dict 会清掉其他字段。
 - **投影器新生成实体的 id 禁止随机**（I34 踩坑）：通知 id 初版用 new_id，rebuild 后 id 漂移、已读事件引用失配、未读数回弹——投影中新实体 id 必须由事件流确定性导出（如 `n_{事件id}_{用户}`）。**单测 rebuild 断言要直接对比 id/未读数**。
 - **/api/session/identity 全局改 settings.user_id 会跨用例泄漏**（local 模式全局身份的固有语义）：依赖 effective_actor 的测试，文件内加身份还原夹具（保存→yield→还原）。
+- **改源码一律用 Edit 工具，禁 heredoc/python 脚本做源码修改**（I35 踩坑两次）：`\t`/`\n` 多层转义污染源文件；regex 探针误删 mailer.py 中段——探针脚本只读不改；临时调试探针提交前必须清理（grep 探针标记）。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
@@ -174,8 +168,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 113 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 16 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 123 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 17 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
