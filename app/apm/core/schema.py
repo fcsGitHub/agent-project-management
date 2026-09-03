@@ -289,6 +289,18 @@ CREATE TABLE IF NOT EXISTS milestones (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
+
+CREATE TABLE IF NOT EXISTS saved_views (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  owner_id TEXT,
+  is_public INTEGER NOT NULL DEFAULT 0,
+  definition TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_saved_views_project ON saved_views(project_id);
 """
 
 FTS_DDL = """
@@ -310,6 +322,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "webhooks",
         "automation_rules",
         "milestones",
+        "saved_views",
         "project_members",
         "users",
         "ui_commands",

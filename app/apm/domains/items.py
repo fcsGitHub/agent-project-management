@@ -271,14 +271,36 @@ def _group_key(value) -> str:
 
 @router.get("/projects/{project_id}/board")
 def get_board(
-    project_id: str, feature_id: str | None = None, group_by: str | None = None
+    project_id: str, feature_id: str | None = None, group_by: str | None = None,
+    view_id: str | None = None,
 ) -> dict:
     """Board projection: five lifecycle buckets, optionally re-grouped by a custom
-    field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by)."""
+    field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by).
+    M16-I50: `view_id` applies a saved view's definition (explicit query params win)."""
     onto = project_ontology(project_id)
+    view_def: dict = {}
+    if view_id:
+        from apm.core import events as core_events
+        from apm.domains import views as views_domain
+        v = views_domain.require_view(view_id)
+        if v["project_id"] != project_id:
+            raise HTTPException(status_code=422, detail="view belongs to another project")
+        views_domain._actor_can_read(v, core_events.effective_actor())
+        view_def = v["definition"]
+    group_by = group_by or view_def.get("group_by")
     effective = group_by or onto.board_defaults.get("group_by", "lifecycle")
     inactive = disabled_fields(project_id)
-    items = list_items(project_id=project_id, feature_id=feature_id)
+    items = list_items(
+        project_id=project_id,
+        feature_id=feature_id or view_def.get("feature_id"),
+        concept_id=view_def.get("concept_id"),
+        status_group=view_def.get("status_group"),
+        status=view_def.get("status"),
+        assignee_id=view_def.get("assignee_id"),
+        priority=view_def.get("priority"),
+    )
+    if "cf" in view_def:
+        items = [it for it in items if _cf_hit(it, view_def["cf"])]
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
         buckets.setdefault(item["status_group"], []).append(item)
@@ -547,6 +569,16 @@ def post_item(project_id: str, body: ItemIn) -> dict:
     )
 
 
+def _cf_hit(it: dict, cf: str) -> bool:
+    """Single cf filter term "field:value" — multiselect containment (M6-I20)."""
+    field, _, expected = cf.partition(":")
+    got = (it.get("custom_fields") or {}).get(field)
+    if isinstance(got, list):
+        return expected in got
+    return got == expected or (isinstance(got, bool) and expected in ("true", "false")
+                               and got == (expected == "true"))
+
+
 @router.get("/projects/{project_id}/items")
 def get_items(
     project_id: str,
@@ -556,24 +588,33 @@ def get_items(
     assignee_id: str | None = None,
     priority: str | None = None,
     cf: str | None = None,
+    view_id: str | None = None,
 ) -> dict:
+    base: dict = {}
+    if view_id:  # M16-I50: saved view supplies base filters; explicit params win
+        from apm.core import events as core_events
+        from apm.domains import views as views_domain
+        v = views_domain.require_view(view_id)
+        if v["project_id"] != project_id:
+            raise HTTPException(status_code=422, detail="view belongs to another project")
+        views_domain._actor_can_read(v, core_events.effective_actor())
+        base = {k: v["definition"][k] for k in
+                ("feature_id", "concept_id", "status_group", "status", "assignee_id", "priority", "cf")
+                if k in v["definition"]}
+    explicit = {"feature_id": feature_id, "concept_id": concept_id, "status_group": status_group,
+                "assignee_id": assignee_id, "priority": priority, "cf": cf}
+    merged = {**base, **{k: v for k, v in explicit.items() if v is not None}}
     items = list_items(
         project_id=project_id,
-        feature_id=feature_id,
-        concept_id=concept_id,
-        status_group=status_group,
-        assignee_id=assignee_id,
-        priority=priority,
+        feature_id=merged.get("feature_id"),
+        concept_id=merged.get("concept_id"),
+        status_group=merged.get("status_group"),
+        status=merged.get("status"),
+        assignee_id=merged.get("assignee_id"),
+        priority=merged.get("priority"),
     )
-    if cf:  # "field:value" — multiselect 值为包含匹配（M6-I20）
-        field, _, expected = cf.partition(":")
-        def _hit(it):
-            got = (it.get("custom_fields") or {}).get(field)
-            if isinstance(got, list):
-                return expected in got
-            return got == expected or (isinstance(got, bool) and expected in ("true", "false")
-                                       and got == (expected == "true"))
-        items = [it for it in items if _hit(it)]
+    if merged.get("cf"):
+        items = [it for it in items if _cf_hit(it, merged["cf"])]
     return {"items": items}
 
 
