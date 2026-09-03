@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M7 三个迭代完成，待正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M7 审阅通过，M8 已定义 I26-I28）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -44,28 +44,32 @@
   - 浏览器打断-注入-恢复演示（隔离环境）：pm-agent 至 prd_review Gate 挂起 → 注入约束 → ▸ 继续（checkpoint 续跑 revise）→ 新 PRD commit 逐条包含注入约束、回到 Gate → 批准后 succeeded。截图 `docs/i22-interrupt-inject-resume.png`。
 - **M6 正式审阅通过（`b5668e9`，附录 B）**：审阅时点重跑 pytest 80/冒烟 12 全绿；三迭代 DoD 逐项核对；浏览器隔离复演「按标签分组看板」与「打断-注入-恢复」（截图 docs/m6-review-board-grouping.png、docs/m6-review-interrupt-resume.png）；console 噪声逐条查明非产品缺陷。
 - **M7 已定义（`cd8b5dd`，docs/01 §F + docs/10 §4.7）**：调研 OpenProject 双层字段激活、n8n 模板市场、Plane/Focalboard 认证 → **M7 = 模板中心 + 项目级字段激活（I23-I25，约 9 人日）**；多人网络认证推迟 M8（横切改造，先做部署形态决策）。
-- **I23 模板包注册表与浏览 API（本轮完成）**：
+- **I23 模板包注册表与浏览 API**：
   - 新模块 `app/apm/domains/template_packs.py`：注册表 = 本体目录活扫描（单一真源）+ 事件合成 provenance（`pack.registered` 启动幂等登记 + `ontology.imported` 复用导入登记；**未建表**，避免与目录双真源——偏差已记附录 A）；`GET /template-packs` 统一视图（含概念/状态/字段/阶段/CQ 摘要）、`GET /template-packs/{name}` 预览、`POST /template-packs/{name}/instantiate` 复用 `projects.post_project` 共链路；未知 404 / 校验失败与空名 422；
   - **新增冒烟 13**（导入 lite→统一列表→预览→实例化→阶段图与 CQ 就位→未知 404）。
-- **I24 模板中心前端页（本轮完成）**：
+- **I24 模板中心前端页**：
   - 新页 `web/src/pages/TemplatesPage.tsx`（`#/templates`）：浏览卡片（来源徽章 内置/导入/资产沉淀 + 概念/阶段/CQ 摘要）、预览抽屉（阶段流程含 Gate、概念表、CQ）、「用此模板建项目」表单（instantiate 后跳新项目看板）；入口 = 项目列表页按钮 + 侧栏全局「模板」项；
   - 资产联动：资产页卡片「🧩 沉淀为模板包」→ `POST /template-packs/from-asset`——以资产 provenance 解析来源项目本体，改名落盘 + 发 `pack.registered`（source=asset，含 asset_id/origin_ontology）；重复 409/坏名 422/无资产 404；
   - 浏览器验证三截图：docs/i24-template-center-preview.png、docs/i24-instantiate-board.png、docs/i24-asset-to-pack.png。
-- **I25 项目级字段激活（本轮完成）**：
+- **I25 项目级字段激活**：
   - `projects.field_overrides` JSON 列（停用字段 id 列表；schema+ALTER 迁移）；`project.field_disabled/enabled` 事件投影，rebuild 重放一致；
   - `PATCH /projects/{id}/fields`（未声明字段 422）；`_validate_custom_fields` 带项目级停用检查——停用字段 create/patch 写入 422；board 响应带 `disabled_fields`、`group_by=field:<停用>` 422（cf 读过滤保持可用，只限写与新维度选择）；前端：本体页「字段激活」面板（开关）+ Board 分组候选过滤；
   - 浏览器验证：本体页停用「标签」→看板选择器即刻无该维度（截图 docs/i25-field-deactivated-board.png）→启用恢复。
+- **M7 正式审阅通过（`6ed9867`，附录 B）**：审阅时点 HEAD `7c0f7bb` 重跑 pytest 89/冒烟 13 全绿；I23/I24/I25 DoD 逐项核对；浏览器隔离复演「模板中心一键建项目」（自动跳新看板）与「字段停用-恢复」（截图 docs/m7-review-instantiate-board.png、docs/m7-review-field-deactivated.png）。
+- **M8 已定义（`77aafbd`，docs/01 §G + docs/10 §M8）**：调研 Plane 两层角色模型（裁掉 workspace 层，留项目级 owner/contributor/viewer）、Gitea 首管理员+关注册+管理员建号（不做邮件邀请——Focalboard 邀请链接教训）、认证取舍（stdlib pbkdf2 + 签名 HttpOnly Cookie；`auth_mode=local/network` 双模，SSO 推迟 V3；部署形态定为可信小团队网络服务）→ **M8 = 多人网络协作（I26 认证基座 / I27 项目成员与角色 / I28 网络协作收尾，约 9 人日）**；遗留 B 级「users 无认证」由 M8 闭环。
 - **当前验证状态**：pytest **89 项全绿**；冒烟基线 **13 条全绿**（13 = 模板注册表+字段激活往返）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
 
-**没有硬阻塞。** 遗留 B/C 级意见（docs/10 附录 B/C）：本体学习/版本面板 apply 无权限分层（V2 治理）；本体版本快照无事件级归档；users 无认证（单机身份选择，网络协作属 V1.1 后续）；OpenProject 式"类型+项目双层激活"暂缓（需项目级本体覆盖机制）。
+**没有硬阻塞。** 遗留 B/C 级意见（docs/10 附录 B/C）：本体学习/版本面板 apply 无权限分层（V2 治理）；本体版本快照无事件级归档；users 无认证 → **M8-I26 闭环**；OpenProject 式「类型+项目双层激活」已于 M7-I25 落地。
 
 ## 4. 下一步是什么（按序）
 
-1. **M7 正式审阅**（docs/10 §M7）：冒烟 13 + I23/I24/I25 DoD 核对 + 浏览器演示（模板中心建项目复演 I24 路径；字段停用-恢复复演 I25 路径）+ 附录 B 审阅记录 + 审阅截图。
-2. M7 审阅通过后：**新一轮开源调研**（目标第 5 条）→ 定 M8。首选多人网络认证（按 Plane 两层成员模型裁剪：全局用户→项目成员、角色、邀请；先决策部署形态：单机 vs 网络服务），候选还有看板自动化规则（Kanboard 三段式，docs/01 §E 已备案）。
-3. 调研后按新计划继续迭代开发。
+1. **I26 · 认证基座**（docs/10 §M8 表，估 3d）：users 加 password_hash（stdlib pbkdf2）；`POST /auth/login|logout`（签名 HttpOnly Cookie，会话事件入审计）；`settings.auth_mode`（local 默认现状 / network 强制登录）；首启 `APM_ADMIN_PASSWORD` 引导管理员。DoD 并入**新增冒烟 14**。
+2. **I27 · 项目成员与角色**（估 3d）：project_members 投影（owner/contributor/viewer，建项目者即 owner）；成员管理 API + 访问控制依赖（越权 403 有审计）；项目设置页成员管理 UI。
+3. **I28 · 网络协作收尾**（估 3d）：登录态替代身份切换；审批/审计强制登录人；compose 部署文档；双账号协作冒烟。
+4. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
+5. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
 
 ## 5. 有哪些坑不要再踩
 
