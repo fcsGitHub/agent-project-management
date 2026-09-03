@@ -237,3 +237,23 @@ M8 = **多人网络协作（认证 + 项目成员角色）**，I26 认证基座 
 **H.4 M9 取舍**
 
 M9 = **看板自动化规则（三段式）**：I29 规则域与事件订阅执行（规则本身事件溯源：automation.rule_created/updated/deleted，rebuild 存活；执行挂 event_bus 订阅，动作白名单 fail-closed，防循环：规则产出事件不触发规则引擎）/ I30 前端规则管理（项目设置页规则面板：选事件→条件→动作，测试运行）/ I31 收尾（审计归账 + 冒烟 15 + 文档 + 演示），约 9 人日。出站 webhook 留 backlog（先内嵌后外联）。
+
+## I. M10 前置调研：出站集成——webhook 与通知（2026-09-03）
+
+> 目标协议触发：M9 审阅通过后开启。工程管理落地标准的下一个缺口 = 与外部系统的集成出站（IM/CI/邮件靠 webhook；团队知情权靠通知）。
+
+**I.1 Gitea/GitLab Webhook：签名与投递语义（主借鉴）**
+
+- **HMAC-SHA256 签名是正路**：Gitea 用 `X-Gitea-Signature`（并兼容 GitHub 的 `X-Hub-Signature-256`）；GitLab 已把明文 `X-Gitlab-Token` 列为不推荐的 legacy（其 issue #50745/#37380 记录了从明文比较到 HMAC 摘要的演进）。要点：**对原始请求体字节做 HMAC**（JSON 重序列化会破坏签名）、接收方常量时间比较。
+- **投递语义**：`X-Gitea-Event`（事件类型）与 `X-Gitea-Delivery`（投递 ID）头支撑接收方过滤与幂等去重；真实世界的坑（Gitea 修复记录）：先取原始 payload 再算 HMAC、secret trim、验证失败要返回真实错误。
+- 对本项目的映射：出站 webhook 项目级配置（URL/secret/事件订阅/启停）；投递带 `X-APM-Event`/`X-APM-Delivery` + `X-APM-Signature`（HMAC-SHA256）；投递结果（delivered/failed）落事件流，失败指数退避重试 + 手动重发。
+
+**I.2 Redmine：通知是自托管 PM 的桌上前提**
+
+- Redmine 的立身之本之一 = 内置邮件通知 + RSS/Atom feeds；per-project 通知粒度是十余年的 feature request（#7349），第三方插件（Redmineflux）补规则化告警——说明**「规则化通知」是真实需求**。
+- Plane 等新世代工具同样把通知中心（铃铛 + 未读数）作为标配。
+- 对本项目的映射：站内通知中心（顶栏铃铛：指派/审批请求/规则触发/超期）无 SMTP 依赖（M8 明确不引 SMTP），先行落地；自动化动作白名单增 `notify` 把 M9 的规则引擎与通知打通——邮件/RSS 留 backlog（有真实部署需求再加）。
+
+**I.3 M10 取舍**
+
+M10 = **出站集成：webhook 与通知**：I32 webhook 基座（规则即事件溯源 + 投递器后台线程化——**post-emit hook 只入队不阻塞写路径**，与 M9 的同步执行器本质差异）+ HMAC 签名 + 重试与投递留痕 / I33 webhook 前端（配置面板 + 投递历史 + 手动重发 + 测试 ping）+ 冒烟 16 / I34 站内通知中心 + automation `notify` 动作 + 收尾审阅，约 9 人日。邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。

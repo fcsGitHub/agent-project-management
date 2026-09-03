@@ -370,6 +370,36 @@ agent-project-management/
 
 **M9 审阅点**：冒烟 15 + 各迭代 DoD + 浏览器自动化规则演示（建规则→触发→自动动作→审计归账）。
 
+### M10 · 出站集成：webhook 与通知（吸收 Gitea/GitLab/Redmine，I32-I34，约 9 人日）
+
+> v1.1 新增（2026-09-03，M9 审阅通过后按目标协议调研）。调研结论见 docs/01 §I：Gitea/GitLab webhook HMAC-SHA256 签名语义（原始 body 签名、delivery ID 去重、明文 token 已被 GitLab 列为 legacy）、投递结果留痕与指数退避；Redmine 邮件通知+feeds 是自托管 PM 桌上前提、规则化通知是真实需求（Redmineflux 插件验证）→ 站内通知先行（无 SMTP 依赖），与 M9 自动化动作打通。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I32 | 出站 webhook 基座（webhooks 事件溯源 + 后台投递线程 + HMAC 签名 + 重试与投递留痕） | 01 §I.1 | 事件内核/M8 归账 | 3d |
+| I33 | webhook 前端与运维（配置面板/投递历史/手动重发/测试 ping）+ 冒烟 16 | 01 §I.1 | — | 3d |
+| I34 | 站内通知中心 + automation `notify` 动作 + 收尾审阅 | 01 §I.2 | M9 自动化 | 3d |
+
+#### I32 · 出站 webhook 基座（3d）
+
+- 任务：`webhooks` 投影表（project_id/url/secret/events_json/enabled）+ `webhook.created/updated/deleted` 事件（rebuild 存活）；投递器：post-emit hook **只入队**，后台 worker 线程投递（网络 I/O 绝不阻塞写路径——与 M9 同步执行器的本质差异）；投递头 `X-APM-Event`/`X-APM-Delivery`/`X-APM-Signature`（对原始 body 的 HMAC-SHA256，secret 每条 webhook 独立）；失败指数退避重试 3 次，`webhook.delivered/failed` 事件留痕（delivery ID 幂等）；CRUD API（M8 门禁）。
+- DoD（并入**新增冒烟 16**）：webhook 注册→触发事件→本地接收桩收到请求且签名头在位；失败→重试→failed 留痕；rebuild 存活；写路径不被投递阻塞。
+- 演示路径：注册 webhook → 建缺陷 → 接收桩收到 item.created 载荷。
+
+#### I33 · webhook 前端与运维（3d）
+
+- 任务：项目设置页「Webhooks」面板（URL/事件订阅多选/启停/删除 + secret 显示与重置）；投递历史抽屉（最近 N 条 delivered/failed + 状态码 + 耗时）；手动重发按钮（按 delivery 事件重放同 payload、新 delivery ID）；「测试 ping」按钮。
+- DoD（并入冒烟 16）：面板 CRUD 往返 + 重发断言；docs/12 增 webhook 接收方验签章节。
+- 演示路径：面板建 webhook → 触发 → 历史看投递 → 失败重发成功。
+
+#### I34 · 通知中心与收尾（3d）
+
+- 任务：`notifications` 投影（approval.requested/item.assigned（human）/automation.rule_fired/工件沉淀 → 顶栏铃铛未读数 + 下拉清单 + 已读）；automation 动作白名单增 `notify`（{user_id, message}）；审计页 integration 归账复核；docs/12 通知章节。
+- DoD（并入冒烟 16）：指派/审批请求产生站内通知且未读数正确；notify 动作走 M9 防循环与归账；rebuild 存活。
+- 演示路径：建缺陷 → 被指派人铃铛出现未读；规则 notify 动作落通知中心。
+
+**M10 审阅点**：冒烟 16 + 各迭代 DoD + 浏览器演示（webhook 投递留痕 + 通知中心）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -485,6 +515,9 @@ agent-project-management/
 | I30 规则管理前端 | 已完成 | 2026-09-03 | 2026-09-03 | 本体页「自动化规则」面板：规则列表（触发/条件/动作摘要 + 启停开关 + 删除）、新建表单（事件下拉/概念与条件谓词/动作白名单动态参数——enum 字段按本体声明出值下拉、multiselect 逗号分隔转数组）、测试运行（调 /test dry-run toast 呈现命中）、历史抽屉（调 /runs 显示已执行/被拒绝与动作明细）；api.ts 增 6 方法 + 4 类型；build/vitest 绿；浏览器验证 UI 建规则→API 触发→看板卡片自动指派+severity 徽标→历史抽屉（截图 docs/i30-automation-*.png ×3） |
 | I31 自动化收尾 | 已完成 | 2026-09-03 | 2026-09-03 | 审计页发起者过滤增「⚡ 自动化」+ 域标签增 automation（rule_* 事件一键过滤）；docs/12 自动化使用指南（三段式模型/执行语义含防循环与幂等/测试运行与历史/权限边界/backlog：出站 webhook、组合与区间条件）；浏览器演示：审计页过滤 ⚡自动化 命中 4 条（2 触发 + 2 动作均归账规则 id），截图 docs/i31-audit-automation-filter.png；build 绿 |
 | **M9 里程碑审阅（正式）** | 已完成 | 2026-09-03 | 2026-09-03 | 冒烟 15 + I29/I30/I31 各迭代 DoD 逐项核对全过（审阅时点重跑 pytest 103/冒烟 15）+ 浏览器复演「UI 建规则→API 触发→看板卡片自动指派→审计 ⚡ 过滤归账链」（截图 docs/m9-review-automation-card.png、docs/m9-review-audit-automation.png，见附录 B） |
+| I32 出站 webhook 基座 | 未开始 | — | — | M10 首迭代：webhooks 事件溯源 + 后台投递线程（hook 只入队）+ HMAC-SHA256 签名 + 指数退避与投递留痕（docs/10 §M10，docs/01 §I） |
+| I33 webhook 前端与运维 | 未开始 | — | — | 配置面板/投递历史/手动重发/测试 ping + 冒烟 16 + docs/12 验签章节 |
+| I34 通知中心与收尾 | 未开始 | — | — | notifications 投影 + 顶栏铃铛 + automation notify 动作 + 审阅点核对 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -534,6 +567,7 @@ agent-project-management/
 | 2026-09-03 | I29 | 自动化规则域与执行引擎：新域 `domains/automations.py`。**规则即事件溯源**：`automation_rules` 投影表（schema+drop 列表），`automation.rule_created/updated/deleted` 事件投影（rebuild 重放一致）；**执行器=events post-emit hook**（events.py 增 `add_post_emit_hook`，emit 完成追加+投影+SSE 广播后同步调用，hook 异常只记日志绝不破坏写入路径；rebuild 走 `projections.apply` 不经 emit 故天然不触发）——事件内核即事件源，无需 Kanboard 式自建 dispatcher。规则模型（Kanboard 绑定 × n8n 三段式）：trigger 白名单 4 事件（item.created/updated/status_changed/assigned）× condition（concept_id + 字段谓词，内置字段∪本体声明字段）× 单动作白名单 fail-closed（assign/set_priority/set_field/set_status；创建即校验 422：未知触发/动作/用户/字段、enum 越界、未声明状态、停用字段——set_field 类型校验复用 `_validate_custom_fields` 同一路径）。**防循环双保险**：actor_type=automation 的事件不进引擎 + dispatch 期 contextvar 拦截一切嵌套 emit（单层执行）。**归账**：动作与 rule_fired 事件显式 actor_type=automation、actor_id=规则 id（复用 I28 contextvar 语义，审计页可过滤）；set_field 合并现值后整列写（I20 投影整列覆盖教训）。API：GET/POST `/projects/{id}/automations`、PATCH/DELETE `/{rule_id}`（network 写门禁经 M8 middleware 自动生效）、POST `/{rule_id}/test` dry-run（对最近一条触发事件评估，不执行）、GET `/{rule_id}/runs` 触发历史（事件合成）。装配：main.py lifespan `install_automation_engine()`（幂等）；**顺手修 domains/__init__ 投影注册清单漏 members/template_packs**（此前靠 main 导入链间接注册，非应用上下文 rebuild 会静默丢投影）。测试：新增 test_automations.py 5 项（CRUD+rebuild/触发+归账/条件门+单层防循环+停用/fail-closed 全矩阵/dry-run 不执行）；**新增冒烟 15**；pytest 103 项绿、冒烟 15 条 GREEN。 |
 | 2026-09-03 | I30 | 规则管理前端：本体页（项目设置）新增「自动化规则」面板（AutomationsPanel）。规则列表行 = 名称 + 触发徽章（当创建工作项/更新字段/状态变更/指派变更）+ 条件摘要 + 动作摘要 + 测试运行/历史/启停/删除操作；新建表单三段式——「当〈事件〉」下拉、「满足〈概念〉+〈可选字段谓词〉」（内置字段与本体声明字段合并出选项）、「则〈动作〉」动态参数：assign 出用户下拉、set_priority 出高中低、set_field 出字段下拉且 enum/boolean 按本体声明出值选项（multiselect 逗号分隔转字符串数组）、set_status 出概念（条件限定则收窄）状态池；「创建规则」按钮按参数完整性禁用。「测试运行」调 `/test` dry-run 以 toast 呈现命中项与将执行动作（不执行）；「历史」抽屉调 `/runs` 显示每次触发（#事件号/时间/已执行-被拒绝徽章/动作明细）。api.ts 增 listAutomations/createAutomation/patchAutomation/deleteAutomation/testAutomation/automationHistory + AutomationRule/AutomationRuleIn/AutomationTestRun/AutomationRun 类型（action.value 多型：string|number|boolean|数组）。验证：pnpm build + vitest 绿；浏览器隔离复演——UI 建两条规则（指派 QA 王 / severity→P0，enum 值下拉动态出现）→ API 建缺陷触发 → 看板卡片自动带「👤 qa-wang」与「严重度： P0」徽标 → 历史抽屉显示「#14 已执行 · 已指派给 qa-wang」（截图 docs/i30-automation-panel.png、docs/i30-automation-fired.png、docs/i30-automation-board-card.png）；本时段 console 唯一错误为 favicon 404，非产品缺陷。**行尾注**：OntologyPage.tsx 由 CRLF 归一为 LF（docs/10 §8 既定标准），该文件本次 stat 偏大系行尾而非内容。 |
 | 2026-09-03 | I31 | 自动化收尾：**审计过滤入口**——AuditPage 发起者下拉增「⚡ 自动化」（ICON 映射 ⚡）、域标签行增 `automation`（一键过滤 automation.rule_* 全家族）。**docs/12-automation-guide.md 新建**：三段式模型与配置入口、执行语义表（时机/归账/防循环双保险/Plane 幂等教训/fail-closed）、测试运行与历史语义、权限与部署（M8 门禁+事件溯源存活）、边界与 backlog（单动作多规则组合、出站 webhook、区间与 AND/OR 条件）。浏览器演示（隔离环境）：审计页发起者=⚡自动化 精确命中 4 条——#14 item.assigned(ar_9e8f) + #15 item.updated(ar_ff0d) + #16/#14 automation.rule_fired，两条规则的触发与动作均按规则 id 归账（截图 docs/i31-audit-automation-filter.png）；automation 域标签过滤 rule_* 家族正常；console 错误归因为停服时刻审批轮询 500/SSE 断连，非产品缺陷。 |
+| 2026-09-03 | M9 审阅 + M10 定义 | **M9 里程碑正式审阅通过**（附录 B）：审阅时点 HEAD `064133f` 重跑 pytest 103 项 + 冒烟 15 条全绿；I29/I30/I31 DoD 逐项核对（规则事件溯源与 rebuild/触发执行与 automation 归账/条件门与单层防循环/fail-closed 全矩阵/dry-run 不执行/面板 CRUD 与动态表单/审计过滤）；浏览器隔离复演「UI 建规则→API 触发→看板卡片自动指派→审计 ⚡ 过滤归账链」（#12 item.assigned + #13 rule_fired 同归账 ar_07f8a246c7），截图 docs/m9-review-automation-card.png、docs/m9-review-audit-automation.png。随即开启新一轮调研（目标协议第 1 条）：Gitea/GitLab webhook HMAC 签名语义（原始 body 签名/delivery ID 去重/明文 token legacy 化）、Redmine 通知与 feeds 是自托管桌上前提 + 规则化通知真实需求，结论入 docs/01 §I。新增 M10 = 出站集成：webhook 与通知（I32 webhook 基座/I33 前端与运维/I34 站内通知中心 + notify 动作，范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 16 于 I32）。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
