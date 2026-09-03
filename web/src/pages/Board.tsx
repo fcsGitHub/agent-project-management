@@ -29,13 +29,18 @@ export function Board() {
     queryFn: () => api.getOntology(pid!, true),
     enabled: !!pid,
   });
-  // Distinct custom fields across concepts → grouping selector options (M6-I21).
+  // Distinct custom fields across concepts → grouping selector options (M6-I21),
+  // minus the project-deactivated ones (M7-I25).
   const fieldOptions = useMemo(() => {
+    const off = new Set(board.data?.disabled_fields ?? []);
     const m = new Map<string, string>();
     for (const c of onto.data?.concepts ?? [])
-      for (const f of c.fields ?? []) if (!m.has(f.id)) m.set(f.id, f.name);
+      for (const f of c.fields ?? []) {
+        if (off.has(f.id) || m.has(f.id)) continue;
+        m.set(f.id, f.name);
+      }
     return [...m];
-  }, [onto.data]);
+  }, [onto.data, board.data]);
   const runs = useQuery({ queryKey: ["runs", pid], queryFn: () => api.listRuns(pid!), enabled: !!pid });
   const approvals = useQuery({
     queryKey: ["approvals", pid, "pending"],

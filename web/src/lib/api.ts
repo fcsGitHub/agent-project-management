@@ -3,6 +3,7 @@ export type Project = {
   id: string; name: string; description?: string; ontology: string; template: string;
   status: string; charter?: string; created_at: string; updated_at: string;
   features?: Feature[]; item_counts?: Record<string, number>; bootstrap?: Record<string, string>;
+  disabled_fields?: string[];
 };
 export type Feature = {
   id: string; project_id: string; title: string; brief?: string; status: string;
@@ -53,6 +54,7 @@ export type BoardData = {
   columns: { id: string; concept_id: string; concept_name: string; status: string; name: string; group: string }[];
   field?: { id: string; name: string; type: string } | null;
   groups?: { id: string; name: string; items: Item[] }[] | null;
+  disabled_fields?: string[];
 };
 export type Ontology = {
   name: string; display_name: string; version: number; errors: string[];
@@ -177,6 +179,8 @@ export const api = {
   createProject: (body: { name: string; ontology: string; requirement?: string; description?: string }) =>
     req<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   getProject: (id: string) => req<Project>(`/projects/${id}`),
+  patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
+    req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>
     req<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   getPhases: (id: string) =>

@@ -10,6 +10,7 @@ from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
 from apm.domains.ontology import KERNEL_RELATIONS, OntologyError, load_ontology
+from apm.domains.projects import disabled_fields
 
 router = APIRouter(tags=["items"])
 
@@ -131,7 +132,7 @@ def create_item(
     actor_id: str | None = None,
 ) -> dict:
     onto = project_ontology(project_id)
-    _validate_custom_fields(onto, concept_id, custom_fields)
+    _validate_custom_fields(onto, concept_id, custom_fields, project_id=project_id)
     try:
         concept = onto.concept(concept_id)
         status = status or concept.initial_status()
@@ -252,6 +253,7 @@ def get_board(
     field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by)."""
     onto = project_ontology(project_id)
     effective = group_by or onto.board_defaults.get("group_by", "lifecycle")
+    inactive = disabled_fields(project_id)
     items = list_items(project_id=project_id, feature_id=feature_id)
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
@@ -279,6 +281,7 @@ def get_board(
         "group_by": effective,
         "field": None,
         "groups": None,
+        "disabled_fields": sorted(inactive),
     }
     if effective == "lifecycle":
         return resp
@@ -288,6 +291,8 @@ def get_board(
     field = _find_field(onto, fid)
     if not field:
         raise HTTPException(status_code=422, detail=f"field '{fid}' is not declared in ontology")
+    if fid in inactive:
+        raise HTTPException(status_code=422, detail=f"field '{fid}' is disabled in this project")
     # Declared values keep their ontology order (stable columns, even when empty);
     # undeclared keys follow first-seen item order; 未设置 always last. Multiselect
     # values fan out — an item appears once per tag (label-board semantics).
@@ -359,11 +364,16 @@ def _with_assignee_name(item: dict) -> dict:
     return item
 
 
-def _validate_custom_fields(onto, concept_id: str, cf: dict) -> None:
-    """Custom field values must match the concept's declared fields (M6-I20)."""
+def _validate_custom_fields(onto, concept_id: str, cf: dict, project_id: str | None = None) -> None:
+    """Custom field values must match the concept's declared fields (M6-I20);
+    project-deactivated fields are refused on write (M7-I25)."""
+    inactive = disabled_fields(project_id) if project_id else set()
     concept = onto.concept(concept_id)
     declared = {f["id"]: f for f in concept.fields}
     for k, v in (cf or {}).items():
+        if k in inactive:
+            raise HTTPException(status_code=422,
+                                detail=f"custom field '{k}' is disabled in this project")
         spec = declared.get(k)
         if spec is None:
             raise HTTPException(status_code=422,
@@ -466,7 +476,8 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if "custom_fields" in changes:
         onto = project_ontology(item["project_id"])
-        _validate_custom_fields(onto, item["concept_id"], changes["custom_fields"])
+        _validate_custom_fields(onto, item["concept_id"], changes["custom_fields"],
+                                project_id=item["project_id"])
     if "status" in changes:
         new_status = changes.pop("status")
         item = change_status(item, new_status)

@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
 import { api, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
-import { Badge, Button, Card } from "../components/ui";
+import { Badge, Button, Card, cx } from "../components/ui";
 
 export function OntologyPage() {
   const { pid } = useParams();
@@ -33,6 +33,12 @@ export function OntologyPage() {
     queryFn: () => api.getOntologyHistory(o?.name ?? ""),
     enabled: !!o,
   });
+  const project = useQuery({
+    queryKey: ["project", pid],
+    queryFn: () => api.getProject(pid!),
+    enabled: !!pid,
+  });
+  const disabledFields = project.data?.disabled_fields ?? [];
   const cq = useQuery({
     queryKey: ["ontology-cq", pid],
     queryFn: () => api.cqCheck(o!.name),
@@ -186,6 +192,8 @@ export function OntologyPage() {
         </div>
       </Card>
 
+      <FieldActivationPanel pid={pid!} concepts={o.concepts} disabled={disabledFields} />
+
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
         onLearn={runLearn} onLearnLlm={runLearnLlm} onApply={runApply} onToggle={toggle}
@@ -285,6 +293,68 @@ export function OntologyPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Per-project custom-field activation (M7-I25): the ontology declares fields,
+ *  the project activates/deactivates them — writes and board grouping follow. */
+function FieldActivationPanel({ pid, concepts, disabled }: {
+  pid: string;
+  disabled: string[];
+  concepts: { id: string; name: string; fields?: { id: string; name: string; type: string }[] }[];
+}) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const fields = new Map<string, { name: string; type: string; conceptNames: string[] }>();
+  for (const c of concepts)
+    for (const f of c.fields ?? []) {
+      const cur = fields.get(f.id) ?? { name: f.name, type: f.type, conceptNames: [] };
+      cur.conceptNames.push(c.name);
+      fields.set(f.id, cur);
+    }
+  if (!fields.size) return null;
+
+  const flip = async (fieldId: string, active: boolean) => {
+    setBusy(fieldId);
+    try {
+      await api.patchProjectFields(pid, { field_id: fieldId, active });
+      await qc.invalidateQueries({ queryKey: ["project", pid] });
+      await qc.invalidateQueries({ queryKey: ["board", pid] });
+      toast.success(active ? `字段「${fields.get(fieldId)?.name}」已启用` : `字段「${fields.get(fieldId)?.name}」已停用（写入与看板分组将拒绝）`);
+    } catch (e) {
+      toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">字段激活（本项目）</span>
+        <span className="text-xs text-mut">停用后该项目拒绝写入此字段，看板分组也不再提供该维度</span>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        {[...fields.entries()].map(([fid, f]) => {
+          const off = disabled.includes(fid);
+          return (
+            <div key={fid} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs">
+              <span className="font-medium">{f.name}</span>
+              <span className="font-mono text-[10px] text-mut">{fid} · {f.type}</span>
+              <span className="text-[11px] text-mut">用于 {f.conceptNames.join("、")}</span>
+              <button
+                disabled={busy === fid}
+                onClick={() => flip(fid, off)}
+                className={cx("ml-auto rounded-md border px-2 py-0.5",
+                  off ? "border-line text-mut hover:text-ink" : "border-acc bg-accbg text-acc")}
+              >
+                {off ? "已停用 · 点击启用" : "已启用 · 点击停用"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

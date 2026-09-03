@@ -66,6 +66,10 @@ def init_db() -> None:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(items)").fetchall()}
         if "custom_fields" not in cols:
             conn.execute("ALTER TABLE items ADD COLUMN custom_fields TEXT")
+        # Lightweight migration: 存量库补 projects.field_overrides（M7-I25）。
+        pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
+        if "field_overrides" not in pcols:
+            conn.execute("ALTER TABLE projects ADD COLUMN field_overrides TEXT")
         conn.commit()
 
 

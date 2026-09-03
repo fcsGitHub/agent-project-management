@@ -1,6 +1,8 @@
 """Project domain: CRUD with ontology template instantiation + phase graph."""
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -33,6 +35,28 @@ def _proj_project_created(conn, e):
     )
 
 
+@on("project.field_disabled")
+def _proj_field_disabled(conn, e):
+    _set_field_state(conn, e.agg_id, e.payload["field_id"], active=False)
+
+
+@on("project.field_enabled")
+def _proj_field_enabled(conn, e):
+    _set_field_state(conn, e.agg_id, e.payload["field_id"], active=True)
+
+
+def _set_field_state(conn, project_id: str, field_id: str, *, active: bool) -> None:
+    """field_overrides = JSON list of deactivated field ids (M7-I25)."""
+    row = conn.execute("SELECT field_overrides FROM projects WHERE id = ?", (project_id,)).fetchone()
+    cur = set(json.loads(row[0])) if row and row[0] else set()
+    if active:
+        cur.discard(field_id)
+    else:
+        cur.add(field_id)
+    conn.execute("UPDATE projects SET field_overrides = ? WHERE id = ?",
+                 (json.dumps(sorted(cur)) if cur else None, project_id))
+
+
 @on("project.updated")
 def _proj_project_updated(conn, e):
     p = e.payload
@@ -51,7 +75,18 @@ def _proj_project_updated(conn, e):
 # ---------------------------------------------------------------- helpers
 def get_project(project_id: str) -> dict | None:
     row = db.get_conn().execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    p = dict(row)
+    p["disabled_fields"] = json.loads(p.pop("field_overrides") or "[]")
+    return p
+
+
+def disabled_fields(project_id: str) -> set[str]:
+    """Project-deactivated custom fields (OpenProject-style per-project activation,
+    M7-I25). Absent override = every declared ontology field is active."""
+    p = get_project(project_id)
+    return set(p["disabled_fields"]) if p else set()
 
 
 def require_project(project_id: str) -> dict:
@@ -224,6 +259,31 @@ def archive_project(project_id: str) -> dict:
         agg_id=project_id,
         project_id=project_id,
         payload={"status": "archived"},
+    )
+    return get_project(project_id)  # type: ignore[return-value]
+
+
+class FieldActivationIn(BaseModel):
+    field_id: str
+    active: bool
+
+
+@router.patch("/projects/{project_id}/fields")
+def patch_project_fields(project_id: str, body: FieldActivationIn) -> dict:
+    """Per-project custom-field activation (M7-I25, OpenProject-style: ontology
+    declares, the project activates/deactivates)."""
+    p = require_project(project_id)
+    onto = load_ontology(p["ontology"])
+    declared = {f["id"] for c in onto.concepts.values() for f in c.fields}
+    if body.field_id not in declared:
+        raise HTTPException(status_code=422,
+                            detail=f"field '{body.field_id}' is not declared in ontology '{onto.name}'")
+    events.emit(
+        event_type="project.field_enabled" if body.active else "project.field_disabled",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        payload={"field_id": body.field_id},
     )
     return get_project(project_id)  # type: ignore[return-value]
 

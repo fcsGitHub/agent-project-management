@@ -1,6 +1,8 @@
-"""Smoke 13 (M7-I23): template pack registry — builtin + imported packs share one
-list, preview exposes the phase graph and CQs, one-click instantiate lands a
-project with bootstrap intact, unknown packs fail closed."""
+"""Smoke 13 (M7-I23/I24/I25): template pack registry — builtin + imported packs
+share one list, preview exposes the phase graph and CQs, one-click instantiate
+lands a project with bootstrap intact, asset→pack registration works, and
+per-project field activation gates writes and board grouping; unknowns fail
+closed."""
 import pytest
 
 
@@ -53,3 +55,21 @@ def test_smoke_13_template_pack_registry(client, tmp_data, isolated_ontologies):
     prj2 = client.post("/api/template-packs/smoke13-asset-pack/instantiate",
                        json={"project_name": "冒烟13资产实例"}).json()
     assert prj2["ontology"] == "smoke13-asset-pack" and prj2["bootstrap"]["conversation_id"]
+
+    # Per-project field activation (M7-I25): disable → write refused, grouping
+    # gone; re-enable → recovered.
+    pid2 = prj2["id"]
+    assert client.patch(f"/api/projects/{pid2}/fields",
+                        json={"field_id": "tags", "active": False}).json()["disabled_fields"] == ["tags"]
+    r = client.post(f"/api/projects/{pid2}/items",
+                    json={"concept_id": "task", "title": "T", "custom_fields": {"tags": ["frontend"]}})
+    assert r.status_code == 422 and "disabled" in r.json()["detail"]
+    board = client.get(f"/api/projects/{pid2}/board").json()
+    assert "tags" in board["disabled_fields"]
+    assert client.get(f"/api/projects/{pid2}/board",
+                      params={"group_by": "field:tags"}).status_code == 422
+    assert client.patch(f"/api/projects/{pid2}/fields",
+                        json={"field_id": "tags", "active": True}).json()["disabled_fields"] == []
+    assert client.post(f"/api/projects/{pid2}/items",
+                       json={"concept_id": "task", "title": "T2",
+                             "custom_fields": {"tags": ["frontend"]}}).status_code == 200
