@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     # Single-user MVP: the human actor behind every UI action.
     user_id: str = "u_admin"
     user_name: str = "李雷"
+    # Auth (M8-I26): "local" = single-user, no login (dev/demo default);
+    # "network" = mutations require a logged-in session. SSO deferred (V3).
+    auth_mode: str = "local"
+    session_ttl_hours: int = 24
+    # Instance secret for session signing; empty → generated once and persisted
+    # to data_dir/secret.key so sessions survive restarts.
+    secret_key: str = ""
+    # APM_ADMIN_PASSWORD: (re)apply the default admin's password on boot.
+    admin_password: str = ""
     # Tests redirect ontology YAML here (learning writes back to this dir).
     ontology_dir_override: Path | None = None
     # Tests redirect agents/ here (ontology pack import writes role files).

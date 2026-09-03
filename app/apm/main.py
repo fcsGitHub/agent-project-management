@@ -37,6 +37,23 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="AgentPM", version="0.1.0", lifespan=lifespan)
+
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+
+    from apm.core.security import SESSION_COOKIE, session_user
+
+    @app.middleware("http")
+    async def auth_gate(request: Request, call_next):
+        """network 模式（M8-I26）：未登录拒绝一切 /api 写请求；GET 保持开放
+        （只读细粒度鉴权在 I27/I28）。local 模式零影响。"""
+        if config.settings.auth_mode == "network" and request.method not in ("GET", "HEAD", "OPTIONS"):
+            path = request.url.path
+            if path.startswith("/api/") and not path.startswith("/api/auth/"):
+                if not session_user(request.cookies.get(SESSION_COOKIE)):
+                    return JSONResponse({"detail": "login required"}, status_code=401)
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -48,6 +65,7 @@ def create_app() -> FastAPI:
     from apm.content.artifacts import router as artifacts_router
     from apm.domains.approvals import router as approvals_router
     from apm.domains.assets import router as assets_router
+    from apm.domains.auth_api import router as auth_router
     from apm.domains.conversations import router as conversations_router
     from apm.domains.events_api import router as events_router
     from apm.domains.features import router as features_router
@@ -67,6 +85,7 @@ def create_app() -> FastAPI:
     from apm.domains.users import router as users_router
 
     app.include_router(system_router, prefix="/api")
+    app.include_router(auth_router, prefix="/api")
     app.include_router(events_router, prefix="/api")
     app.include_router(stream_router, prefix="/api")
     app.include_router(ontology_router, prefix="/api")

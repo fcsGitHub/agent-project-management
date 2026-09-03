@@ -16,6 +16,7 @@ from apm import config
 from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
+from apm.core import security
 
 router = APIRouter(tags=["users"])
 
@@ -49,10 +50,23 @@ def _require_user(uid: str) -> dict:
     return dict(row)
 
 
+def _safe_user(row) -> dict:
+    """Projection row without credential material (M8-I26)."""
+    d = dict(row)
+    d.pop("password_hash", None)
+    if "is_admin" in d:
+        d["is_admin"] = bool(d["is_admin"])
+    return d
+
+
 def ensure_default_user() -> None:
     """Bootstrap: register the configured single-user identity on first boot.
 
     Events, not rows — rebuild-projections reproduces the registry from history.
+    Security state is the exception (M8-I26): is_admin and password_hash are
+    direct runtime columns, never evented (credentials must not enter the audit
+    log). APM_ADMIN_PASSWORD re-applies the admin password on every boot, which
+    is also the recovery path after a projection rebuild.
     """
     conn = db.get_conn()
     n = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
@@ -63,6 +77,13 @@ def ensure_default_user() -> None:
             agg_id=config.settings.user_id,
             payload={"name": config.settings.user_name, "email": None},
         )
+    conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (config.settings.user_id,))
+    if config.settings.admin_password:
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (security.hash_password(config.settings.admin_password), config.settings.user_id),
+        )
+    conn.commit()
 
 
 # ------------------------------------------------------------ API
@@ -72,7 +93,7 @@ def list_users() -> dict:
         "SELECT * FROM users ORDER BY created_at, id").fetchall()
     current = config.settings.user_id
     return {
-        "users": [dict(r) for r in rows],
+        "users": [_safe_user(r) for r in rows],
         "current": current,
         "current_name": next((r["name"] for r in rows if r["id"] == current), current),
     }
@@ -97,7 +118,7 @@ def register_user(body: UserIn) -> dict:
         agg_id=uid,
         payload={"name": body.name, "email": body.email},
     )
-    return _require_user(uid)
+    return _safe_user(_require_user(uid))
 
 
 class IdentityIn(BaseModel):

@@ -70,6 +70,12 @@ def init_db() -> None:
         pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "field_overrides" not in pcols:
             conn.execute("ALTER TABLE projects ADD COLUMN field_overrides TEXT")
+        # Lightweight migration: 存量库补 users 凭据列（M8-I26）。
+        ucols = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "password_hash" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+        if "is_admin" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         conn.commit()
 
 
