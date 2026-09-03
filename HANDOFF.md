@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10-I33 完成，下一步 I34 通知中心与收尾）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10 三迭代完成，待正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -109,6 +109,12 @@
   - CRUD + rotate API（M8 门禁自动生效）；单测 4 项 + **冒烟 16**；
   - 自踩即修：worker 解析漏传 with_secret=True 致签名缺失——单测签名断言当场拦住。
 - **当前验证状态**：pytest **109 项全绿**；冒烟基线 **16 条全绿**（16 = webhook 全程）；`pnpm vitest`/`pnpm build` 绿。
+- **M10-I34 通知中心与收尾（本轮完成）**：
+  - 新域 `app/apm/domains/notifications.py`：通知 = 既有事件纯投影（item.assigned→被指派人、approval.requested→项目 Owner、notification.sent→指定用户）；已读事件溯源（notification.read，ids/all）；通知 id 确定性 `n_{事件id}_{用户}`（踩坑：随机 id 致 rebuild 后已读引用失配——事件溯源投影新生成实体 id 禁止随机，已入 HANDOFF 坑清单）；GET /notifications + POST /notifications/read；
+  - automation 动作白名单增 `notify`（{user_id, message≤200}，防循环与 automation 归账继承 M9）；
+  - 前端 AppShell 顶栏 NotificationsBell（未读徽标+清单+全部已读，15s 轮询）；api.ts 增 2 方法；
+  - docs/12 §7 通知章节；单测 4 项（含套跑身份泄漏修复夹具）+ 冒烟 16 扩展通知断言；**pytest 113 全绿、冒烟 16 GREEN、vitest/build 绿**；
+  - 浏览器验证：指派后铃铛徽标「3」→下拉 assigned 通知→全部已读徽标消失（截图 docs/i34-notification-bell.png）。
 - **M10-I33 webhook 前端与运维（本轮完成）**：
   - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
   - 前端本体页「Webhooks 出站」面板：创建表单（URL+订阅芯片）、**secret 一次性弹窗**（rotate 换发）、Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+重发）；api.ts 增 7 方法 + 2 类型；
@@ -122,9 +128,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M10-I34 开工：站内通知中心与收尾**（docs/10 §M10）：`notifications` 投影（approval.requested / item.assigned(human) / automation.rule_fired / 工件沉淀 → 通知行），顶栏铃铛未读数 + 下拉清单 + 已读；automation 动作白名单增 `notify`（{user_id, message}，走 M9 防循环与 automation 归账）；审计页 integration 归账复核；docs/12 通知章节；冒烟 16 扩展通知断言。
-2. **M10 正式审阅**（冒烟 16 + I32/I33/I34 DoD + 演示：webhook 投递留痕 + 通知中心）。
-3. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）。
+1. **M10 正式审阅**（按 M8/M9 审阅模式，docs/10 §M10 审阅点）：审阅时点 HEAD 重跑 pytest 113 + 冒烟 16 取新鲜证据；I32/I33/I34 DoD 逐项核对；浏览器隔离复演「webhook 投递留痕 + 通知中心」演示路径（可复演 I33/I34 截图路径）+ 附录 B 审阅记录 + 审阅截图 + 带「M10 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）。
+3. 调研后按新计划继续迭代开发。
 
 ## 5. 有哪些坑不要再踩
 
@@ -141,6 +147,8 @@
 - **演示环境 console 会有 404/连接拒绝噪声**：长命浏览器标签页会跨隔离库轮询旧会话 ID、并在关服后持续重连——审阅时逐条核对来源再下结论，别当成产品缺陷，也别忽略。
 - **写自动化相关断言先想清「活规则已在造数阶段触发过」**（I29 单测+冒烟各踩一次）：规则一建好，后续造的每条数据都可能真实触发动作——别拿已被活规则改过的状态去证明 dry-run 不执行；要验证静默就把所有规则都停用再数事件。
 - **`items` 投影对 custom_fields 是整列覆盖**（I20 踩坑、I29 再防一次）：任何「改一个字段」的路径都必须合并现值后再发 item.updated，直接透传部分 dict 会清掉其他字段。
+- **投影器新生成实体的 id 禁止随机**（I34 踩坑）：通知 id 初版用 new_id，rebuild 后 id 漂移、已读事件引用失配、未读数回弹——投影中新实体 id 必须由事件流确定性导出（如 `n_{事件id}_{用户}`）。**单测 rebuild 断言要直接对比 id/未读数**。
+- **/api/session/identity 全局改 settings.user_id 会跨用例泄漏**（local 模式全局身份的固有语义）：依赖 effective_actor 的测试，文件内加身份还原夹具（保存→yield→还原）。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
@@ -148,8 +156,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 103 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 15 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 113 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 16 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
