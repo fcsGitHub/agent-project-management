@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M13-I41 完成，下一步 I42 时间线视图）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M13-I42 完成，下一步 I43 收尾+M13 审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -157,6 +157,11 @@
   - test_milestones.py 4 项；pytest **132** 全绿、冒烟 18 GREEN。
 - **当前验证状态**：pytest **132 项全绿**；冒烟基线 **18 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 - **M13 已定义（本提交，docs/01 §L + docs/10 §M13）**：三路调研——OpenProject Gantt（三类工作包×依赖连线×时间轴，依赖传播核心语义）、Plane v1.16 Milestone（deadline 锚点，与 Cycles 正交→只做 Milestone）、GitLab 导出/备份（导出仅补充、备份走 DB 层）→ **M13 = 里程碑与时间线（I41 里程碑域与工作项日期：milestone.* 事件溯源 + items 加 start_date/due_date 列 + 进度 + 报表口径升级 / I42 时间线视图：条形/菱形/depends_on 箭头与冲突标红，不做依赖自动传播 / I43 事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + 审阅，约 9 人日）**；依赖自动传播改期、Cycles、SSO、移动端留 backlog。
+- **M13-I42 时间线视图（本轮完成）**：
+  - TimelinePage（`#/p/{pid}/timeline`，rail「时间线」）：日期轴自适应+周刻度+今日线、概念分行条形、里程碑菱形（悬停进度）、depends_on 冲突红条+行底虚线（不自动改期）；api.ts 增 Milestone 4 方法 + getItem；**顺带补 I41 缺口：ItemIn 支持 milestone_id（创建即关联，fail-closed 校验+投影持久化）** + test_milestones 第 5 项；
+  - 浏览器验证（隔离环境）：菱形悬停进度/冲突红条+行底虚线/日期轴刻度（截图 docs/i42-timeline.png）；build+vitest 绿；
+  - 坑：browser_navigate 同 hash URL 不重载 SPA（React Query 缓存旧值）→ location.reload() 强刷；同行 SVG 连线被条形遮住 → 走行底边缘。
+- **当前验证状态**：pytest **133 项全绿**；冒烟基线 **18 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -164,7 +169,7 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M13-I42 开工：时间线视图**（docs/10 §M13）：新页 TimelinePage（`#/p/{pid}/timeline`，rail「时间线」）：横向日期轴（默认今起前后各 30 天）、行=概念分组、条形=有 start/due 的工作项、菱形=里程碑（悬停进度徽标）、depends_on 关系 SVG 连线、后置项 start 早于前置项 due 标红（冲突提示不自动改期）；api.ts 增 Milestone 类型 + listMilestones 等方法；浏览器验证截图。
+1. **M13-I43 收尾**（docs/10 §M13）：事件 NDJSON 导出 `GET /projects/{id}/events/export`（流式 NDJSON + prev_event_id 链）；docs/11 备份章节（SQLite 文件级 + content/ + ontologies/，导出仅作补充）；docs/12 §10 里程碑与时间线；**新增冒烟 19**（里程碑 CRUD→关联→进度→报表口径→NDJSON→rebuild 一致）；随后 **M13 正式审阅**（HEAD 重跑全量→DoD→浏览器复演时间线页→附录 B→「M13 正式审阅通过」提交）。
 2. I42 时间线视图 → I43 收尾（NDJSON 导出+docs+冒烟 19）→ **M13 正式审阅**（模式同 M8-M12）。
 3. 审阅通过后：新一轮开源调研 → 定 M14。
 
