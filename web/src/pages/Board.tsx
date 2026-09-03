@@ -1,9 +1,11 @@
-/** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start. */
+/** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start.
+ * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns. */
 import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { customFieldBadges } from "../lib/fmt";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, cx } from "../components/ui";
 
 export function Board() {
@@ -12,15 +14,28 @@ export function Board() {
   const featureId = params.get("feature") ?? undefined;
   const priority = params.get("priority") ?? "";
   const assignee = params.get("assignee") ?? "";
+  const group = params.get("group") ?? "";
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"board" | "list">("board");
 
   const board = useQuery({
-    queryKey: ["board", pid, featureId],
-    queryFn: () => api.getBoard(pid!, featureId),
+    queryKey: ["board", pid, featureId, group],
+    queryFn: () => api.getBoard(pid!, featureId, group || undefined),
     enabled: !!pid,
   });
+  const onto = useQuery({
+    queryKey: ["ontology", pid],
+    queryFn: () => api.getOntology(pid!, true),
+    enabled: !!pid,
+  });
+  // Distinct custom fields across concepts → grouping selector options (M6-I21).
+  const fieldOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of onto.data?.concepts ?? [])
+      for (const f of c.fields ?? []) if (!m.has(f.id)) m.set(f.id, f.name);
+    return [...m];
+  }, [onto.data]);
   const runs = useQuery({ queryKey: ["runs", pid], queryFn: () => api.listRuns(pid!), enabled: !!pid });
   const approvals = useQuery({
     queryKey: ["approvals", pid, "pending"],
@@ -82,6 +97,13 @@ export function Board() {
           ))}
         </div>
         {featureId && <Badge tone="indigo">功能切片</Badge>}
+        <select value={group} onChange={(e) => setFilter("group", e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          <option value="">分组：生命周期</option>
+          {fieldOptions.map(([fid, fname]) => (
+            <option key={fid} value={`field:${fid}`}>分组：{fname}</option>
+          ))}
+        </select>
         <div className="ml-auto flex items-center gap-2 text-xs">
           <select value={priority} onChange={(e) => setFilter("priority", e.target.value)}
             className="rounded-lg border border-line bg-surface px-2 py-1.5">
@@ -111,7 +133,7 @@ export function Board() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-line text-mut">
-                <th className="py-2">标题</th><th>概念</th><th>状态</th><th>优先级</th><th>执行者</th><th>更新</th>
+                <th className="py-2">标题</th><th>概念</th><th>状态</th><th>优先级</th><th>执行者</th><th>字段</th><th>更新</th>
               </tr>
             </thead>
             <tbody>
@@ -122,6 +144,13 @@ export function Board() {
                   <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
                   <td>{item.priority ?? "—"}</td>
                   <td>{item.assignee_id ? `${item.assignee_type === "agent" ? "🤖" : "👤"} ${item.assignee_id}` : "—"}</td>
+                  <td>
+                    {customFieldBadges(item, onto.data?.concepts).length ? (
+                      customFieldBadges(item, onto.data?.concepts).map((b) => (
+                        <span key={b.label} className="mr-1 whitespace-nowrap text-mut">{b.label}: {b.text}</span>
+                      ))
+                    ) : "—"}
+                  </td>
                   <td className="text-mut">{item.updated_at?.slice(5, 16)}</td>
                 </tr>
               ))}
@@ -130,13 +159,26 @@ export function Board() {
         </div>
       )}
       <div className={cx("min-h-0 flex-1 gap-3 overflow-x-auto p-4", view === "list" && "hidden")}>
-        {(board.data?.buckets ?? []).map((b) => {
-          const items = b.items.filter(matches);
+        {(board.data?.groups
+          ? board.data.groups.map((g) => ({
+              id: g.id,
+              label: board.data.field?.name ? `${board.data.field.name}: ${g.name}` : g.name,
+              tone: "neutral" as const,
+              items: g.items,
+            }))
+          : (board.data?.buckets ?? []).map((b) => ({
+              id: b.id,
+              label: GROUP_NAME[b.id],
+              tone: GROUP_TONE[b.id],
+              items: b.items,
+            }))
+        ).map((col) => {
+          const items = col.items.filter(matches);
           if (priority && !items.length) return null;
           return (
-            <div key={b.id} className="flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50">
+            <div key={col.id} className="flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50">
               <div className="flex items-center justify-between px-3 py-2">
-                <Badge tone={GROUP_TONE[b.id]}>{GROUP_NAME[b.id]}</Badge>
+                <Badge tone={col.tone}>{col.label}</Badge>
                 <span className="text-xs text-mut">{items.length}</span>
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-3">
@@ -163,6 +205,9 @@ export function Board() {
                                 {item.assignee_type === "agent" ? "🤖" : "👤"} {item.assignee_id}
                               </Badge>
                             )}
+                            {customFieldBadges(item, onto.data?.concepts).map((b) => (
+                              <Badge key={b.label} tone="neutral">{b.label}: {b.text}</Badge>
+                            ))}
                           </div>
                           {run && (
                             <Link

@@ -20,7 +20,8 @@ export type Message = {
 export type Item = {
   id: string; project_id: string; feature_id?: string; concept_id: string; title: string;
   status: string; status_group: string; priority?: string; assignee_type?: string;
-  assignee_id?: string; estimate_hours?: number; created_at: string; updated_at: string;
+  assignee_id?: string; estimate_hours?: number; custom_fields?: Record<string, unknown> | null;
+  created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string }[];
 };
 export type Run = {
@@ -50,6 +51,8 @@ export type BoardData = {
   project_id: string; feature_id?: string; group_by: string;
   buckets: { id: string; name: string; items: Item[] }[];
   columns: { id: string; concept_id: string; concept_name: string; status: string; name: string; group: string }[];
+  field?: { id: string; name: string; type: string } | null;
+  groups?: { id: string; name: string; items: Item[] }[] | null;
 };
 export type Ontology = {
   name: string; display_name: string; version: number; errors: string[];
@@ -57,6 +60,7 @@ export type Ontology = {
   concepts: {
     id: string; name: string; icon: string; default_phase?: string; agent_roles: string[];
     states: { id: string; name: string; group: string }[]; artifact_kinds: { id: string; deposits_to?: string }[];
+    fields?: { id: string; name: string; type: string; values?: (string | number)[] }[];
   }[];
   phases: { id: string; name: string; gate?: string }[];
   relations: { id: string; name: string }[];
@@ -186,8 +190,13 @@ export const api = {
     req<{ items: Item[] }>(`/projects/${pid}/items${params?.feature_id ? `?feature_id=${params.feature_id}` : ""}`),
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
-  getBoard: (pid: string, featureId?: string) =>
-    req<BoardData>(`/projects/${pid}/board${featureId ? `?feature_id=${featureId}` : ""}`),
+  getBoard: (pid: string, featureId?: string, groupBy?: string) => {
+    const q = new URLSearchParams();
+    if (featureId) q.set("feature_id", featureId);
+    if (groupBy) q.set("group_by", groupBy);
+    const qs = q.toString();
+    return req<BoardData>(`/projects/${pid}/board${qs ? `?${qs}` : ""}`);
+  },
   batchStart: (ids: string[]) =>
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
 

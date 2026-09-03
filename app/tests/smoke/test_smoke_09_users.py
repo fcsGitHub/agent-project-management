@@ -62,6 +62,24 @@ def test_smoke_09_multi_identity_collaboration(client, tmp_data):
                              params={"cf": "regression:true"}).json()["items"]
         assert len(cf_hits) == 1 and cf_hits[0]["custom_fields"] == {"regression": True}
 
+        # Board field grouping (M6-I21): one column per declared tag value, the
+        # untagged bug lands in 未设置, unknown fields fail closed.
+        client.post(f"/api/projects/{pid}/items",
+                    json={"concept_id": "task", "title": "压测脚本",
+                          "custom_fields": {"tags": ["frontend"]}})
+        board = client.get(f"/api/projects/{pid}/board",
+                           params={"group_by": "field:tags"}).json()
+        assert board["group_by"] == "field:tags" and board["field"]["name"] == "标签"
+        assert [g["id"] for g in board["groups"]] == ["frontend", "backend", "infra", "_none"]
+        by_key = {g["id"]: g["items"] for g in board["groups"]}
+        assert [i["title"] for i in by_key["frontend"]] == ["压测脚本"]
+        assert [i["title"] for i in by_key["_none"]] == ["登录失败"]
+        assert client.get(f"/api/projects/{pid}/board",
+                          params={"group_by": "field:ghost"}).status_code == 422
+        lifecycle = client.get(f"/api/projects/{pid}/board").json()
+        assert [b["id"] for b in lifecycle["buckets"]] == \
+            ["backlog", "todo", "in_progress", "done", "cancelled"]
+
         # Switch back; identity change is itself auditable.
         r = client.post("/api/session/identity", json={"user_id": "u_admin"}).json()
         assert r["current"] == "u_admin"

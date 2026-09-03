@@ -228,10 +228,30 @@ BUCKET_NAMES = {
 }
 
 
+def _find_field(onto, field_id: str) -> dict | None:
+    """Locate a custom-field declaration across all concepts (first match wins)."""
+    for concept in onto.concepts.values():
+        for f in concept.fields:
+            if f.get("id") == field_id:
+                return f
+    return None
+
+
+def _group_key(value) -> str:
+    """Canonical column key for one scalar field value (bool → filter literals)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"  # matches the cf=true/false filter literals
+    return str(value)
+
+
 @router.get("/projects/{project_id}/board")
-def get_board(project_id: str, feature_id: str | None = None) -> dict:
-    """Board projection: ontology lifecycle states grouped into five buckets."""
+def get_board(
+    project_id: str, feature_id: str | None = None, group_by: str | None = None
+) -> dict:
+    """Board projection: five lifecycle buckets, optionally re-grouped by a custom
+    field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by)."""
     onto = project_ontology(project_id)
+    effective = group_by or onto.board_defaults.get("group_by", "lifecycle")
     items = list_items(project_id=project_id, feature_id=feature_id)
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
@@ -249,15 +269,52 @@ def get_board(project_id: str, feature_id: str | None = None) -> dict:
                     "group": s["group"],
                 }
             )
-    return {
+    resp = {
         "project_id": project_id,
         "feature_id": feature_id,
         "buckets": [
             {"id": b, "name": BUCKET_NAMES[b], "items": buckets.get(b, [])} for b in BUCKET_NAMES
         ],
         "columns": columns,
-        "group_by": onto.board_defaults.get("group_by", "lifecycle"),
+        "group_by": effective,
+        "field": None,
+        "groups": None,
     }
+    if effective == "lifecycle":
+        return resp
+    if not effective.startswith("field:"):
+        raise HTTPException(status_code=422, detail=f"unknown group_by '{effective}' (lifecycle | field:<id>)")
+    fid = effective[len("field:") :]
+    field = _find_field(onto, fid)
+    if not field:
+        raise HTTPException(status_code=422, detail=f"field '{fid}' is not declared in ontology")
+    # Declared values keep their ontology order (stable columns, even when empty);
+    # undeclared keys follow first-seen item order; 未设置 always last. Multiselect
+    # values fan out — an item appears once per tag (label-board semantics).
+    ordered = [str(v) for v in field.get("values") or []]
+    grouped: dict[str, list[dict]] = {}
+    none_items: list[dict] = []
+    for item in items:
+        val = (item.get("custom_fields") or {}).get(fid)
+        if val is None or val == []:
+            none_items.append(item)
+            continue
+        for v in val if isinstance(val, list) else [val]:
+            key = _group_key(v)
+            grouped.setdefault(key, []).append(item)
+            if key not in ordered:
+                ordered.append(key)
+    column_keys = ordered + (["_none"] if none_items else [])
+    resp["field"] = {"id": fid, "name": field.get("name", fid), "type": field.get("type", "string")}
+    resp["groups"] = [
+        {
+            "id": k,
+            "name": "未设置" if k == "_none" else k,
+            "items": (none_items if k == "_none" else grouped.get(k, [])),
+        }
+        for k in column_keys
+    ]
+    return resp
 
 
 # ------------------------------------------------------------------ models

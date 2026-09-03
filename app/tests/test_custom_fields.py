@@ -81,6 +81,45 @@ def test_custom_fields_survive_rebuild(client, tmp_data, isolated_ontologies, pr
     assert len(items) == 1 and items[0]["custom_fields"] == {"tags": ["backend", "infra"]}
 
 
+def test_board_group_by_custom_field(client, tmp_data, isolated_ontologies, project):
+    """M6-I21: board grouping by a custom field (`group_by=field:<id>`)."""
+    pid = project["id"]
+    client.post(f"/api/projects/{pid}/items", json={
+        "concept_id": "task", "title": "前端页", "custom_fields": {"tags": ["frontend"]}})
+    client.post(f"/api/projects/{pid}/items", json={
+        "concept_id": "task", "title": "双端", "custom_fields": {"tags": ["frontend", "backend"]}})
+    client.post(f"/api/projects/{pid}/items", json={"concept_id": "bug", "title": "崩溃"})
+
+    # Default stays lifecycle: five buckets, no field groups.
+    d = client.get(f"/api/projects/{pid}/board").json()
+    assert d["group_by"] == "lifecycle" and d["groups"] is None and d["field"] is None
+    assert [b["id"] for b in d["buckets"]] == ["backlog", "todo", "in_progress", "done", "cancelled"]
+
+    # Declared values keep ontology order (empty kept); multiselect fans out into
+    # one column per tag; items without the field land in _none, last.
+    d = client.get(f"/api/projects/{pid}/board", params={"group_by": "field:tags"}).json()
+    assert d["group_by"] == "field:tags" and d["field"]["name"] == "标签"
+    assert [(g["id"], [i["title"] for i in g["items"]]) for g in d["groups"]] == [
+        ("frontend", ["前端页", "双端"]),
+        ("backend", ["双端"]),
+        ("infra", []),
+        ("_none", ["崩溃"]),
+    ]
+
+    # Boolean values group under the cf-filter literal keys true/false.
+    client.post(f"/api/projects/{pid}/items", json={
+        "concept_id": "bug", "title": "回归炸", "custom_fields": {"regression": True}})
+    d = client.get(f"/api/projects/{pid}/board", params={"group_by": "field:regression"}).json()
+    assert d["groups"][0]["id"] == "true"
+    assert [i["title"] for i in d["groups"][0]["items"]] == ["回归炸"]
+
+    # Fail-closed: undeclared field, unknown grouping mode.
+    assert client.get(f"/api/projects/{pid}/board",
+                      params={"group_by": "field:ghost"}).status_code == 422
+    assert client.get(f"/api/projects/{pid}/board",
+                      params={"group_by": "wat"}).status_code == 422
+
+
 def test_validator_requires_values_for_enum_and_multiselect(client, tmp_data, isolated_ontologies):
     from apm.domains.ontology import validate_ontology_dict
 

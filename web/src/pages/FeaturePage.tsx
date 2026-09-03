@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { timeAgo } from "../lib/fmt";
+import { customFieldBadges, timeAgo } from "../lib/fmt";
 import {
   Badge, Button, Card, CONV_STATUS, Drawer, Empty, GROUP_NAME, GROUP_TONE, Modal,
   Tabs, Textarea, Input, cx,
@@ -57,6 +57,11 @@ export function FeaturePage() {
 
 function BoardSlice({ items, pid }: { items: import("../lib/api").Item[]; pid: string }) {
   const groups = ["backlog", "todo", "in_progress", "done", "cancelled"];
+  const onto = useQuery({
+    queryKey: ["ontology", pid],
+    queryFn: () => api.getOntology(pid!, true),
+    enabled: !!pid,
+  });
   if (!items.length)
     return <Empty icon="▦" title="暂无工作项" hint="批准计划后 Planner-Agent 会在此创建任务；也可从看板手动建卡" />;
   return (
@@ -79,6 +84,9 @@ function BoardSlice({ items, pid }: { items: import("../lib/api").Item[]; pid: s
                       <Badge tone={GROUP_TONE[i.status_group]}>{i.status}</Badge>
                       {i.priority === "high" && <Badge tone="red">高优</Badge>}
                       {i.assignee_id && <Badge tone="violet">🤖 {i.assignee_id}</Badge>}
+                      {customFieldBadges(i, onto.data?.concepts).map((b) => (
+                        <Badge key={b.label} tone="neutral">{b.label}: {b.text}</Badge>
+                      ))}
                     </div>
                   </Card>
                 </Link>
