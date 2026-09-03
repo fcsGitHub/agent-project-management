@@ -277,3 +277,28 @@ M10 = **出站集成：webhook 与通知**：I32 webhook 基座（规则即事�
 **J.3 M11 取舍**
 
 M11 = **邮件通知与 Atom 订阅**：I35 邮件通道（SMTP env 可选 + 队列投递 + email.notified 留痕 + 未配置静默关闭）/ I36 Atom 订阅 feed（feed key + 权限裁剪 + 冒烟 17）/ I37 通知偏好前端与收尾审阅，约 9 人日。digest、RSS 1.0 兼容、SSO/OIDC、本体版本事件级归档、移动端适配继续留 backlog。
+
+## K. M12 前置调研：报表与跨项目工作台（2026-09-04）
+
+> 目标协议触发：M11 审阅通过后开启。候选四项（报表增强 / SSO / 事件归档 / 移动端），调研后选定**报表与跨项目工作台**——对「工程管理落地标准」最直接的缺口是管理者可见性（项目健康、瓶颈、跨项目态势），且事件溯源架构做投影型报表零 ETL、与既有纪律完全同构。
+
+**K.1 OpenProject 报表分层：社区版 = custom query + widget，企业版才有报表模块（主借鉴）**
+
+- OpenProject 的报表能力分三层：① **custom query**（工作包表的可保存过滤/分组/排序视图）作为轻量"workaround-dashboards"；② **项目首页 widget**（工作包表、成员、新闻、日历等挂件）+ **My page** 个人工作台（"分配给我的工作包"等）；③ **高级自定义报表/仪表盘模块**——企业版专属。跨项目工作包列表同样支持过滤/分组/保存。
+- 官方明确把"可保存的查询视图"当作报表的第一形态，仪表盘是 widget 的拼装而非独立报表引擎。
+- 对本项目的映射：AgentPM 不需要报表引擎——**事件流 + 投影器就是现成的报表数据层**（rebuild 一致性已有冒烟兜底）：`GET /reports/...` 纯投影查询（阶段漏斗计数、Gate 挂起、超期清单、吞吐趋势、跨项目"我的工作"），前端报表页 = widget 式卡片拼装。企业级"高级自定义报表"不引入（YAGNI，backlog 记录）。
+
+**K.2 SSO/OIDC：独立 IdP 是主流，维持 V3 推迟（M8 决策不反转）**
+
+- 自托管 SSO 的主流模式：**独立身份源**（Keycloak/Authelia/Authentik/Kanidm）+ 各应用作为 OIDC client 接入；Gitea 也可反向作为 OAuth2 provider。
+- 已知坑：Gitea 原生 OIDC 登录**只对已存在账号生效**、自动开户（JIT provisioning）受限，社区常与 LDAP/反代认证组合；"严格强制 SSO"需禁用本地密码登录，且要有本地 admin 兜底防锁死。
+- 对本项目的映射（留给 V3）：`auth_mode=oidc` + JIT 开户（首次登录自动 user.registered）+ 保留 local admin 兜底账号；测试需引 IdP 容器（Keycloak/Automated-docker），横切改动大、演示成本高——工程管理落地标准的当前瓶颈不在认证方式，维持推迟。
+
+**K.3 GitLab 审计事件：DB 永久保留 + 流式外送归档（backlog 依据）**
+
+- GitLab 审计事件**在数据库中无限期保留**（无内建 retention/pruning）；长期归档的官方推荐是**流式外送**（HTTP 端点 / Google Cloud Logging → Datadog 等外部平台），事件类型可过滤；高级搜索建在其上。
+- 对本项目的映射：AgentPM events 表同构（append-only、无限增长是事件溯源的本质而非缺陷）。「归档」的正确形态 = **导出/快照工具**（如 `events.export` 按 agg_type/时间窗出 NDJSON）而非删除——任何删除都会破坏 live==replay 不变量；M10 webhook 外送已具备"流式外送"雏形（订阅 webhook.* 即可接外部日志平台）。本体版本事件级归档继续 backlog。
+
+**K.4 M12 取舍**
+
+M12 = **报表与跨项目工作台**：I38 报表数据层（纯投影查询 API：项目健康摘要 + 跨项目「我的工作」+ 项目列表健康聚合）/ I39 报表前端与项目工作台（项目报表页：阶段漏斗 + Gate 挂起 + 超期清单 + 吞吐；项目列表健康徽标；全局「我的工作」入口）/ I40 收尾审阅（CSV 导出 + docs + 冒烟 18），约 9 人日。SSO/OIDC（V3）、事件导出归档、移动端适配、高级自定义报表留 backlog。

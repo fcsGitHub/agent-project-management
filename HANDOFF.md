@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M11 正式审阅通过，下一步 M12 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12 已定义（报表与跨项目工作台），下一步 I38 开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -137,6 +137,7 @@
   - docs/12 §6 Webhooks 出站章节（投递语义表 + 接收方验签 Python 示例：原始字节 HMAC + 常量时间比较 + delivery 去重）；
   - 浏览器验证：python 接收桩实测签名投递（验 HMAC、delivery ID 与留痕一致）→ 历史抽屉 → UI 重发 → 接收桩收第二条新 delivery ID（截图 docs/i33-webhook-secret-modal.png、i33-webhook-delivery-history.png）。
 - **M10 已定义（`64ca1de`，docs/01 §I + docs/10 §M10）**：调研 Gitea/GitLab webhook（HMAC-SHA256 对原始 body 签名、X-Gitea-Event/Delivery 头幂等去重、明文 token 已被 GitLab legacy 化）、Redmine（邮件通知+feeds 是自托管桌上前提；规则化通知由 Redmineflux 插件验证为真实需求）→ **M10 = 出站集成：webhook 与通知（I32 webhook 基座——后台投递线程，post-emit hook 只入队绝不阻塞写路径（与 M9 同步执行器的本质差异）/ I33 webhook 前端与运维 + 冒烟 16 / I34 站内通知中心 + automation notify 动作，约 9 人日）**；邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
+- **M12 已定义（本提交，docs/01 §K + docs/10 §M12）**：三路调研——OpenProject 报表分层（社区版=custom query+widget+My page，高级报表企业版；→ 报表=投影查询+widget 拼装）、SSO/OIDC（独立 IdP+OIDC client 主流，Gitea JIT 受限；维持 V3）、GitLab 审计事件（DB 永久保留+流式外送；→ 归档=导出而非删除）→ **M12 = 报表与跨项目工作台（I38 报表数据层纯投影 API / I39 报表前端与项目工作台 / I40 CSV+docs/12 §9+冒烟 18+审阅，约 9 人日）**；SSO（V3）、事件导出归档、移动端、高级自定义报表留 backlog。
 
 ## 3. 现在卡在哪
 
@@ -144,8 +145,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **新一轮开源调研 → 定义 M12**（目标协议第 1 条，候选：SSO/OIDC、本体版本事件级归档、移动端适配、报表/统计增强；M10 调研时遗留 backlog：digest 邮件、邮件/RSS 已由 M11 落地）——2-3 路并行 WebSearch，结论写 docs/01 新节 + docs/10 §M12（迭代表+DoD+估时）+ 状态看板行 + 附录 A 合并日志，收口 HANDOFF 并提交。
-2. 按 M12 计划逐迭代开工（模式同 M8-M11：迭代实现→单测/冒烟→docs→提交→里程碑正式审阅）。
+1. **M12-I38 开工：报表数据层**（docs/10 §M12）：新域 `app/apm/domains/reports.py`——纯投影查询 API（无新表无新事件）：`GET /projects/{id}/report`（阶段漏斗、Gate 挂起清单、超期工作项、近 14 天吞吐）、`GET /my/work`（跨项目「分配给我」+ 我负责的 Gate 审批）、`GET /projects` 响应补健康摘要；单测含 viewer 可读/非成员 403/rebuild 后数字不变。
+2. I39 报表前端与项目工作台 → I40 收尾（CSV+docs+冒烟 18）→ **M12 正式审阅**（模式同 M8-M11）。
+3. 审阅通过后：新一轮开源调研 → 定 M13。
 
 ## 5. 有哪些坑不要再踩
 

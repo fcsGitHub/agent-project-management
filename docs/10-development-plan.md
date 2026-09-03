@@ -430,6 +430,36 @@ agent-project-management/
 
 **M11 审阅点**：冒烟 17 + 各迭代 DoD + 浏览器演示（邮件投递留痕 + feed 订阅 + 通知偏好）。
 
+### M12 · 报表与跨项目工作台（吸收 OpenProject，I38-I40，约 9 人日）
+
+> v1.3 新增（2026-09-04，M11 审阅通过后按目标协议调研）。调研结论见 docs/01 §K：OpenProject 报表分三层——社区版以 custom query（可保存过滤/分组视图）+ 项目首页 widget + My page 个人工作台为轻量报表，高级报表模块属企业版；SSO/OIDC 主流=独立 IdP+应用作 OIDC client（Gitea JIT 开户受限是已知坑），维持 V3；GitLab 审计事件 DB 永久保留+流式外送归档——AgentPM「归档」应为导出/快照而非删除（保护 live==replay）。选定报表与跨项目工作台：管理者可见性是工程管理落地标准的直接缺口，且事件溯源做投影型报表零 ETL。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I38 | 报表数据层（项目健康摘要 + 跨项目「我的工作」+ 项目列表健康聚合的纯投影查询 API） | 01 §K.1 | 事件流/items/board 投影 | 3d |
+| I39 | 报表前端与项目工作台（项目报表页：阶段漏斗+Gate 挂起+超期清单+吞吐；项目列表健康徽标；全局「我的工作」） | 01 §K.1 | — | 3d |
+| I40 | 收尾审阅（CSV 导出 + docs 报表章节 + 冒烟 18 + M12 审阅） | 01 §K.3/K.4 | — | 3d |
+
+#### I38 · 报表数据层（3d）
+
+- 任务：新域 `app/apm/domains/reports.py`——纯投影查询 API（无新表、无新事件，复用既有投影）：`GET /projects/{id}/report`（阶段漏斗计数、Gate 挂起清单、超期工作项（estimate/due 与状态判定）、近 N 天吞吐（created/closed 序列）、概念分布）；`GET /my/work`（跨项目「分配给我」+ 我负责的 Gate 审批，按 M8 角色可见性）；`GET /projects` 响应补健康摘要字段（各状态计数 + 挂起 Gate 数）。时间判定用 SQLite 当前时区约定并在文档写明；权限复用 M8 门禁。
+- DoD：三端点单测（造数→计数断言→权限断言：viewer 可读、非成员 /report 403）；rebuild 后报表数字不变（投影一致性天然保证，显式断言）；不新增任何事件类型。
+- 演示路径：API 造多状态数据 → /report 各段数字与看板/列表人工核对一致。
+
+#### I39 · 报表前端与项目工作台（3d）
+
+- 任务：新页「报表」（`#/p/{pid}/reports`，侧栏入口）：阶段漏斗（按状态计数条形）、Gate 挂起卡片（直达审批中心）、超期清单（超期天数徽标）、吞吐 sparkline（近 14 天 created/closed）；项目列表页每卡片健康徽标（进行中/挂起/完成计数 + 挂起 Gate）；全局「我的工作」入口（侧栏，跨项目聚合视图）。api.ts 增 3 方法 + 类型。
+- DoD：vitest/build 绿；浏览器验证报表页数字与看板/审计一致（截图）；「我的工作」跨项目命中断言。
+- 演示路径：报表页全览 + 项目列表徽标 + 我的工作直达。
+
+#### I40 · 收尾审阅（3d）
+
+- 任务：报表 CSV 导出（/report?format=csv 或前端导出）；docs/12 §9 报表与工作台章节（口径定义：超期/吞吐/挂起判定规则）；冒烟 18（报表全程：造数→三端点→CSV）；M12 审阅。
+- DoD（并入冒烟 18）：口径边界（无 due 不算超期、done 不进漏斗挂起段）；CSV 与 JSON 同数；rebuild 一致。
+- 演示路径：冒烟 18 + 浏览器报表页复演。
+
+**M12 审阅点**：冒烟 18 + 各迭代 DoD + 浏览器演示（项目报表页 + 项目列表健康徽标 + 我的工作）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -549,10 +579,13 @@ agent-project-management/
 | I33 webhook 前端与运维 | 已完成 | 2026-09-03 | 2026-09-03 | 后端补 replay（按 delivery_id 重放原事件载荷、新 delivery ID、单次尝试）+ ping（合成载荷单次尝试）端点；前端本体页「Webhooks 出站」面板：创建表单（URL+订阅事件芯片）、secret 一次性展示弹窗（rotate 换发）、行内 Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+attempts+状态码+耗时+重发按钮）；api.ts 增 7 方法 + Webhook/DeliveryRecord 类型；docs/12 §6 验签章节（原始字节 HMAC+常量时间比较+delivery 去重 Python 示例）；单测 5 项；浏览器验证：接收桩实测签名投递→历史抽屉两条 已送达（原始+重发，delivery ID 各异）→ 重发生效（截图 docs/i33-webhook-secret-modal.png、i33-webhook-delivery-history.png）；pytest 109/冒烟 16 全绿 |
 | I34 通知中心与收尾 | 已完成 | 2026-09-03 | 2026-09-03 | `notifications` 投影表：纯投影自既有事件（item.assigned→被指派人、approval.requested→项目 Owner、notification.sent→指定用户）；通知 id 确定性（n_{事件id}_{用户}）保证已读引用 rebuild 后仍匹配；notification.read 事件溯源已读（ids/all）；GET /notifications + POST /notifications/read（按 effective_actor 归属）；automation 动作白名单增 notify（{user_id,message≤200}，走防循环与 automation 归账）；前端顶栏通知铃铛（未读徽标+清单+全部已读，15s 轮询）；docs/12 §7 通知章节；新增单测 4 项 + 冒烟 16 扩展通知断言；pytest 113/冒烟 16 全绿；浏览器验证铃铛徽标与已读清零（截图 docs/i34-notification-bell.png） |
 | **M10 里程碑审阅（正式）** | 已完成 | 2026-09-03 | 2026-09-03 | 冒烟 16 + I32/I33/I34 各迭代 DoD 逐项核对全过（审阅时点重跑 pytest 113/冒烟 16）+ 浏览器复演「UI 建 webhook→触发→接收桩签名投递→投递历史留痕→指派通知铃铛」合并路径（截图 docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png，见附录 B） |
-| **M11 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 17 + I35/I36/I37 各迭代 DoD 逐项核对全过（审阅时点 HEAD `0270169` 重跑 pytest 123/冒烟 17）+ 浏览器隔离复演「邮件投递留痕 + feed 订阅 + 通知偏好」（本地 SMTP 接收桩实测收信、开关后邮件止站内照常、feed.atom 直开渲染、非成员 403，截图 docs/m11-review-*.png ×4，见附录 B） |
 | I35 邮件通知通道 | 已完成 | 2026-09-04 | 2026-09-04 | `APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量（可选；未配置=通道整体静默关闭，行为与 M11 前完全一致）；`domains/mailer.py`——收件人决策抽为 notifications.`plan_notifications` 纯函数（通知投影与邮件共用，两通道永不失配）；post-emit hook 只入队 + apm-mailer 守护线程即时发送（STARTTLS/465 SSL/login 可配，超时 10s）；`email.notified/failed` 留痕（to/summary/source_event_id/duration_ms，确定性 agg_id）；users.email 既有字段直接复用；新增单测 5 项 + 冒烟 17；pytest 119/冒烟 17 全绿 |
 | I36 Atom 订阅 feed | 已完成 | 2026-09-04 | 2026-09-04 | users 加 feed_key（运行态，CREATE+ALTER 迁移）；新域 `domains/feed.py`：GET /me/feed-key（查看/首次生成，owner 可读自己的凭据）+ POST /me/feed-key/rotate + GET /projects/{id}/feed.atom?key=（key 认证绕过 cookie）；**权限裁剪防 #20173 式泄漏**（instance admin 全见、成员按角色、local 模式配置用户；非成员 403 并落 access.denied 留 path）；Atom 1.0 XML（xml.sax.saxutils 转义、id=urn:apm:event/{pid}/{eid}、entry 含 title/updated/author/content 摘要，latest 30）；单测 3 项（生命周期+rotate 失效/roundtrip+well-formed+content-type/非成员 403+入成员后放行）；冒烟 17 扩展 feed 断言；pytest 122/冒烟 17 全绿 |
 | I37 通知偏好前端与收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | users 加 `email_notify`（默认 1，CREATE+ALTER 迁移）；`POST /api/notifications/prefs` + GET /notifications 响应带 `email_enabled`；mailer 入队过滤 `email_notify=0`（**只停邮件、站内通知照常**——通知是事实投影，邮件是可选介质）；通知中心弹层增偏好区：邮件开关（即时生效）+ feed key 显示/换发/复制订阅链接；api.ts 增 setNotificationPrefs/getFeedKey/rotateFeedKey；test_mailer 第 6 项（开关后邮件止、站内 unread 照增）；docs/12 §8「邮件通知与 Atom 订阅」；pytest 123/冒烟 17/vitest+build 全绿 |
+| **M11 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 17 + I35/I36/I37 各迭代 DoD 逐项核对全过（审阅时点 HEAD `0270169` 重跑 pytest 123/冒烟 17）+ 浏览器隔离复演「邮件投递留痕 + feed 订阅 + 通知偏好」（本地 SMTP 接收桩实测收信、开关后邮件止站内照常、feed.atom 直开渲染、非成员 403，截图 docs/m11-review-*.png ×4，见附录 B） |
+| I38 报表数据层 | 未开始 | — | — | 纯投影查询 API：/projects/{id}/report（漏斗/Gate 挂起/超期/吞吐）+ /my/work 跨项目 + 项目列表健康聚合 |
+| I39 报表前端与项目工作台 | 未开始 | — | — | 项目报表页（漏斗+Gate 挂起+超期+sparkline）+ 项目列表健康徽标 + 全局「我的工作」 |
+| I40 报表收尾审阅 | 未开始 | — | — | CSV 导出 + docs/12 §9 + 冒烟 18 + M12 审阅 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -612,6 +645,7 @@ agent-project-management/
 | 2026-09-04 | I37 | 通知偏好前端与收尾：users 加 `email_notify`（INTEGER NOT NULL DEFAULT 1，CREATE+ALTER 迁移）；notifications.py 增 `POST /api/notifications/prefs`（body {email_enabled}，按 effective_actor 更新自身 users.email_notify）+ GET /notifications 响应带 `email_enabled`；mailer.enqueue 入队前过滤 `email_notify=0`——**开关语义：只停邮件、站内通知照常**（通知=事实投影，邮件=可选投递介质）。前端 NotificationsBell 增「通知偏好」区：邮件开关即时 POST prefs；feed key 区显示/换发（确认后 rotate）/复制订阅链接（拼 feed.atom?key=）；api.ts 增 setNotificationPrefs/getFeedKey/rotateFeedKey。测试：test_mailer 第 6 项（开关后邮件止于 1 封、站内 unread 照增、email_enabled 往返）。调试期教训入档：regex 探针误删 mailer.py 中段→整文件重写修复；`/api/session/identity` 全局改 settings.user_id 跨用例泄漏（boot 注册无邮箱默认管理员、INSERT OR IGNORE 吞掉带邮箱注册）→ test_notifications/test_mailer 加 `_restore_identity` autouse 夹具；**源码修改一律用 Edit 工具（字面量安全），不再用 heredoc/regex 脚本**。pytest 123 项绿、冒烟 17 条 GREEN、vitest+build 绿。 |
 | 2026-09-03 | M10 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `08af0c5` 重跑 pytest 113 项 + 冒烟 16 条全绿）：**I32** webhook CRUD + secret 不入事件流（事件流 grep 无 secret）+ rebuild 存活（secret 运行态置空、rotate 换发）+ fail-closed（ftp URL/webhook.* 订阅/空事件列表 422）✓（test_webhook_crud_secret_never_evented_and_rebuild）；本地接收桩端到端——签名 = HMAC-SHA256(secret, 原始 body) 逐字节比对 ✓、X-APM-Event/Delivery/Webhook 头在位 ✓、webhook.delivered 留痕 ✓（test_delivery_signed_and_recorded）；500→1+3 次尝试→delivery_failed 留痕（attempts=4, status_code=500）✓（test_failure_retries_then_failed_recorded）；停用静默+启用恢复 ✓（test_disabled_webhook_stays_silent）；写路径零阻塞（冒烟 16 断言写 <1s 返回 / 接收端 stall 2s）✓；**I33** replay/ping 端点（重放同 agg_id 新 delivery ID、ping 单次尝试、未知 delivery 404）✓（test_replay_and_ping）；Webhooks 面板 CRUD/订阅芯片/secret 一次性弹窗/投递历史抽屉 ✓；docs/12 §6 验签章节在位 ✓；**I34** 指派通知+已读流程+rebuild 存活 ✓、read-all+越权 404+空参 422 ✓、approval.requested 通知 Owner ✓、notify 动作校验与触发归账 ✓（test_notifications 4 项）；通知 id 确定性修复（随机 id→n_{事件id}_{用户}）与身份泄漏还原夹具已落附录 A。浏览器复演（隔离环境+python 接收桩）：UI 建 webhook（URL+订阅芯片）→ secret 一次性弹窗 → API 建缺陷 → 接收桩实测签名投递（delivery ID dl_65f2ccde… 与留痕事件一致）→ 投递历史抽屉「已送达 HTTP 200 · 1次 · 15ms」→ 指派触发通知 → 铃铛徽标「1」+ 下拉「被指派工作项『审阅触发缺陷』」（顶栏 QA 王）——单张截图覆盖两路径（docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png）。 | — | 里程碑通过 |
 | 2026-09-04 | M11 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `0270169` 重跑 pytest 123 项 + 冒烟 17 条全绿）：**I35** SMTP env 缺省关闭零行为 ✓（test_off_by_default）、配置后指派即时发信（To/From/主题+留痕）✓、收件人单源 plan_notifications（两通道不失配）✓、故障 email.failed 留痕 worker 存活 ✓、慢 SMTP 2s 写路径 <1s 不阻塞 ✓；**I36** feed key 生命周期+rotate 后旧 key 401 ✓、Atom roundtrip+ElementTree well-formed+content-type ✓、非成员 403+入成员放行 ✓（test_feed 3 项）；**I37** prefs 开关后邮件止/站内 unread 照增/email_enabled 往返 ✓（test_email_pref_toggle_stops_mail_but_not_notifications）、存量库 ALTER 迁移 ✓（冒烟 17 rebuild 断言前提）。浏览器隔离复演（隔离 data+ontologies + 本地 SMTP 接收桩 :2525，演示项目 p_bf3f9022c8）：UI 建项目「邮件与订阅演示」→ API 建缺陷+指派 qa-wang → 桩实测收信（From agentpm@test.local / To qa@x.local / UTF-8 编码主题正文）→ 审计链 #10 item.created → #11 item.assigned → #12 email.notified（agg_id=em_11_qa-wang、source_event_id=11、duration_ms=1328，截图 docs/m11-review-mail-audit.png）→ 切 QA 王：铃铛「1」+ 偏好区（邮件通知开启 + Atom 订阅 key，截图 docs/m11-review-bell-prefs.png）→ 关闭邮件开关（标签即时变「已关，站内照常」）→ 二次指派：桩仍 1 封、email.notified 仍 1 条、铃铛徽标「2」（**邮件止、站内照常**）→ 切回李雷其面板显示「开启」（per-user 偏好对照）→ QA 王 feed key 展示+复制订阅链接（docs/m11-review-feed-key.png）→ 浏览器直开 feed.atom?key= 渲染 Atom XML（docs/m11-review-feed-atom.png）→ 局外人 outsider key 访问 feed 403 + access.denied（user_id/path/summary 齐全）。**语义澄清**：local 模式「当前配置用户（settings.user_id）」恒可读 feed 为既定单机可信语义（首次探针 200 即此因——配置身份恰为被测用户）；固定配置身份为李雷后 outsider key 正确复现 403，非权限漏洞。 | — | 里程碑通过 |
+| 2026-09-04 | M12 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**OpenProject 报表分层**——社区版以 custom query（可保存过滤/分组视图）+ 项目首页 widget + My page 为轻量报表，高级报表模块企业版专属 → 报表=投影查询+widget 拼装，无需报表引擎；②**SSO/OIDC**——自托管主流=独立 IdP（Keycloak/Authelia/Authentik/Kanidm）+应用作 OIDC client，Gitea JIT 开户受限、强制 SSO 须禁本地密码且留 admin 兜底 → 维持 V3（M8 决策不反转）；③**GitLab 审计事件**——DB 永久保留+流式外送归档（HTTP/GCL→Datadog）→ AgentPM「归档」=导出/快照而非删除（保护 live==replay）。结论入 docs/01 §K。新增 **M12 = 报表与跨项目工作台**（I38 报表数据层纯投影 API：项目健康+跨项目我的工作+列表聚合 / I39 报表前端与项目工作台：漏斗+Gate 挂起+超期+sparkline+列表徽标+全局我的工作 / I40 CSV 导出+docs/12 §9+冒烟 18+审阅；范围变更：计划外新增里程碑，理由=目标协议持续推进+管理者可见性是工程管理落地标准的直接缺口且事件溯源做投影报表零 ETL，估时 +9 人日；新增冒烟 18 于 I40）。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
