@@ -37,6 +37,9 @@ def create_app() -> FastAPI:
         from apm.domains.automations import install_automation_engine
 
         install_automation_engine()  # 自动化引擎挂 post-emit hook（幂等，M9-I29）
+        from apm.domains.webhooks import install_webhooks_engine
+
+        install_webhooks_engine()  # webhook 入队 hook + 后台投递线程（幂等，M10-I32）
         yield
 
     app = FastAPI(title="AgentPM", version="0.1.0", lifespan=lifespan)
@@ -120,6 +123,7 @@ def create_app() -> FastAPI:
     from apm.domains.system import router as system_router
     from apm.domains.template_packs import router as template_packs_router
     from apm.domains.users import router as users_router
+    from apm.domains.webhooks import router as webhooks_router
 
     app.include_router(system_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
@@ -132,6 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(ontology_pack_router, prefix="/api")
     app.include_router(template_packs_router, prefix="/api")
     app.include_router(users_router, prefix="/api")
+    app.include_router(webhooks_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(members_router, prefix="/api")
     app.include_router(automations_router, prefix="/api")

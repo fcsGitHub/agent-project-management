@@ -248,6 +248,18 @@ CREATE TABLE IF NOT EXISTS automation_rules (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_automation_rules_project ON automation_rules(project_id);
+
+CREATE TABLE IF NOT EXISTS webhooks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL DEFAULT '',
+  events_json TEXT NOT NULL DEFAULT '[]',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_webhooks_project ON webhooks(project_id);
 """
 
 FTS_DDL = """
@@ -265,6 +277,7 @@ def create_all(conn: sqlite3.Connection) -> None:
 def drop_projections(conn: sqlite3.Connection) -> None:
     """Used by rebuild-projections: wipe caches, replay events through projectors."""
     for table in (
+        "webhooks",
         "automation_rules",
         "project_members",
         "users",
