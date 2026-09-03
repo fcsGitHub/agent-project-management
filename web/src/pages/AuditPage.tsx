@@ -6,8 +6,8 @@ import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { Button, Card, Empty, Input, cx } from "../components/ui";
 
-const ICON: Record<string, string> = { human: "👤", agent: "🤖", system: "⚙️", ui_agent: "⌨️" };
-const DOMAINS = ["全部", "approval", "item", "run", "message", "artifact", "asset", "ui_command", "prompt"];
+const ICON: Record<string, string> = { human: "👤", agent: "🤖", system: "⚙️", ui_agent: "⌨️", automation: "⚡" };
+const DOMAINS = ["全部", "approval", "item", "automation", "run", "message", "artifact", "asset", "ui_command", "prompt"];
 
 export function AuditPage() {
   const { pid } = useParams();
@@ -62,6 +62,7 @@ export function AuditPage() {
             <option value="">发起者（全部）</option>
             <option value="human">👤 人</option>
             <option value="agent">🤖 Agent</option>
+            <option value="automation">⚡ 自动化</option>
             <option value="system">⚙️ 系统</option>
             <option value="ui_agent">⌨️ UI-Agent</option>
           </select>
