@@ -210,3 +210,35 @@ POST /api/projects/{id}/events/import   {"data": "<NDJSON 全文>"}
 - **恢复语义面向空/新库**：目标项目可不存在，但 payload 必须包含其 `project.created` 事件；
 - 通过后按序追加（保留原始 id/ts/actor，prev 重链到目标库当前头部）→ 全量 rebuild → 返回 `{imported, rebuilt}`；
 - 操作步骤见 docs/11 §5.3；导出/导入版本需同代（无跨版本兼容承诺）。
+
+## 12. 移动端与 PWA（M15-I47/I48/I49）
+
+AgentPM 前端为可安装 PWA（vite-plugin-pwa，generateSW + autoUpdate），<768px 视口自动切换移动布局。
+
+### 12.1 安装
+
+- 浏览器访问部署地址：桌面 Chrome/Edge 地址栏「安装」；Android Chrome 菜单「添加到主屏幕」；iOS Safari 分享菜单「添加到主屏幕」。
+- manifest 指向实例自身（start_url `/`、standalone 独立窗口、图标 192/512 + maskable）——安装的是「你自己的服务器」，不依赖任何应用商店（WeKan TWA 教训，docs/01 §N.1）。
+
+### 12.2 移动端布局（I47）
+
+| 区域 | 桌面（≥768px） | 移动（<768px） |
+| --- | --- | --- |
+| 导航 | 左侧图标 rail + 功能列 | 汉堡按钮 → 抽屉（导航 + 功能列表） |
+| 看板 | 多列并排 | 单列横向滑动（列宽下限保持可读） |
+| 列表/表格页 | 全宽表格 | 横向滚动（`min-w-[640px]`，不挤压折行） |
+| 报表/我的工作/首页 | 三列栅格 | 单列堆叠 |
+| 时间线 | 全宽 | 横向滚动（日期轴百分比不压缩） |
+| 触控目标 | 常规 | 审批/通知铃 36px、rail 44px、⌘K 窄屏图标化 |
+
+### 12.3 离线边界（I48）
+
+- **外壳可离线**：service worker precache 全部静态资产（HTML/JS/CSS/图标/manifest）——断网 reload 后外壳、导航、布局完整可用；
+- **数据必在线**：`/api/*` 一律透传网络，永入 SW 缓存（`navigateFallbackDenylist` + 零 runtimeCaching）——事件溯源与 SSE/审批实时性要求在线；离线时数据区按请求失败兜底显示，恢复网络后自动回归；
+- 不做离线写（一致性分叉风险，V2 再议只读快照）。
+
+### 12.4 更新与部署注意
+
+- **更新**：新版发布后 SW 后台下载并静默接管，下次打开即新版；新 SW 就绪时弹「已发布新版本 · 立即刷新」toast；
+- **HTTPS**：service worker 仅在 secure context（HTTPS 或 localhost）注册——内网纯 HTTP 部署无 SW/安装能力（其余功能不变），移动端完整体验需按 docs/11 §4 配 TLS；
+- 构建产物断言见冒烟 21（dist 含 manifest.webmanifest + sw.js、precache 零 /api、denylist 在位）。
