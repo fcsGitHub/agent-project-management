@@ -326,3 +326,27 @@ M12 = **报表与跨项目工作台**：I38 报表数据层（纯投影查询 AP
 **L.4 M13 取舍**
 
 M13 = **里程碑与时间线**：I41 里程碑域与工作项日期（milestone.* 事件溯源 + CRUD + items 加 start_date/due_date 列（ALTER 迁移）+ milestone 关联与进度；报表超期口径升级为 item.due_date 优先）/ I42 时间线视图（`#/p/{pid}/timeline`：概念分组行 × 日期轴、条形/菱形、depends_on 箭头与冲突标红、里程碑进度徽标）/ I43 收尾（事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + 审阅），约 9 人日。依赖自动传播改期、Cycles/sprint、SSO、移动端留 backlog。
+
+
+## M. M14 前置调研：排程自动化与事件可携（2026-09-04）
+
+> 目标协议触发：M13 审阅通过后开启。三路调研（移动端/PWA、依赖传播排程、事件导入恢复），选定**排程自动化与事件可携**——「计划 vs 实际」的执行力缺口（依赖变化后手工改期繁琐易漏）与 M13 导出的恢复闭环（有出无进）。移动端 PWA（WeKan 路线）留下一轮候选。
+
+**M.1 OpenProject 15.4 自动排程：默认手动 + 可选自动（主借鉴）**
+
+- OpenProject 的 Gantt 有两种排程模式：**手动（默认）**——日期保持人工设置；**自动（15.4 新增）**——依赖前置变化时后继日期自动顺延（Finish-to-Start），且自动模式比关键路径引擎简单（无 SNET/SLT 任意约束类型，社区有相关讨论）。设计哲学：自动化是**可选项而非默认**，避免「日期被系统悄悄改掉」的失控感。
+- 对本项目的映射：items 加 `auto_scheduled` 开关（默认 0=手动，语义与 OpenProject 一致）；前置项 due 变化时对开启自动排期的后继项（depends_on 入边）平移 start/due（保持时长），**每次改期发显式 item.rescheduled 事件**（审计可见「谁/因哪个前置项改的」，不悄悄改投影）；传播递归处理多级依赖，访问标记防环。OpenProject 不支持的约束类型继续不做。
+
+**M.2 WeKan PWA：自托管移动端的最务实路线（backlog 依据）**
+
+- 自托管三强的移动端分层：Plane = 原生 App（评级高但维护两个平台成本大）；**WeKan = 官方 PWA/TWA**（可安装、自托管实例直接用）；Focalboard = 反面教材（移动 web 拥挤难用、独立开发停滞）。
+- 对本项目的映射（下一轮候选）：PWA manifest + service worker 离线壳 + 窄屏 rail/看板横滚/触控目标——纯前端可增量做，不阻塞后端演进；本轮不启动。
+
+**M.3 GitLab NDJSON 导入管线：有出必有进（I43 配对）**
+
+- GitLab 的 relation 导出 = NDJSON 文件 + metadata manifest，导入走同构管线；版本兼容窗口两个 minor；**恢复的正解仍是 DB 级备份**，导入用于迁移/选择性恢复。
+- 对本项目的映射：`POST /projects/{id}/events/import`（NDJSON → 逐行校验 schema/prev 链 → 追加进事件流 → rebuild 校验投影一致）。安全边界：仅接受**校验和匹配 + 事件 id 不与目标库冲突**的文件（冲突 409），即「空项目或全新库恢复」语义——与 docs/11 §5.3「只剩导出文件时按序重放」的既有表述闭环。
+
+**M.4 M14 取舍**
+
+M14 = **排程自动化与事件可携**：I44 依赖传播自动排期（items.auto_scheduled 开关 + item.rescheduled 显式事件 + 递归传播与防环 + 时间线开关入口）/ I45 事件 NDJSON 导入恢复（校验和/链序/冲突 409 + rebuild roundtrip）/ I46 收尾（docs/12 §11 + docs/11 §5.3 更新 + 冒烟 20 + M14 审阅），约 9 人日。PWA/移动端（下一轮首选）、约束类型（SNET/SLT）、原生 App 留 backlog。

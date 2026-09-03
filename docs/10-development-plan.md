@@ -490,6 +490,36 @@ agent-project-management/
 
 **M13 审阅点**：冒烟 19 + 各迭代 DoD + 浏览器演示（时间线页 + 里程碑进度 + NDJSON 导出）。
 
+### M14 · 排程自动化与事件可携（吸收 OpenProject 15.4/GitLab，I44-I46，约 9 人日）
+
+> v1.5 新增（2026-09-04，M13 审阅通过后按目标协议调研）。调研结论见 docs/01 §M：OpenProject 15.4 自动排程 = 手动默认 + 可选自动（Finish-to-Start 顺延，比关键路径引擎简单）；WeKan PWA = 自托管移动端最务实路线（下一轮候选）；GitLab NDJSON relation 管线印证 I43 导出需配对导入。选定排程自动化与事件可携——依赖变化后手工改期繁琐易漏、有出无进的恢复闭环。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I44 | 依赖传播自动排期（items.auto_scheduled 开关 + item.rescheduled 显式事件 + 递归传播与防环 + 时间线开关入口） | 01 §M.1 | depends_on/M13 日期列 | 3d |
+| I45 | 事件 NDJSON 导入恢复（校验和/链序/冲突 409 + rebuild roundtrip） | 01 §M.3 | I43 导出 | 3d |
+| I46 | 收尾审阅（docs/12 §11 + docs/11 §5.3 更新 + 冒烟 20 + M14 审阅） | 01 §M.2/M.4 | — | 3d |
+
+#### I44 · 依赖传播自动排期（3d）
+
+- 任务：items 加 `auto_scheduled` INTEGER 列（默认 0=手动，ALTER 迁移；PATCH 可开关）；前置项（被 depends_on 者）due 经 item.updated 变化时，对 depends_on 其且 auto_scheduled=1 的后继项计算 delta = 新 due − 旧 due，平移 start/due（保持时长，无 start 则仅平移 due），发**显式 `item.rescheduled` 事件**（payload 含 follow_of/delta/新日期，投影更新，审计归因）；多级依赖递归传播（深度上限 20 防环，遇已处理跳过）；时间线页条形 hover 标注「自动排期」。
+- DoD：单测（单级传播/多级递归/环安全/手动模式不受影响/auto 开关关闭不传播/rescheduled 事件 rebuild 存活）；冒烟不断言（I46 冒烟 20 并入）。
+- 演示路径：时间线造 A←B←C 链，改 A 的 due → B/C 自动顺延且审计可见 item.rescheduled 链。
+
+#### I45 · 事件 NDJSON 导入恢复（3d）
+
+- 任务：`POST /projects/{id}/events/import`（body = NDJSON 文本）：逐行 JSON 解析 + 校验和行匹配（sha256 重算比对）+ prev 链序校验 + 事件 id 与目标库冲突检测（任一冲突整批 409 拒绝，不做部分导入）；通过后按序 emit 追加（actor_type=system, actor_id=import）→ rebuild → 返回 {imported, rebuilt}；docs/11 §5.3 更新「恢复=导入+rebuild」实际操作步骤。
+- DoD：单测（roundtrip：导出→新库导入→事件序列与投影一致/校验和不匹配 422/事件 id 冲突 409/非 NDJSON 422）。
+- 演示路径：冒烟 20 并入 roundtrip。
+
+#### I46 · 收尾审阅（3d）
+
+- 任务：docs/12 §11 排程与可携章节（auto_scheduled 语义/rescheduled 事件审计/导入恢复操作）；docs/11 §5.3 恢复步骤落地更新；**新增冒烟 20**（自动排期传播链 + 导出→导入 roundtrip + rebuild 一致）；M14 审阅。
+- DoD（并入冒烟 20）：传播只影响 auto_scheduled 项；导入后 live==replay。
+- 演示路径：冒烟 20 + 时间线自动排期复演。
+
+**M14 审阅点**：冒烟 20 + 各迭代 DoD + 浏览器演示（依赖传播 + 导入恢复 roundtrip）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -621,6 +651,9 @@ agent-project-management/
 | I42 时间线视图 | 已完成 | 2026-09-04 | 2026-09-04 | 新页 TimelinePage（`#/p/{pid}/timeline`，rail「时间线」CalendarRange）：日期轴自动适配数据范围（无数据回退今日 -15/+30 天）、周刻度+今日 amber 竖线；行=概念（本体名映射）；条形=有 start/due 的工作项（done 绿/cancelled 灰/活跃 acc）；菱形=里程碑（amber，悬停截止日+完成比+逾期数）；**depends_on 冲突检测**——后置项 start 早于前置项 due 时条形红框+行底红色虚线连接（同行走行底边缘避让条形，不自动改期）；api.ts 增 Milestone 类型 + 里程碑 4 方法 + getItem；build+vitest 绿；浏览器验证（隔离环境）：里程碑菱形悬停进度（Beta 发布 33%）、冲突红条+虚线、日期轴刻度（截图 docs/i42-timeline.png）；**顺带补 I41 缺口**：ItemIn 增 milestone_id（创建即关联，POST 校验未知/跨项目 422 + item.created 投影持久化 + 单测第 5 项）——此前仅 PATCH 可关联 |
 | I43 时间线收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | 事件 NDJSON 导出 `GET /projects/{id}/events/export`（StreamingResponse 按全局追加序逐行输出、prev_event_id 链位保留、首行 prev 指向全局链前置事件属正常、末行校验和 events/sha256/first_prev/gaps；跨项目间隙容许——全局链含他项目事件）；docs/11 §5 备份与恢复（备份内容表/停机冷备+WAL 在线快照+Git bundle/恢复=rebuild 校验；GitLab「导出≠备份」教训移植）；docs/12 §10 里程碑与时间线（API 表/进度口径/排期字段/时间线交互/导出语义）；**新增冒烟 19**（里程碑全程：CRUD→建卡即关联→进度精确断言→报表超期口径（done 排除）→NDJSON 链序+校验和→rebuild 一致→未知项目 404）；pytest 134/冒烟 19 全绿 |
 | **M13 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 19 + I41/I42/I43 各迭代 DoD 逐项核对全过（审阅时点 HEAD `edecddd` 重跑 pytest 134/冒烟 19）+ 浏览器隔离复演「时间线页 + 里程碑进度 + NDJSON 导出实测」（截图 docs/m13-review-timeline.png，见附录 B） |
+| I44 依赖传播自动排期 | 未开始 | — | — | items.auto_scheduled 开关 + item.rescheduled 显式事件 + 递归传播与防环 + 时间线入口 |
+| I45 事件 NDJSON 导入恢复 | 未开始 | — | — | 校验和/链序/冲突 409 + rebuild roundtrip |
+| I46 可携收尾审阅 | 未开始 | — | — | docs/12 §11 + docs/11 §5.3 更新 + 冒烟 20 + M14 审阅 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -690,6 +723,7 @@ agent-project-management/
 | 2026-09-04 | I42 | 时间线视图：新页 **TimelinePage**（`#/p/{pid}/timeline`，AppShell rail「时间线」CalendarRange，Board 与 Graph 之间）——日期轴自动适配数据范围（取条形/菱形/今日的 min-2d..max+2d；无数据回退今日 -15/+30 天），周刻度网格 + 今日 amber 竖线；行 = 概念（本体 concepts 名映射，行序按出现序）；条形 = 有 start/due 的工作项（done 绿/cancelled 灰/活跃 acc，最小宽度 0.8%，悬停标题含状态与冲突说明）；菱形 = 里程碑（amber rotate-45 定位在 due 日，悬停显示截止日/完成比/逾期数——进度徽标走 title）；**depends_on 冲突检测**：对排期项并发拉详情取 relations，后置项 start < 前置项 due → 条形 red-500 红框 + 红色虚线连接（**同行冲突走行底边缘**避让条形，跨行走两行中心连线；不自动改期）；api.ts 增 Milestone 类型 + listMilestones/createMilestone/patchMilestone/deleteMilestone + getItem（item 详情此前无前端方法）。**顺带补 I41 缺口**：ItemIn 增 milestone_id——创建即关联（post_item 校验未知/跨项目 422、create_item payload 透传、item.created 投影 INSERT 持久化），此前仅 PATCH 可关联（演示种子数据当场暴露）；test_milestones 第 5 项（建卡即关联+坏关联 422）。浏览器验证（隔离环境）：里程碑菱形（Beta 发布·33%）/冲突红条+行底虚线/日期轴刻度（截图 docs/i42-timeline.png）；build+vitest 绿。**前端调试教训**：browser_navigate 到相同 hash URL 不触发 SPA 重载（React Query 缓存不失效，删除里程碑后头部计数仍为旧值）——需 location.reload() 强刷；SVG 连线与条形同行重叠不可见 → 连线走行底边缘。 |
 | 2026-09-04 | I43 | 时间线收尾：**事件 NDJSON 导出** `GET /projects/{id}/events/export`（events_api.py StreamingResponse；按全局追加序逐行输出完整事件——id/ts/type/agg/actor/payload/prev_event_id；末行校验和 {events, sha256(全部行字节), first_prev_event_id, gaps}；**语义**：prev 链是全局的，per-project 导出首行 prev 指向链上前置事件、跨项目事件造成间隙属正常（gaps 字段显式披露），初版严格链断言被冒烟当场纠正）；未知项目 404；**docs/11 §5 备份与恢复**（GitLab「导出≠备份」移植：备份内容表 apm.db+content/+ontologies/+secret.key；停机冷备 / WAL .backup 在线快照 / Git bundle；恢复=rebuild 校验 events_replayed；导出仅补充）；**docs/12 §10 里程碑与时间线**（API 表/进度口径/排期字段三级回退指引/时间线交互/导出语义）。**新增冒烟 19** test_smoke_19_milestones.py（里程碑 CRUD→建卡即关联→进度 {2,1,0.5,逾期1} 精确断言→报表超期口径 done 排除+item.due_date 优先→NDJSON 行序+prev 链+校验和→rebuild 进度与报表不变→未知项目 404）。pytest 134 项绿、**冒烟基线 19 条 GREEN**。 |
 | 2026-09-04 | M13 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `edecddd` 重跑 pytest 134 项 + 冒烟 19 条全绿）：**I41** 里程碑 CRUD 往返 + rebuild 存活 ✓（test_milestone_crud_and_rebuild）、校验 fail-closed 全矩阵（坏日期/缺日期/坏状态/未知关联/未知项目 404）✓（test_milestone_validation_fail_closed）、进度与逾期计算 + rebuild 一致 ✓（test_progress_and_overdue）、item 日期 ISO 校验 + 报表口径（item.due_date 优先：带过期 due 新建即超期、改未来即脱出）✓（test_item_dates_and_report_caliber）、创建即关联 ✓（test_link_milestone_at_creation，I42 补）；**I42** TimelinePage 四要素（日期轴/条形/菱形/冲突连接线）build+vitest 绿 + 浏览器验证 ✓；**I43** NDJSON 导出（行序+prev 链位+校验和行+gaps 披露）✓（冒烟 19）、docs/11 §5 与 docs/12 §10 在位 ✓。浏览器隔离复演（审阅时点，隔离环境演示库 p_bf3f9022c8）：时间线页日期轴 08-17..10-05 + 今日线 + 里程碑菱形（Beta 发布·截止 09-20·悬停完成 33%）+ 任务行冲突红条（编码实现 09-02→09-18 依赖设计评审）+ 行底红虚线 + 缺陷行蓝条（截图 docs/m13-review-timeline.png）；里程碑进度 API 实测 {items_total 3, done 1, ratio 0.33, overdue 0} 与菱形悬停一致；NDJSON 导出实测 35 事件 + 校验和行（sha256/first_prev=4/gaps=3 显式披露跨项目间隙）。无新增 B/C 级意见。 | — | 里程碑通过 |
+| 2026-09-04 | M14 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**OpenProject 15.4 自动排程**——手动默认 + 可选自动（Finish-to-Start 顺延），比关键路径引擎简单（无 SNET/SLT 约束类型）→ 自动化是可选项而非默认，改期须显式事件留审计；②**WeKan PWA**——自托管移动端最务实路线（Plane 原生 App 成本大、Focalboard 移动 web 反面教材）→ PWA 留下一轮首选；③**GitLab NDJSON relation 管线**——导出/导入同构 + metadata manifest、版本兼容窗口 → I43 导出需配对导入，恢复正解仍是 DB 级。选定 **M14 = 排程自动化与事件可携**（依赖变化后手工改期繁琐易漏 + 有出无进的恢复闭环）：I44 依赖传播自动排期（items.auto_scheduled 开关 + item.rescheduled 显式事件 + 递归传播与防环）/ I45 事件 NDJSON 导入恢复（校验和/链序/冲突 409 + rebuild roundtrip）/ I46 docs+冒烟 20+审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 20 于 I46。结论入 docs/01 §M。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
