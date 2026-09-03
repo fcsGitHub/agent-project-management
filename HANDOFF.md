@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 正式审阅通过，M9 已定义待开工）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M9-I29 完成，下一步 I30 规则管理前端）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -73,7 +73,14 @@
   - `/session/identity` network 模式 422（切换=登出重登）；前端 `/login` 登录页 + api 层 401 自动跳登录 + 顶栏按 `/auth/me` source 分流（session→⭐/👤+登出，local→原切换菜单）；
   - 部署文档 `docs/11-network-deploy.md`（auth_mode/admin_password/secret_key/TTL、管理员建号流程、角色与归账规则、nginx 反代 HTTPS+SSE）；
   - 浏览器验证（隔离 network 模式）：未登录写 401 → 登录页 → 模板建项目 → 顶栏 ⭐李雷+登出（截图 docs/i28-login-session-chip.png）。
-- **当前验证状态**：pytest **97 项全绿**；冒烟基线 **14 条全绿**（14 = 认证+成员+归账全程）；`pnpm build`/`pnpm vitest` 通过。
+- **I29 自动化规则域与执行引擎（本轮完成，目标协议更新为「持续调研开源+修缺陷+迭代至工程管理落地标准」后开工）**：
+  - 新域 `app/apm/domains/automations.py`：规则即事件溯源（`automation_rules` 表 + `automation.rule_created/updated/deleted`，rebuild 存活）；
+  - **执行器 = events post-emit hook**（events.py 增 `add_post_emit_hook`，emit 追加+投影+SSE 后同步调用；hook 异常只记日志不破坏写入；rebuild 不经 emit 天然不触发）——事件内核即事件源，无自建 dispatcher（docs/01 §H 结论落地）；
+  - 规则模型：trigger 白名单 4 事件 × condition（concept_id+字段谓词）× 单动作白名单 fail-closed（assign/set_priority/set_field/set_status；创建即 422 校验，set_field 复用 `_validate_custom_fields`）；**防循环双保险**（automation actor 不进门 + dispatch 期 contextvar）；动作显式归账 actor_type=automation/actor_id=规则 id；set_field 合并现值再整列写（I20 整列覆盖教训）；
+  - API：CRUD `/projects/{id}/automations`（M8 门禁自动生效）+ `/test` dry-run + `/runs` 历史；main.py lifespan `install_automation_engine()` 幂等装配；
+  - **顺手修 domains/__init__ 投影注册清单漏 members/template_packs**（此前靠 main 导入链间接注册，非应用上下文 rebuild 会静默丢投影）；
+  - 新增 test_automations.py 5 项 + **冒烟 15**；pytest **103** 项全绿、冒烟 **15** 条 GREEN。
+- **当前验证状态**：pytest **103 项全绿**；冒烟基线 **15 条全绿**（15 = 自动化规则全程）；前端无改动（build/vitest 上次验证绿）。
 - **M8 正式审阅通过（`978da42`+`630e91f`，附录 B）**：
   - 审阅时点 HEAD `dec89c3` 重跑 pytest 97/冒烟 14 全绿；I26/I27/I28 DoD 逐项核对（凭证与审计/三角色矩阵与 rebuild/归账断言）；
   - 浏览器双账号协作演示（隔离 network 模式）：登录页登录 → 建项目（Owner=李雷）→ 管理员建号 qa-wang → 成员面板加 Viewer → viewer 写 403（access.denied 四元组审计）→ 升 Contributor 写成功 → 审计时间线归账链 #16/#20/#21 完整；截图 docs/m8-review-login.png、m8-review-admin-members.png、m8-review-viewer-denied.png、m8-review-audit-attribution.png；
@@ -87,9 +94,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M9-I29 开工：自动化规则域与执行引擎**（docs/10 §M9）：`automation_rules` 投影表 + `automation.rule_*` 事件（rebuild 存活）+ event_bus 订阅执行器（trigger 匹配/condition 谓词/动作白名单 fail-closed/防循环：规则产出事件 actor_type=automation 不再触发规则引擎）+ 规则 CRUD API（复用 M8 门禁）；**新增冒烟 15**。
-2. I30 规则管理前端（设置页规则面板+测试运行 dry-run+触发历史）→ I31 收尾（审计归账+docs/12+演示）→ **M9 正式审阅**。
-3. M9 审阅通过后：新一轮开源调研（目标第 5 条）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
+1. **M9-I30 开工：规则管理前端**（docs/10 §M9）：项目设置页「自动化」面板——规则列表（启停开关）+ 新建表单（事件类型/条件字段谓词/动作白名单下拉）+「测试运行」（调 `/test` dry-run 显示将执行的动作）+ 触发历史抽屉（调 `/runs`）；api.ts 增对应方法。
+2. I31 收尾（审计页 automation 过滤入口 + docs/12 使用指南 + 浏览器演示）→ **M9 正式审阅**（冒烟 15 + DoD + 演示：建规则→触发→自动动作→审计归账）。
+3. M9 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -104,6 +111,8 @@
 - **前端是 HashRouter**：浏览器直接导航要用 `/#/p/{pid}/board`（不带 `/#` 会落在项目列表页，别当成 bug 查后端）。
 - **打/恢复演示（或相关测试）的确定性时序**：run 由后台线程执行，"interrupted" 状态 = 挂在 Gate 待评审；注入 = 对话内发消息（engine 把 run 开始后的用户消息收集为 constraints）；恢复 = ▸ 继续（resume 端点可带 instruction，Gate 挂起时走 revise）。参考 `app/tests/test_runtime.py` 的 `test_interrupt_inject_resume_*`。
 - **演示环境 console 会有 404/连接拒绝噪声**：长命浏览器标签页会跨隔离库轮询旧会话 ID、并在关服后持续重连——审阅时逐条核对来源再下结论，别当成产品缺陷，也别忽略。
+- **写自动化相关断言先想清「活规则已在造数阶段触发过」**（I29 单测+冒烟各踩一次）：规则一建好，后续造的每条数据都可能真实触发动作——别拿已被活规则改过的状态去证明 dry-run 不执行；要验证静默就把所有规则都停用再数事件。
+- **`items` 投影对 custom_fields 是整列覆盖**（I20 踩坑、I29 再防一次）：任何「改一个字段」的路径都必须合并现值后再发 item.updated，直接透传部分 dict 会清掉其他字段。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
@@ -111,8 +120,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 97 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 14 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 103 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 15 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
