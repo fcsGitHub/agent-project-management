@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 进行中，I26 完成）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 进行中，I26/I27 完成）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -63,7 +63,12 @@
   - `POST /auth/login|logout` + `GET /auth/me`：登录成功/失败/登出均有 session.* 审计事件；HttpOnly SameSite=Lax Cookie；
   - `settings.auth_mode`：local（默认，现状零改动）/ network（middleware 对 /api 非 GET 强制会话，/api/auth/* 豁免）；`GET /users` 等出口 `_safe_user` 剥离凭据；
   - **新增冒烟 14**（network 门禁+审计+登出+local 零破坏）。
-- **当前验证状态**：pytest **94 项全绿**；冒烟基线 **14 条全绿**（14 = 认证基座）；前端未改动。
+- **I27 项目成员与角色（本轮完成）**：
+  - 新域 `app/apm/domains/members.py`：`project_members` 投影表 + `project.member_added/removed/role_changed` 事件（rebuild 存活）；建项目即发 member_added（creator=owner）；
+  - 成员管理 API `GET/POST/PATCH/DELETE /projects/{id}/members`（owner 或实例管理员可管；末位 owner 保护 422；未知用户 422、非成员 404、重复 409）；`POST /users` 支持可选 password（管理员建号）；
+  - network 写门禁升级：`project_id_for_path` 路径→项目解析（items/conversations/runs/approvals/artifacts 反查），viewer/非成员写 403 + `access.denied` 审计（admin 豁免）；前端本体页「项目成员」面板；
+  - **边界（I28 收口）**：会话→actor 归账仍走 settings.user_id，登录人身份强制落 I28。
+- **当前验证状态**：pytest **97 项全绿**；冒烟基线 **14 条全绿**（含成员断言）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
 
@@ -71,10 +76,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I27 · 项目成员与角色**（docs/10 §M8 表，估 3d）：project_members 投影（owner/contributor/viewer，建项目者即 owner）；成员管理 API（从已注册用户添加/移除/改角色）+ network 模式访问控制依赖（越权 403+事件）；项目设置页成员管理 UI。
-2. **I28 · 网络协作收尾**（估 3d）：登录态替代身份切换（network 模式顶栏=登录人）；审批/审计强制登录人；compose 部署文档（反代 HTTPS、auth_mode）；双账号协作冒烟。
-3. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
-4. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
+1. **I28 · 网络协作收尾**（docs/10 §M8 表，估 3d）：会话→actor 归账打通（登录人即事件 actor，替代 settings.user_id 依赖）；登录态替代身份切换（network 模式顶栏=登录人）；前端登录页（network 模式 401 跳转）；compose 部署文档（反代 HTTPS、auth_mode）；双账号协作冒烟。
+2. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
+3. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -94,7 +98,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 94 项，应全绿
+cd app && python -m pytest            # 97 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 14 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
