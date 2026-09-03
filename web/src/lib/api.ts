@@ -125,6 +125,26 @@ export type Asset = {
   id: string; library_id: string; kind: string; title: string; status: string;
   tags?: string; version: number; citation_count: number; updated_at: string;
 };
+export type TemplatePack = {
+  name: string; display_name: string; version: number; source: string; valid: boolean;
+  concepts: number; states: number; fields: number; phases: number; relations: number;
+  competency_questions: number; registered_at?: string; imported_at?: string;
+  imported_by?: string; origin_ontology?: string;
+};
+export type TemplatePackPreview = {
+  name: string; display_name: string; version: number; source: string;
+  summary: { concepts: number; states: number; fields: number; phases: number; relations: number; competency_questions: number };
+  competency_questions: string[];
+  concepts: {
+    id: string; name: string; icon: string;
+    states: { id: string; name: string; group: string }[];
+    fields: { id: string; name: string; type: string; values?: (string | number)[] }[];
+    agent_roles: string[];
+  }[];
+  phases: { id: string; name: string; gate?: string }[];
+  relations: { id: string; name: string }[];
+  errors: string[];
+};
 export type Context = {
   L1: { content?: string; version?: number; editable: boolean };
   L2: { content?: string };
@@ -275,6 +295,17 @@ export const api = {
     Object.entries(params ?? {}).forEach(([k, v]) => v && q.set(k, v));
     return req<{ assets: Asset[] }>(`/assets?${q.toString()}`);
   },
+
+  // Template packs (M7-I23/I24)
+  listTemplatePacks: () => req<{ packs: TemplatePack[] }>("/template-packs"),
+  previewTemplatePack: (name: string) => req<TemplatePackPreview>(`/template-packs/${name}`),
+  instantiateTemplatePack: (name: string, body: { project_name: string; requirement?: string }) =>
+    req<Project>(`/template-packs/${name}/instantiate`, { method: "POST", body: JSON.stringify(body) }),
+  assetToPack: (assetId: string, packName: string) =>
+    req<{ name: string; origin_ontology: string; source: string }>("/template-packs/from-asset", {
+      method: "POST",
+      body: JSON.stringify({ asset_id: assetId, pack_name: packName }),
+    }),
 
   // NL commands (I10)
   uiCommand: (utterance: string, page_state: Record<string, unknown>) =>

@@ -5,11 +5,20 @@ docs/01 §F.2). 注册表 = 本体目录活扫描（单一真源：I18 导入即
 复用建项目共链路（projects.post_project）。"""
 from __future__ import annotations
 
+import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from apm import config
 from apm.core import events
-from apm.domains.ontology import OntologyError, list_ontologies, load_ontology
+from apm.domains.ontology import (
+    OntologyError,
+    list_ontologies,
+    load_ontology,
+    reload_all,
+    validate_ontology_dict,
+)
+from apm.domains.ontology_versions import _load_live
 from apm.domains.projects import ProjectIn, post_project
 
 router = APIRouter(tags=["template-packs"])
@@ -44,7 +53,11 @@ def _provenance() -> dict[str, dict]:
     """name → source/at/by, synthesized from the append-only log (replay-safe)."""
     prov: dict[str, dict] = {}
     for e in events.query_events(event_type="pack.registered", limit=_PROVENANCE_LIMIT)[0]:
-        prov[e.agg_id] = {"source": "builtin", "registered_at": e.ts}
+        src = e.payload.get("source", "builtin")
+        prov[e.agg_id] = {"source": src, "registered_at": e.ts}
+        if src == "asset":
+            prov[e.agg_id]["asset_id"] = e.payload.get("asset_id")
+            prov[e.agg_id]["origin_ontology"] = e.payload.get("origin_ontology")
     for e in events.query_events(event_type="ontology.imported", limit=_PROVENANCE_LIMIT)[0]:
         prov[e.agg_id] = {
             "source": "imported",
@@ -83,6 +96,7 @@ def list_packs() -> dict:
                 "registered_at": p.get("registered_at"),
                 "imported_at": p.get("imported_at"),
                 "imported_by": p.get("imported_by"),
+                "origin_ontology": p.get("origin_ontology"),
             }
         )
     return {"packs": packs}
@@ -115,6 +129,56 @@ def preview_pack(name: str) -> dict:
 class InstantiateIn(BaseModel):
     project_name: str
     requirement: str | None = None
+
+
+class FromAssetIn(BaseModel):
+    asset_id: str
+    pack_name: str
+
+
+def _check_name(name: str) -> None:
+    if "/" in name or "\\" in name or name in ("", "."):
+        raise HTTPException(status_code=422, detail=f"invalid ontology name '{name}'")
+
+
+@router.post("/template-packs/from-asset")
+def from_asset(body: FromAssetIn) -> dict:
+    """资产沉淀为模板包（M7-I24）：以资产来源项目的本体为底，改名入库并发
+    `pack.registered`（source=asset，区别于跨实例的 ontology.imported）。"""
+    from apm.domains.assets import get_asset_detail
+    from apm.domains.projects import require_project
+
+    asset = get_asset_detail(body.asset_id)
+    _check_name(body.pack_name)
+    project_id = (asset["provenance"][0]["target"].get("project_id") if asset["provenance"] else None)
+    if not project_id:
+        raise HTTPException(status_code=422, detail="asset has no source project in provenance")
+    origin = require_project(project_id)["ontology"]
+    target = config.settings.ontology_dir / f"{body.pack_name}.yaml"
+    if target.exists():
+        raise HTTPException(status_code=409, detail=f"ontology '{body.pack_name}' already exists")
+    raw = _load_live(origin)
+    raw["name"] = body.pack_name
+    raw["version"] = 1
+    errors = validate_ontology_dict(raw)
+    if errors:
+        raise HTTPException(status_code=422, detail={"invalid_ontology": errors})
+    target.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    events.emit(
+        event_type="pack.registered",
+        agg_type="ontology_pack",
+        agg_id=body.pack_name,
+        actor_type="human",
+        actor_id=config.settings.user_id,
+        payload={
+            "source": "asset",
+            "asset_id": body.asset_id,
+            "origin_ontology": origin,
+            "source_project_id": project_id,
+        },
+    )
+    reload_all()
+    return {"name": body.pack_name, "origin_ontology": origin, "source": "asset", "errors": []}
 
 
 @router.post("/template-packs/{name}/instantiate")

@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useParams, useSearchParams } from "react-router-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, Library, LayoutDashboard, KanbanSquare, MessagesSquare, ScrollText,
-  Settings as SettingsIcon, Workflow, Plus, Bell, Command,
+  Settings as SettingsIcon, Shapes, Workflow, Plus, Bell, Command,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { connectStream } from "../lib/sse";
@@ -19,6 +19,7 @@ const RAIL = [
   { to: "/conversations", label: "Conversations", icon: MessagesSquare, page: true },
   { to: "/runs", label: "Runs", icon: Activity },
   { to: "/assets", label: "Assets", icon: Library, global: true },
+  { to: "/templates", label: "模板", icon: Shapes, global: true },
   { to: "/audit", label: "Audit", icon: ScrollText },
   { to: "/ontology", label: "本体", icon: SettingsIcon, page: true },
 ];

@@ -12,6 +12,7 @@ import { RunsPage } from "./pages/RunsPage";
 import { GraphView } from "./pages/GraphView";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { TemplatesPage } from "./pages/TemplatesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { OntologyPage } from "./pages/OntologyPage";
 
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="ontology" element={<OntologyPage />} />
         </Route>
         <Route path="/assets" element={<AssetsPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
@@ -85,6 +87,7 @@ function PickerInner({ projects }: { projects: { id: string; name: string; ontol
         </Card>
         <div className="text-center">
           <Button variant="primary" onClick={() => setOpen(true)}>＋ 新建项目</Button>
+          <Button variant="ghost" className="ml-2" onClick={() => navigate("/templates")}>🧩 模板中心</Button>
         </div>
       </div>
 

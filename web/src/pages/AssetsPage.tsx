@@ -1,9 +1,10 @@
 /** Assets page: org-level library (product/test/doc) with search + detail drawer. */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
-import { Badge, Card, Drawer, Empty, Input, cx } from "../components/ui";
+import { Badge, Button, Card, Drawer, Empty, Input, cx } from "../components/ui";
 import Markdown0 from "react-markdown";
 
 const libIcon = (id: string) => ({ product: "📦", test: "🧪", doc: "📚" }[id] ?? "🗃️");
@@ -19,6 +20,7 @@ export function AssetsPage() {
   const [lib, setLib] = useState("");
   const [q, setQ] = useState("");
   const [detail, setDetail] = useState<string | null>(null);
+  const [toPack, setToPack] = useState<{ id: string; title: string } | null>(null);
   const assets = useQuery({
     queryKey: ["assets", lib, q],
     queryFn: () => api.listAssets({ library: lib || undefined, q: q || undefined }),
@@ -53,6 +55,11 @@ export function AssetsPage() {
                   {a.status !== "published" && <Badge tone="amber">{a.status}</Badge>}
                 </div>
                 <div className="mt-2 text-[11px] text-mut">被引用 {a.citation_count} 次 · {timeAgo(a.updated_at)}</div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setToPack({ id: a.id, title: a.title }); }}
+                  className="mt-2 rounded-md border border-line px-1.5 py-0.5 text-[11px] text-mut hover:border-acc hover:text-acc">
+                  🧩 沉淀为模板包
+                </button>
               </Card>
             ))}
           </div>
@@ -60,7 +67,42 @@ export function AssetsPage() {
         </div>
       </div>
       <AssetDrawer id={detail} onClose={() => setDetail(null)} />
+      <ToPackModal asset={toPack} onClose={() => setToPack(null)} />
     </div>
+  );
+}
+
+/** 资产 → 模板包（M7-I24）：以来源项目本体为底注册入库（发 pack.registered）。 */
+function ToPackModal({ asset, onClose }: { asset: { id: string; title: string } | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <Drawer open={!!asset} onClose={onClose} title="沉淀为模板包" width="34%">
+      {asset && (
+        <div className="space-y-3 text-xs">
+          <div className="text-mut">来源资产：<span className="font-medium text-ink">{asset.title}</span></div>
+          <div className="text-mut">以其来源项目的本体为底，注册为可一键建项目的模板包。</div>
+          <Input placeholder="模板包名（ASCII，如 weekly-ops）" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>取消</Button>
+            <Button variant="primary" disabled={!name.trim() || busy} onClick={async () => {
+              setBusy(true);
+              try {
+                const r = await api.assetToPack(asset.id, name.trim());
+                await qc.invalidateQueries({ queryKey: ["template-packs"] });
+                toast.success("已注册为模板包", { description: `${r.name}（源自 ${r.origin_ontology}），可在模板中心查看` });
+                onClose();
+              } catch (e) {
+                toast.error("注册失败", { description: String(e) });
+              } finally {
+                setBusy(false);
+              }
+            }}>注册入库</Button>
+          </div>
+        </div>
+      )}
+    </Drawer>
   );
 }
 

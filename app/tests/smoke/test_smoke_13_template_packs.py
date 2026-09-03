@@ -36,3 +36,20 @@ def test_smoke_13_template_pack_registry(client, tmp_data, isolated_ontologies):
     assert client.get("/api/template-packs/ghost").status_code == 404
     assert client.post("/api/template-packs/ghost/instantiate",
                        json={"project_name": "X"}).status_code == 404
+
+    # Asset → pack (M7-I24): register a project's ontology from an asset.
+    a = client.post("/api/projects",
+                    json={"name": "冒烟13来源", "ontology": "software-dev", "requirement": "沉淀"}).json()
+    art = client.put(f"/api/projects/{a['id']}/artifacts/test/smoke13.md",
+                     json={"content": "# 冒烟13工件", "message": "smoke13"}).json()
+    asset = client.post("/api/assets", json={
+        "source_project_id": a["id"], "artifact_path": art["path"], "commit": art["commit"],
+        "library": "test", "kind": "test-suite", "title": "冒烟13资产"}).json()
+    r = client.post("/api/template-packs/from-asset",
+                    json={"asset_id": asset["id"], "pack_name": "smoke13-asset-pack"})
+    assert r.status_code == 200, r.text
+    packs = {p["name"]: p for p in client.get("/api/template-packs").json()["packs"]}
+    assert packs["smoke13-asset-pack"]["source"] == "asset"
+    prj2 = client.post("/api/template-packs/smoke13-asset-pack/instantiate",
+                       json={"project_name": "冒烟13资产实例"}).json()
+    assert prj2["ontology"] == "smoke13-asset-pack" and prj2["bootstrap"]["conversation_id"]
