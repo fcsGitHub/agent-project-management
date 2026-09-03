@@ -88,3 +88,35 @@ if event["id"] <= last_seen_id:     # X-APM-Delivery 去重，幂等处理
 - **已读状态事件溯源**（`notification.read`，记录 ids 或 all），rebuild 后未读数精确还原；
 - 通知 id 确定性生成（`n_{源事件id}_{接收人}`），保证重放后与已读事件引用一致——这是事件溯源投影的通用要求（**投影生成的新实体 id 禁止随机**）；
 - 自动化规则里选「通知」动作即给指定用户发站内提醒（走 M9 防循环与 automation 归账，不产生邮件依赖）。
+
+## 8. 邮件通知与 Atom 订阅（M11-I35/I36/I37）
+
+### 8.1 邮件通道（默认关闭）
+
+邮件与站内通知**共用同一收件人决策**（`plan_notifications` 纯函数），两条通道永远不会对"该通知谁"产生分歧。SMTP 未配置时整个通道静默关闭，行为与 M11 之前完全一致：
+
+| 环境变量 | 说明 | 默认 |
+| --- | --- | --- |
+| `APM_SMTP_HOST` | SMTP 主机（与 FROM 同时设置才启用通道） | 空（关闭） |
+| `APM_SMTP_PORT` | 端口；`465` 走 SMTP_SSL，其余走 STARTTLS | 587 |
+| `APM_SMTP_USER` / `APM_SMTP_PASS` | 登录凭据（可选） | 空 |
+| `APM_SMTP_FROM` | 发件人地址 | 空 |
+| `APM_SMTP_TLS` | 非 465 端口是否 STARTTLS | true |
+
+执行语义（与 M10 webhook 同构）：
+
+- **写路径零阻塞**：post-emit hook 只把邮件放入内存队列，`apm-mailer` 后台线程负责真实 SMTP I/O（超时 10s）；
+- **投递留痕**：每封邮件的成功/失败落 `email.notified` / `email.failed` 事件（含耗时、失败原因），审计页可查；
+- **用户级偏好**：通知中心「邮件通知」开关（`users.email_notify`，默认开）。关闭后**只停邮件、站内通知照常**——通知是事实投影，邮件是可选的投递介质。
+
+### 8.2 Atom 订阅 feed
+
+在通知中心弹层底部获取个人 feed key，用任意 RSS/Atom 阅读器订阅项目动态：
+
+```
+GET /api/projects/{project_id}/feed.atom?key={feed_key}
+```
+
+- `key` 认证替代 cookie，适合阅读器等无法带会话的客户端；feed key 可随时换发（旧 key 立即失效）；
+- **权限裁剪**：非项目成员即使持有合法 key 也返回 403 + `access.denied`（防 Redmine #20173 式 token 越权泄漏）；
+- feed 返回该项目最近 30 条可见动态（Atom 1.0，XML 转义）。
