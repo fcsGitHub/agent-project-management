@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10-I32 完成，下一步 I33 webhook 前端与运维）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10-I33 完成，下一步 I34 通知中心与收尾）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -108,7 +108,12 @@
   - Gitea/GitLab 语义：`X-APM-Event/Delivery/Webhook/Signature` 头（原始 body HMAC-SHA256）；失败指数退避 3 次（RETRY_DELAYS 可 monkeypatch）→ `webhook.delivered/failed` 留痕（attempts=4）；订阅白名单 fail-closed（webhook.* 不可订阅→留痕事件不会二次投递）；
   - CRUD + rotate API（M8 门禁自动生效）；单测 4 项 + **冒烟 16**；
   - 自踩即修：worker 解析漏传 with_secret=True 致签名缺失——单测签名断言当场拦住。
-- **当前验证状态**：pytest **108 项全绿**；冒烟基线 **16 条全绿**（16 = webhook 全程）；`pnpm vitest`/`pnpm build` 绿。
+- **当前验证状态**：pytest **109 项全绿**；冒烟基线 **16 条全绿**（16 = webhook 全程）；`pnpm vitest`/`pnpm build` 绿。
+- **M10-I33 webhook 前端与运维（本轮完成）**：
+  - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
+  - 前端本体页「Webhooks 出站」面板：创建表单（URL+订阅芯片）、**secret 一次性弹窗**（rotate 换发）、Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+重发）；api.ts 增 7 方法 + 2 类型；
+  - docs/12 §6 Webhooks 出站章节（投递语义表 + 接收方验签 Python 示例：原始字节 HMAC + 常量时间比较 + delivery 去重）；
+  - 浏览器验证：python 接收桩实测签名投递（验 HMAC、delivery ID 与留痕一致）→ 历史抽屉 → UI 重发 → 接收桩收第二条新 delivery ID（截图 docs/i33-webhook-secret-modal.png、i33-webhook-delivery-history.png）。
 - **M10 已定义（`64ca1de`，docs/01 §I + docs/10 §M10）**：调研 Gitea/GitLab webhook（HMAC-SHA256 对原始 body 签名、X-Gitea-Event/Delivery 头幂等去重、明文 token 已被 GitLab legacy 化）、Redmine（邮件通知+feeds 是自托管桌上前提；规则化通知由 Redmineflux 插件验证为真实需求）→ **M10 = 出站集成：webhook 与通知（I32 webhook 基座——后台投递线程，post-emit hook 只入队绝不阻塞写路径（与 M9 同步执行器的本质差异）/ I33 webhook 前端与运维 + 冒烟 16 / I34 站内通知中心 + automation notify 动作，约 9 人日）**；邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
 
 ## 3. 现在卡在哪
@@ -117,8 +122,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M10-I33 开工：webhook 前端与运维**（docs/10 §M10）：项目设置页「Webhooks」面板——URL/事件订阅多选（白名单）/启停/删除 + secret 一次性显示与 rotate 重置；投递历史抽屉（`/api/events?agg_type=webhook&agg_id=` 查 delivered/failed：attempts/status_code/duration_ms）；手动重发（按 delivery 事件重放 payload、新 delivery ID——需后端补 replay 端点）+「测试 ping」；docs/12 增接收方验签章节。
-2. I34 站内通知中心（notifications 投影 + 顶栏铃铛）+ automation `notify` 动作 → **M10 正式审阅**（冒烟 16 + DoD + 演示：webhook 投递留痕 + 通知中心）。
+1. **M10-I34 开工：站内通知中心与收尾**（docs/10 §M10）：`notifications` 投影（approval.requested / item.assigned(human) / automation.rule_fired / 工件沉淀 → 通知行），顶栏铃铛未读数 + 下拉清单 + 已读；automation 动作白名单增 `notify`（{user_id, message}，走 M9 防循环与 automation 归账）；审计页 integration 归账复核；docs/12 通知章节；冒烟 16 扩展通知断言。
+2. **M10 正式审阅**（冒烟 16 + I32/I33/I34 DoD + 演示：webhook 投递留痕 + 通知中心）。
 3. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）。
 
 ## 5. 有哪些坑不要再踩
