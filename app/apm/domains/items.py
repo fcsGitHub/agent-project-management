@@ -23,8 +23,8 @@ def _proj_item_created(conn, e):
     conn.execute(
         "INSERT INTO items (id, project_id, feature_id, parent_id, concept_id, title, status,"
         " status_group, priority, assignee_type, assignee_id, estimate_hours, start_date, due_date,"
-        " custom_fields, created_at, updated_at, version)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+        " milestone_id, custom_fields, created_at, updated_at, version)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
         (
             e.agg_id,
             e.project_id,
@@ -40,6 +40,7 @@ def _proj_item_created(conn, e):
             p.get("estimate_hours"),
             p.get("start_date"),
             p.get("due_date"),
+            p.get("milestone_id"),
             json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
             e.ts,
             e.ts,
@@ -134,12 +135,14 @@ def create_item(
     estimate_hours: float | None = None,
     start_date: str | None = None,
     due_date: str | None = None,
+    milestone_id: str | None = None,
     custom_fields: dict | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
 ) -> dict:
     onto = project_ontology(project_id)
     _validate_custom_fields(onto, concept_id, custom_fields, project_id=project_id)
+    _validate_milestone(project_id, milestone_id)
     try:
         concept = onto.concept(concept_id)
         status = status or concept.initial_status()
@@ -168,6 +171,7 @@ def create_item(
             "estimate_hours": estimate_hours,
             "start_date": start_date,
             "due_date": due_date,
+            "milestone_id": milestone_id,
         },
     )
     return get_item(iid)  # type: ignore[return-value]
@@ -344,6 +348,7 @@ class ItemIn(BaseModel):
     estimate_hours: float | None = None
     start_date: str | None = None
     due_date: str | None = None
+    milestone_id: str | None = None
     custom_fields: dict | None = None
 
 
@@ -451,6 +456,7 @@ class RelationIn(BaseModel):
 def post_item(project_id: str, body: ItemIn) -> dict:
     _ensure_human_assignee(body.assignee_type, body.assignee_id)
     _validate_item_dates(body.start_date, body.due_date)
+    _validate_milestone(project_id, body.milestone_id)
     return create_item(
         project_id=project_id,
         concept_id=body.concept_id,
@@ -464,6 +470,7 @@ def post_item(project_id: str, body: ItemIn) -> dict:
         estimate_hours=body.estimate_hours,
         start_date=body.start_date,
         due_date=body.due_date,
+        milestone_id=body.milestone_id,
         custom_fields=body.custom_fields,
     )
 

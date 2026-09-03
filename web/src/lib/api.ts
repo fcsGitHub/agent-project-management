@@ -21,9 +21,16 @@ export type Message = {
 export type Item = {
   id: string; project_id: string; feature_id?: string; concept_id: string; title: string;
   status: string; status_group: string; priority?: string; assignee_type?: string;
-  assignee_id?: string; estimate_hours?: number; custom_fields?: Record<string, unknown> | null;
+  assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
+  milestone_id?: string | null; custom_fields?: Record<string, unknown> | null;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string }[];
+};
+export type Milestone = {
+  id: string; project_id: string; title: string; description?: string | null;
+  due_date: string; status: string; created_at: string; updated_at: string;
+  progress?: { items_total: number; items_done: number; done_ratio: number | null; overdue_items: number };
+  items?: Pick<Item, "id" | "title" | "concept_id" | "status" | "status_group" | "assignee_id">[];
 };
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
@@ -234,6 +241,13 @@ export const api = {
   getProject: (id: string) => req<Project>(`/projects/${id}`),
   getProjectReport: (id: string) => req<ProjectReport>(`/projects/${id}/report`),
   getMyWork: () => req<MyWork>("/my/work"),
+
+  listMilestones: (pid: string) => req<{ milestones: Milestone[] }>(`/projects/${pid}/milestones`),
+  createMilestone: (pid: string, body: { title: string; due_date: string; description?: string }) =>
+    req<Milestone>(`/projects/${pid}/milestones`, { method: "POST", body: JSON.stringify(body) }),
+  patchMilestone: (id: string, body: Partial<Pick<Milestone, "title" | "description" | "due_date" | "status">>) =>
+    req<Milestone>(`/milestones/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteMilestone: (id: string) => req<{ deleted: string }>(`/milestones/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>
@@ -267,6 +281,7 @@ export const api = {
 
   listItems: (pid: string, params?: { feature_id?: string }) =>
     req<{ items: Item[] }>(`/projects/${pid}/items${params?.feature_id ? `?feature_id=${params.feature_id}` : ""}`),
+  getItem: (iid: string) => req<Item>(`/items/${iid}`),
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
   getBoard: (pid: string, featureId?: string, groupBy?: string) => {

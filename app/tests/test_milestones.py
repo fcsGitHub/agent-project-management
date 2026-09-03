@@ -121,3 +121,18 @@ def test_item_dates_and_report_caliber(client, tmp_data, isolated_ontologies, pr
     assert client.patch(f"/api/items/{fresh['id']}", json={"due_date": future}).status_code == 200
     rep2 = client.get(f"/api/projects/{pid}/report").json()
     assert rep2["overdue"] == []
+
+
+def test_link_milestone_at_creation(client, tmp_data, isolated_ontologies, project):
+    pid = project["id"]
+    m = client.post(f"/api/projects/{pid}/milestones",
+                    json={"title": "建卡即关联", "due_date": "2026-09-15"}).json()
+    ok = client.post(f"/api/projects/{pid}/items",
+                     json={"concept_id": "task", "title": "直接关联",
+                           "milestone_id": m["id"]}).json()
+    assert ok["milestone_id"] == m["id"]
+    assert client.post(f"/api/projects/{pid}/items",
+                       json={"concept_id": "task", "title": "坏关联",
+                             "milestone_id": "ms_missing"}).status_code == 422
+    detail = client.get(f"/api/milestones/{m['id']}").json()
+    assert [i["title"] for i in detail["items"]] == ["直接关联"]

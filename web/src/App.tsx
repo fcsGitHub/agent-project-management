@@ -17,6 +17,7 @@ import { TemplatesPage } from "./pages/TemplatesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { OntologyPage } from "./pages/OntologyPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { TimelinePage } from "./pages/TimelinePage";
 import { MyWorkPage } from "./pages/MyWorkPage";
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/p/:pid" element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="board" element={<Board />} />
+          <Route path="timeline" element={<TimelinePage />} />
           <Route path="f/:fid" element={<FeaturePage />} />
           <Route path="c/:cid" element={<ConversationView />} />
           <Route path="conversations" element={<ConversationsPage />} />
