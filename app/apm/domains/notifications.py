@@ -102,16 +102,39 @@ def get_notifications() -> dict:
         "SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND read = 0",
         (user_id,),
     ).fetchone()["c"]
+    pref = conn.execute(
+        "SELECT email_notify FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    email_enabled = bool(pref["email_notify"]) if pref else True
     return {
         "notifications": [dict(r) for r in rows],
         "unread": unread,
         "user_id": user_id,
+        "email_enabled": email_enabled,
     }
 
 
 class ReadIn(BaseModel):
     ids: list[str] | None = None
     all: bool = False
+
+
+class PrefsIn(BaseModel):
+    email_enabled: bool
+
+
+@router.post("/notifications/prefs")
+def set_prefs(body: PrefsIn) -> dict:
+    """User-level runtime preference (M11-I37): like feed_key/password it lives
+    in the projection table, not the event stream."""
+    user_id = events.effective_actor()
+    conn = db.get_conn()
+    conn.execute(
+        "UPDATE users SET email_notify = ?, updated_at = ? WHERE id = ?",
+        (1 if body.email_enabled else 0, events.utcnow(), user_id),
+    )
+    conn.commit()
+    return {"user_id": user_id, "email_enabled": body.email_enabled}
 
 
 @router.post("/notifications/read")

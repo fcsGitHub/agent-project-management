@@ -12,6 +12,16 @@ from apm import config
 from apm.domains import mailer
 
 
+@pytest.fixture(autouse=True)
+def _restore_identity():
+    """/api/session/identity mutates settings.user_id globally; restore it so a
+    leaked identity can't re-shape the next test's default admin user (the app
+    boot would register that identity WITHOUT an email, breaking mail asserts)."""
+    saved = config.settings.user_id
+    yield
+    config.settings.user_id = saved
+
+
 class FakeSMTP:
     """Captures send_message calls; programmable failure and latency."""
     sent: list[dict] = []
@@ -137,6 +147,33 @@ def test_smtp_failure_recorded(client, tmp_data, isolated_ontologies, project, m
             break
         time.sleep(0.05)
     assert evs and "smtp unavailable" in evs[0]["payload"]["detail"]
+
+
+def test_email_pref_toggle_stops_mail_but_not_notifications(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    _configure(monkeypatch)
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    bug = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "bug", "title": "开关前"}).json()
+    client.patch(f"/api/items/{bug['id']}",
+                 json={"assignee_type": "human", "assignee_id": "qa-wang"})
+    assert _wait_mail(1), "mail before toggle"
+
+    # Toggle off (as the affected user) → mails stop, in-app notifications stay.
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.get("/api/notifications").json()["email_enabled"] is True
+    client.post("/api/notifications/prefs", json={"email_enabled": False})
+    assert client.get("/api/notifications").json()["email_enabled"] is False
+
+    bug2 = client.post(f"/api/projects/{pid}/items",
+                       json={"concept_id": "bug", "title": "开关后"}).json()
+    client.patch(f"/api/items/{bug2['id']}",
+                 json={"assignee_type": "human", "assignee_id": "qa-wang"})
+    time.sleep(0.4)
+    assert len(FakeSMTP.sent) == 1, "no mail after opting out"
+    notes = client.get("/api/notifications").json()
+    assert notes["unread"] == 2  # in-app flow unaffected
+    assert notes["email_enabled"] is False
 
 
 def test_write_not_blocked_by_slow_smtp(client, tmp_data, isolated_ontologies, project, monkeypatch):

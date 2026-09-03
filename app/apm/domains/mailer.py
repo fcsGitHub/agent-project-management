@@ -45,9 +45,12 @@ def enqueue(event: events.Event) -> None:
         return
     conn = db.get_conn()
     for user_id, kind, summary in pairs:
-        row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT email, email_notify FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row or not row["email"]:
             continue  # no address → silently skip (email is opt-in by profile)
+        if not row["email_notify"]:
+            continue  # user-level email preference off (M11-I37)
         try:
             _queue.put_nowait({
                 "to": row["email"], "user_id": user_id, "kind": kind,

@@ -166,10 +166,13 @@ export function AppShell() {
 
 const KIND_ICON: Record<string, string> = { assigned: "👤", approval: "◆", rule_notify: "⚡", notify: "🔔" };
 
-/** In-app notification center (M10-I34): unread badge + latest list + mark-read. */
+/** In-app notification center (M10-I34): unread badge + latest list + mark-read.
+ *  Footer doubles as notification preferences (M11-I37): email switch + feed key. */
 function NotificationsBell() {
   const qc = useQueryClient();
+  const { pid } = useParams();
   const [open, setOpen] = useState(false);
+  const [showKey, setShowKey] = useState<string | null>(null);
   const notes = useQuery({
     queryKey: ["notifications"],
     queryFn: api.listNotifications,
@@ -177,9 +180,37 @@ function NotificationsBell() {
   });
   const unread = notes.data?.unread ?? 0;
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
+
   const markAll = async () => {
     await api.markNotificationsRead({ all: true });
-    await qc.invalidateQueries({ queryKey: ["notifications"] });
+    await invalidate();
+  };
+
+  const toggleEmail = async () => {
+    const next = !(notes.data?.email_enabled ?? true);
+    await api.setNotificationPrefs({ email_enabled: next });
+    await invalidate();
+    toast.info(next ? "邮件通知已开启" : "邮件通知已关闭（站内通知照常）");
+  };
+
+  const loadFeedKey = async () => {
+    const k = showKey ? null : (await api.getFeedKey()).feed_key;
+    setShowKey(k);
+  };
+
+  const rotateKey = async () => {
+    const r = await api.rotateFeedKey();
+    setShowKey(r.feed_key);
+    toast.success("feed key 已换发，旧 key 立即失效");
+  };
+
+  const copyLink = async () => {
+    if (!showKey || !pid) return;
+    await navigator.clipboard.writeText(
+      `${location.origin}/api/projects/${pid}/feed.atom?key=${showKey}`,
+    );
+    toast.success("订阅链接已复制");
   };
 
   return (
@@ -201,7 +232,7 @@ function NotificationsBell() {
               全部已读
             </button>
           </div>
-          <div className="max-h-80 space-y-0.5 overflow-y-auto">
+          <div className="max-h-64 space-y-0.5 overflow-y-auto">
             {(notes.data?.notifications ?? []).map((n) => (
               <div key={n.id}
                 className={cx("flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs",
@@ -216,6 +247,28 @@ function NotificationsBell() {
             ))}
             {!notes.data?.notifications.length && (
               <div className="px-2 py-3 text-xs text-mut">暂无通知——指派、审批请求与自动化提醒会出现在这里</div>
+            )}
+          </div>
+          <div className="mt-1 space-y-1 border-t border-line px-2 pt-2 text-xs">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={notes.data?.email_enabled ?? true} onChange={toggleEmail} />
+              <span>邮件通知{notes.data?.email_enabled ? "（开启）" : "（已关，站内照常）"}</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <button onClick={loadFeedKey} className="text-[11px] text-acc hover:underline">
+                {showKey ? "隐藏 feed key" : "Atom 订阅 key"}
+              </button>
+              {showKey && pid && (
+                <button onClick={copyLink} className="text-[11px] text-acc hover:underline">复制订阅链接</button>
+              )}
+              {showKey && (
+                <button onClick={rotateKey} className="text-[11px] text-mut hover:text-dan">换发</button>
+              )}
+            </div>
+            {showKey && (
+              <pre className="max-h-16 overflow-auto rounded-lg border border-line bg-bg px-2 py-1 font-mono text-[10px]">
+                {showKey}{pid ? `\n${location.origin}/api/projects/${pid}/feed.atom?key=${showKey}` : ""}
+              </pre>
             )}
           </div>
         </div>

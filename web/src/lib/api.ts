@@ -378,9 +378,15 @@ export const api = {
   listNotifications: () =>
     req<{ notifications: { id: string; project_id: string; user_id: string; kind: string;
       summary: string; ref_event_id: number | null; read: number; created_at: string }[];
-      unread: number; user_id: string }>("/notifications"),
+      unread: number; user_id: string; email_enabled: boolean }>("/notifications"),
   markNotificationsRead: (body: { ids?: string[]; all?: boolean }) =>
     req<{ ok: boolean }>("/notifications/read", { method: "POST", body: JSON.stringify(body) }),
+  setNotificationPrefs: (body: { email_enabled: boolean }) =>
+    req<{ user_id: string; email_enabled: boolean }>("/notifications/prefs", { method: "POST", body: JSON.stringify(body) }),
+  getFeedKey: () =>
+    req<{ user_id: string; feed_key: string; created: boolean }>("/me/feed-key"),
+  rotateFeedKey: () =>
+    req<{ user_id: string; feed_key: string }>("/me/feed-key/rotate", { method: "POST" }),
 
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),

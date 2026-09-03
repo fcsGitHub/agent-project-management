@@ -79,6 +79,9 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 users.feed_key（M11-I36）。
         if "feed_key" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN feed_key TEXT")
+        # Lightweight migration: 存量库补 users.email_notify（M11-I37）。
+        if "email_notify" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN email_notify INTEGER NOT NULL DEFAULT 1")
         conn.commit()
 
 
