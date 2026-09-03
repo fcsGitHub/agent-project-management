@@ -340,6 +340,36 @@ agent-project-management/
 
 **M8 审阅点**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
 
+### M9 · 看板自动化规则（吸收 Kanboard/n8n，I29-I31，约 9 人日）
+
+> v1.0 新增（2026-09-03，M8 审阅通过后按目标第 5 条调研）。调研结论见 docs/01 §H：Kanboard Automatic Actions 项目级「事件×动作」绑定（trigger+action+参数，自省 API 列兼容面）、n8n/Node-RED 共同的三段式抽象（trigger→condition→action，单机内嵌学模型不引编排器）、Plane Automations 项目级同位与 webhook 重复触发教训（执行须幂等）；AgentPM 事件溯源内核即天然事件源，规则引擎订阅 event_bus 即可，无需自建 dispatcher。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I29 | 自动化规则域与执行引擎（规则事件溯源 + event_bus 订阅 + 动作白名单 + 防循环） | 01 §H.1/H.2 | 事件内核/M8 归账 | 3d |
+| I30 | 规则管理前端（项目设置页规则面板：事件→条件→动作，测试运行） | 01 §H.2 | — | 3d |
+| I31 | 收尾（审计归账 actor_type=automation、冒烟 15、docs/12 使用指南、浏览器演示） | 01 §H.3/H.4 | — | 3d |
+
+#### I29 · 自动化规则域与执行引擎（3d）
+
+- 任务：`automation_rules` 投影表（project_id/trigger_event/condition_json/action_json/enabled）；`automation.rule_created/updated/deleted` 事件（rebuild 存活，与 project_members 同模式）；执行器订阅 event_bus——trigger 匹配事件类型+project、condition 字段谓词（如 concept_id/severity/priority）、action 白名单 fail-closed（指派 assignee、改 priority、设 custom_field、列间移动）；防循环：规则产出事件带 actor_type=automation，不再触发规则引擎（单层执行）；规则 CRUD API（仅 owner/contributor 可管，复用 M8 门禁）。
+- DoD（并入**新增冒烟 15**）：规则创建→触发事件→动作生效（含事件与归账）；条件不匹配不执行；未知动作/字段 fail-closed 422；rebuild 后规则与执行历史一致；防循环（规则动作不引发自身/他规则）。
+- 演示路径：建「缺陷创建即指派+置严重度」规则 → 新建缺陷工作项 → 自动指派与字段生效。
+
+#### I30 · 规则管理前端（3d）
+
+- 任务：项目设置页「自动化」面板——规则列表（启停开关）+ 新建表单（下拉选事件类型/条件字段谓词/动作白名单+参数）+ 「测试运行」（对历史最近一条匹配事件 dry-run 显示将执行的动作）；规则触发历史抽屉（最近 N 条执行记录：命中事件/动作结果/耗时）。
+- DoD（并入冒烟 15）：面板 CRUD 往返 + 测试运行 dry-run 断言；启停即时生效。
+- 演示路径：面板建规则 → 看板建缺陷卡 → 卡片自动指派可见 → 历史抽屉显示命中记录。
+
+#### I31 · 收尾（3d）
+
+- 任务：审计归账（动作事件 actor=规则 id、actor_type=automation，审计页可过滤）；docs/12 自动化使用指南（三段式模型、动作白名单、防循环语义）；遗留 C 级意见处置（出站 webhook 登记 backlog）。
+- DoD（并入冒烟 15）：自动化动作在审计流可按 actor_type 过滤；文档可照做。
+- 演示路径：审计页过滤 automation 归账 → 与人操作并陈的时间线。
+
+**M9 审阅点**：冒烟 15 + 各迭代 DoD + 浏览器自动化规则演示（建规则→触发→自动动作→审计归账）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -450,6 +480,10 @@ agent-project-management/
 | I26 认证基座 | 已完成 | 2026-09-03 | 2026-09-03 | core/security.py（pbkdf2 哈希+HMAC 签名会话 Token+secret 持久化）；users 加 password_hash/is_admin（ALTER 迁移，凭据不入事件）；POST /auth/login|logout|me（会话事件入审计）；auth_mode=local/network 双模 middleware（network 未登录写 401）；APM_ADMIN_PASSWORD 首启引导；新增冒烟 14；pytest 94/冒烟 14 全绿 |
 | I27 项目成员与角色 | 已完成 | 2026-09-03 | 2026-09-03 | project_members 投影（owner/contributor/viewer，建项目者即 owner，member.* 事件 + rebuild 存活）；成员管理 API（末位 owner 保护、未知用户 422、重复 409）；network 写门禁按成员角色（viewer/非成员 403 + access.denied 审计）；users 注册支持可选密码（管理员建号）；本体页成员面板；冒烟 14 扩展；pytest 97/冒烟 14 全绿 |
 | I28 网络协作收尾 | 已完成 | 2026-09-03 | 2026-09-03 | 会话→actor 归账（events contextvar + middleware 设/复位，登录人即事件 actor，冒烟 14 断言 item.created actor=qa-wang）；身份切换 network 422；/login 页 + api 401 跳转 + 顶栏登录态（⭐管理员/👤+登出）；部署文档 docs/11（双模 env、管理员建号、角色归账规则、反代 HTTPS）；pytest 97/冒烟 14 全绿；截图 docs/i28-login-session-chip.png |
+| **M8 里程碑审阅（正式）** | 已完成 | 2026-09-03 | 2026-09-03 | 冒烟 14 + I26/I27/I28 各迭代 DoD 逐项核对全过（审阅时点重跑 pytest 97/冒烟 14）+ 浏览器双账号协作演示（network 登录→管理员建号→viewer 403 门禁→contributor 写入→审计归账链，截图 docs/m8-review-*.png 四张，见附录 B）；审阅即修 2 处前端缺陷（AppShell 全局 rail 链接硬编码 /assets 致模板入口不可达、FeaturePage 过时文案） |
+| I29 自动化规则域与执行引擎 | 未开始 | — | — | M9 首迭代：规则事件溯源 + event_bus 订阅执行 + 动作白名单 fail-closed + 防循环（docs/10 §M9，docs/01 §H） |
+| I30 规则管理前端 | 未开始 | — | — | 项目设置页规则面板（事件→条件→动作）+ 测试运行 dry-run + 触发历史 |
+| I31 自动化收尾 | 未开始 | — | — | 审计归账 actor_type=automation + docs/12 使用指南 + 冒烟 15 + 浏览器演示 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -495,6 +529,7 @@ agent-project-management/
 | 2026-09-03 | I26 | 认证基座：新模块 `core/security.py`（stdlib pbkdf2_hmac 20 万次迭代哈希、HMAC-SHA256 签名会话 Token `user_id.expiry.signature`、实例 secret 持久化 data_dir/secret.key——settings 可覆盖，重启会话存活）；`users` 表加 `password_hash`/`is_admin`（schema+ALTER 迁移）。**凭据不入事件**：密码哈希与 admin 标志是投影表运行时状态，直接 UPDATE 不走事件（避免凭据进审计流）；代价 = rebuild 会清空密码，恢复路径 = 重启时 `APM_ADMIN_PASSWORD` 重引导（ensure_default_user 每次启动对默认身份 reapplied is_admin=1 与配置的密码）。`POST /auth/login`（校验+签发 HttpOnly SameSite=Lax Cookie，`session.logged_in`）、`/auth/logout`（`session.logged_out`）、`GET /auth/me`（session 优先，local 模式回落配置身份）；登录失败发 `session.login_failed` 全部入审计流。`settings.auth_mode`：local（默认，零改动）/ network（middleware 对一切 /api 非 GET 请求强制会话，/api/auth/* 豁免；GET 保持开放，只读细粒度鉴权在 I27/I28）。GET /users 等出口统一 `_safe_user` 剥离 password_hash。测试：新增 test_auth.py 4 项（哈希往返/network 门禁+审计+登出/local 零破坏/无密码用户 fail-closed）；**新增冒烟 14**，基线 14 条 GREEN；pytest 94 项绿。 |
 | 2026-09-03 | I27 | 项目成员与角色：新域 `domains/members.py`。`project_members` 投影表（PK(project_id,user_id)，schema+drop 列表）；`project.member_added/removed/role_changed` 事件投影（rebuild 重放一致）；建项目即发 `project.member_added`（creator=owner，Gitea 式引导）。成员管理 API：GET/POST/PATCH/DELETE `/projects/{id}/members`（仅 owner 或实例管理员可管，network 模式下越权 403+`access.denied`；local 模式单用户直通）；末位 owner 不可移除/降级（422）、未知用户 422、非成员 404、重复 409。`POST /users` 支持可选 `password`（管理员建号语义，哈希直存不入事件）。network 写门禁升级：`project_id_for_path` 从路径解析项目上下文（/projects/{id} 直读；items/conversations/runs/approvals/artifacts 反查 project_id），viewer 与非成员写 403 + `access.denied` 审计（admin 豁免）；全局端点（assets/template-packs/users）暂不限定。前端：本体页新增「项目成员」面板（成员清单+角色徽章+改角色/移除+从已注册用户添加）。测试：新增 test_members.py 3 项（creator-as-owner+管理往返+末位 owner 保护/network 角色门禁 viewer 403+contributor 通过+非成员 403+审计/rebuild 存活）；冒烟 14 扩展成员断言；pytest 97 项绿、冒烟 14 条 GREEN、build/vitest 通过。**边界（I28 收口）**：会话→actor 归账仍走 settings.user_id，登录人身份强制落 I28。 |
 | 2026-09-03 | I28 | 网络协作收尾：**会话→actor 归账打通**——`events.py` 增 actor ContextVar（`set/reset/effective_actor`），emit 默认 actor 解析为「显式参 > 会话 contextvar > settings.user_id」；auth middleware 校验通过后 `set_current_actor(登录人)`，FastAPI 线程池端点继承 context，整条域层零改动即按登录人归账（冒烟 14 断言 qa-wang 写 item.created actor=qa-wang、自建项目 owner=qa-wang）。`/session/identity` 在 network 模式 422（切换=登出重登）。前端：`/login` 登录页（LoginPage）、api 层 401 自动跳登录页、顶栏身份组件按 `/auth/me` source 分流——session 显示 ⭐管理员/👤+登出（登出→登录页），local 保留原切换菜单。部署文档 `docs/11-network-deploy.md`（auth_mode/admin_password/secret_key/TTL 环境变量、管理员建号流程、角色与归账规则、nginx 反代 HTTPS + SSE 配置）。测试：冒烟 14 扩展归账断言；pytest 97 项绿、冒烟 14 条 GREEN、build/vitest 通过。浏览器验证（隔离 network 模式）：未登录写 401 → 登录页登录 → 模板建项目进看板 → 顶栏 ⭐李雷+登出（截图 docs/i28-login-session-chip.png）。 |
+| 2026-09-03 | M8 审阅 + M9 定义 | **M8 里程碑正式审阅通过**（附录 B）：审阅时点 HEAD `dec89c3` 重跑 pytest 97 项 + 冒烟 14 条全绿；I26/I27/I28 DoD 逐项核对；浏览器隔离复演双账号协作路径（network 登录→管理员建号 qa-wang→viewer 写 403+审计→升 contributor 写成功→审计时间线归账链 #16/#20/#21），截图 docs/m8-review-login.png、docs/m8-review-admin-members.png、docs/m8-review-viewer-denied.png、docs/m8-review-audit-attribution.png；console 噪声逐条归因（401×2=登出后 /auth/me 轮询属 network 预期、403×1=门禁演示本体、连接拒绝×3=后端进程被系统回收后遗留标签页重连）。**审阅即修 2 处**：①AppShell 全局 rail 链接硬编码 `/assets`（I24 引入，模板侧栏入口不可达——此前演示走项目列表页按钮入口未暴露）改为 `r.global ? r.to : ...`；②FeaturePage 空态文案「也可从看板手动建卡」过时（看板无此入口、NL L1 不含建项）删除子句；修后 build+vitest 全绿。随即开启新一轮调研（目标第 5 条）：Kanboard 三段式自动化（项目级 JSON 模板+事件动作）、n8n/Node-RED 触发-条件-动作模型、Gitea/webhook 事件出站，结论入 docs/01 §H。新增 M9 = 看板自动化规则（I29-I31，范围变更：计划外新增里程碑，理由 = 目标第 5 条持续推进，估时 +9 人日；新增冒烟 15 于 I29）。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
@@ -506,6 +541,7 @@ agent-project-management/
 | 2026-09-02 | M5 正式审阅 | 各迭代 DoD 核对：I17 回放候选确定性+confidence≥0.65+与 pattern 合并不重复+apply 同链路 ✓，CQ events 按项目过滤 ✓；I18 导出→改名导入→新本体建项目（7 阶段图继承）✓，同名 409/坏包 422 ✓，角色复用不覆盖 ✓；I19 双身份按人可分审计流 ✓，human 指派未知用户 fail-closed ✓，assignee 过滤看板切片 ✓，审批 decided_by 过滤 ✓。浏览器演示（本次**同时隔离** data 与 ontologies 目录——M4 教训落实）：注册「QA 王」→ 自动切换（顶栏 👤 QA 王）→ 本体页「✨ LLM 建议」→ 2 条 LLM 候选（0.72，通道 llm）→ 勾选应用 → v2 + 时间线；导出/导入入口在位。截图 docs/m5-review-collab-page.png。 | — | 里程碑通过 |
 | 2026-09-03 | M7 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `7c0f7bb` 重跑 pytest 89 项 + 冒烟 13 条全绿）：**I23** 注册表统一视图（内置+导入同列表、source/版本/概念/阶段/CQ 摘要）✓（test_registry_unifies_builtin_and_imported）、预览含阶段图与 CQ ✓、instantiate 建项目共链路（bootstrap 齐全）✓、未知 404/坏名 422/启动登记幂等 ✓；**I24** 资产→pack 注册（provenance 解析来源项目、pack.registered source=asset 可审计、重复 409）✓（test_from_asset_registers_pack / test_from_asset_fail_closed）、模板中心页与入口 ✓；**I25** 停用→写入 422→分组维度 422→启用恢复 ✓、未声明字段 422 ✓、rebuild 存活 ✓（test_field_activation 2 项）、冒烟 13 含资产→包与激活往返断言 ✓。浏览器复演两条演示路径（隔离 data+ontologies）：①模板中心→「用此模板建项目」→ 自动跳转新项目看板（p_09e21ea0cf，截图 docs/m7-review-instantiate-board.png）；②本体页停用「标签」→看板分组选择器即刻无该维度→启用恢复 disabled_fields=[]（截图 docs/m7-review-field-deactivated.png）。console 4 条 404 逐条查明为跨隔离环境旧项目 ID 轮询，非产品缺陷。 | — | 里程碑通过 |
 | 2026-09-03 | M6 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `6e73cde` 重跑）：**I20** 三类新类型读写往返 ✓（test_custom_field_types_roundtrip）、未声明/类型错/越界 fail-closed 422 ✓（test_custom_field_validation_fail_closed）、multiselect 多值存储 ✓、rebuild 投影一致 ✓（test_custom_fields_survive_rebuild）；**I21** 分组 API 桶序/扇出/未设置列/未知 422 ✓（test_board_group_by_custom_field）、冒烟 9 含 cf 过滤+字段分组断言 ✓；**I22** langgraph 1.2.11 下 pytest 80 项全绿 + 冒烟 12 条 GREEN 零改动 ✓。浏览器复演两条演示路径（隔离 data+ontologies）：①「按标签分组看板」frontend×2/backend×1/infra×1/未设置×2，multiselect 扇出与卡片徽标可见（截图 docs/m6-review-board-grouping.png）；②「打断-注入-恢复」pm-agent 至 prd_review 挂起（commit 9e781813）→ 注入「兼容 Python 3.9 / 导出 Markdown」→ ▸ 继续 checkpoint 续跑 revise → 新稿 4fffc13e 逐条含注入约束回到 Gate → 批准后 run succeeded（截图 docs/m6-review-interrupt-resume.png）。演示中浏览器 console 的 404/连接拒绝噪声逐条查明：均为跨隔离环境旧会话轮询与关服后标签页重连，非产品缺陷。 | — | 里程碑通过 |
+| 2026-09-03 | M8 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `dec89c3` 重跑 pytest 97 项 + 冒烟 14 条全绿）：**I26** pbkdf2 哈希 + HMAC 签名会话 + secret 持久化（重启会话存活）✓、login/login_failed/logout 审计事件 ✓（test_auth 4 项：登录往返/坏密码 401+审计/network 门禁 401/local 零破坏）、`_safe_user` 剥离凭据 ✓、凭据不入事件（APM_ADMIN_PASSWORD 重引导）✓；**I27** creator=owner ✓、末位 owner 保护/未知 422/重复 409 ✓（test_members 3 项含 rebuild 存活）、viewer/非成员写 403 + `access.denied` 审计 ✓；**I28** 会话→actor 归账（冒烟 14 断言 qa-wang 写 item.created actor=qa-wang、自建项目 owner=qa-wang）✓、身份切换 network 422 ✓、/login + 401 跳转 + 顶栏分流 ✓。浏览器双账号协作演示（隔离 data+ontologies + APM_AUTH_MODE=network + APM_ADMIN_PASSWORD）：①登录页登录 u_admin（截图 docs/m8-review-login.png）→ 建项目（Owner=李雷）→ 成员面板添加 QA 王=Viewer（截图 docs/m8-review-admin-members.png，顶栏 ⭐李雷+登出）；②登出→qa-wang 登录（顶栏 👤 QA 王 ·「网络模式 · 以登录身份归账」）→「新功能」提交 403 forbidden（截图 docs/m8-review-viewer-denied.png），API 复核 access.denied 事件 actor/user/project/path 四元组齐全 ✓；③管理员升 qa-wang=contributor → 同表单再提交成功 → Audit 时间线归账链完整：#16 access.denied(qa-wang) → #20 project.member_role_changed(u_admin) → #21 feature.created(qa-wang)（截图 docs/m8-review-audit-attribution.png）。console 噪声逐条归因：401×2=登出后标签页 /auth/me 轮询（network 模式预期）、403×1=门禁演示本体、连接拒绝×3=后端进程被系统回收后遗留标签页 SSE/审批轮询重连，均非产品缺陷。**审阅即修 2 处前端缺陷**：①AppShell 全局 rail 链接硬编码 `/assets`（I24 引入：所有 global 入口都落到资产页，「模板」侧栏图标不可达；此前演示走项目列表页按钮入口未暴露）→ `r.global ? r.to : /p/${pid}${r.to}`，浏览器复核「模板」→#/templates、「Assets」→#/assets；②FeaturePage 空态文案「也可从看板手动建卡」过时（看板无手动建卡入口、NL L1 意图不含建项）→ 删除该子句。修后 pnpm build + vitest 2 项全绿。 | — | 里程碑通过 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

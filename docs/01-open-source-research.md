@@ -212,3 +212,28 @@ M7 = **模板中心 + 项目级字段激活**（I23-I25）：继续本体线，�
 **G.4 M8 取舍**
 
 M8 = **多人网络协作（认证 + 项目成员角色）**，I26 认证基座 / I27 项目成员与角色 / I28 网络协作收尾，约 9 人日。看板自动化规则（Kanboard 三段式）继续留在 backlog。
+
+## H. M9 前置调研：看板自动化规则（2026-09-03）
+
+> 目标第 5 条触发：M8 审阅通过后开启。首选方向 = 看板自动化规则（HANDOFF 候选清单首位）；SSO/OIDC 维持 V3 推迟，本体版本事件级归档留 backlog。
+
+**H.1 Kanboard Automatic Actions：项目级「事件×动作」绑定（主借鉴）**
+
+- 每条自动动作由两个属性定义：**监听的事件**（trigger）+ **绑定到该事件的动作**（action，带用户自定义参数）；**每个项目有自己的一组自动动作**（per-project 配置，非全局）。系统提供自省 API：列出可用动作、可用事件、以及「某动作兼容哪些事件」（动作声明兼容面，框架负责分发）。
+- 架构 = 经典观察者模式：Event（任务移动/创建/评论/每日 cron）→ Listener/Dispatcher 匹配已注册绑定 → Action（改 assignee/颜色/分类/关闭等）→ Binding（项目级 action+event+参数三元组）。另有 webhook 出站（事件触发即 POST JSON 到预定义 URL）。
+- 对本项目的映射：绑定模型直接采用（项目级规则 = trigger + action + 参数）；**dispatcher 不需要自建**——AgentPM 事件溯源内核本身就是全量事件源（event_bus 已在 emit 时发布 SSE），规则引擎订阅内核事件即可，比 Kanboard 改造成本更低。
+
+**H.2 n8n / Node-RED：三段式是最小通用抽象（数据模型借鉴）**
+
+- 两者共同抽象 = **trigger → (filter/condition) → action** 三段式；n8n 面向 API 业务编排与 AI agent，Node-RED 面向事件驱动/IoT 流；openHAB 社区直接把 Node-RED 当可视化 trigger/condition/action 规则引擎用。
+- 结论：单机内嵌场景不需要引入编排器（依赖重、模型外置），**学其三段式数据模型即可**：在 Kanboard 的「事件×动作」二元绑定上加一层可选 condition（字段谓词），表达力大增而复杂度近常数。
+
+**H.3 Plane / Taiga：PM 工具的自动化形态与教训**
+
+- Plane：Project Settings → Automations → Create automation（**项目级**触发式自动化，与 Kanboard 同位）；Plane Runner 在 workspace 事件上跑脚本；webhook 出站。**教训**：其 webhook 有「一次状态变更触发 3 次调用」的重复事件 issue——规则执行必须幂等/去重。
+- Taiga：只有出站 webhook，自动化完全外接 n8n——即「不内嵌规则引擎」的形态，验证了内嵌的价值主张。
+- 归账衔接：AgentPM M8 已有 actor 归账与审计流，自动化动作应显式归账（actor_type=automation），人机审计流才能区分「谁改的」。
+
+**H.4 M9 取舍**
+
+M9 = **看板自动化规则（三段式）**：I29 规则域与事件订阅执行（规则本身事件溯源：automation.rule_created/updated/deleted，rebuild 存活；执行挂 event_bus 订阅，动作白名单 fail-closed，防循环：规则产出事件不触发规则引擎）/ I30 前端规则管理（项目设置页规则面板：选事件→条件→动作，测试运行）/ I31 收尾（审计归账 + 冒烟 15 + 文档 + 演示），约 9 人日。出站 webhook 留 backlog（先内嵌后外联）。
