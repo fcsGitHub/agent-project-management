@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M15 已定义（I47-I49 PWA 与移动端），下一步 I47）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M15 正式审阅通过，下一步 M16 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -193,7 +193,12 @@
   - **审阅即修 2 个既有前端缺陷**：①sonner `<Toaster>` 从未挂载（历次 toast 全部静默）→ main.tsx 补挂；②ProjectPicker 离线/故障误弹「新建项目」模态（空库引导与错误态混淆）→ `autoOpen={!isError && 空列表}`；
   - 实测：precache 7 项零 /api、caches 枚举零 /api、**断网 reload 外壳完整载入**、新 SW 静默接管、离线 modal 不再误弹；375px 生产构建正常（docs/m15-i48-*.png ×3）；
   - 坑：pnpm 下 virtual:pwa-register 需显式装 workbox-window，否则 Rollup resolve 失败。
-- **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M15 三迭代完成（I47 `f287725`/I48 `16ce83e`/I49 `3d86ecf`）**：响应式布局基座（窄屏汉堡抽屉 + 横滚 + 栅格响应式 + 触控目标）→ PWA 可安装与离线外壳（vite-plugin-pwa generateSW+autoUpdate，`/api` 永不入缓存）→ 收尾（冒烟 21 + docs/12 §12 + docs/11 §4.1 + 关键路径触控复核）。
+- **M15 正式审阅通过（本提交，附录 A/B）**：
+  - 审阅时点 HEAD `8fb1499` 重跑 pytest 142/冒烟 21/vitest 2 全绿；I47/I48/I49 DoD 逐项核对（窄屏折叠与抽屉/横滚与栅格/precache 零 /api 双验证/断网 reload 外壳/autoUpdate 接管/冒烟 21 产物深检/关键路径触控）；
+  - **审阅即修 3 个既有前端缺陷**：①sonner `<Toaster>` 全仓从未挂载（历次 toast 静默）；②ProjectPicker 空库引导与加载失败混淆（离线误弹新建模态）；③通知下拉 375px 左溢 25px；
+  - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：375px 视口 14 张截图（docs/m15-i47/i48/i49-*.png + m15-review-timeline-375.png）；无新增 B/C 级意见。
+- **当前验证状态**：pytest **142 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -201,8 +206,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I49 移动端打磨收尾审阅**（M15 第 3 迭代，docs/10 §M15）：关键路径移动端复核（看板卡片/Gate 审批/通知铃/NL 命令条 375px 触控）→ docs/12 §12 移动端与 PWA 指南（安装步骤 + 离线边界「外壳可离线、数据必在线」+ HTTPS 注意）→ **新增冒烟 21**（PWA 构建产物断言：dist 含 manifest+sw.js、precache 不含 /api）→ 全量回归（pytest 141/冒烟 21）→ M15 正式审阅（审阅时点 HEAD 重跑 + 附录 A/B + 截图）→ 「M15 正式审阅通过」提交。
-2. 审阅通过后：新一轮开源调研定 M16（候选 SSO/OIDC、通知 digest、高级自定义报表——docs/01 §N.4 backlog）。
+1. **M16 调研定义**（模式同 M6-M15）：2-3 路并行 WebSearch 开源调研（候选：SSO/OIDC——Gitea OAuth2/OIDC JIT 注册与局限、通知 digest——Redmine/GitLab 摘要邮件节奏、高级自定义报表——OpenProject 企业版对照）→ 结论写入 docs/01 新节 + docs/10 §M16（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M16 调研定义」提交。
+2. 按新计划开工 M16 迭代（预计 3 个迭代，约 9 人日）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -230,8 +235,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 141 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 20 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 142 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 21 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
