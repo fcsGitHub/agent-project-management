@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M13-I42 完成，下一步 I43 收尾+M13 审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M13-I43 完成，下一步 M13 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -161,7 +161,11 @@
   - TimelinePage（`#/p/{pid}/timeline`，rail「时间线」）：日期轴自适应+周刻度+今日线、概念分行条形、里程碑菱形（悬停进度）、depends_on 冲突红条+行底虚线（不自动改期）；api.ts 增 Milestone 4 方法 + getItem；**顺带补 I41 缺口：ItemIn 支持 milestone_id（创建即关联，fail-closed 校验+投影持久化）** + test_milestones 第 5 项；
   - 浏览器验证（隔离环境）：菱形悬停进度/冲突红条+行底虚线/日期轴刻度（截图 docs/i42-timeline.png）；build+vitest 绿；
   - 坑：browser_navigate 同 hash URL 不重载 SPA（React Query 缓存旧值）→ location.reload() 强刷；同行 SVG 连线被条形遮住 → 走行底边缘。
-- **当前验证状态**：pytest **133 项全绿**；冒烟基线 **18 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M13-I43 时间线收尾（本轮完成）**：
+  - 事件 NDJSON 导出 `GET /projects/{id}/events/export`（全局追加序+prev 链位+校验和行 events/sha256/first_prev/gaps；per-project 导出首行 prev 指向全局链、跨项目间隙属正常——初版严格链断言被冒烟纠正）；
+  - docs/11 §5 备份与恢复（导出≠备份；WAL .backup 在线快照；恢复=rebuild 校验）；docs/12 §10 里程碑与时间线；
+  - **新增冒烟 19**（里程碑全程+NDJSON 链序+rebuild 一致）；pytest **134** 全绿、**冒烟 19 GREEN**。
+- **当前验证状态**：pytest **134 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -169,9 +173,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M13-I43 收尾**（docs/10 §M13）：事件 NDJSON 导出 `GET /projects/{id}/events/export`（流式 NDJSON + prev_event_id 链）；docs/11 备份章节（SQLite 文件级 + content/ + ontologies/，导出仅作补充）；docs/12 §10 里程碑与时间线；**新增冒烟 19**（里程碑 CRUD→关联→进度→报表口径→NDJSON→rebuild 一致）；随后 **M13 正式审阅**（HEAD 重跑全量→DoD→浏览器复演时间线页→附录 B→「M13 正式审阅通过」提交）。
-2. I42 时间线视图 → I43 收尾（NDJSON 导出+docs+冒烟 19）→ **M13 正式审阅**（模式同 M8-M12）。
-3. 审阅通过后：新一轮开源调研 → 定 M14。
+1. **M13 正式审阅**（模式同 M8-M12）：审阅时点 HEAD 重跑全量（pytest 134/冒烟 19）→ I41/I42/I43 DoD 逐项核对 → 浏览器隔离复演「时间线页（菱形/冲突红条+虚线）+ 里程碑进度 + NDJSON 导出」→ 附录 B 记录 → 「M13 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研（候选：SSO/OIDC、移动端适配、通知 digest、依赖传播改期、高级自定义报表）→ 定 M14 → 按新计划开工。
 
 ## 5. 有哪些坑不要再踩
 
