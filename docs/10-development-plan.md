@@ -460,6 +460,36 @@ agent-project-management/
 
 **M12 审阅点**：冒烟 18 + 各迭代 DoD + 浏览器演示（项目报表页 + 项目列表健康徽标 + 我的工作）。
 
+### M13 · 里程碑与时间线（吸收 OpenProject/Plane，I41-I43，约 9 人日）
+
+> v1.4 新增（2026-09-04，M12 审阅通过后按目标协议调研）。调研结论见 docs/01 §L：OpenProject Gantt = 三类工作包（phase/milestone/task）×依赖连线×时间轴，里程碑日期随关联项变动（依赖传播是其核心语义）；Plane v1.16 Milestone = 按 deadline 聚合工作项的路线图锚点（与 sprint 式 Cycles 正交）；GitLab 导出仅作补充、备份走 DB 层。AgentPM 数据模型三要素齐备（milestone 概念、items.milestone_id 闲置列、depends_on 内核关系），缺日期字段与视图。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I41 | 里程碑域与工作项日期（milestone.* 事件溯源 + CRUD + items 加 start_date/due_date 列 + 关联与进度 + 报表超期口径升级） | 01 §L.1/L.2 | 本体 milestone 概念/items.milestone_id 列 | 3d |
+| I42 | 时间线视图（`#/p/{pid}/timeline`：概念分组行 × 日期轴、条形/菱形、depends_on 箭头与冲突标红、里程碑进度） | 01 §L.1 | item_relations depends_on | 3d |
+| I43 | 收尾（事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + M13 审阅） | 01 §L.3/L.4 | — | 3d |
+
+#### I41 · 里程碑域与工作项日期（3d）
+
+- 任务：新域 `app/apm/domains/milestones.py`——`milestones` 投影表 + `milestone.created/updated/deleted` 事件（标题/due_date 必填 ISO 日期/状态复用本体 planned/in_progress/achieved）；CRUD API（M8 门禁）；items 加 `start_date`/`due_date` TEXT 列（CREATE+ALTER 迁移，可空，ISO 日期校验，item.created/item.updated 透传）；PATCH /items/{id} 支持 milestone_id 关联（未知里程碑 422）；里程碑进度 = 关联项 done 比例 + 逾期数（due_date < 今日且非 done）；报表超期口径升级：item.due_date 优先，其次 cf due，最后滞留（docs/12 §9 同步改）。
+- DoD：单测（里程碑 CRUD+rebuild 存活/未知关联 422/日期校验 422/进度与逾期计算/报表口径三级回退）；rebuild 后进度一致。
+- 演示路径：API 建里程碑+关联工作项 → GET 进度数字人工核对。
+
+#### I42 · 时间线视图（3d）
+
+- 任务：新页 TimelinePage（`#/p/{pid}/timeline`，rail「时间线」）：横向日期轴（默认今起前后各 30 天，可滚）；行=概念（从本体声明取序）；条形=有 start/due 的工作项（无日期项不显示、计数提示）；菱形=里程碑（due 日定位，悬停进度徽标）；depends_on 关系画连线（SVG 覆层，简化直角折线），后置项 start 早于前置项 due 时条形标红（冲突提示，不自动改期）；api.ts 增类型与方法。
+- DoD：vitest/build 绿；浏览器验证条形/菱形/冲突标红与造数一致（截图）；空日期项目空态不报错。
+- 演示路径：时间线页全览 + 冲突标红 + 里程碑进度。
+
+#### I43 · 收尾审阅（3d）
+
+- 任务：事件 NDJSON 导出 `GET /projects/{id}/events/export`（流式 NDJSON，含 prev_event_id 链，校验和行）；docs/11 补「备份与恢复」章节（SQLite 文件级 + content/ + ontologies/，导出仅作补充——GitLab 警告移植）；docs/12 §10 里程碑与时间线（口径+用法）；**新增冒烟 19**（里程碑全程：CRUD→关联→进度→报表口径→NDJSON 导出→rebuild 一致）；M13 审阅。
+- DoD（并入冒烟 19）：NDJSON 逐行合法 JSON 且 prev_event_id 链连续；rebuild 后里程碑进度不变。
+- 演示路径：冒烟 19 + 时间线页复演。
+
+**M13 审阅点**：冒烟 19 + 各迭代 DoD + 浏览器演示（时间线页 + 里程碑进度 + NDJSON 导出）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -587,6 +617,9 @@ agent-project-management/
 | I39 报表前端与项目工作台 | 已完成 | 2026-09-04 | 2026-09-04 | 新页 ReportsPage（`#/p/{pid}/reports`：五桶漏斗条形+概念 chips、挂起 Gate 卡片直达审批中心、超期/滞留清单带 reason 徽标、近 14 天吞吐双色柱图，15s 轮询）；全局 MyWorkPage（`#/my/work`：分配给我跨项目列表+等我决策 Gate 卡片，指派即授权）；AppShell rail 增「报表」（项目内）与「我的工作」（全局 ListTodo）；项目列表 PickerInner 每行健康徽标（待办/进行/完成计数+◆N 待审）；api.ts 增 ProjectReport/MyWork 类型 + getProjectReport/getMyWork；build+vitest 绿；浏览器验证（隔离环境）：报表页四 widget 与 API 数字一致（截图 docs/i39-reports-page.png）、列表徽标「待办 4 · 进行 1 · 完成 1 ◆ 1 待审」（docs/i39-picker-health.png）、我的工作 QA 王 3 项跨项目聚合/李雷 0 项+1 待决策（docs/i39-my-work.png） |
 | I40 报表收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | CSV 导出端点 `GET /projects/{id}/report.csv`（section,key,title,reason,value 五列、UTF-8、Content-Disposition 附件，与 JSON 同数）；docs/12 §9 报表与工作台（页面/API 对照表 + 漏斗/挂起 Gate/超期/滞留/吞吐口径定义 + 权限语义）；**新增冒烟 18**（造数→漏斗/概念/吞吐/Gate 断言→my/work→CSV 与 JSON 同数→列表健康摘要→rebuild 数字不变）；pytest 128/冒烟 18 全绿 |
 | **M12 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 18 + I38/I39/I40 各迭代 DoD 逐项核对全过（审阅时点 HEAD `179e3bb` 重跑 pytest 128/冒烟 18）+ 浏览器隔离复演「报表页四 widget + 我的工作跨项目聚合 + CSV 实测」（截图 docs/m12-review-reports-page.png、docs/m12-review-my-work.png，见附录 B） |
+| I41 里程碑域与工作项日期 | 未开始 | — | — | milestone.* 事件溯源 + CRUD + items 加 start/due_date 列 + 关联与进度 + 报表口径升级 |
+| I42 时间线视图 | 未开始 | — | — | 概念分组行 × 日期轴、条形/菱形、depends_on 箭头与冲突标红、里程碑进度徽标 |
+| I43 时间线收尾审阅 | 未开始 | — | — | 事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + M13 审阅 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -651,6 +684,7 @@ agent-project-management/
 | 2026-09-04 | I39 | 报表前端与项目工作台：新页 **ReportsPage**（`#/p/{pid}/reports`，AppShell rail 项目内「报表」BarChart3）——五桶漏斗条形（done 绿/cancelled 灰）+概念分布 chips、挂起 Gate 卡片（payload_snapshot 已在 reports API 解析为对象，直达审批中心）、超期/滞留清单（reason amber 徽标）、近 14 天吞吐双色柱图（新建 acc/完成 ag，title 悬浮逐日数字），15s 轮询；全局 **MyWorkPage**（`#/my/work`，rail 全局「我的工作」ListTodo）——「分配给我」跨项目列表（项目名+概念+桶徽标+时间，行链至看板）+「等我决策」Gate 卡片（行链至审批中心），15s 轮询；项目列表 **PickerInner** 每行健康徽标（待办/进行/完成计数 + ◆N 待审 amber 徽标）；api.ts 增 ProjectReport/MyWork 类型 + getProjectReport/getMyWork（Approval 类型补 item_id 字段）。浏览器验证（隔离环境复用演示库）：报表页四 widget 与 API 数字一致（漏斗 4/0/1/1/0、Gate「PRD 评审·等待中」、超期「滞留 20 天的老缺陷·滞留超 14 天」、吞吐 新建 6/完成 1；截图 docs/i39-reports-page.png）；列表徽标「待办 4 · 进行 1 · 完成 1 ◆ 1 待审」（docs/i39-picker-health.png）；我的工作 QA 王 3 项聚合 vs 李雷 0 项+1 待决策（docs/i39-my-work.png）。**演示环境教训**：独立 python 脚本 emit 必须 `import apm.domains` 注册投影器再发事件（只导 core = 事件落库投影缺失），且必须带 APM_DATA_DIR——首轮探针误入 dev 库（events append-only 触发器下按「drop trg→删行→原样重建 trg」清理复原）；reports 的 payload_snapshot 初版吐原始 JSON 字符串，前端类型崩（TS 编译当场拦截）→ 后端统一解析为对象。build+vitest 绿。 |
 | 2026-09-04 | I40 | 报表收尾：**CSV 导出** `GET /projects/{id}/report.csv`（stdlib csv 写 io.StringIO；五列 section/key/title/reason/value——funnel 五桶、concept 分布、throughput 总计、overdue 逐项带 reason；UTF-8 + Content-Disposition 附件，数字与 JSON 同源同数）；**docs/12 §9 报表与跨项目工作台**（入口×数据源对照表、五项口径定义表——漏斗/挂起 Gate/超期/滞留/吞吐、权限语义——/report 与看板同读、my/work 指派即授权+Gate 决策权与通知接收人同源）；**新增冒烟 18** test_smoke_18_reports.py（造数 4 项含 done/in_progress 转换+pending Gate → 漏斗/概念/吞吐/Gate 精确断言 → /my/work 聚合 → **CSV DictReader 解析与 JSON 同数** → 列表健康摘要与 report 一致 → rebuild 后三组数字不变）。pytest 128 项绿、**冒烟基线 18 条 GREEN**。 |
 | 2026-09-04 | M12 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `179e3bb` 重跑 pytest 128 项 + 冒烟 18 条全绿）：**I38** 漏斗/概念/吞吐/Gate 计数 + rebuild 前后一致 ✓（test_funnel_throughput_and_gates）、未知项目 404 ✓、超期/滞留口径边界（新鲜/未到期排除、滞留 20 天与 due 昨日命中、done 且 30 天排除）✓（test_overdue_and_stale_caliber）、/my/work 指派即授权 + Gate 决策权 owner/admin 对照 ✓、列表健康摘要 ✓（test_my_work_and_list_health）；**I39** ReportsPage 四 widget / MyWorkPage / 列表徽标 build+vitest 绿 + 浏览器数字一致 ✓；**I40** CSV 与 JSON 同数 ✓（冒烟 18 DictReader 断言）、docs/12 §9 在位 ✓、冒烟 18 全程 ✓。浏览器隔离复演（审阅时点，隔离 data+ontologies，演示库 p_bf3f9022c8）：报表页漏斗 4/0/1/1/0 + 概念 chips bug×5/task×1 + 挂起 Gate「◆ PRD 评审·等待中」+ 超期「滞留 20 天的老缺陷·滞留超 14 天」+ 吞吐 新建 6/完成 1 十四日柱图（截图 docs/m12-review-reports-page.png）；CSV 实测 `curl /report.csv` 十二行逐行核对（funnel 五桶/concept×2/throughput 两行/overdue 带项目内 item id 与 reason）；切换 qa-wang「我的工作」3 项跨项目聚合（登录页校验缺失/邮件开关后仍指派/滞留 20 天的老缺陷，Bucket 徽标与项目名正确，截图 docs/m12-review-my-work.png）。 | — | 里程碑通过 |
+| 2026-09-04 | M13 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**OpenProject Gantt**——三类工作包（phase/milestone/task）×依赖连线×时间轴，里程碑日期随关联项变动（依赖传播核心语义），13.3 起独立 Gantt 模块；②**Plane v1.16**——Milestone = 按 deadline 聚合工作项/模块的路线图锚点，与 sprint 式 Cycles 正交 → 只做 Milestone 不做 Cycles；③**GitLab 导出/备份**——官方警告项目导出勿作备份（不完整+兼容窗口），正解 = DB 级备份，NDJSON 导出仅作补充。选定 **M13 = 里程碑与时间线**（排程与里程碑是「计划 vs 实际」维度最后空白；数据模型三要素齐备：milestone 概念、items.milestone_id 闲置列、depends_on 内核关系）：I41 里程碑域与工作项日期（milestone.* 事件溯源 + items 加 start_date/due_date 列 + 进度 + 报表口径升级）/ I42 时间线视图（条形/菱形/depends_on 箭头与冲突标红，不做依赖自动传播改期）/ I43 事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 19 于 I43。结论入 docs/01 §L。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

@@ -302,3 +302,27 @@ M11 = **邮件通知与 Atom 订阅**：I35 邮件通道（SMTP env 可选 + 队
 **K.4 M12 取舍**
 
 M12 = **报表与跨项目工作台**：I38 报表数据层（纯投影查询 API：项目健康摘要 + 跨项目「我的工作」+ 项目列表健康聚合）/ I39 报表前端与项目工作台（项目报表页：阶段漏斗 + Gate 挂起 + 超期清单 + 吞吐；项目列表健康徽标；全局「我的工作」入口）/ I40 收尾审阅（CSV 导出 + docs + 冒烟 18），约 9 人日。SSO/OIDC（V3）、事件导出归档、移动端适配、高级自定义报表留 backlog。
+
+## L. M13 前置调研：里程碑与时间线（2026-09-04）
+
+> 目标协议触发：M12 审阅通过后开启。三路调研（Gantt/时间线、里程碑与路线图、事件导出归档），选定**里程碑与时间线**——排程与里程碑跟踪是工程管理落地标准里「计划 vs 实际」维度的最后一块空白，且 AgentPM 本体已有 milestone 概念、items.milestone_id 列自 MVP 就闲置待用、内核固定关系含 depends_on——数据模型三要素齐备，缺的只是日期字段与视图。
+
+**L.1 OpenProject Gantt：工作项类型 × 依赖 × 时间轴（主借鉴）**
+
+- OpenProject 的 Gantt = 三类工作包（phase/milestone/task）在同一时间轴上排布，**依赖关系连线**（depends/blocks），拖拽改期；里程碑日期会随关联工作项变动（FAQ：要锁定里程碑日期须移除关系）——即「依赖传播」是其核心语义；13.3 起拆出独立 Gantt 模块。
+- 社区版免费含 Gantt；条形颜色/分组按层级（project → phase → task）。
+- 对本项目的映射：时间线页 = 概念行分组（从本体 stages/concepts 取行）× 日期轴；条形 = 有起止日期的工作项；菱形 = milestone 概念实例；**depends_on 关系画箭头**（内核既有关系类型，关系数据已存在 item_relations 表）——不做依赖自动传播改期（复杂度外推，backlog），只做可视化 + 冲突提示（后置项早于前置项完成日时标红）。
+
+**L.2 Plane v1.16：Milestone = 按 deadline 聚合的路线图单元（佐证）**
+
+- Plane 2025 年 v1.16 引入 **Milestones**（把 work items/modules/cycles 聚到一个 deadline 下，如「Q4 发布」「3 月 15 日 Beta」）与 Recurring Cycles（周期性 sprint 循环）；Cycles 是时间盒（sprint），Milestones 是日期锚点（deadline），二者正交。
+- 对本项目的映射：不做 Cycles（无 sprint 文化假设）；Milestone = 事件溯源实体（`milestone.created/updated/deleted`，due_date 必填），工作项经 items.milestone_id 关联（列已存在，ALTER 迁移不需要）；里程碑进度 = 关联项 done 比例 + 逾期计数，复用 M12 报表口径。软件研发本体已声明 milestone 概念（planned/in_progress/achieved），无需本体变更。
+
+**L.3 GitLab 导出/备份：NDJSON 导出仅作补充，备份走 DB 层（backlog 依据）**
+
+- GitLab 官方明确警告**不要用项目导出文件做备份**（导出不完整、版本兼容窗口仅两个 minor 版本）；自托管实例的正解是 `gitlab-backup` rake + 数据库/对象存储级备份；API 导出（NDJSON）适合单项目自动化补充。
+- 对本项目的映射：事件流导出 `GET /projects/{id}/events/export`（NDJSON，append-only 天然有序，含 prev_event_id 链校验）作**补充性数据出口**；真正备份 = SQLite 文件级（data_dir/apm.db + content/ 资产仓 + ontologies/），写成部署文档章节（docs/11 补充）而非新功能；不做导入（live==replay 保证重放即可重建投影）。
+
+**L.4 M13 取舍**
+
+M13 = **里程碑与时间线**：I41 里程碑域与工作项日期（milestone.* 事件溯源 + CRUD + items 加 start_date/due_date 列（ALTER 迁移）+ milestone 关联与进度；报表超期口径升级为 item.due_date 优先）/ I42 时间线视图（`#/p/{pid}/timeline`：概念分组行 × 日期轴、条形/菱形、depends_on 箭头与冲突标红、里程碑进度徽标）/ I43 收尾（事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + 审阅），约 9 人日。依赖自动传播改期、Cycles/sprint、SSO、移动端留 backlog。

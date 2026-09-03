@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12 正式审阅通过，下一步 M13 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M13 已定义（里程碑与时间线），下一步 I41 开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -152,6 +152,7 @@
   - 审阅时点 HEAD `179e3bb` 重跑 pytest 128/冒烟 18 全绿；I38/I39/I40 DoD 逐项核对（纯投影三端点+rebuild 一致/口径边界/指派即授权/CSV 与 JSON 同数/冒烟 18 全程）；
   - 浏览器隔离复演：报表页漏斗 4/0/1/1/0 + Gate「◆ PRD 评审」+ 滞留清单 + 吞吐 6/1（docs/m12-review-reports-page.png）；CSV curl 十二行逐行核对；qa-wang 我的工作 3 项跨项目聚合（docs/m12-review-my-work.png）；无新增 B/C 级意见。
 - **当前验证状态**：pytest **128 项全绿**；冒烟基线 **18 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M13 已定义（本提交，docs/01 §L + docs/10 §M13）**：三路调研——OpenProject Gantt（三类工作包×依赖连线×时间轴，依赖传播核心语义）、Plane v1.16 Milestone（deadline 锚点，与 Cycles 正交→只做 Milestone）、GitLab 导出/备份（导出仅补充、备份走 DB 层）→ **M13 = 里程碑与时间线（I41 里程碑域与工作项日期：milestone.* 事件溯源 + items 加 start_date/due_date 列 + 进度 + 报表口径升级 / I42 时间线视图：条形/菱形/depends_on 箭头与冲突标红，不做依赖自动传播 / I43 事件 NDJSON 导出 + docs/11 备份章节 + docs/12 §10 + 冒烟 19 + 审阅，约 9 人日）**；依赖自动传播改期、Cycles、SSO、移动端留 backlog。
 
 ## 3. 现在卡在哪
 
@@ -159,8 +160,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **新一轮开源调研 → 定义 M13**（目标协议第 1 条，候选：SSO/OIDC（V3 候选，Keycloak 容器演示成本高）、事件导出/归档（GitLab 结论：导出非删除）、移动端适配、通知 digest、高级自定义报表）——2-3 路并行 WebSearch，结论写 docs/01 新节 + docs/10 §M13（迭代表+DoD+估时）+ 状态看板行 + 附录 A 合并日志，收口 HANDOFF 并提交。
-2. 按 M13 计划逐迭代开工（模式同 M8-M12：迭代实现→单测/冒烟→docs→提交→里程碑正式审阅）。
+1. **M13-I41 开工：里程碑域与工作项日期**（docs/10 §M13）：新域 `app/apm/domains/milestones.py`——milestones 投影表 + milestone.created/updated/deleted 事件（标题/due_date 必填 ISO）；CRUD（M8 门禁）；items 加 start_date/due_date 列（CREATE+ALTER，ISO 校验，created/updated 透传）；PATCH /items 支持 milestone_id（未知 422）；里程碑进度=关联项 done 比例+逾期数；报表超期口径三级回退（item.due_date → cf due → 滞留，docs/12 §9 同步改）；单测含 rebuild 进度一致。
+2. I42 时间线视图 → I43 收尾（NDJSON 导出+docs+冒烟 19）→ **M13 正式审阅**（模式同 M8-M12）。
+3. 审阅通过后：新一轮开源调研 → 定 M14。
 
 ## 5. 有哪些坑不要再踩
 
