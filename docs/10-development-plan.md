@@ -400,6 +400,36 @@ agent-project-management/
 
 **M10 审阅点**：冒烟 16 + 各迭代 DoD + 浏览器演示（webhook 投递留痕 + 通知中心）。
 
+### M11 · 邮件通知与 Atom 订阅（吸收 Redmine，I35-I37，约 9 人日）
+
+> v1.2 新增（2026-09-03，M10 审阅通过后按目标协议调研）。调研结论见 docs/01 §J：Redmine 邮件只做即时无 digest（digest 外挂）、SMTP 走环境配置层支持 SSL/STARTTLS、自托管推荐外部 relay；Atom feed 走 per-user key 认证（阅读器免 cookie），私有项目数据曾泄漏进全局 feed（#20173）——权限裁剪必须按 key 用户可见性。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I35 | 邮件通知通道（SMTP env 可选 + 通知投影 email 通道 + 队列投递 + email.notified 留痕） | 01 §J.1 | M10 通知/投递模式 | 3d |
+| I36 | Atom 订阅 feed（per-user feed key + 权限裁剪 + 标准 Atom 输出）+ 冒烟 17 | 01 §J.2 | 事件流/users | 3d |
+| I37 | 通知偏好前端与收尾审阅（用户级邮件开关 + feed key 管理入口 + docs/12 章节） | 01 §J.2/J.3 | — | 3d |
+
+#### I35 · 邮件通知通道（3d）
+
+- 任务：`APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量（可选，未配置=邮件通道整体关闭且文档明示）；`/notifications` 响应与通知投影增 email 分发标记；邮件投递复用 M10「入队 + 后台线程」模式；即时邮件（仅用户级启用时发，主题=通知摘要）；`email.notified/failed` 事件留痕；users.email 已有字段直接复用（`POST /users` 补 email 参数）。
+- DoD（并入**新增冒烟 17**）：未配置 SMTP 时一切行为与现状一致；配置调试桩（SMTP 类接收器或 mock）后指派产生邮件投递留痕；投递不阻塞写路径；rebuild 存活（留痕事件）。
+- 演示路径：配 SMTP → 指派 → 收件桩收到邮件 + 审计留痕。
+
+#### I36 · Atom 订阅 feed（3d）
+
+- 任务：users 增 feed_key（运行态，rotate 语义同 webhook secret）；`GET /projects/{id}/feed.atom?key=`（key 认证绕过 cookie）+ `GET /me/feed-key`（查看/换发）；Atom 1.0 XML（id/title/updated/entry 内容=事件摘要），只输出 key 用户可见项目的事件；权限：非成员项目请求返回 403（防 #20173 式泄漏）。
+- DoD（并入冒烟 17）：key 认证往返；非成员 key 403；Atom XML 结构校验（well-formed + 必备元素）；rotate 后旧 key 失效。
+- 演示路径：阅读器/HTTP 客户端用 key 订阅项目事件流。
+
+#### I37 · 通知偏好前端与收尾审阅（3d）
+
+- 任务：设置区通知偏好（邮件开关 per user，存用户级运行态）；feed key 管理入口（显示/换发/复制订阅链接）；docs/12 §8 邮件与订阅章节（SMTP env 表 + 阅读器订阅指引）；M11 审阅。
+- DoD（并入冒烟 17）：偏好开关生效（关=不发邮件）；rebuild 存活。
+- 演示路径：关邮件开关 → 触发通知 → 站内有、邮件无。
+
+**M11 审阅点**：冒烟 17 + 各迭代 DoD + 浏览器演示（邮件投递留痕 + feed 订阅 + 通知偏好）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -519,6 +549,9 @@ agent-project-management/
 | I33 webhook 前端与运维 | 已完成 | 2026-09-03 | 2026-09-03 | 后端补 replay（按 delivery_id 重放原事件载荷、新 delivery ID、单次尝试）+ ping（合成载荷单次尝试）端点；前端本体页「Webhooks 出站」面板：创建表单（URL+订阅事件芯片）、secret 一次性展示弹窗（rotate 换发）、行内 Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+attempts+状态码+耗时+重发按钮）；api.ts 增 7 方法 + Webhook/DeliveryRecord 类型；docs/12 §6 验签章节（原始字节 HMAC+常量时间比较+delivery 去重 Python 示例）；单测 5 项；浏览器验证：接收桩实测签名投递→历史抽屉两条 已送达（原始+重发，delivery ID 各异）→ 重发生效（截图 docs/i33-webhook-secret-modal.png、i33-webhook-delivery-history.png）；pytest 109/冒烟 16 全绿 |
 | I34 通知中心与收尾 | 已完成 | 2026-09-03 | 2026-09-03 | `notifications` 投影表：纯投影自既有事件（item.assigned→被指派人、approval.requested→项目 Owner、notification.sent→指定用户）；通知 id 确定性（n_{事件id}_{用户}）保证已读引用 rebuild 后仍匹配；notification.read 事件溯源已读（ids/all）；GET /notifications + POST /notifications/read（按 effective_actor 归属）；automation 动作白名单增 notify（{user_id,message≤200}，走防循环与 automation 归账）；前端顶栏通知铃铛（未读徽标+清单+全部已读，15s 轮询）；docs/12 §7 通知章节；新增单测 4 项 + 冒烟 16 扩展通知断言；pytest 113/冒烟 16 全绿；浏览器验证铃铛徽标与已读清零（截图 docs/i34-notification-bell.png） |
 | **M10 里程碑审阅（正式）** | 已完成 | 2026-09-03 | 2026-09-03 | 冒烟 16 + I32/I33/I34 各迭代 DoD 逐项核对全过（审阅时点重跑 pytest 113/冒烟 16）+ 浏览器复演「UI 建 webhook→触发→接收桩签名投递→投递历史留痕→指派通知铃铛」合并路径（截图 docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png，见附录 B） |
+| I35 邮件通知通道 | 未开始 | — | — | M11 首迭代：SMTP env 可选 + 即时邮件队列投递 + email.notified 留痕 + 未配置静默关闭（docs/10 §M11，docs/01 §J） |
+| I36 Atom 订阅 feed | 未开始 | — | — | per-user feed key + 权限裁剪 Atom 输出 + 冒烟 17 |
+| I37 通知偏好前端与收尾审阅 | 未开始 | — | — | 用户级邮件开关 + feed key 管理入口 + docs/12 §8 + M11 审阅 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -572,6 +605,7 @@ agent-project-management/
 | 2026-09-03 | I32 | 出站 webhook 基座：新域 `domains/webhooks.py`。**规则即事件溯源**：`webhooks` 投影表 + `webhook.created/updated/deleted` 事件投影（rebuild 重放一致）；**secret 不入事件**（M8-I26 凭据原则延续）——secret 仅存投影表（运行态，rebuild 置空、rotate 换发、创建时一次性返回），与 users.password_hash 同语义（附录 A 延续登记）。**投递器=入队/投递分离**：post-emit hook `enqueue` 只 put_nowait 入内存队列（满则丢并告警），`apm-webhooks` 守护线程投递——网络 I/O 绝不阻塞写路径（与 M9 同步执行器的本质差异，冒烟 16 断言写路径 <1s 返回而接收端 stall 2s）。**Gitea/GitLab 语义落地**：投递头 `X-APM-Event`（事件类型）/`X-APM-Delivery`（dl_ 投递 ID 幂等）/`X-APM-Webhook`/`X-APM-Signature`（对原始 body 字节的 HMAC-SHA256，secret 每条独立，无 secret 则缺头）；失败指数退避重试 3 次（RETRY_DELAYS=(1,4,16)s，测试可 monkeypatch），终局以 `webhook.delivered/failed` 事件留痕（attempts/status_code/duration_ms/error，rebuild 存活）。事件订阅白名单 fail-closed（item.*/approval.*/feature.created/automation.rule_fired，webhook.* 不可订阅故投递留痕事件不会二次触发投递）；URL http(s) 校验 422。CRUD + rotate API（network 写门禁经 M8 middleware 自动生效）。装配：main.py lifespan `install_webhooks_engine()`（幂等，hook 去重 + 守护线程）。测试：新增 test_webhooks.py 4 项（CRUD+secret 不入事件流+rebuild 清 secret/fail-closed、本地接收桩端到端签名验证+delivered 留痕、500→4 次尝试→failed 留痕、停用静默+启用恢复）；**新增冒烟 16**（非阻塞时序+签名+重试+rebuild 存活）。修一个自踩 bug：worker 解析行漏传 with_secret=True 致签名头缺失（单测签名断言当场拦住）。pytest 108 项绿、冒烟 16 条 GREEN、vitest/build 绿。 |
 | 2026-09-03 | I33 | webhook 前端与运维：**后端补运维端点**——`_deliver` 增 retries 参数（手工动作单次尝试），`POST /webhooks/{id}/replay/{delivery_id}`（按 delivery_id 找回 delivered/failed 留痕事件→以 payload.event_id 取回原始事件→重放同载荷、新 delivery ID）、`POST /webhooks/{id}/ping`（合成 ping 载荷单次投递）；均落 webhook.delivered/failed 留痕。**前端**：本体页新增「Webhooks 出站」面板（WebhooksPanel）——创建表单（URL 输入 + 订阅事件芯片多选，白名单与后端一致）、**secret 一次性展示弹窗**（警示文案+明文 pre，关闭后只能 rotate 换发）、行内操作 Ping/投递历史/换发 secret/启停/删除、secret 失效（rebuild 后）黄标提示；投递历史抽屉（DeliveryHistory）= listEvents(agg_type=webhook, agg_id=hook id) 过滤 delivered/failed，行显示 已送达/失败徽章、delivery_id、事件→#event_id、HTTP 状态码/attempts/耗时 + 重发按钮。api.ts 增 7 方法 + Webhook/DeliveryRecord 类型（listEvents 参数类型扩展 agg_type/agg_id）。**docs/12 §6 Webhooks 出站章节**：投递语义表（头/签名/超时重试）、接收方验签 Python 示例（原始字节+常量时间比较+delivery 去重）、GitLab 明文 token 历史教训。验证：单测 5 项绿（新增 replay+ping：重放同 agg_id 新 delivery ID、ping 单次尝试、未知 delivery 404）；浏览器隔离复演——UI 建 webhook（URL+订阅芯片）→ secret 弹窗截图 → python 接收桩实测收到签名投递（X-APM-Signature 与 secret HMAC 验证、delivery ID 与留痕事件一致）→ 历史抽屉「已送达 HTTP 200 · 1 次」→ UI 重发 → 接收桩收到第二条（新 delivery ID dl_9e361a…）→ 抽屉两条记录各带重发按钮（截图 docs/i33-webhook-secret-modal.png、docs/i33-webhook-delivery-history.png）；pytest 109 项绿、冒烟 16 条 GREEN、build/vitest 绿。 |
 | 2026-09-03 | I34 | 站内通知中心与收尾：新域 `domains/notifications.py`。**通知 = 既有事件的纯投影**——item.assigned（human）→被指派人、approval.requested→项目 Owner（查 project_members）、notification.sent（automation notify 动作）→指定用户；**通知 id 确定性生成 `n_{源事件id}_{接收人}`**（踩坑修复：初版用 new_id 随机 id，rebuild 后 id 漂移致已读事件引用失配、未读数回弹——单测 rebuild 断言当场拦住；事件溯源投影新生成实体的 id 必须可由事件流确定性重建）；已读状态事件溯源（`notification.read`，payload ids/all，按 actor_id 归属）；API：GET /notifications（latest 30+unread，按 effective_actor）、POST /notifications/read（未知 id 404、空参 422）。**automation 动作白名单增 notify**（{user_id, message≤200}，校验用户存在与消息长度；执行发 notification.sent，actor_type=automation/actor_id=规则 id，走 M9 防循环）。前端：AppShell 顶栏 NotificationsBell（BellRing 图标+未读徽标+清单：kind 图标/摘要/kind/时间+未读圆点，15s 轮询，全部已读）；api.ts 增 listNotifications/markNotificationsRead。**docs/12 §7 通知章节**（来源表/已读事件溯源/确定性 id 通用要求）。测试：新增 test_notifications.py 4 项（指派通知+已读+rebuild/read-all+越权 404+空参/approval 通知 Owner/notify 动作校验+触发+归账）；**套跑隔离修复**：/session/identity 全局改 settings.user_id 泄漏跨用例，测试文件加身份还原夹具（C 级已知设计，local 模式全局身份的固有语义）；冒烟 16 扩展指派通知+已读清零断言；pytest 113 项绿、冒烟 16 条 GREEN、vitest/build 绿。浏览器验证（隔离环境）：指派后铃铛徽标「3」→下拉三条 assigned 通知（图标/摘要/时间）→全部已读徽标消失（截图 docs/i34-notification-bell.png）。 |
+| 2026-09-03 | M10 审阅 + M11 定义 | **M10 里程碑正式审阅通过**（附录 B）：审阅时点 HEAD `08af0c5` 重跑 pytest 113 项 + 冒烟 16 条全绿；I32/I33/I34 DoD 逐项核对（secret 不入事件/rebuild 存活/签名逐字节比对/重试留痕/写路径零阻塞/replay-ping/通知纯投影/确定性 id/notify 防循环归账）；浏览器复演（python 接收桩）「UI 建 webhook→触发→签名投递→投递历史→指派通知铃铛」合并路径，截图 docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png。随即开启新一轮调研（目标协议第 1 条）：Redmine 邮件通知只做即时无内建 digest、SMTP 走环境配置层（SSL/STARTTLS/外部 relay 推荐）；Atom feed per-user key 认证 + 私有项目数据曾泄漏进全局 feed（#20173）教训，结论入 docs/01 §J。新增 M11 = 邮件通知与 Atom 订阅（I35 邮件通道 SMTP env 可选 / I36 Atom 订阅 feed + 冒烟 17 / I37 通知偏好前端与收尾审阅，范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 17 于 I36）。 |
 | 2026-09-03 | M10 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `08af0c5` 重跑 pytest 113 项 + 冒烟 16 条全绿）：**I32** webhook CRUD + secret 不入事件流（事件流 grep 无 secret）+ rebuild 存活（secret 运行态置空、rotate 换发）+ fail-closed（ftp URL/webhook.* 订阅/空事件列表 422）✓（test_webhook_crud_secret_never_evented_and_rebuild）；本地接收桩端到端——签名 = HMAC-SHA256(secret, 原始 body) 逐字节比对 ✓、X-APM-Event/Delivery/Webhook 头在位 ✓、webhook.delivered 留痕 ✓（test_delivery_signed_and_recorded）；500→1+3 次尝试→delivery_failed 留痕（attempts=4, status_code=500）✓（test_failure_retries_then_failed_recorded）；停用静默+启用恢复 ✓（test_disabled_webhook_stays_silent）；写路径零阻塞（冒烟 16 断言写 <1s 返回 / 接收端 stall 2s）✓；**I33** replay/ping 端点（重放同 agg_id 新 delivery ID、ping 单次尝试、未知 delivery 404）✓（test_replay_and_ping）；Webhooks 面板 CRUD/订阅芯片/secret 一次性弹窗/投递历史抽屉 ✓；docs/12 §6 验签章节在位 ✓；**I34** 指派通知+已读流程+rebuild 存活 ✓、read-all+越权 404+空参 422 ✓、approval.requested 通知 Owner ✓、notify 动作校验与触发归账 ✓（test_notifications 4 项）；通知 id 确定性修复（随机 id→n_{事件id}_{用户}）与身份泄漏还原夹具已落附录 A。浏览器复演（隔离环境+python 接收桩）：UI 建 webhook（URL+订阅芯片）→ secret 一次性弹窗 → API 建缺陷 → 接收桩实测签名投递（delivery ID dl_65f2ccde… 与留痕事件一致）→ 投递历史抽屉「已送达 HTTP 200 · 1次 · 15ms」→ 指派触发通知 → 铃铛徽标「1」+ 下拉「被指派工作项『审阅触发缺陷』」（顶栏 QA 王）——单张截图覆盖两路径（docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png）。 | — | 里程碑通过 |
 
 ## 附录 B · 审阅记录（逐次追加）

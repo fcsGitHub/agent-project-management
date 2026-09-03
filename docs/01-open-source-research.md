@@ -257,3 +257,23 @@ M9 = **看板自动化规则（三段式）**：I29 规则域与事件订阅执�
 **I.3 M10 取舍**
 
 M10 = **出站集成：webhook 与通知**：I32 webhook 基座（规则即事件溯源 + 投递器后台线程化——**post-emit hook 只入队不阻塞写路径**，与 M9 的同步执行器本质差异）+ HMAC 签名 + 重试与投递留痕 / I33 webhook 前端（配置面板 + 投递历史 + 手动重发 + 测试 ping）+ 冒烟 16 / I34 站内通知中心 + automation `notify` 动作 + 收尾审阅，约 9 人日。邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
+
+## J. M11 前置调研：邮件通知与 Atom 订阅（2026-09-03）
+
+> 目标协议触发：M10 审阅通过后开启。出站集成的「机器通道」（webhook）已通，本轮补「人的通道」（邮件 + 订阅 feed）。本体版本事件级归档搜索超时、且属内部治理价值，继续留 backlog；SSO 维持 V3。
+
+**J.1 Redmine 邮件通知：即时为纲、SMTP 可选配置（主借鉴）**
+
+- Redmine 内建**只有即时（事件触发）邮件**，无 digest 模式——要 digest 得外挂工具。教训即取舍：AgentPM 邮件同样**只做即时**（M10 通知中心的每个通知即一封候选邮件），digest 复杂度不引入。
+- SMTP 配置是环境变量/配置文件层（`configuration.yml` 按环境分 production/development），支持 SSL 465 / STARTTLS / 认证；自托管推荐外部 relay（Mailgun/SendGrid）提升可靠性。
+- 对本项目的映射：`APM_SMTP_HOST/PORT/USER/PASS/FROM/TLS` 环境变量**可选**配置——未配置则邮件通道整体静默关闭（保持 docker-compose 零依赖哲学，M8 不引 SMTP 的决策不反转）；配了即启用。投递复用 M10 的「队列 + 后台线程」模式（网络 I/O 不阻塞写路径），`email.notified` 事件留痕（收件人/主题/结果）。users.email 字段自 I19 就存在，正好补上用途。
+
+**J.2 Redmine Atom feeds：feed key 认证与权限前车之鉴**
+
+- Redmine 的 activity/issue feed 均走 **Atom + per-user key 认证**（`/issues.atom?key=ID`），让阅读器无需 cookie 即可订阅；feed 内容只含人类可读事件（issue #6885 明确其机器可读性受限）。
+- **前车之鉴**：issue #20173 私有项目数据曾泄漏进全局 RSS——feed 权限过滤必须按 key 所属用户的可见性裁剪。
+- 对本项目的映射：`GET /projects/{id}/feed.atom`（事件流的标准化 Atom 视图）+ per-user feed key（运行态生成/rotate，同 webhook secret 的展示一次语义）；**权限过滤**：只输出该 key 用户为成员的项目事件；Atom 而非 RSS（现代阅读器均支持，Redmine #1521 的兼容请求不再必要）。
+
+**J.3 M11 取舍**
+
+M11 = **邮件通知与 Atom 订阅**：I35 邮件通道（SMTP env 可选 + 队列投递 + email.notified 留痕 + 未配置静默关闭）/ I36 Atom 订阅 feed（feed key + 权限裁剪 + 冒烟 17）/ I37 通知偏好前端与收尾审阅，约 9 人日。digest、RSS 1.0 兼容、SSO/OIDC、本体版本事件级归档、移动端适配继续留 backlog。
