@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M7 审阅通过，M8 已定义 I26-I28）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 进行中，I26 完成）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -57,7 +57,13 @@
   - 浏览器验证：本体页停用「标签」→看板选择器即刻无该维度（截图 docs/i25-field-deactivated-board.png）→启用恢复。
 - **M7 正式审阅通过（`6ed9867`，附录 B）**：审阅时点 HEAD `7c0f7bb` 重跑 pytest 89/冒烟 13 全绿；I23/I24/I25 DoD 逐项核对；浏览器隔离复演「模板中心一键建项目」（自动跳新看板）与「字段停用-恢复」（截图 docs/m7-review-instantiate-board.png、docs/m7-review-field-deactivated.png）。
 - **M8 已定义（`77aafbd`，docs/01 §G + docs/10 §M8）**：调研 Plane 两层角色模型（裁掉 workspace 层，留项目级 owner/contributor/viewer）、Gitea 首管理员+关注册+管理员建号（不做邮件邀请——Focalboard 邀请链接教训）、认证取舍（stdlib pbkdf2 + 签名 HttpOnly Cookie；`auth_mode=local/network` 双模，SSO 推迟 V3；部署形态定为可信小团队网络服务）→ **M8 = 多人网络协作（I26 认证基座 / I27 项目成员与角色 / I28 网络协作收尾，约 9 人日）**；遗留 B 级「users 无认证」由 M8 闭环。
-- **当前验证状态**：pytest **89 项全绿**；冒烟基线 **13 条全绿**（13 = 模板注册表+字段激活往返）；`pnpm build`/`pnpm vitest` 通过。
+- **I26 认证基座（本轮完成）**：
+  - 新模块 `app/apm/core/security.py`：pbkdf2 哈希（stdlib，20 万迭代）、HMAC 签名会话 Token、实例 secret 持久化 `data_dir/secret.key`（重启会话存活）；
+  - users 表加 `password_hash`/`is_admin`（ALTER 迁移）。**凭据不入事件**（附录 A）：密码是投影表运行时状态，rebuild 会清空——恢复路径 = 重启时 `APM_ADMIN_PASSWORD` 重引导（ensure_default_user 每次启动 reapplied）；
+  - `POST /auth/login|logout` + `GET /auth/me`：登录成功/失败/登出均有 session.* 审计事件；HttpOnly SameSite=Lax Cookie；
+  - `settings.auth_mode`：local（默认，现状零改动）/ network（middleware 对 /api 非 GET 强制会话，/api/auth/* 豁免）；`GET /users` 等出口 `_safe_user` 剥离凭据；
+  - **新增冒烟 14**（network 门禁+审计+登出+local 零破坏）。
+- **当前验证状态**：pytest **94 项全绿**；冒烟基线 **14 条全绿**（14 = 认证基座）；前端未改动。
 
 ## 3. 现在卡在哪
 
@@ -65,11 +71,10 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I26 · 认证基座**（docs/10 §M8 表，估 3d）：users 加 password_hash（stdlib pbkdf2）；`POST /auth/login|logout`（签名 HttpOnly Cookie，会话事件入审计）；`settings.auth_mode`（local 默认现状 / network 强制登录）；首启 `APM_ADMIN_PASSWORD` 引导管理员。DoD 并入**新增冒烟 14**。
-2. **I27 · 项目成员与角色**（估 3d）：project_members 投影（owner/contributor/viewer，建项目者即 owner）；成员管理 API + 访问控制依赖（越权 403 有审计）；项目设置页成员管理 UI。
-3. **I28 · 网络协作收尾**（估 3d）：登录态替代身份切换；审批/审计强制登录人；compose 部署文档；双账号协作冒烟。
-4. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
-5. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
+1. **I27 · 项目成员与角色**（docs/10 §M8 表，估 3d）：project_members 投影（owner/contributor/viewer，建项目者即 owner）；成员管理 API（从已注册用户添加/移除/改角色）+ network 模式访问控制依赖（越权 403+事件）；项目设置页成员管理 UI。
+2. **I28 · 网络协作收尾**（估 3d）：登录态替代身份切换（network 模式顶栏=登录人）；审批/审计强制登录人；compose 部署文档（反代 HTTPS、auth_mode）；双账号协作冒烟。
+3. **M8 审阅**：冒烟 14 + 各迭代 DoD + 浏览器双账号协作演示。
+4. M8 之后：按目标第 5 条调研定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -89,8 +94,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 89 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 13 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 94 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 14 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
