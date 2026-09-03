@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 三个迭代完成，待正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M8 正式审阅通过，M9 已定义待开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -74,6 +74,12 @@
   - 部署文档 `docs/11-network-deploy.md`（auth_mode/admin_password/secret_key/TTL、管理员建号流程、角色与归账规则、nginx 反代 HTTPS+SSE）；
   - 浏览器验证（隔离 network 模式）：未登录写 401 → 登录页 → 模板建项目 → 顶栏 ⭐李雷+登出（截图 docs/i28-login-session-chip.png）。
 - **当前验证状态**：pytest **97 项全绿**；冒烟基线 **14 条全绿**（14 = 认证+成员+归账全程）；`pnpm build`/`pnpm vitest` 通过。
+- **M8 正式审阅通过（`978da42`+`630e91f`，附录 B）**：
+  - 审阅时点 HEAD `dec89c3` 重跑 pytest 97/冒烟 14 全绿；I26/I27/I28 DoD 逐项核对（凭证与审计/三角色矩阵与 rebuild/归账断言）；
+  - 浏览器双账号协作演示（隔离 network 模式）：登录页登录 → 建项目（Owner=李雷）→ 管理员建号 qa-wang → 成员面板加 Viewer → viewer 写 403（access.denied 四元组审计）→ 升 Contributor 写成功 → 审计时间线归账链 #16/#20/#21 完整；截图 docs/m8-review-login.png、m8-review-admin-members.png、m8-review-viewer-denied.png、m8-review-audit-attribution.png；
+  - **审阅即修 2 处前端缺陷**：①AppShell 全局 rail 链接硬编码 `/assets`（I24 引入，「模板」侧栏图标不可达——此前演示走项目列表页按钮入口未暴露）改 `r.global ? r.to : ...`；②FeaturePage 空态文案「也可从看板手动建卡」过时（看板无此入口、NL L1 无建项意图）删除子句。修后 build+vitest 全绿；
+  - console 噪声归因：401×2=登出后 /auth/me 轮询（network 预期）、403×1=门禁演示本体、连接拒绝=后端进程被系统回收后遗留标签页重连，均非产品缺陷。
+- **M9 已定义（`630e91f`，docs/01 §H + docs/10 §M9）**：调研 Kanboard Automatic Actions（项目级「事件×动作」绑定+自省 API）、n8n/Node-RED 三段式抽象（trigger→condition→action，单机内嵌学模型不引编排器）、Plane Automations 与 webhook 重复触发教训（执行须幂等）→ **M9 = 看板自动化规则（I29 规则域与执行引擎 / I30 规则管理前端 / I31 收尾，约 9 人日）**；AgentPM 事件内核即天然事件源（订阅 event_bus，无需自建 dispatcher）；出站 webhook 留 backlog，SSO 维持 V3。
 
 ## 3. 现在卡在哪
 
@@ -81,9 +87,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M8 正式审阅**（docs/10 §M8）：冒烟 14 + I26/I27/I28 DoD 核对 + 浏览器双账号协作演示（network 登录→建号→成员角色→归账审计，可复演 I28 截图路径）+ 附录 B 审阅记录 + 审阅截图。
-2. M8 审阅通过后：**新一轮开源调研**（目标第 5 条）→ 定 M9（候选：看板自动化规则 Kanboard 三段式、本体版本事件级归档、SSO/OIDC）。
-3. 调研后按新计划继续迭代开发。
+1. **M9-I29 开工：自动化规则域与执行引擎**（docs/10 §M9）：`automation_rules` 投影表 + `automation.rule_*` 事件（rebuild 存活）+ event_bus 订阅执行器（trigger 匹配/condition 谓词/动作白名单 fail-closed/防循环：规则产出事件 actor_type=automation 不再触发规则引擎）+ 规则 CRUD API（复用 M8 门禁）；**新增冒烟 15**。
+2. I30 规则管理前端（设置页规则面板+测试运行 dry-run+触发历史）→ I31 收尾（审计归账+docs/12+演示）→ **M9 正式审阅**。
+3. M9 审阅通过后：新一轮开源调研（目标第 5 条）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -99,6 +105,8 @@
 - **打/恢复演示（或相关测试）的确定性时序**：run 由后台线程执行，"interrupted" 状态 = 挂在 Gate 待评审；注入 = 对话内发消息（engine 把 run 开始后的用户消息收集为 constraints）；恢复 = ▸ 继续（resume 端点可带 instruction，Gate 挂起时走 revise）。参考 `app/tests/test_runtime.py` 的 `test_interrupt_inject_resume_*`。
 - **演示环境 console 会有 404/连接拒绝噪声**：长命浏览器标签页会跨隔离库轮询旧会话 ID、并在关服后持续重连——审阅时逐条核对来源再下结论，别当成产品缺陷，也别忽略。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
+- **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
+- **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
 
 ## 6. 快速上手命令
 
