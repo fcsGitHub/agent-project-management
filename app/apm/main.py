@@ -123,6 +123,7 @@ def create_app() -> FastAPI:
     from apm.domains.ontology_pack import router as ontology_pack_router
     from apm.domains.orchestrator_api import router as orchestrator_router
     from apm.domains.projects import router as projects_router
+    from apm.domains.reports import router as reports_router
     from apm.domains.runs import router as runs_router
     from apm.domains.stream import router as stream_router
     from apm.domains.system import router as system_router
@@ -146,6 +147,7 @@ def create_app() -> FastAPI:
     app.include_router(feed_router, prefix="/api")
     app.include_router(webhooks_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
+    app.include_router(reports_router, prefix="/api")
     app.include_router(members_router, prefix="/api")
     app.include_router(automations_router, prefix="/api")
     app.include_router(features_router, prefix="/api")

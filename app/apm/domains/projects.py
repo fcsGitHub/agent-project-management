@@ -222,8 +222,27 @@ def post_project(body: ProjectIn) -> dict:
 
 @router.get("/projects")
 def list_projects() -> dict:
-    rows = db.get_conn().execute("SELECT * FROM projects ORDER BY created_at").fetchall()
-    return {"projects": [dict(r) for r in rows]}
+    conn = db.get_conn()
+    rows = conn.execute("SELECT * FROM projects ORDER BY created_at").fetchall()
+    groups: dict[str, dict] = {}
+    for r in conn.execute(
+        "SELECT project_id, status_group, COUNT(*) c FROM items GROUP BY project_id, status_group"
+    ).fetchall():
+        groups.setdefault(r["project_id"], {})[r["status_group"]] = r["c"]
+    gates = {
+        r["project_id"]: r["c"]
+        for r in conn.execute(
+            "SELECT project_id, COUNT(*) c FROM approvals WHERE status = 'pending' GROUP BY project_id"
+        ).fetchall()
+    }
+    projects = []
+    for r in rows:
+        p = dict(r)
+        p["item_counts"] = {**{b: 0 for b in ("backlog", "todo", "in_progress", "done", "cancelled")},
+                            **groups.get(p["id"], {})}
+        p["gates_pending"] = gates.get(p["id"], 0)
+        projects.append(p)
+    return {"projects": projects}
 
 
 @router.get("/projects/{project_id}")
