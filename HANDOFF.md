@@ -203,6 +203,7 @@
   - 新域 `domains/views.py`：saved_views 投影表 + view.* 事件（rebuild 存活）；CRUD；定义校验双层 fail-closed（键白名单 + 字段须声明且**未停用**——cf 分支漏停用检查被单测拦住补上）；权限对齐 M8（local 放行 / network public 成员读、private owner+admin、viewer 不可建、非成员 403）；
   - **执行纯复用**：get_items/get_board 增 view_id（definition 为基础过滤、显式 query 参覆盖）；`_cf_hit` 提取模块级共用；
   - 测试踩坑：字段 id 是 `tags`（非 concept.field 全称）、停用 API `{field_id, active}`、tags 值 frontend/backend/infra、network 写请求须先 /auth/login；**pytest 146/冒烟 21**。
+- **M16-I51 视图前端（本轮完成，`010f5f1`+`eebe385`）**：看板工具栏「视图」管理器（保存当前过滤+公开勾选、下拉切换应用 definition 写回 URL params、公开徽标、hover 删除、退出视图保留过滤）；**直开 ?view=<id> 自动补齐 definition 参数**（显式 params 优先）；api.ts SavedView+4 方法；复演：保存→切换→直开还原全过（docs/m15-i51-*.png ×5）。**复演坑：改前端代码后生产构建页面须 SW update+reload 才见新 UI**（autoUpdate precache 旧 bundle）。
 - **当前验证状态**：pytest **146 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -211,8 +212,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I51 视图前端**（M16 第 2 迭代，docs/10 §M16）：看板工具栏「视图」下拉（保存当前过滤为视图：名称+私有/共享；切换视图即应用 definition 到过滤器与分组；重命名/删除；共享徽标「公开」）；列表视图同步；api.ts 增 SavedView 类型 + 4 方法；选中态入 URL `?view=` 刷新/分享保持 → DoD：build+vitest 绿 + 浏览器隔离复演（建→切→URL 直开还原）截图 → 「M16-I51」三段式提交。
-2. I52 默认视图 + docs/12 §13 + 冒烟 22 + M16 正式审阅（审阅时点 HEAD 重跑 pytest 146/冒烟 21 + 附录 A/B + 截图）。
+1. **I52 收尾审阅**（M16 第 3 迭代，docs/10 §M16）：默认视图（项目级 default_view_id 或复用 board_defaults，看板无 ?view= 时落默认视图）→ docs/12 §13 自定义视图指南（定义 schema/权限/共享语义/URL 直开）→ **新增冒烟 22**（视图全程：CRUD→权限→展开执行同数→rebuild 一致）→ 全量回归（pytest/冒烟 22）→ M16 正式审阅（审阅时点 HEAD 重跑 + 附录 A/B + 截图）→ 「M16 正式审阅通过」提交。
+2. 审阅通过后：新一轮开源调研定 M17（候选 SSO/OIDC——按 docs/01 §O.2 约束设计、通知 digest、其余看 backlog）。
 
 ## 5. 有哪些坑不要再踩
 
