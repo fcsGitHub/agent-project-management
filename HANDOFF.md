@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M16 已定义（I50-I52 自定义视图），下一步 I50）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M16 正式审阅通过，下一步 M17 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -205,6 +205,10 @@
   - 测试踩坑：字段 id 是 `tags`（非 concept.field 全称）、停用 API `{field_id, active}`、tags 值 frontend/backend/infra、network 写请求须先 /auth/login；**pytest 146/冒烟 21**。
 - **M16-I51 视图前端（本轮完成，`010f5f1`+`eebe385`）**：看板工具栏「视图」管理器（保存当前过滤+公开勾选、下拉切换应用 definition 写回 URL params、公开徽标、hover 删除、退出视图保留过滤）；**直开 ?view=<id> 自动补齐 definition 参数**（显式 params 优先）；api.ts SavedView+4 方法；复演：保存→切换→直开还原全过（docs/m15-i51-*.png ×5）。**复演坑：改前端代码后生产构建页面须 SW update+reload 才见新 UI**（autoUpdate precache 旧 bundle）。
 - **M16-I52 收尾（本轮完成，`71e61c1`+`7d35d41`）**：默认视图（made_default 事件先清后设 rebuild 幂等 + is_default 列 + board 无参落点 applied_view_id + 前端 chip/徽标/分组控件同步）；**修 db.py 迁移条件 bug**（表名误查列名集合 → ALTER 永不执行，隔离存量库 500 暴露——**演示隔离库才是存量迁移的真测试场**）；docs/12 §13；**新增冒烟 22**；pytest **147** 全绿、冒烟 **22** GREEN。
+- **M16 正式审阅通过（本提交，附录 A/B）**：
+  - 审阅时点 HEAD `8b37d72` 重跑 pytest 147/冒烟 22/vitest 2 全绿；I50/I51/I52 DoD 逐项核对（事件溯源 CRUD+rebuild/双层 fail-closed 校验/M8 可见性矩阵/执行同数/URL 直开还原/默认视图直达/冒烟 22 全程）；
+  - **审阅即修 1 个后端缺陷**：db.py 存量迁移条件把表名误查进列名集合致 ALTER 永不执行（隔离存量库 500 暴露）；
+  - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：视图保存/切换/公开徽标/URL 直开/默认直达（docs/m15-i51-*.png ×5 + m15-i51-made-default.png + m15-i52-default-landing.png）；无新增 B/C 级意见。
 - **当前验证状态**：pytest **147 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -213,8 +217,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M16 正式审阅**（模式同 M8-M15）：审阅时点 HEAD 重跑全量（pytest 147/冒烟 22/vitest 2）→ I50/I51/I52 DoD 逐项核对 → 浏览器隔离复演（视图保存/切换/共享/默认直达 + URL 直开还原）→ 附录 B 记录 → 「M16 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研定 M17（首选 SSO/OIDC——按 docs/01 §O.2 约束设计：JIT allowlist fail-closed、claim 缺失回落最低角色；需本地 IdP 如 Keycloak/Authelia 演示环境）。
+1. **M17 调研定义**（模式同 M6-M16）：2-3 路并行 WebSearch 开源调研（首选 SSO/OIDC——按 docs/01 §O.2 约束设计：JIT allowlist fail-closed、claim 缺失回落最低角色、账号链接分支显式处理；需本地 IdP 如 Keycloak/Authelia 演示环境；候选：通知 digest、事件归档）→ 结论写入 docs/01 新节 + docs/10 §M17（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M17 调研定义」提交。
+2. 按新计划开工 M17 迭代（预计 3 个迭代，约 9 人日）。
 
 ## 5. 有哪些坑不要再踩
 
