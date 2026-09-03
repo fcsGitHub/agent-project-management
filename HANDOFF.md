@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14 正式审阅通过，下一步 M15 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M15 已定义（I47-I49 PWA 与移动端），下一步 I47）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -178,9 +178,10 @@
 - **M14-I46 排程与可携收尾（本轮完成）**：
   - docs/12 §11 排程自动化与事件可携（语义/审计/导入流水线）；docs/11 §5.3 恢复步骤更新（import 端点实操）；
   - **新增冒烟 20**（A←B←C 自动排期传播 + 导出→第二全新库导入 roundtrip + 恢复库 rebuild 一致）；pytest **141** 全绿、**冒烟 20 GREEN**。
-- **M14 正式审阅通过（本提交，附录 A/B）**：
+- **M14 正式审阅通过（`73f7667`，附录 A/B）**：
   - 审阅时点 HEAD `b1f93cb` 重跑 pytest 141/冒烟 20 全绿；I44/I45/I46 DoD 逐项核对（单级传播保时长+归因/手动零影响/多级+环安全/rebuild 存活；roundtrip 事件流与投影逐行一致/拒绝矩阵六例/冒烟 20 全程；docs/12 §11 与 docs/11 §5.3 在位）；
   - 浏览器隔离复演：「依赖链-设计→开发→测试」三级链全开自动排期 → PATCH A due +6 → B/C 自动顺延（时间线 hover「⏱ 自动排期」，docs/m14-review-timeline.png）；审计页 item.rescheduled ×2 逐条 follow_of/delta_days=6（docs/m14-review-audit-rescheduled.png）；无新增 B/C 级意见。
+- **M15 已定义（本提交，docs/01 §N + docs/10 §M15）**：三路调研——WeKan PWA 安装形态（官方商店 App=指向演示服务器的 TWA，自托管无用→可安装 PWA 指向自己的实例才是正路，修正 §M.2）、Focalboard/Plane 移动策略（Focalboard 移动 web cramped + 移动 App 已废弃、Plane 无 PWA 纯响应式→同类移动端普遍短板）、vite-plugin-pwa（generateSW + autoUpdate + SPA 导航回退；**/api/* 一律 network-only 不入 SW 缓存**——事件溯源必须在线，离线写分叉一致性）→ **M15 = PWA 与移动端适配（I47 响应式布局基座 / I48 PWA 可安装与离线外壳 / I49 移动端打磨+docs/12 §12+冒烟 21+审阅，约 9 人日）**；离线写、Push 推送、原生 App/TWA 留 backlog。
 - **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -189,8 +190,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M15 调研定义**（模式同 M6-M14）：2-3 路并行 WebSearch 开源调研（首选 PWA/移动端适配：WeKan PWA、Focalboard/Plane 移动策略；候选 SSO/OIDC、通知 digest、高级自定义报表）→ 结论写入 docs/01 新节 + docs/10 §M15（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M15 调研定义」提交。
-2. 按新计划开工 M15 迭代（预计 3 个迭代，约 9 人日）；其余候选（SSO、digest、高级报表）按调研结论排入后续里程碑或 backlog。
+1. **I47 响应式布局基座**（M15 第 1 迭代，docs/10 §M15）：AppShell 窄屏断点（<768px rail 折叠为顶部标题栏+汉堡抽屉）；看板/表格横向滚动；触控目标 ≥44px；DoD = Playwright 375×812 视口 board/list/reports/my-work 四页可用截图 + build/vitest 绿 → 「M15-I47」三段式提交。
+2. I48 PWA 可安装与离线外壳（vite-plugin-pwa generateSW + autoUpdate，API 永不缓存）→ I49 移动端打磨+docs/12 §12+冒烟 21+M15 审阅。
 
 ## 5. 有哪些坑不要再踩
 

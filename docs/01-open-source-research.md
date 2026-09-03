@@ -350,3 +350,27 @@ M13 = **里程碑与时间线**：I41 里程碑域与工作项日期（milestone
 **M.4 M14 取舍**
 
 M14 = **排程自动化与事件可携**：I44 依赖传播自动排期（items.auto_scheduled 开关 + item.rescheduled 显式事件 + 递归传播与防环 + 时间线开关入口）/ I45 事件 NDJSON 导入恢复（校验和/链序/冲突 409 + rebuild roundtrip）/ I46 收尾（docs/12 §11 + docs/11 §5.3 更新 + 冒烟 20 + M14 审阅），约 9 人日。PWA/移动端（下一轮首选）、约束类型（SNET/SLT）、原生 App 留 backlog。
+
+## N. M15 前置调研：PWA 与移动端适配（2026-09-04）
+
+> 目标协议触发：M14 审阅通过后开启。三路调研（WeKan PWA 安装形态、Focalboard/Plane 移动策略、vite-plugin-pwa 技术路线），选定 **PWA 与移动端适配**——本轮落地 M14 调研中的候选（§M.2），并修正两处事实：WeKan 官方商店 App 实为指向演示服务器的 TWA（自托管无用）；Plane 并无原生 App 与 PWA（纯响应式 web）。
+
+**N.1 WeKan：自托管移动端 = 可安装 PWA（主借鉴，修正 §M.2）**
+
+- WeKan 官方 Play 商店「App」是 **TWA（Trusted Web Activity）壳，指向官方演示服务器**——自托管用户反馈「无用」，社区正解是从自己实例的登录页「添加到主屏幕」（Android Chrome / iOS Safari 均可）。教训：**自托管场景下应用商店壳没有意义，可安装 PWA（manifest + service worker + 主屏图标）才是正路**——用户安装的必须是「自己的服务器」。
+- 对本项目的映射：不做任何原生壳/TWA；PWA manifest 的 start_url/scope 指向实例自身根路径，安装后以 standalone 独立窗口启动。
+
+**N.2 Focalboard / Plane：同类开源移动端普遍是短板（机会点）**
+
+- Focalboard：移动 web 被评「cramped and unintuitive」，独立移动 App 已废弃并入 Mattermost——**反面教材**：不投入响应式的自托管工具在移动端失守。
+- Plane：web-first（Next.js/Django），**无官方原生 App、无 PWA**，移动端纯靠响应式且无专门投入。
+- 结论：自托管同类在移动端普遍弱势，做好响应式 + PWA 即超出多数同类水准；验收以「关键路径可用」为准（看板/列表/审批/通知），不追求原生级交互。
+
+**N.3 vite-plugin-pwa：Vite 生态事实标准（技术路线）**
+
+- `vite-plugin-pwa`（Workbox 封装）自动生成 manifest + service worker：`generateSW` 模式（自动 precache 构建产物，起步首选）vs `injectManifest`（自定义缓存逻辑，暂不需要）；`registerType: 'autoUpdate'` 静默更新 + 提示刷新。AgentPM 事件数据必须在线（SSE/审批实时），**离线只缓存静态外壳（app shell 模式），`/api/*` 一律 network-only 不入缓存**——事件溯源系统做离线写会造成一致性分叉，明确不做（V2 再议只读快照）。
+- 已知坑：SPA 需要 navigation fallback（index.html）；service worker 仅在 secure context（HTTPS 或 localhost）生效——docs/11 部署文档需注明。
+
+**N.4 M15 取舍**
+
+M15 = **PWA 与移动端适配**：I47 响应式布局基座（窄屏断点 + rail 折叠移动导航 + 看板/表格横向滚动 + 触控目标）/ I48 PWA 可安装与离线外壳（manifest + generateSW + autoUpdate + API 永不缓存 + HTTPS 部署注记）/ I49 移动端关键路径打磨收尾（docs/12 §12 + 冒烟 21 + M15 审阅），约 9 人日。API 数据离线缓存/离线写（一致性风险）、Push 推送（需 VAPID 服务端）、原生 App/TWA（WeKan 教训）留 backlog。

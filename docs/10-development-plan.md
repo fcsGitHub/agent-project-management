@@ -520,6 +520,36 @@ agent-project-management/
 
 **M14 审阅点**：冒烟 20 + 各迭代 DoD + 浏览器演示（依赖传播 + 导入恢复 roundtrip）。
 
+### M15 · PWA 与移动端适配（吸收 WeKan/Focalboard 教训 + vite-plugin-pwa，I47-I49，约 9 人日）
+
+> v1.5 新增（2026-09-04，M14 审阅通过后按目标协议调研）。调研结论见 docs/01 §N：WeKan 官方商店 App 是指向演示服务器的 TWA（自托管无用）→ 可安装 PWA 指向自己的实例才是正路；Focalboard 移动 web 拥挤且移动 App 已废弃、Plane 无 PWA → 同类自托管移动端普遍短板；vite-plugin-pwa generateSW + autoUpdate，**API 永不入 SW 缓存**（事件溯源数据必须在线）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I47 | 响应式布局基座（窄屏断点 + rail 折叠为移动导航 + 看板/表格横向滚动 + 触控目标） | 01 §N.2 | Tailwind 4 断点 | 3d |
+| I48 | PWA 可安装与离线外壳（vite-plugin-pwa + manifest + generateSW + autoUpdate + API 永不缓存） | 01 §N.3 | — | 3d |
+| I49 | 移动端关键路径打磨收尾审阅（docs/12 §12 + docs/11 HTTPS 注记 + 冒烟 21 + M15 审阅） | 01 §N.1/N.4 | — | 3d |
+
+#### I47 · 响应式布局基座（3d）
+
+- 任务：AppShell 窄屏断点（<768px rail 折叠为顶部标题栏 + 汉堡抽屉导航）；看板列容器横向滚动（列宽下限保持可读）；列表/报表/审计等表格容器横向滚动（不折行挤压）；时间线窄屏最小可用（横向滚动）；触控目标 ≥44px（图标按钮）；meta viewport 已在位（复核）。
+- DoD：Playwright 375×812 视口截图 board/list/reports/my-work 四页可用（导航可达、无布局断裂）；pnpm build + vitest 绿。
+- 演示路径：375px 视口走「看板 → 审批 → 通知」。
+
+#### I48 · PWA 可安装与离线外壳（3d）
+
+- 任务：vite-plugin-pwa（generateSW、registerType autoUpdate）；manifest（name/short_name/theme_color/icons 192+512+maskable，start_url=`/`，display standalone）；precache 构建产物 + SPA navigation fallback（index.html）；**`/api/*` 显式排除——SW 不缓存任何 API 响应（事件溯源数据必须在线）**；autoUpdate 静默更新 + 新内容提示刷新；docs/11 注记 service worker 需 HTTPS/localhost。
+- DoD：构建产物含 manifest.webmanifest + sw.js；precache 清单不含 /api 路由；DevTools Network 证据 API 请求不经 SW；离线 reload 静态外壳可载入（数据区报错兜底）；pytest/冒烟全绿不动。
+- 演示路径：生产构建 → 浏览器安装提示 → 断网 reload 外壳 → 恢复网络数据回归。
+
+#### I49 · 移动端打磨收尾审阅（3d）
+
+- 任务：关键路径移动端复核（看板卡片展开/Gate 审批按钮/通知铃/NL 命令条触控可用性）；docs/12 §12 移动端与 PWA 指南（安装步骤 + 离线边界「外壳可离线、数据必在线」+ HTTPS 部署注意）；**新增冒烟 21**（PWA 构建产物断言：dist 含 manifest + sw.js、precache 不含 /api）；全量回归 + M15 审阅。
+- DoD（并入冒烟 21）：构建产物 PWA 就绪断言；pytest/冒烟全绿。
+- 演示路径：冒烟 21 + 375px 视口关键路径复演。
+
+**M15 审阅点**：冒烟 21 + 各迭代 DoD + 浏览器演示（375px 视口四页 + PWA 安装与离线外壳）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -655,6 +685,7 @@ agent-project-management/
 | I45 事件 NDJSON 导入恢复 | 已完成 | 2026-09-04 | 2026-09-04 | `POST /projects/{id}/events/import`（body {data: NDJSON}）：校验和重算比对（原始行 sha256，不匹配 422）+ 逐行 schema 校验（必需字段/JSON 合法/id 严格递增，422）+ 事件 id 与目标库冲突检测（任一冲突整批 409——恢复语义面向空/新库，GitLab 兼容窗口同款务实）；恢复场景目标项目可不存在但 payload 必须含其 project.created（422 否则）；通过后按序直插（保留原始 id/ts/actor，prev 重链到目标库当前头部）→ 全量 rebuild → 返回 {imported, rebuilt}；单测 2 项（roundtrip：导出→monkeypatch 第二个全新 data_dir→导入→工作项/事件流逐行一致；拒绝矩阵：源库重导 409/篡改 422/坏 JSON 422/缺校验和行 422/项目不匹配 422/无残留半导入状态）；pytest 140/冒烟 19 全绿 |
 | I46 可携收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | docs/12 §11 排程自动化与事件可携（auto_scheduled 语义/显式 rescheduled 审计/导入校验流水线与恢复语义）；docs/11 §5.3 恢复步骤更新（首选 data_dir 还原+rebuild 校验；仅有导出文件时 import 端点实操，id 冲突 409/同代版本约束）；**新增冒烟 20**（A←B←C 自动排期传播链逐项断言 + 导出→第二全新库导入→工作项日期/报表漏斗一致 + 恢复库 rebuild 不变）；pytest 141/冒烟 20 全绿 |
 | **M14 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 20 + I44/I45/I46 各迭代 DoD 逐项核对全过（审阅时点 HEAD `b1f93cb` 重跑 pytest 141/冒烟 20）+ 浏览器隔离复演「依赖传播时间线 + item.rescheduled 审计链」（截图 docs/m14-review-timeline.png、docs/m14-review-audit-rescheduled.png，见附录 B） |
+| **M15 PWA 与移动端适配（I47-I49）** | 已定义 | 2026-09-04 | — | 3 迭代 / 约 9 人日（docs/01 §N + docs/10 §M15）：I47 响应式布局基座（窄屏断点 + rail 折叠 + 横向滚动 + 触控目标）/ I48 PWA 可安装与离线外壳（vite-plugin-pwa generateSW + autoUpdate，**API 永不入 SW 缓存**）/ I49 移动端打磨 + docs/12 §12 + 冒烟 21 + 审阅 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -729,6 +760,7 @@ agent-project-management/
 | 2026-09-04 | I45 | 事件 NDJSON 导入恢复：events_api.py 增 `POST /projects/{id}/events/import`（body {data}）。**校验流水线**：校验和行存在性 → 原始行 sha256 重算比对（篡改即 422）→ 逐行 JSON/schema（必需字段、id 严格递增）→ 事件 id 与目标库冲突检测（任一冲突整批 409，不做部分导入——恢复面向空/新库，GitLab 兼容窗口同款务实）→ 恢复语义：目标项目可不存在但 payload 必须含其 project.created（否则 422）。**追加方式**：直插保留原始 id/ts/actor，prev_event_id 重链到目标库当前头部（全局链在目标库同样成立）→ 全量 rebuild → {imported, rebuilt}。测试：test_import.py 2 项——**roundtrip**（DB1 建项目造数导出 → monkeypatch data_dir + db.reset_for_tests 切第二个全新库起第二个 TestClient → 导入 → 工作项四元组与事件流逐行与源一致）/ 拒绝矩阵（源库重导 409 / 篡改行 422 / 坏 JSON 422 / 缺校验和行 422 / 项目不匹配 422 / 拒绝后无残留半导入状态）。pytest 140 项绿、冒烟 19 条 GREEN。 |
 | 2026-09-04 | I46 | 排程与可携收尾：**docs/12 §11 排程自动化与事件可携**（auto_scheduled 语义——默认手动/可选自动 + 显式 rescheduled 审计；导入校验流水线与恢复语义——空/新库、整批 409、project.created 前提）；**docs/11 §5.3 恢复步骤更新**——首选 data_dir 还原 + rebuild 校验，仅有导出文件时走 import 端点（id 冲突 409、同代版本约束写明）。**新增冒烟 20** test_smoke_20_portability.py（A←B←C 自动排期链：A due +4 → B/C 各 +4 逐项断言 + rescheduled 事件 follow_of 集合断言；**可携 roundtrip**：导出 → monkeypatch data_dir 切第二全新库导入 → 恢复库工作项日期与报表漏斗和源一致 → 恢复库内 rebuild 再验证）。测试教训：/events 列表按最新在前返回——断言事件序列需按 id 排序后比较。pytest 141 项绿、**冒烟基线 20 条 GREEN**。 |
 | 2026-09-04 | M14 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `b1f93cb` 重跑 pytest 141 项 + 冒烟 20 条全绿）：**I44** 单级传播（日期保时长+follow_of/delta_days 归因）/手动模式零影响/多级递归 A→B→C + 环 X↔Y 只平移一次/rebuild 存活 ✓（test_scheduling.py 4 项）；**I45** roundtrip（导出→第二全新库导入→工作项四元组与事件流逐行一致）+ 拒绝矩阵（源库重导 409/篡改 422/坏 JSON 422/缺校验和行 422/项目不匹配 422/无半导入残留）✓（test_import.py 2 项）；**I46** docs/12 §11 与 docs/11 §5.3 在位 ✓、冒烟 20 全程（传播链+可携 roundtrip+恢复库 rebuild）✓。浏览器隔离复演（审阅时点，隔离环境演示库 p_bf3f9022c8）：造「依赖链-设计→开发→测试」三级链并全开自动排期 → PATCH A due +6 天 → B/C 自动顺延（B 09-13/09-21、C 09-21/09-27，实测 API 与时间线条形位置一致）→ 时间线页三段条形+里程碑菱形（截图 docs/m14-review-timeline.png）→ 审计页 item.rescheduled ×2 可查（follow_of 归因 + delta_days=6，截图 docs/m14-review-audit-rescheduled.png）。无新增 B/C 级意见。 | — | 里程碑通过 |
+| 2026-09-04 | M15 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**WeKan PWA 安装形态**——官方 Play 商店 App 实为 TWA 壳指向演示服务器（自托管用户无用，社区正解=从自己实例登录页「添加到主屏幕」）→ 可安装 PWA 指向自己的实例才是自托管正路，修正 §M.2「WeKan=官方 PWA/TWA」表述；②**Focalboard/Plane 移动策略**——Focalboard 移动 web 被评 cramped 且独立移动 App 已废弃（反面教材）、Plane 无原生 App 无 PWA 纯响应式 → 同类自托管移动端普遍短板，做好即超出多数同类；③**vite-plugin-pwa 技术路线**——Vite 生态事实标准（generateSW 自动 precache 起步 / autoUpdate 静默更新 / SPA 导航回退），**`/api/*` 一律 network-only 不入 SW 缓存**（事件溯源必须在线，离线写会分叉一致性——V2 再议只读快照）。选定 **M15 = PWA 与移动端适配**（关键路径移动可用 + 可安装 + 外壳离线）：I47 响应式布局基座 / I48 PWA 可安装与离线外壳 / I49 移动端打磨+docs/12 §12+冒烟 21+审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 21 于 I49。结论入 docs/01 §N。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
