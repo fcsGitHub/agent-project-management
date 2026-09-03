@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-02 更新 · M6 进行中，I20 完成）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 进行中，I21 完成）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -34,7 +34,11 @@
   - 本体字段类型 +boolean/multiselect（校验器管类型枚举与 values 必填）；内置 software-dev 演示字段 `bug.regression:boolean`、`task.tags:multiselect`；
   - `items.custom_fields` JSON 列（init_db PRAGMA 检查 + ALTER 迁移，存量库无损）；create/patch 双路径按概念声明校验（未声明/类型错/越界 422 fail-closed）；`GET /items?cf=field:value` 过滤（multiselect 包含匹配、boolean 字面量）；
   - **顺手修掉两个隐藏投影 bug**（docs/10 附录 A I20 行）：`item.updated` 投影 `sets.append(a,b)` 双参 TypeError（此前从未触发）；INSERT 参数序与列序错位（套跑才炸）。
-- **当前验证状态**：pytest **79 项全绿**；冒烟基线 **12 条全绿**（冒烟 9 扩展 cf 过滤断言）；`pnpm build`/`pnpm vitest` 通过。
+- **I21 看板字段分组与展示（本轮完成）**：
+  - `GET /projects/{id}/board` 增 `group_by` 参数（缺省取本体 `board_defaults.group_by`）；`field:<id>` 按概念声明字段分桶：声明 values 保持本体序（空列保留）、multiselect 每值一列（工作项扇出复现）、boolean 用 true/false 字面量（与 cf 过滤一致）、无值项入「未设置」列恒最后；未声明字段/未知模式 422 fail-closed；
+  - 前端：看板页分组选择器（生命周期+跨概念全部字段，状态入 URL `?group=`）、卡片自定义字段徽标（`customFieldBadges`，web/src/lib/fmt.ts）、列表视图「字段」列、功能页切片同步徽标；
+  - 浏览器验证：隔离 data+ontologies 演示「按标签分组」，multiselect 扇出可见，截图 `docs/i21-board-field-grouping.png`。
+- **当前验证状态**：pytest **80 项全绿**；冒烟基线 **12 条全绿**（冒烟 9 含 cf 过滤+字段分组断言）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
 
@@ -42,10 +46,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I21 · 看板字段分组与展示**（docs/10 M6 表，估 3d）：看板 API/前端支持按自定义字段分组（boardDefaults `group-by: field:<id>`）、卡片渲染自定义字段徽标。DoD：分组 API 桶正确 + 浏览器验证。
-2. **I22 · LangGraph 1.2.11 升级验证**（估 3d）：升级 → 全量回归 → 浏览器打断-恢复演示；红则回退 pin 1.0.9 并记录。
-3. **M6 审阅**：冒烟 9 + I20/I21 DoD + 浏览器字段分组演示。
-4. M6 之后：继续按目标第 5 条调研 → 定 M7（候选：多人网络协作认证、本体/资产模板市场——模板包已就绪）。
+1. **I22 · LangGraph 1.2.11 升级验证**（docs/10 M6 表，估 3d）：requirements 升 langgraph==1.2.11 → 全量 pytest/冒烟 → 浏览器打断-恢复演示；红则回退 pin 1.0.9 并在附录 A 记录。
+2. **M6 审阅**：冒烟 9 + I20/I21 DoD + 浏览器字段分组演示（I21 截图已有，可复演）。
+3. M6 之后：继续按目标第 5 条调研 → 定 M7（候选：多人网络协作认证、本体/资产模板市场——模板包已就绪）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -62,7 +65,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 79 项，应全绿
+cd app && python -m pytest            # 80 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 12 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
@@ -71,4 +74,4 @@ cd app && python -m uvicorn apm.main:app --port 8000 --reload
 # 一键起（Docker）：docker compose up -d --build && python tools/seed.py
 ```
 
-关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 学习 `ontology_learn.py` + 版本化 `ontology_versions.py` + CQ `ontology_cq.py` + 模板包 `ontology_pack.py` + 用户 `users.py` + 工作项（含 custom_fields 校验/过滤）`items.py`；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；前端本体页 `web/src/pages/OntologyPage.tsx`、外壳 `web/src/components/AppShell.tsx`（身份菜单）。
+关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 学习 `ontology_learn.py` + 版本化 `ontology_versions.py` + CQ `ontology_cq.py` + 模板包 `ontology_pack.py` + 用户 `users.py` + 工作项（含 custom_fields 校验/过滤）`items.py`；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；前端本体页 `web/src/pages/OntologyPage.tsx`、看板 `web/src/pages/Board.tsx`（字段分组选择器+徽标）、外壳 `web/src/components/AppShell.tsx`（身份菜单）。
