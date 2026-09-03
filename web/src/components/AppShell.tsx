@@ -71,7 +71,7 @@ export function AppShell() {
       {/* icon rail */}
       <nav className="flex w-16 shrink-0 flex-col items-center gap-1 bg-rail py-3 text-zinc-400">
         {RAIL.map((r) => {
-          const to = r.global ? `/assets` : `/p/${pid}${r.to}`;
+          const to = r.global ? r.to : `/p/${pid}${r.to}`;
           return (
             <NavLink
               key={r.label}

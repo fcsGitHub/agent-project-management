@@ -63,7 +63,7 @@ function BoardSlice({ items, pid }: { items: import("../lib/api").Item[]; pid: s
     enabled: !!pid,
   });
   if (!items.length)
-    return <Empty icon="▦" title="暂无工作项" hint="批准计划后 Planner-Agent 会在此创建任务；也可从看板手动建卡" />;
+    return <Empty icon="▦" title="暂无工作项" hint="批准计划后 Planner-Agent 会在此创建任务" />;
   return (
     <div className="flex gap-3 overflow-x-auto">
       {groups.map((g) => {
