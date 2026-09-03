@@ -182,6 +182,11 @@
   - 审阅时点 HEAD `b1f93cb` 重跑 pytest 141/冒烟 20 全绿；I44/I45/I46 DoD 逐项核对（单级传播保时长+归因/手动零影响/多级+环安全/rebuild 存活；roundtrip 事件流与投影逐行一致/拒绝矩阵六例/冒烟 20 全程；docs/12 §11 与 docs/11 §5.3 在位）；
   - 浏览器隔离复演：「依赖链-设计→开发→测试」三级链全开自动排期 → PATCH A due +6 → B/C 自动顺延（时间线 hover「⏱ 自动排期」，docs/m14-review-timeline.png）；审计页 item.rescheduled ×2 逐条 follow_of/delta_days=6（docs/m14-review-audit-rescheduled.png）；无新增 B/C 级意见。
 - **M15 已定义（本提交，docs/01 §N + docs/10 §M15）**：三路调研——WeKan PWA 安装形态（官方商店 App=指向演示服务器的 TWA，自托管无用→可安装 PWA 指向自己的实例才是正路，修正 §M.2）、Focalboard/Plane 移动策略（Focalboard 移动 web cramped + 移动 App 已废弃、Plane 无 PWA 纯响应式→同类移动端普遍短板）、vite-plugin-pwa（generateSW + autoUpdate + SPA 导航回退；**/api/* 一律 network-only 不入 SW 缓存**——事件溯源必须在线，离线写分叉一致性）→ **M15 = PWA 与移动端适配（I47 响应式布局基座 / I48 PWA 可安装与离线外壳 / I49 移动端打磨+docs/12 §12+冒烟 21+审阅，约 9 人日）**；离线写、Push 推送、原生 App/TWA 留 backlog。
+- **M15-I47 响应式布局基座（本轮完成，`f287725`+`983f843`）**：
+  - AppShell 窄屏断点（<768px）：rail 与功能列 `hidden md:flex` 折叠；topbar 汉堡按钮开**移动导航抽屉**（slide-over：12 项导航 + 项目功能区，遮罩/✕/导航后自动关闭）；⌘K 窄屏只留图标；审批/通知铃 `h-9 w-9` 触控目标；
+  - 修窄屏折行：身份 chip `whitespace-nowrap shrink-0`（曾竖排）、通用 Badge `whitespace-nowrap`；
+  - 表格/栅格适配：看板列表 table `overflow-x-auto` + `min-w-[640px]`；Reports/MyWork/Dashboard `grid-cols-1 md:grid-cols-3`（**col-span 必须加 md: 前缀——1 列网格下 span 3 会生成隐式轨道撑破布局**）；时间线 `overflow-auto` + `min-w-[640px]`；
+  - 验证：build+vitest 绿、pytest 141 不受影响；Playwright 375×812 五截图 + 1440 桌面复核（docs/m15-i47-*.png ×6）。
 - **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -190,8 +195,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I47 响应式布局基座**（M15 第 1 迭代，docs/10 §M15）：AppShell 窄屏断点（<768px rail 折叠为顶部标题栏+汉堡抽屉）；看板/表格横向滚动；触控目标 ≥44px；DoD = Playwright 375×812 视口 board/list/reports/my-work 四页可用截图 + build/vitest 绿 → 「M15-I47」三段式提交。
-2. I48 PWA 可安装与离线外壳（vite-plugin-pwa generateSW + autoUpdate，API 永不缓存）→ I49 移动端打磨+docs/12 §12+冒烟 21+M15 审阅。
+1. **I48 PWA 可安装与离线外壳**（M15 第 2 迭代，docs/10 §M15）：`pnpm add -D vite-plugin-pwa` → vite.config 增 VitePWA（generateSW、registerType autoUpdate、manifest name/short_name/theme_color/icons 192+512+maskable/start_url `/`/display standalone）→ **`/api/*` 显式排除不入 SW 缓存**（globs 排除 + navigateFallbackDenylist，事件溯源数据必须在线）→ main.tsx 注册 SW → 新内容提示 → docs/11 注记 HTTPS/localhost → DoD：dist 含 manifest.webmanifest+sw.js、precache 无 /api、离线 reload 外壳可载、pytest/冒烟全绿 → 「M15-I48」三段式提交。
+2. I49 移动端打磨收尾（关键路径触控复核 + docs/12 §12 + **新增冒烟 21**（PWA 构建产物断言）+ M15 正式审阅）。
 
 ## 5. 有哪些坑不要再踩
 
