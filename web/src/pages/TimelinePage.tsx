@@ -182,7 +182,7 @@ export function TimelinePage() {
                   return (
                     <div
                       key={d.item.id}
-                      title={`${d.item.title} · ${d.item.status}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}`}
+                      title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}`}
                       className={`absolute top-1/2 h-4 -translate-y-1/2 rounded-full ${tone}`}
                       style={{ left: `${left}%`, width: `${width}%` }}
                     />

@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS items (
   estimate_hours REAL,
   start_date TEXT,
   due_date TEXT,
+  auto_scheduled INTEGER NOT NULL DEFAULT 0,
   custom_fields TEXT,
   milestone_id TEXT,
   created_at TEXT NOT NULL,

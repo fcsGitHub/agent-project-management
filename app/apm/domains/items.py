@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -53,7 +53,7 @@ def _proj_item_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
-                "start_date", "due_date"):
+                "start_date", "due_date", "auto_scheduled"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -88,6 +88,17 @@ def _proj_item_assigned(conn, e):
         (p.get("assignee_type"), p.get("assignee_id"),
          json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
          e.ts, e.agg_id),
+    )
+
+
+@on("item.rescheduled")
+def _proj_item_rescheduled(conn, e):
+    """Auto-scheduling shift (M14-I44): explicit event, auditable follow-of."""
+    p = e.payload
+    conn.execute(
+        "UPDATE items SET start_date = ?, due_date = ?, updated_at = ?, version = version + 1"
+        " WHERE id = ?",
+        (p.get("start_date"), p.get("due_date"), e.ts, e.agg_id),
     )
 
 
@@ -385,6 +396,66 @@ def _validate_milestone(project_id: str, milestone_id: str | None) -> None:
             raise HTTPException(status_code=422, detail="milestone belongs to another project")
 
 
+# ------------------------------------------------- auto-scheduling (M14-I44)
+MAX_SCHEDULE_DEPTH = 20
+
+
+def _shift_iso(value: str | None, delta_days: int) -> str | None:
+    if value is None:
+        return None
+    try:
+        return (date.fromisoformat(value) + timedelta(days=delta_days)).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def propagate_reschedule(project_id: str, predecessor_id: str, old_due: str | None,
+                         new_due: str | None, depth: int = 0,
+                         visited: set[str] | None = None) -> int:
+    """Shift auto-scheduled dependents when a predecessor's due date moves
+    (docs/01 §M.1 — OpenProject 15.4 pattern: opt-in, manual by default).
+    Every shift is an explicit `item.rescheduled` event; recursion follows
+    the depends_on graph with a visited set (cycle-safe, depth-capped)."""
+    if depth >= MAX_SCHEDULE_DEPTH or not old_due or not new_due:
+        return 0
+    visited = visited if visited is not None else {predecessor_id}
+    old_d, new_d = date.fromisoformat(old_due), date.fromisoformat(new_due)
+    delta = (new_d - old_d).days
+    if delta == 0:
+        return 0
+    conn = db.get_conn()
+    dependents = conn.execute(
+        "SELECT r.from_item AS dep_id, i.start_date, i.due_date"
+        " FROM item_relations r JOIN items i ON i.id = r.from_item"
+        " WHERE r.to_item = ? AND r.relation_type = 'depends_on'",
+        (predecessor_id,),
+    ).fetchall()
+    count = 0
+    for dep in dependents:
+        dep_id = dep["dep_id"]
+        if dep_id in visited or not conn.execute(
+            "SELECT auto_scheduled FROM items WHERE id = ?", (dep_id,)
+        ).fetchone()["auto_scheduled"]:
+            continue
+        visited.add(dep_id)
+        new_start = _shift_iso(dep["start_date"], delta)
+        new_due = _shift_iso(dep["due_date"], delta)
+        if new_due is None:
+            continue  # undated dependent has nothing to shift
+        events.emit(
+            event_type="item.rescheduled",
+            agg_type="item",
+            agg_id=dep_id,
+            project_id=project_id,
+            payload={"follow_of": predecessor_id, "delta_days": delta,
+                     "start_date": new_start, "due_date": new_due, "depth": depth + 1},
+        )
+        count += 1
+        count += propagate_reschedule(project_id, dep_id, dep["due_date"], new_due,
+                                      depth + 1, visited)
+    return count
+
+
 def _parse_cf(item: dict) -> dict:
     if isinstance(item.get("custom_fields"), str):
         try:
@@ -444,6 +515,7 @@ class ItemPatch(BaseModel):
     milestone_id: str | None = None
     start_date: str | None = None
     due_date: str | None = None
+    auto_scheduled: bool | None = None
     custom_fields: dict | None = None
 
 
@@ -529,6 +601,8 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
                              changes.get("due_date", item.get("due_date")))
     if "milestone_id" in changes:
         _validate_milestone(item["project_id"], changes["milestone_id"])
+    if "auto_scheduled" in changes:
+        changes["auto_scheduled"] = 1 if changes["auto_scheduled"] else 0
     if "status" in changes:
         new_status = changes.pop("status")
         item = change_status(item, new_status)
@@ -554,6 +628,10 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
             project_id=item["project_id"],
             payload=changes,
         )
+    # auto-scheduling: a moved due date shifts opt-in dependents (M14-I44)
+    if "due_date" in changes:
+        propagate_reschedule(item["project_id"], item_id,
+                             item.get("due_date"), changes["due_date"])
     return get_item(item_id)  # type: ignore[return-value]
 
 

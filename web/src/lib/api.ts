@@ -22,7 +22,8 @@ export type Item = {
   id: string; project_id: string; feature_id?: string; concept_id: string; title: string;
   status: string; status_group: string; priority?: string; assignee_type?: string;
   assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
-  milestone_id?: string | null; custom_fields?: Record<string, unknown> | null;
+  milestone_id?: string | null; auto_scheduled?: number | boolean;
+  custom_fields?: Record<string, unknown> | null;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string }[];
 };
