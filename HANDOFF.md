@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 进行中，I21 完成）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 三个迭代完成，待正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -34,10 +34,14 @@
   - 本体字段类型 +boolean/multiselect（校验器管类型枚举与 values 必填）；内置 software-dev 演示字段 `bug.regression:boolean`、`task.tags:multiselect`；
   - `items.custom_fields` JSON 列（init_db PRAGMA 检查 + ALTER 迁移，存量库无损）；create/patch 双路径按概念声明校验（未声明/类型错/越界 422 fail-closed）；`GET /items?cf=field:value` 过滤（multiselect 包含匹配、boolean 字面量）；
   - **顺手修掉两个隐藏投影 bug**（docs/10 附录 A I20 行）：`item.updated` 投影 `sets.append(a,b)` 双参 TypeError（此前从未触发）；INSERT 参数序与列序错位（套跑才炸）。
-- **I21 看板字段分组与展示（本轮完成）**：
+- **I21 看板字段分组与展示**：
   - `GET /projects/{id}/board` 增 `group_by` 参数（缺省取本体 `board_defaults.group_by`）；`field:<id>` 按概念声明字段分桶：声明 values 保持本体序（空列保留）、multiselect 每值一列（工作项扇出复现）、boolean 用 true/false 字面量（与 cf 过滤一致）、无值项入「未设置」列恒最后；未声明字段/未知模式 422 fail-closed；
   - 前端：看板页分组选择器（生命周期+跨概念全部字段，状态入 URL `?group=`）、卡片自定义字段徽标（`customFieldBadges`，web/src/lib/fmt.ts）、列表视图「字段」列、功能页切片同步徽标；
-  - 浏览器验证：隔离 data+ontologies 演示「按标签分组」，multiselect 扇出可见，截图 `docs/i21-board-field-grouping.png`。
+  - 浏览器验证截图 `docs/i21-board-field-grouping.png`。
+- **I22 LangGraph 1.2.11 升级验证（本轮完成）**：
+  - langgraph 1.0.9→1.2.11（连带 langchain-core 1.6.1 / prebuilt 1.1.0 / sdk 0.4.4；checkpoint-sqlite 3.1.1 不动），requirements 下限抬至 `>=1.2.11`；
+  - **全量回归零改动通过**：pytest 80 绿、冒烟 12 GREEN——Runtime 子图/录制回放/SqliteSaver 断点恢复/审批 Gate 在 1.2.11 下行为不变，无需回退；
+  - 浏览器打断-注入-恢复演示（隔离环境）：pm-agent 至 prd_review Gate 挂起 → 注入约束 → ▸ 继续（checkpoint 续跑 revise）→ 新 PRD commit 逐条包含注入约束、回到 Gate → 批准后 succeeded。截图 `docs/i22-interrupt-inject-resume.png`。
 - **当前验证状态**：pytest **80 项全绿**；冒烟基线 **12 条全绿**（冒烟 9 含 cf 过滤+字段分组断言）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
@@ -46,9 +50,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I22 · LangGraph 1.2.11 升级验证**（docs/10 M6 表，估 3d）：requirements 升 langgraph==1.2.11 → 全量 pytest/冒烟 → 浏览器打断-恢复演示；红则回退 pin 1.0.9 并在附录 A 记录。
-2. **M6 审阅**：冒烟 9 + I20/I21 DoD + 浏览器字段分组演示（I21 截图已有，可复演）。
-3. M6 之后：继续按目标第 5 条调研 → 定 M7（候选：多人网络协作认证、本体/资产模板市场——模板包已就绪）。
+1. **M6 正式审阅**（docs/10 §4.4）：冒烟 9 + I20/I21/I22 DoD 核对 + 浏览器演示（字段分组演示复演 I21 路径；打断-注入-恢复复演 I22 路径）+ 附录 B 审阅记录 + 审阅截图。
+2. M6 审阅通过后：**新一轮开源调研**（目标第 5 条）→ 定 M7。候选：多人网络协作认证（users 无认证是已知 B 级遗留）、本体/资产模板市场（I18 模板包已就绪）、OpenProject 式「类型+项目双层激活」（需项目级本体覆盖机制）。
+3. 调研后按新计划继续迭代开发。
 
 ## 5. 有哪些坑不要再踩
 
@@ -60,6 +64,8 @@
 - **夹具 teardown 顺序**：monkeypatch 还原晚于夹具后置代码——`isolated_ontologies` 必须先显式清 override 再 reload，否则隔离副本残留缓存→跨用例"unknown concept"。
 - **diff 的 from/to 语义不对称**（I15）：from 快照优先、to=当前版本永远读活文件；两边同源 diff 恒空。
 - **测试造信号必须发真实事件**（带 project_id）；sqlite Row 无 `.get()`；`Ontology.concepts` 是 dict；`asset_links.target_ref` 是 JSON 字符串；事件 append-only 触发器强制。
+- **前端是 HashRouter**：浏览器直接导航要用 `/#/p/{pid}/board`（不带 `/#` 会落在项目列表页，别当成 bug 查后端）。
+- **打/恢复演示（或相关测试）的确定性时序**：run 由后台线程执行，"interrupted" 状态 = 挂在 Gate 待评审；注入 = 对话内发消息（engine 把 run 开始后的用户消息收集为 constraints）；恢复 = ▸ 继续（resume 端点可带 instruction，Gate 挂起时走 revise）。参考 `app/tests/test_runtime.py` 的 `test_interrupt_inject_resume_*`。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 
 ## 6. 快速上手命令
