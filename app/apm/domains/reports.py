@@ -54,8 +54,9 @@ def _parse_due(value) -> date | None:
 
 
 def _overdue_rows(project_id: str | None = None) -> list[dict]:
-    """Active items past a declared due date, or older than STALE_DAYS when
-    the ontology carries no due field (滞留项) — reason says which."""
+    """Active items past their due date, or older than STALE_DAYS when no due
+    date exists (滞留项) — reason says which. Due resolution order (docs/12 §9):
+    item.due_date first, then a `due` custom field, then age-based staleness."""
     conn = db.get_conn()
     today = _now().date()
     stale_cutoff = (_now() - timedelta(days=STALE_DAYS)).isoformat()
@@ -76,7 +77,9 @@ def _overdue_rows(project_id: str | None = None) -> list[dict]:
             cf = json.loads(r["custom_fields"] or "{}")
         except (TypeError, ValueError):
             pass
-        due = next((d for k in _DUE_KEYS if (d := _parse_due(cf.get(k)))), None)
+        due = _parse_due(r["due_date"])
+        if due is None:
+            due = next((d for k in _DUE_KEYS if (d := _parse_due(cf.get(k)))), None)
         if due is not None:
             if due >= today:
                 continue

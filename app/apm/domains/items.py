@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -21,8 +22,9 @@ def _proj_item_created(conn, e):
     p = e.payload
     conn.execute(
         "INSERT INTO items (id, project_id, feature_id, parent_id, concept_id, title, status,"
-        " status_group, priority, assignee_type, assignee_id, estimate_hours, custom_fields, created_at,"
-        " updated_at, version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+        " status_group, priority, assignee_type, assignee_id, estimate_hours, start_date, due_date,"
+        " custom_fields, created_at, updated_at, version)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
         (
             e.agg_id,
             e.project_id,
@@ -36,6 +38,8 @@ def _proj_item_created(conn, e):
             p.get("assignee_type"),
             p.get("assignee_id"),
             p.get("estimate_hours"),
+            p.get("start_date"),
+            p.get("due_date"),
             json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
             e.ts,
             e.ts,
@@ -47,7 +51,8 @@ def _proj_item_created(conn, e):
 def _proj_item_updated(conn, e):
     p = e.payload
     sets, params = [], []
-    for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id"):
+    for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
+                "start_date", "due_date"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -127,6 +132,8 @@ def create_item(
     assignee_type: str | None = None,
     assignee_id: str | None = None,
     estimate_hours: float | None = None,
+    start_date: str | None = None,
+    due_date: str | None = None,
     custom_fields: dict | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
@@ -159,6 +166,8 @@ def create_item(
             "assignee_type": assignee_type,
             "assignee_id": assignee_id,
             "estimate_hours": estimate_hours,
+            "start_date": start_date,
+            "due_date": due_date,
         },
     )
     return get_item(iid)  # type: ignore[return-value]
@@ -333,6 +342,8 @@ class ItemIn(BaseModel):
     assignee_type: str | None = None
     assignee_id: str | None = None
     estimate_hours: float | None = None
+    start_date: str | None = None
+    due_date: str | None = None
     custom_fields: dict | None = None
 
 
@@ -345,6 +356,28 @@ def _ensure_human_assignee(assignee_type: str | None, assignee_id: str | None) -
             raise HTTPException(
                 status_code=422,
                 detail=f"unknown user '{assignee_id}' (register via POST /api/users)")
+
+
+def _validate_item_dates(start_date: str | None, due_date: str | None) -> None:
+    """Item schedule dates must be ISO calendar dates (M13-I41)."""
+    for field, value in (("start_date", start_date), ("due_date", due_date)):
+        if value is None:
+            continue
+        try:
+            date.fromisoformat(value)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{field} must be an ISO date (YYYY-MM-DD), got {value!r}")
+
+
+def _validate_milestone(project_id: str, milestone_id: str | None) -> None:
+    if milestone_id:
+        from apm.domains.milestones import require_milestone
+
+        m = require_milestone(milestone_id)  # 422 on unknown
+        if m["project_id"] != project_id:
+            raise HTTPException(status_code=422, detail="milestone belongs to another project")
 
 
 def _parse_cf(item: dict) -> dict:
@@ -403,6 +436,9 @@ class ItemPatch(BaseModel):
     assignee_type: str | None = None
     assignee_id: str | None = None
     feature_id: str | None = None
+    milestone_id: str | None = None
+    start_date: str | None = None
+    due_date: str | None = None
     custom_fields: dict | None = None
 
 
@@ -414,6 +450,7 @@ class RelationIn(BaseModel):
 @router.post("/projects/{project_id}/items")
 def post_item(project_id: str, body: ItemIn) -> dict:
     _ensure_human_assignee(body.assignee_type, body.assignee_id)
+    _validate_item_dates(body.start_date, body.due_date)
     return create_item(
         project_id=project_id,
         concept_id=body.concept_id,
@@ -425,6 +462,8 @@ def post_item(project_id: str, body: ItemIn) -> dict:
         assignee_type=body.assignee_type,
         assignee_id=body.assignee_id,
         estimate_hours=body.estimate_hours,
+        start_date=body.start_date,
+        due_date=body.due_date,
         custom_fields=body.custom_fields,
     )
 
@@ -478,6 +517,11 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
         onto = project_ontology(item["project_id"])
         _validate_custom_fields(onto, item["concept_id"], changes["custom_fields"],
                                 project_id=item["project_id"])
+    if "start_date" in changes or "due_date" in changes:
+        _validate_item_dates(changes.get("start_date", item.get("start_date")),
+                             changes.get("due_date", item.get("due_date")))
+    if "milestone_id" in changes:
+        _validate_milestone(item["project_id"], changes["milestone_id"])
     if "status" in changes:
         new_status = changes.pop("status")
         item = change_status(item, new_status)

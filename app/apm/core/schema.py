@@ -133,6 +133,8 @@ CREATE TABLE IF NOT EXISTS items (
   assignee_type TEXT,
   assignee_id TEXT,
   estimate_hours REAL,
+  start_date TEXT,
+  due_date TEXT,
   custom_fields TEXT,
   milestone_id TEXT,
   created_at TEXT NOT NULL,
@@ -274,6 +276,18 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
+
+CREATE TABLE IF NOT EXISTS milestones (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_milestones_project ON milestones(project_id);
 """
 
 FTS_DDL = """
@@ -294,6 +308,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "notifications",
         "webhooks",
         "automation_rules",
+        "milestones",
         "project_members",
         "users",
         "ui_commands",

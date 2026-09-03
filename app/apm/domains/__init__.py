@@ -9,6 +9,7 @@ from apm.domains import (  # noqa: F401
     items,
     mailer,
     members,
+    milestones,
     nl,
     notifications,
     ontology,
