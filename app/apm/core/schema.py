@@ -235,6 +235,19 @@ CREATE TABLE IF NOT EXISTS ui_commands (
   status TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS automation_rules (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  trigger_event TEXT NOT NULL,
+  condition_json TEXT NOT NULL DEFAULT '{}',
+  action_json TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_project ON automation_rules(project_id);
 """
 
 FTS_DDL = """
@@ -252,6 +265,7 @@ def create_all(conn: sqlite3.Connection) -> None:
 def drop_projections(conn: sqlite3.Connection) -> None:
     """Used by rebuild-projections: wipe caches, replay events through projectors."""
     for table in (
+        "automation_rules",
         "project_members",
         "users",
         "ui_commands",

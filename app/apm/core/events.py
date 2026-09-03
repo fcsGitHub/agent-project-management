@@ -18,6 +18,17 @@ from apm.core.bus import event_bus
 from apm import config
 
 Handler = Callable[[sqlite3.Connection, "Event"], None]
+PostEmitHook = Callable[["Event"], None]
+
+# Post-emit hooks (M9-I29): side-channel consumers that run after an event is
+# appended, folded and broadcast — the automation engine subscribes here instead
+# of polling. Hooks must never break the write path; failures are logged only.
+_post_emit_hooks: list[PostEmitHook] = []
+
+
+def add_post_emit_hook(fn: PostEmitHook) -> None:
+    if fn not in _post_emit_hooks:
+        _post_emit_hooks.append(fn)
 
 # Request-scoped actor (M8-I28): the auth middleware sets the logged-in user;
 # FastAPI endpoints run in threadpools that inherit this context, so every
@@ -123,6 +134,15 @@ def emit(
         event = row_to_event(row)
         projections.apply(conn, event)
     event_bus.publish(event.as_dict())
+    for hook in _post_emit_hooks:
+        try:
+            hook(event)
+        except Exception:  # 自动化引擎故障绝不能拖垮写入路径（M9-I29）
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "post-emit hook failed after %s #%s", event.event_type, event.id
+            )
     return event
 
 

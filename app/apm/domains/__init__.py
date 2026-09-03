@@ -2,10 +2,12 @@
 from apm.domains import (  # noqa: F401
     approvals,
     assets,
+    automations,
     conversations,
     events_api,
     features,
     items,
+    members,
     nl,
     ontology,
     ontology_cq,
@@ -17,5 +19,6 @@ from apm.domains import (  # noqa: F401
     runs,
     stream,
     system,
+    template_packs,
     users,
 )
