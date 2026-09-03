@@ -204,7 +204,8 @@
   - **执行纯复用**：get_items/get_board 增 view_id（definition 为基础过滤、显式 query 参覆盖）；`_cf_hit` 提取模块级共用；
   - 测试踩坑：字段 id 是 `tags`（非 concept.field 全称）、停用 API `{field_id, active}`、tags 值 frontend/backend/infra、network 写请求须先 /auth/login；**pytest 146/冒烟 21**。
 - **M16-I51 视图前端（本轮完成，`010f5f1`+`eebe385`）**：看板工具栏「视图」管理器（保存当前过滤+公开勾选、下拉切换应用 definition 写回 URL params、公开徽标、hover 删除、退出视图保留过滤）；**直开 ?view=<id> 自动补齐 definition 参数**（显式 params 优先）；api.ts SavedView+4 方法；复演：保存→切换→直开还原全过（docs/m15-i51-*.png ×5）。**复演坑：改前端代码后生产构建页面须 SW update+reload 才见新 UI**（autoUpdate precache 旧 bundle）。
-- **当前验证状态**：pytest **146 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M16-I52 收尾（本轮完成，`71e61c1`+`7d35d41`）**：默认视图（made_default 事件先清后设 rebuild 幂等 + is_default 列 + board 无参落点 applied_view_id + 前端 chip/徽标/分组控件同步）；**修 db.py 迁移条件 bug**（表名误查列名集合 → ALTER 永不执行，隔离存量库 500 暴露——**演示隔离库才是存量迁移的真测试场**）；docs/12 §13；**新增冒烟 22**；pytest **147** 全绿、冒烟 **22** GREEN。
+- **当前验证状态**：pytest **147 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -212,8 +213,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I52 收尾审阅**（M16 第 3 迭代，docs/10 §M16）：默认视图（项目级 default_view_id 或复用 board_defaults，看板无 ?view= 时落默认视图）→ docs/12 §13 自定义视图指南（定义 schema/权限/共享语义/URL 直开）→ **新增冒烟 22**（视图全程：CRUD→权限→展开执行同数→rebuild 一致）→ 全量回归（pytest/冒烟 22）→ M16 正式审阅（审阅时点 HEAD 重跑 + 附录 A/B + 截图）→ 「M16 正式审阅通过」提交。
-2. 审阅通过后：新一轮开源调研定 M17（候选 SSO/OIDC——按 docs/01 §O.2 约束设计、通知 digest、其余看 backlog）。
+1. **M16 正式审阅**（模式同 M8-M15）：审阅时点 HEAD 重跑全量（pytest 147/冒烟 22/vitest 2）→ I50/I51/I52 DoD 逐项核对 → 浏览器隔离复演（视图保存/切换/共享/默认直达 + URL 直开还原）→ 附录 B 记录 → 「M16 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研定 M17（首选 SSO/OIDC——按 docs/01 §O.2 约束设计：JIT allowlist fail-closed、claim 缺失回落最低角色；需本地 IdP 如 Keycloak/Authelia 演示环境）。
 
 ## 5. 有哪些坑不要再踩
 
