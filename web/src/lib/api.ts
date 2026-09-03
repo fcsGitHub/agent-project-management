@@ -133,6 +133,27 @@ export type TemplatePack = {
   competency_questions: number; registered_at?: string; imported_at?: string;
   imported_by?: string; origin_ontology?: string;
 };
+export type AutomationRule = {
+  id: string; project_id: string; name: string; trigger_event: string;
+  condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string };
+  enabled: boolean; created_at: string; updated_at: string;
+};
+export type AutomationRuleIn = {
+  name: string; trigger_event: string;
+  condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string };
+  enabled?: boolean;
+};
+export type AutomationTestRun = {
+  matched: boolean; reason?: string; item_id?: string; item_title?: string;
+  action?: AutomationRule["action"];
+};
+export type AutomationRun = {
+  event_id: number; ts: string; rule_name: string; trigger_event: string;
+  trigger_event_id: number; item_id: string; item_title: string;
+  result: { type: string; ok: boolean; detail: string };
+};
 export type TemplatePackPreview = {
   name: string; display_name: string; version: number; source: string;
   summary: { concepts: number; states: number; fields: number; phases: number; relations: number; competency_questions: number };
@@ -313,6 +334,21 @@ export const api = {
     ),
   removeMember: (pid: string, userId: string) =>
     req<{ removed: boolean }>(`/projects/${pid}/members/${userId}`, { method: "DELETE" }),
+
+  // Automation rules (M9-I29/I30): trigger × condition × action, event-sourced.
+  listAutomations: (pid: string) =>
+    req<{ rules: AutomationRule[] }>(`/projects/${pid}/automations`),
+  createAutomation: (pid: string, body: AutomationRuleIn) =>
+    req<AutomationRule>(`/projects/${pid}/automations`, { method: "POST", body: JSON.stringify(body) }),
+  patchAutomation: (pid: string, ruleId: string, body: Partial<AutomationRuleIn>) =>
+    req<AutomationRule>(`/projects/${pid}/automations/${ruleId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteAutomation: (pid: string, ruleId: string) =>
+    req<{ deleted: boolean }>(`/projects/${pid}/automations/${ruleId}`, { method: "DELETE" }),
+  testAutomation: (pid: string, ruleId: string) =>
+    req<AutomationTestRun>(`/projects/${pid}/automations/${ruleId}/test`, { method: "POST" }),
+  automationHistory: (pid: string, ruleId: string) =>
+    req<{ runs: AutomationRun[]; total: number }>(`/projects/${pid}/automations/${ruleId}/runs`),
+
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
   importOntology: (pack: Record<string, unknown>, asName: string) =>

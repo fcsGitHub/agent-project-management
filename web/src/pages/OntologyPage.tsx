@@ -5,8 +5,8 @@ import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
-import { api, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
-import { Badge, Button, Card, cx } from "../components/ui";
+import { api, type AutomationRule, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
+import { Badge, Button, Card, Input, Modal, cx } from "../components/ui";
 
 export function OntologyPage() {
   const { pid } = useParams();
@@ -196,6 +196,8 @@ export function OntologyPage() {
 
       <MembersPanel pid={pid!} />
 
+      <AutomationsPanel pid={pid!} concepts={o.concepts} />
+
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
         onLearn={runLearn} onLearnLlm={runLearnLlm} onApply={runApply} onToggle={toggle}
@@ -364,9 +366,7 @@ const MEMBER_ROLE: Record<string, { label: string; tone: "green" | "violet" | "n
   owner: { label: "Owner", tone: "green" },
   contributor: { label: "Contributor", tone: "violet" },
   viewer: { label: "Viewer", tone: "neutral" },
-};
-
-/** Project members & roles (M8-I27): owner / contributor / viewer management. */
+};/** Project members & roles (M8-I27): owner / contributor / viewer management. */
 function MembersPanel({ pid }: { pid: string }) {
   const qc = useQueryClient();
   const [addId, setAddId] = useState("");
@@ -440,6 +440,249 @@ function MembersPanel({ pid }: { pid: string }) {
         }}>＋ 添加</Button>
       </div>
     </Card>
+  );
+}
+
+const TRIGGER_LABEL: Record<string, string> = {
+  "item.created": "创建工作项",
+  "item.updated": "更新字段",
+  "item.status_changed": "状态变更",
+  "item.assigned": "指派变更",
+};
+const PRIORITY_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
+const ACTION_LABEL: Record<string, string> = {
+  assign: "指派给", set_priority: "置优先级", set_field: "设自定义字段", set_status: "改状态",
+};
+
+function condSummary(r: { condition: { concept_id?: string; fields?: Record<string, unknown> } }): string {
+  const parts: string[] = [];
+  if (r.condition.concept_id) parts.push(r.condition.concept_id);
+  for (const [k, v] of Object.entries(r.condition.fields ?? {})) parts.push(`${k}=${String(v)}`);
+  return parts.length ? parts.join(" · ") : "无条件";
+}
+
+function actionSummary(a: AutomationRule["action"]): string {
+  if (a.type === "assign") return `指派 → ${a.user_id}`;
+  if (a.type === "set_priority") {
+    const v = String(a.value ?? "");
+    return `优先级 → ${PRIORITY_LABEL[v] ?? v}`;
+  }
+  if (a.type === "set_field") return `${a.field_id} → ${Array.isArray(a.value) ? a.value.join("、") : String(a.value)}`;
+  if (a.type === "set_status") return `状态 → ${a.status}`;
+  return a.type;
+}
+
+/** Automation rules (M9-I30): trigger → condition → action, managed per project.
+ *  Backend executes on the event stream (Kanboard bindings × n8n 三段式). */
+function AutomationsPanel({ pid, concepts }: {
+  pid: string;
+  concepts: { id: string; name: string; states: { id: string; name: string; group: string }[]; fields?: { id: string; name: string; type: string; values?: (string | number)[] }[] }[];
+}) {
+  const qc = useQueryClient();
+  const rules = useQuery({ queryKey: ["automations", pid], queryFn: () => api.listAutomations(pid) });
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [trigger, setTrigger] = useState("item.created");
+  const [conceptId, setConceptId] = useState("");
+  const [condField, setCondField] = useState("");
+  const [condValue, setCondValue] = useState("");
+  const [actionType, setActionType] = useState("assign");
+  const [actUserId, setActUserId] = useState("");
+  const [actPriority, setActPriority] = useState("high");
+  const [actFieldId, setActFieldId] = useState("");
+  const [actFieldValue, setActFieldValue] = useState("");
+  const [actStatus, setActStatus] = useState("");
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
+
+  const declaredFields = new Map<string, { name: string; type: string; values?: (string | number)[] }>();
+  for (const c of concepts)
+    for (const f of c.fields ?? []) declaredFields.set(f.id, { name: f.name, type: f.type, values: f.values });
+  const statusPool = conceptId
+    ? (concepts.find((c) => c.id === conceptId)?.states ?? []).map((s) => s.id)
+    : [...new Set(concepts.flatMap((c) => c.states.map((s) => s.id)))];
+  const actField = declaredFields.get(actFieldId);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["automations", pid] });
+
+  const buildPayload = () => {
+    const condition: { concept_id?: string; fields?: Record<string, string> } = {};
+    if (conceptId) condition.concept_id = conceptId;
+    if (condField && condValue) condition.fields = { [condField]: condValue };
+    let action: AutomationRule["action"] = { type: actionType };
+    if (actionType === "assign") action.user_id = actUserId;
+    if (actionType === "set_priority") action.value = actPriority;
+    if (actionType === "set_field") {
+      action.field_id = actFieldId;
+      action.value = actField?.type === "multiselect"
+        ? actFieldValue.split(/[,，]/).map((s) => s.trim()).filter(Boolean)  // 逗号分隔 → 字符串数组
+        : actFieldValue;
+    }
+    if (actionType === "set_status") action.status = actStatus;
+    return { name: name.trim(), trigger_event: trigger, condition, action };
+  };
+
+  const create = async () => {
+    try {
+      await api.createAutomation(pid, buildPayload());
+      toast.success("规则已创建（事件溯源，可 rebuild）");
+      setOpen(false);
+      setName(""); setCondField(""); setCondValue(""); setActFieldValue("");
+      await invalidate();
+    } catch (e) {
+      toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const runTest = async (ruleId: string) => {
+    try {
+      const r = await api.testAutomation(pid, ruleId);
+      if (r.matched) toast.success(`命中「${r.item_title}」→ ${actionSummary(r.action!)}`);
+      else toast.info(`未命中：${r.reason}`);
+    } catch (e) {
+      toast.error(`测试失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">自动化规则</span>
+        <span className="text-xs text-mut">触发 → 条件 → 动作 · 事件溯源 · 动作按 automation 归账</span>
+        <Button size="sm" variant="outline" className="ml-auto" onClick={() => setOpen((v) => !v)}>＋ 新建规则</Button>
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        {(rules.data?.rules ?? []).map((r) => (
+          <div key={r.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs">
+            <span className={cx("font-medium", !r.enabled && "text-mut line-through")}>{r.name}</span>
+            <Badge tone="violet">{TRIGGER_LABEL[r.trigger_event] ?? r.trigger_event}</Badge>
+            <span className="text-[11px] text-mut">{condSummary(r)}</span>
+            <span className="text-[11px] text-ink">→ {actionSummary(r.action)}</span>
+            <span className="ml-auto flex items-center gap-1">
+              <button onClick={() => runTest(r.id)}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">测试运行</button>
+              <button onClick={() => setHistoryOf(r.id)}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">历史</button>
+              <button onClick={async () => { await api.patchAutomation(pid, r.id, { enabled: !r.enabled }); invalidate(); }}
+                className={cx("rounded-md border px-1.5 py-0.5 text-[10px]",
+                  r.enabled ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink")}>
+                {r.enabled ? "已启用" : "已停用"}
+              </button>
+              <button onClick={async () => { await api.deleteAutomation(pid, r.id); invalidate(); }}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-dan">删除</button>
+            </span>
+          </div>
+        ))}
+        {!rules.data?.rules.length && <div className="px-1 py-1 text-xs text-mut">暂无规则——建一条，让 Agent 之外的生产线也自动转起来</div>}
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2 rounded-xl border border-line bg-bg p-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <Input className="flex-1" placeholder="规则名称（如：缺陷建卡即指派 QA）" value={name} onChange={(e) => setName(e.target.value)} />
+            <select value={trigger} onChange={(e) => setTrigger(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-2 py-1.5">
+              {Object.entries(TRIGGER_LABEL).map(([v, l]) => <option key={v} value={v}>当{l}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5 text-mut">
+            <span>满足</span>
+            <select value={conceptId} onChange={(e) => { setConceptId(e.target.value); setActStatus(""); }}
+              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+              <option value="">任意概念</option>
+              {concepts.map((c) => <option key={c.id} value={c.id}>{c.name}（{c.id}）</option>)}
+            </select>
+            <select value={condField} onChange={(e) => setCondField(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+              <option value="">无条件</option>
+              {["priority", "status", "assignee_id"].map((f) => <option key={f} value={f}>{f}</option>)}
+              {[...declaredFields.keys()].map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {condField && <Input className="w-28" placeholder="值" value={condValue} onChange={(e) => setCondValue(e.target.value)} />}
+          </div>
+          <div className="flex items-center gap-1.5 text-mut">
+            <span>则</span>
+            <select value={actionType} onChange={(e) => { setActionType(e.target.value); setActFieldValue(""); }}
+              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+              {Object.entries(ACTION_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            {actionType === "assign" && (
+              <select value={actUserId} onChange={(e) => setActUserId(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                <option value="">选择用户…</option>
+                {(users.data?.users ?? []).map((u) => <option key={u.id} value={u.id}>{u.name}（{u.id}）</option>)}
+              </select>
+            )}
+            {actionType === "set_priority" && (
+              <select value={actPriority} onChange={(e) => setActPriority(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                {Object.entries(PRIORITY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            )}
+            {actionType === "set_field" && (
+              <>
+                <select value={actFieldId} onChange={(e) => { setActFieldId(e.target.value); setActFieldValue(""); }}
+                  className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                  <option value="">选择字段…</option>
+                  {[...declaredFields.entries()].map(([f, spec]) => <option key={f} value={f}>{spec.name}（{f}）</option>)}
+                </select>
+                {actField?.type === "enum" && (
+                  <select value={actFieldValue} onChange={(e) => setActFieldValue(e.target.value)}
+                    className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                    <option value="">值…</option>
+                    {(actField.values ?? []).map((v) => <option key={String(v)} value={String(v)}>{String(v)}</option>)}
+                  </select>
+                )}
+                {actField && actField.type !== "enum" && (
+                  <Input className="w-28" placeholder={actField.type === "multiselect" ? "逗号分隔多值" : "值"}
+                    value={actFieldValue} onChange={(e) => setActFieldValue(e.target.value)} />
+                )}
+              </>
+            )}
+            {actionType === "set_status" && (
+              <select value={actStatus} onChange={(e) => setActStatus(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                <option value="">状态…</option>
+                {statusPool.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+            <Button size="sm" className="ml-auto" disabled={!name.trim() || (actionType === "assign" && !actUserId) || (actionType === "set_field" && (!actFieldId || !actFieldValue)) || (actionType === "set_status" && !actStatus)} onClick={create}>
+              创建规则
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Modal open={!!historyOf} onClose={() => setHistoryOf(null)} title="规则触发历史">
+        <RuleHistory pid={pid} ruleId={historyOf!} />
+      </Modal>
+    </Card>
+  );
+}
+
+function RuleHistory({ pid, ruleId }: { pid: string; ruleId: string }) {
+  const runs = useQuery({
+    queryKey: ["automation-runs", pid, ruleId],
+    queryFn: () => api.automationHistory(pid, ruleId),
+  });
+  const list = runs.data?.runs ?? [];
+  if (!list.length) return <div className="p-2 text-xs text-mut">还没有触发记录——命中条件的事件发生时会在这里留痕</div>;
+  return (
+    <div className="space-y-1.5 text-xs">
+      {list.map((r) => (
+        <div key={r.event_id} className="rounded-lg border border-line px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <span className={cx("font-medium", r.result.ok ? "text-acc" : "text-dan")}>#{r.event_id}</span>
+            <span className="text-mut">{new Date(r.ts).toLocaleString()}</span>
+            <Badge tone={r.result.ok ? "green" : "red"}>{r.result.ok ? "已执行" : "被拒绝"}</Badge>
+          </div>
+          <div className="mt-0.5 text-mut">
+            「{r.item_title}」{TRIGGER_LABEL[r.trigger_event] ?? r.trigger_event} → {r.result.detail}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
