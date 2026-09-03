@@ -120,3 +120,31 @@ GET /api/projects/{project_id}/feed.atom?key={feed_key}
 - `key` 认证替代 cookie，适合阅读器等无法带会话的客户端；feed key 可随时换发（旧 key 立即失效）；
 - **权限裁剪**：非项目成员即使持有合法 key 也返回 403 + `access.denied`（防 Redmine #20173 式 token 越权泄漏）；
 - feed 返回该项目最近 30 条可见动态（Atom 1.0，XML 转义）。
+
+## 9. 报表与跨项目工作台（M12-I38/I39/I40）
+
+报表是**只读聚合**：全部数字来自对既有投影（items/approvals/events）的查询，无新表、无新事件，rebuild 一致性由构造保证（冒烟 18 显式断言）。
+
+### 9.1 页面与 API
+
+| 入口 | 内容 | 数据源 |
+| --- | --- | --- |
+| 项目内「报表」页 `#/p/{pid}/reports` | 五桶漏斗、概念分布、挂起 Gate 卡片、超期/滞留清单、近 14 天吞吐柱图 | `GET /api/projects/{id}/report` |
+| 全局「我的工作」`#/my/work` | 分配给我的活跃项（跨项目）+ 等我决策的 Gate | `GET /api/my/work` |
+| 项目列表（首页）每行徽标 | 待办/进行/完成计数 + ◆N 待审 | `GET /api/projects` 内嵌健康摘要 |
+| CSV 导出 | `GET /api/projects/{id}/report.csv`（section,key,title,reason,value 五列，UTF-8） | 与 JSON 同数 |
+
+### 9.2 口径定义
+
+| 指标 | 口径 |
+| --- | --- |
+| 漏斗（funnel） | 工作项按 `status_group` 五桶计数（待办池/就绪/进行中/已完成/已取消），桶序固定、空桶补零 |
+| 挂起 Gate（gates_pending） | `approvals.status = 'pending'` 的审批（阶段门/工件审批），卡片直达审批中心 |
+| 超期 | 活跃项（非 done/cancelled）声明了 due 类自定义字段（`due`/`due_date`/`deadline`，ISO 日期）且日期早于今天 →「超期 N 天」 |
+| 滞留 | 活跃项未声明 due，且创建时间超过 14 天（`STALE_DAYS`）→「滞留超 14 天」；已完成/已取消恒不参与 |
+| 吞吐（throughput） | 近 14 天逐日计数：新建 = `item.created`；完成 = `item.status_changed` 且结果桶为 done |
+
+### 9.3 权限语义
+
+- `/report` 与看板/列表同读语义（项目内读取开放）；
+- `/my/work` **指派即授权**：被指派者恒可见自己的活跃项（否则网络模式下被指派者反而看不到自己的工作）；Gate 清单仅项目 Owner 或实例管理员可见——与 `approval.requested` 通知的接收人决策同源。
