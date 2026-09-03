@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10 三迭代完成，待正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M10 正式审阅通过，下一步调研定 M11）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -108,13 +108,11 @@
   - Gitea/GitLab 语义：`X-APM-Event/Delivery/Webhook/Signature` 头（原始 body HMAC-SHA256）；失败指数退避 3 次（RETRY_DELAYS 可 monkeypatch）→ `webhook.delivered/failed` 留痕（attempts=4）；订阅白名单 fail-closed（webhook.* 不可订阅→留痕事件不会二次投递）；
   - CRUD + rotate API（M8 门禁自动生效）；单测 4 项 + **冒烟 16**；
   - 自踩即修：worker 解析漏传 with_secret=True 致签名缺失——单测签名断言当场拦住。
-- **当前验证状态**：pytest **109 项全绿**；冒烟基线 **16 条全绿**（16 = webhook 全程）；`pnpm vitest`/`pnpm build` 绿。
-- **M10-I34 通知中心与收尾（本轮完成）**：
-  - 新域 `app/apm/domains/notifications.py`：通知 = 既有事件纯投影（item.assigned→被指派人、approval.requested→项目 Owner、notification.sent→指定用户）；已读事件溯源（notification.read，ids/all）；通知 id 确定性 `n_{事件id}_{用户}`（踩坑：随机 id 致 rebuild 后已读引用失配——事件溯源投影新生成实体 id 禁止随机，已入 HANDOFF 坑清单）；GET /notifications + POST /notifications/read；
-  - automation 动作白名单增 `notify`（{user_id, message≤200}，防循环与 automation 归账继承 M9）；
-  - 前端 AppShell 顶栏 NotificationsBell（未读徽标+清单+全部已读，15s 轮询）；api.ts 增 2 方法；
-  - docs/12 §7 通知章节；单测 4 项（含套跑身份泄漏修复夹具）+ 冒烟 16 扩展通知断言；**pytest 113 全绿、冒烟 16 GREEN、vitest/build 绿**；
-  - 浏览器验证：指派后铃铛徽标「3」→下拉 assigned 通知→全部已读徽标消失（截图 docs/i34-notification-bell.png）。
+- **M10-I34 通知中心与收尾（本轮完成）**：新域 `app/apm/domains/notifications.py`——通知=既有事件纯投影（item.assigned→被指派人、approval.requested→Owner、notification.sent→指定用户）；已读事件溯源；**通知 id 确定性 `n_{事件id}_{用户}`**（随机 id 会在 rebuild 后失配——新坑已记 §5）；automation 白名单增 `notify`；AppShell 顶栏 NotificationsBell（未读徽标+清单+全部已读）；docs/12 §7；单测 4 项（含身份泄漏还原夹具）+ 冒烟 16 扩展。
+- **M10 正式审阅通过（`25b7ff6`，附录 B）**：
+  - 审阅时点 HEAD `08af0c5` 重跑 pytest 113/冒烟 16 全绿；I32/I33/I34 DoD 逐项核对（secret 不入事件/rebuild 存活/签名逐字节比对/重试留痕 attempts=4/写路径零阻塞/replay-ping/通知纯投影/确定性 id/notify 防循环归账）；
+  - 浏览器复演（python 接收桩）：UI 建 webhook → secret 弹窗 → API 建缺陷 → 接收桩实测签名投递（delivery ID 与留痕一致）→ 投递历史「已送达 HTTP 200 · 1次 · 15ms」→ 指派触发通知 → 铃铛徽标「1」；截图 docs/m10-review-webhook-history.png、docs/m10-review-notification-bell.png。
+- **当前验证状态**：pytest **113 项全绿**；冒烟基线 **16 条全绿**（16 = webhook+通知全程）；`pnpm vitest`/`pnpm build` 绿。
 - **M10-I33 webhook 前端与运维（本轮完成）**：
   - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
   - 前端本体页「Webhooks 出站」面板：创建表单（URL+订阅芯片）、**secret 一次性弹窗**（rotate 换发）、Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+重发）；api.ts 增 7 方法 + 2 类型；
@@ -128,9 +126,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M10 正式审阅**（按 M8/M9 审阅模式，docs/10 §M10 审阅点）：审阅时点 HEAD 重跑 pytest 113 + 冒烟 16 取新鲜证据；I32/I33/I34 DoD 逐项核对；浏览器隔离复演「webhook 投递留痕 + 通知中心」演示路径（可复演 I33/I34 截图路径）+ 附录 B 审阅记录 + 审阅截图 + 带「M10 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）。
-3. 调研后按新计划继续迭代开发。
+1. **新一轮开源调研**（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）：2-3 路并行 WebSearch → 结论写 docs/01 §J → docs/10 §M11（迭代表+DoD+估时）+ §7 看板行 + 附录 A 合并日志。
+2. 调研后按新计划继续迭代开发（I35 起每迭代：实现→单测/冒烟扩展→全量回归→docs/10+HANDOFF 收口→三段提交）。
+3. 每完成一个里程碑即按 M8/M9/M10 审阅模式做正式审阅。
 
 ## 5. 有哪些坑不要再踩
 
