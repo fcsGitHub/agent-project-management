@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14-I44 完成，下一步 I45 NDJSON 导入）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14-I45 完成，下一步 I46 收尾+M14 审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -172,7 +172,10 @@
 - **M14-I44 依赖传播自动排期（本轮完成）**：
   - items 加 `auto_scheduled`（默认 0=手动，ALTER 迁移，PATCH 开关）；前置项 due 变更触发 `propagate_reschedule`——对 depends_on 其且开自动的后继平移 start/due（保时长），**显式 item.rescheduled 事件**（follow_of/delta_days/depth，投影持久化）；递归深度 20 + visited 防环；
   - test_scheduling.py 4 项（单级+归因/手动零影响/多级+环安全/rebuild 存活）；时间线 hover「⏱ 自动排期」；**pytest 138 全绿、冒烟 19 GREEN、build+vitest 绿**。
-- **当前验证状态**：pytest **138 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M14-I45 NDJSON 导入恢复（本轮完成）**：
+  - `POST /projects/{id}/events/import`：校验和重算（原始行 sha256）+ schema/id 递增校验 + 冲突 409 整批拒绝（恢复面向空/新库）+ 目标项目可不存在但 payload 必含其 project.created；按序直插（保留原始 id/ts，prev 重链目标头部）→ 全量 rebuild；
+  - roundtrip 测试（monkeypatch data_dir + db.reset_for_tests 切第二全新库）+ 拒绝矩阵；**pytest 140 全绿、冒烟 19 GREEN**。
+- **当前验证状态**：pytest **140 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 - **当前验证状态**：pytest **134 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -181,9 +184,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M14-I45 开工：事件 NDJSON 导入恢复**（docs/10 §M14）：`POST /projects/{id}/events/import`（NDJSON 文本）——逐行解析+校验和重算比对（不匹配 422）+事件 id 与目标库冲突检测（冲突 409 整批拒绝）+prev 链序校验；通过后按序追加（actor_id=import）→ rebuild → 返回 {imported, rebuilt}；单测 roundtrip（导出→新库导入→事件与投影一致/校验和不匹配/id 冲突/坏 JSON）。
-2. I46 收尾（docs/12 §11 + docs/11 §5.3 + 冒烟 20）→ **M14 正式审阅**（模式同 M8-M13）。
-3. 审阅通过后：新一轮开源调研（候选：PWA/移动端、SSO、通知 digest、高级报表）→ 定 M15。
+1. **M14-I46 收尾**（docs/10 §M14）：docs/12 §11 排程与可携章节（auto_scheduled 语义/rescheduled 事件审计/导入恢复操作）；docs/11 §5.3 恢复步骤更新（导入+rebuild 实操）；**新增冒烟 20**（自动排期传播链 + 导出→导入 roundtrip + rebuild 一致）；随后 **M14 正式审阅**（HEAD 重跑全量→DoD→浏览器复演依赖传播→附录 B→「M14 正式审阅通过」提交）。
+2. 审阅通过后：新一轮开源调研（首选 PWA/移动端；候选 SSO、通知 digest、高级报表）→ 定 M15。
 
 ## 5. 有哪些坑不要再踩
 
