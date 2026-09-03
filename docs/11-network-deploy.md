@@ -62,6 +62,16 @@ server {
 
 compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`；只需追加第 2 节的环境变量。
 
+### 4.1 PWA 与移动端（M15-I48）
+
+前端构建为可安装 PWA（vite-plugin-pwa，generateSW + autoUpdate）：
+
+- **可安装**：浏览器访问部署地址后，地址栏出现「安装」/「添加到主屏幕」——manifest 指向实例自身，安装后以独立窗口启动（WeKan 教训：自托管场景应用商店壳无意义，装的必须是自己的服务器）。
+- **离线边界**：service worker 仅缓存静态外壳（HTML/JS/CSS/图标/manifest），断网时 reload 可载入外壳与导航；**`/api/*` 一律透传网络不入缓存**（事件溯源数据必须在线，SSE/审批实时性），离线时数据区按请求失败兜底显示。
+- **HTTPS 要求**：service worker 仅在 secure context（HTTPS 或 localhost）注册——内网 HTTP 部署无 SW（行为与 I48 前一致），移动端安装与离线外壳需按第 4 节配 TLS。
+- **更新**：发新版后 SW 后台自动下载新版本，下次打开即新版；新 SW 就绪时会弹出「已发布新版本 · 立即刷新」提示（sonner toast）。
+- **移动端布局**：<768px 视口自动折叠为汉堡抽屉导航（I47），看板/表格横向滚动，触控目标 ≥36px。
+
 
 ## 5. 备份与恢复（M13-I43）
 
