@@ -46,34 +46,45 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def auth_gate(request: Request, call_next):
-        """network 模式（M8-I26/I27）：未登录拒绝一切 /api 写请求；有会话则按
-        项目成员角色放行（owner/contributor 可写，viewer 与非成员 403 并落
-        审计）。GET 保持开放；local 模式零影响。"""
-        if config.settings.auth_mode == "network" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        """network 模式（M8-I26/I27/I28）：未登录拒绝一切 /api 写请求；有会话则
+        按项目成员角色放行（owner/contributor 可写，viewer 与非成员 403 并落
+        审计），并把登录人设为本请求的事件 actor（contextvar 随线程池继承）。
+        GET 保持开放；local 模式零影响。"""
+        actor_token = None
+        if config.settings.auth_mode == "network":
             path = request.url.path
+            user_id = None
             if path.startswith("/api/") and not path.startswith("/api/auth/"):
                 user_id = session_user(request.cookies.get(SESSION_COOKIE))
-                if not user_id:
-                    return JSONResponse({"detail": "login required"}, status_code=401)
-                from apm.domains.members import check_project_write, project_id_for_path
+                if request.method not in ("GET", "HEAD", "OPTIONS"):
+                    if not user_id:
+                        return JSONResponse({"detail": "login required"}, status_code=401)
+                    from apm.domains.members import check_project_write, project_id_for_path
 
-                project_id = project_id_for_path(path)
-                if project_id:
-                    allowed, role = check_project_write(project_id, user_id)
-                    if not allowed:
-                        events.emit(
-                            event_type="access.denied",
-                            agg_type="project",
-                            agg_id=project_id,
-                            project_id=project_id,
-                            actor_type="human",
-                            actor_id=user_id,
-                            payload={"user_id": user_id, "role": role,
-                                     "path": path,
-                                     "summary": f"写入被拒绝：{user_id}（{role or '非成员'}）@ {project_id}"},
-                        )
-                        return JSONResponse({"detail": "forbidden"}, status_code=403)
-        return await call_next(request)
+                    project_id = project_id_for_path(path)
+                    if project_id:
+                        allowed, role = check_project_write(project_id, user_id)
+                        if not allowed:
+                            events.emit(
+                                event_type="access.denied",
+                                agg_type="project",
+                                agg_id=project_id,
+                                project_id=project_id,
+                                actor_type="human",
+                                actor_id=user_id,
+                                payload={"user_id": user_id, "role": role,
+                                         "path": path,
+                                         "summary": f"写入被拒绝：{user_id}（{role or '非成员'}）@ {project_id}"},
+                            )
+                            return JSONResponse({"detail": "forbidden"}, status_code=403)
+            # 登录人即事件 actor（I28）：本请求内所有 emit 归到该身份。
+            if user_id:
+                actor_token = events.set_current_actor(user_id)
+        try:
+            return await call_next(request)
+        finally:
+            if actor_token is not None:
+                events.reset_current_actor(actor_token)
 
     app.add_middleware(
         CORSMiddleware,

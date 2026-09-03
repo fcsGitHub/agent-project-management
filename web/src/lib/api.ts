@@ -161,6 +161,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+  if (r.status === 401 && !path.startsWith("/auth/") && location.hash !== "#/login") {
+    location.hash = "#/login"; // network 模式会话失效 → 登录页（M8-I28）
+  }
   if (!r.ok) {
     let detail = `${r.status}`;
     try {
@@ -275,6 +278,15 @@ export const api = {
     return req<OntologyDiff>(`/ontologies/${name}/diff?${q.toString()}`);
   },
   cqCheck: (name: string) => req<CqCheck>(`/ontologies/${name}/cq-check`),
+
+  // Auth (M8-I26/I28)
+  authMe: () =>
+    req<{ user_id: string; name: string; is_admin: boolean; source: "session" | "local" }>("/auth/me"),
+  login: (userId: string, password: string) =>
+    req<{ user_id: string; name: string }>("/auth/login", {
+      method: "POST", body: JSON.stringify({ user_id: userId, password }),
+    }),
+  logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
   // Users / identity (M5-I19)
   listUsers: () =>

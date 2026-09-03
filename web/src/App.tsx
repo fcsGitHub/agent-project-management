@@ -12,6 +12,7 @@ import { RunsPage } from "./pages/RunsPage";
 import { GraphView } from "./pages/GraphView";
 import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { LoginPage } from "./pages/LoginPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { OntologyPage } from "./pages/OntologyPage";
@@ -35,6 +36,7 @@ export default function App() {
         </Route>
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

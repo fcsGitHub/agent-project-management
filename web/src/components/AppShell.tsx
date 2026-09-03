@@ -1,6 +1,6 @@
 /** App shell: dark icon rail + feature column + topbar (mirrors demo.html layout). */
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useParams, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, Library, LayoutDashboard, KanbanSquare, MessagesSquare, ScrollText,
@@ -202,8 +202,32 @@ function NewFeatureModal({ open, onClose, pid, onCreated }: {
   );
 }
 
-/** Identity switcher (M5-I19): 单机多身份——切换后所有操作归到该身份的审计流。 */
+/** Identity chip (M5-I19 local switching / M8-I28 session identity). */
 function IdentitySwitcher() {
+  const me = useQuery({ queryKey: ["auth-me"], queryFn: api.authMe });
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  if (me.data?.source === "session") {
+    // network 模式：身份 = 登录人，切换 = 登出重登。
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut"
+          title="网络模式 · 以登录身份归账">
+          {me.data.is_admin ? "⭐" : "👤"} {me.data.name}
+        </span>
+        <button onClick={async () => {
+          await api.logout();
+          await qc.invalidateQueries();
+          navigate("/login");
+        }} className="rounded-lg border border-line px-2 py-1.5 text-xs text-mut hover:text-ink">登出</button>
+      </div>
+    );
+  }
+  return <LocalSwitcher />;
+}
+
+/** Local-mode identity switcher (M5-I19): 单机多身份——切换后所有操作归到该身份的审计流。 */
+function LocalSwitcher() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");

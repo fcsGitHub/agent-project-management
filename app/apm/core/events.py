@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -17,6 +18,25 @@ from apm.core.bus import event_bus
 from apm import config
 
 Handler = Callable[[sqlite3.Connection, "Event"], None]
+
+# Request-scoped actor (M8-I28): the auth middleware sets the logged-in user;
+# FastAPI endpoints run in threadpools that inherit this context, so every
+# emit attributes to the session identity without threading a parameter
+# through the whole domain layer. Unset → local-mode fallback (settings.user_id).
+_actor_ctx: ContextVar[str | None] = ContextVar("apm_actor_id", default=None)
+
+
+def set_current_actor(user_id: str | None):
+    return _actor_ctx.set(user_id)
+
+
+def reset_current_actor(token) -> None:
+    _actor_ctx.reset(token)
+
+
+def effective_actor() -> str:
+    """The identity behind the current operation (session > local default)."""
+    return _actor_ctx.get() or config.settings.user_id
 
 
 def utcnow() -> str:
@@ -79,7 +99,7 @@ def emit(
     """Append one event, fold it into projections, then broadcast on the bus."""
     from apm.core import projections
 
-    actor_id = actor_id or config.settings.user_id  # 当前身份（M5-I19）
+    actor_id = actor_id or effective_actor()  # 会话身份（M8-I28）> 本地默认（M5-I19）
 
     with db.tx() as conn:
         prev = conn.execute("SELECT id FROM events ORDER BY id DESC LIMIT 1").fetchone()

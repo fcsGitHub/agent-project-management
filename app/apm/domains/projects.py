@@ -187,7 +187,7 @@ def post_project(body: ProjectIn) -> dict:
         agg_type="project",
         agg_id=pid,
         project_id=pid,
-        actor_id=config.settings.user_id,
+        actor_id=events.effective_actor(),
         payload={
             "name": body.name,
             "description": body.description,
@@ -203,8 +203,8 @@ def post_project(body: ProjectIn) -> dict:
         agg_type="project",
         agg_id=pid,
         project_id=pid,
-        actor_id=config.settings.user_id,
-        payload={"user_id": config.settings.user_id, "role": "owner"},
+        actor_id=events.effective_actor(),
+        payload={"user_id": events.effective_actor(), "role": "owner"},
     )
     created = apply_project_template(pid, body.ontology, body.requirement or "")
     events.emit(

@@ -134,6 +134,9 @@ class IdentityIn(BaseModel):
 
 @router.post("/session/identity")
 def switch_identity(body: IdentityIn) -> dict:
+    if config.settings.auth_mode == "network":
+        # 网络模式下身份由登录会话决定（M8-I28），切换 = 登出再登录。
+        raise HTTPException(status_code=422, detail="identity switching is local-mode only; use login/logout")
     user = _require_user(body.user_id)
     previous = config.settings.user_id
     config.settings.user_id = user["id"]

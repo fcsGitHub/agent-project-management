@@ -63,6 +63,27 @@ def test_smoke_14_auth_foundation(client, tmp_data):
                            json={"concept_id": "task", "title": "T"}).status_code == 403
         denied = client.get("/api/events", params={"event_type": "access.denied"}).json()["events"]
         assert any(e["payload"]["user_id"] == "qa-wang" and e["project_id"] == p["id"] for e in denied)
+
+        # Session→actor attribution (M8-I28): qa-wang promotes to contributor and
+        # their writes are attributed to qa-wang, not the local default identity.
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "smoke-admin-pass"}).status_code == 200
+        assert client.patch(f"/api/projects/{p['id']}/members",
+                            json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+        assert client.post("/api/auth/login",
+                           json={"user_id": "qa-wang", "password": "qa-pass"}).status_code == 200
+        assert client.post(f"/api/projects/{p['id']}/items",
+                           json={"concept_id": "task", "title": "QA 的任务"}).status_code == 200
+        created = client.get("/api/events", params={"event_type": "item.created"}).json()["events"]
+        assert created and created[-1]["actor_id"] == "qa-wang"
+        # qa-wang creates their own project → they own it (creator-as-owner).
+        own = client.post("/api/projects",
+                          json={"name": "QA 自建项目", "ontology": "software-dev"}).json()
+        members = {m["user_id"]: m["role"] for m in client.get(f"/api/projects/{own['id']}/members").json()["members"]}
+        assert members["qa-wang"] == "owner"
+        # Local identity switching is refused under network mode.
+        assert client.post("/api/session/identity",
+                           json={"user_id": "u_admin"}).status_code == 422
     finally:
         config.settings.auth_mode = "local"
         config.settings.admin_password = ""
