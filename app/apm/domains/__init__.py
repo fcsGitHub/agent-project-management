@@ -7,6 +7,7 @@ from apm.domains import (  # noqa: F401
     events_api,
     features,
     items,
+    mailer,
     members,
     nl,
     notifications,

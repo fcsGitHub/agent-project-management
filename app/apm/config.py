@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     secret_key: str = ""
     # APM_ADMIN_PASSWORD: (re)apply the default admin's password on boot.
     admin_password: str = ""
+    # Email channel (M11-I35): entirely optional — when host/from are unset the
+    # mailer stays off and behavior is identical to pre-M11. smtp_tls adds
+    # STARTTLS (587); port 465 implies SMTP_SSL.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_from: str = ""
+    smtp_tls: bool = True
     # Tests redirect ontology YAML here (learning writes back to this dir).
     ontology_dir_override: Path | None = None
     # Tests redirect agents/ here (ontology pack import writes role files).

@@ -16,6 +16,34 @@ router = APIRouter(tags=["notifications"])
 
 
 # ---------------------------------------------------------------- projectors
+NOTIFY_EVENTS = ("item.assigned", "approval.requested", "notification.sent")
+
+
+def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
+    """Pure decision: who should be notified for this event, with what kind and
+    summary. Shared by the projection fold and the email channel (M11-I35) so
+    both channels never disagree on recipients."""
+    out: list[tuple[str, str, str]] = []
+    if e.event_type == "item.assigned":
+        if e.payload.get("assignee_type") != "human" or not e.payload.get("assignee_id"):
+            return out
+        row = conn.execute("SELECT title FROM items WHERE id = ?", (e.agg_id,)).fetchone()
+        title = row["title"] if row else e.agg_id
+        out.append((e.payload["assignee_id"], "assigned", f"被指派工作项「{title}」"))
+    elif e.event_type == "approval.requested":
+        owners = conn.execute(
+            "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
+            (e.project_id,),
+        ).fetchall()
+        for o in owners:
+            out.append((o["user_id"], "approval", f"审批请求：{e.payload.get('kind', 'gate')}"))
+    elif e.event_type == "notification.sent":
+        p = e.payload
+        if p.get("user_id"):
+            out.append((p["user_id"], p.get("kind", "notify"), p.get("summary", "")))
+    return out
+
+
 def _notify(conn, e, user_id: str, kind: str, summary: str) -> None:
     if not user_id:
         return
@@ -30,23 +58,14 @@ def _notify(conn, e, user_id: str, kind: str, summary: str) -> None:
 
 @on("item.assigned")
 def _proj_notify_assigned(conn, e):
-    if e.payload.get("assignee_type") != "human":
-        return
-    row = conn.execute("SELECT title FROM items WHERE id = ?", (e.agg_id,)).fetchone()
-    title = row["title"] if row else e.agg_id
-    _notify(conn, e, e.payload.get("assignee_id"), "assigned",
-            f"被指派工作项「{title}」")
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
 
 
 @on("approval.requested")
 def _proj_notify_approval(conn, e):
-    owners = conn.execute(
-        "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
-        (e.project_id,),
-    ).fetchall()
-    for o in owners:
-        _notify(conn, e, o["user_id"], "approval",
-                f"审批请求：{e.payload.get('kind', 'gate')}")
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
 
 
 @on("notification.sent")
