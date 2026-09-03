@@ -187,6 +187,12 @@
   - 修窄屏折行：身份 chip `whitespace-nowrap shrink-0`（曾竖排）、通用 Badge `whitespace-nowrap`；
   - 表格/栅格适配：看板列表 table `overflow-x-auto` + `min-w-[640px]`；Reports/MyWork/Dashboard `grid-cols-1 md:grid-cols-3`（**col-span 必须加 md: 前缀——1 列网格下 span 3 会生成隐式轨道撑破布局**）；时间线 `overflow-auto` + `min-w-[640px]`；
   - 验证：build+vitest 绿、pytest 141 不受影响；Playwright 375×812 五截图 + 1440 桌面复核（docs/m15-i47-*.png ×6）。
+- **M15-I48 PWA 可安装与离线外壳（本轮完成，`16ce83e`+`87d3262`）**：
+  - vite-plugin-pwa v1.3.0（generateSW + autoUpdate）+ workbox-window 显式依赖；manifest standalone/icons 192+512+maskable（PIL 生成）；tsconfig types 补 `vite-plugin-pwa/client`；
+  - **`/api/*` 永不入 SW 缓存**：navigateFallbackDenylist + 零 runtimeCaching——事件溯源数据必须在线；
+  - **审阅即修 2 个既有前端缺陷**：①sonner `<Toaster>` 从未挂载（历次 toast 全部静默）→ main.tsx 补挂；②ProjectPicker 离线/故障误弹「新建项目」模态（空库引导与错误态混淆）→ `autoOpen={!isError && 空列表}`；
+  - 实测：precache 7 项零 /api、caches 枚举零 /api、**断网 reload 外壳完整载入**、新 SW 静默接管、离线 modal 不再误弹；375px 生产构建正常（docs/m15-i48-*.png ×3）；
+  - 坑：pnpm 下 virtual:pwa-register 需显式装 workbox-window，否则 Rollup resolve 失败。
 - **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -195,8 +201,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I48 PWA 可安装与离线外壳**（M15 第 2 迭代，docs/10 §M15）：`pnpm add -D vite-plugin-pwa` → vite.config 增 VitePWA（generateSW、registerType autoUpdate、manifest name/short_name/theme_color/icons 192+512+maskable/start_url `/`/display standalone）→ **`/api/*` 显式排除不入 SW 缓存**（globs 排除 + navigateFallbackDenylist，事件溯源数据必须在线）→ main.tsx 注册 SW → 新内容提示 → docs/11 注记 HTTPS/localhost → DoD：dist 含 manifest.webmanifest+sw.js、precache 无 /api、离线 reload 外壳可载、pytest/冒烟全绿 → 「M15-I48」三段式提交。
-2. I49 移动端打磨收尾（关键路径触控复核 + docs/12 §12 + **新增冒烟 21**（PWA 构建产物断言）+ M15 正式审阅）。
+1. **I49 移动端打磨收尾审阅**（M15 第 3 迭代，docs/10 §M15）：关键路径移动端复核（看板卡片/Gate 审批/通知铃/NL 命令条 375px 触控）→ docs/12 §12 移动端与 PWA 指南（安装步骤 + 离线边界「外壳可离线、数据必在线」+ HTTPS 注意）→ **新增冒烟 21**（PWA 构建产物断言：dist 含 manifest+sw.js、precache 不含 /api）→ 全量回归（pytest 141/冒烟 21）→ M15 正式审阅（审阅时点 HEAD 重跑 + 附录 A/B + 截图）→ 「M15 正式审阅通过」提交。
+2. 审阅通过后：新一轮开源调研定 M16（候选 SSO/OIDC、通知 digest、高级自定义报表——docs/01 §N.4 backlog）。
 
 ## 5. 有哪些坑不要再踩
 
