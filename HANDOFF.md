@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 审阅通过，M7 已定义 I23-I25）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M7 进行中，I23 完成）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -44,7 +44,10 @@
   - 浏览器打断-注入-恢复演示（隔离环境）：pm-agent 至 prd_review Gate 挂起 → 注入约束 → ▸ 继续（checkpoint 续跑 revise）→ 新 PRD commit 逐条包含注入约束、回到 Gate → 批准后 succeeded。截图 `docs/i22-interrupt-inject-resume.png`。
 - **M6 正式审阅通过（`b5668e9`，附录 B）**：审阅时点重跑 pytest 80/冒烟 12 全绿；三迭代 DoD 逐项核对；浏览器隔离复演「按标签分组看板」与「打断-注入-恢复」（截图 docs/m6-review-board-grouping.png、docs/m6-review-interrupt-resume.png）；console 噪声逐条查明非产品缺陷。
 - **M7 已定义（`cd8b5dd`，docs/01 §F + docs/10 §4.7）**：调研 OpenProject 双层字段激活、n8n 模板市场、Plane/Focalboard 认证 → **M7 = 模板中心 + 项目级字段激活（I23-I25，约 9 人日）**；多人网络认证推迟 M8（横切改造，先做部署形态决策）。
-- **当前验证状态**：pytest **80 项全绿**；冒烟基线 **12 条全绿**（冒烟 9 含 cf 过滤+字段分组断言）；`pnpm build`/`pnpm vitest` 通过。
+- **I23 模板包注册表与浏览 API（本轮完成）**：
+  - 新模块 `app/apm/domains/template_packs.py`：注册表 = 本体目录活扫描（单一真源）+ 事件合成 provenance（`pack.registered` 启动幂等登记 + `ontology.imported` 复用导入登记；**未建表**，避免与目录双真源——偏差已记附录 A）；`GET /template-packs` 统一视图（含概念/状态/字段/阶段/CQ 摘要）、`GET /template-packs/{name}` 预览、`POST /template-packs/{name}/instantiate` 复用 `projects.post_project` 共链路；未知 404 / 校验失败与空名 422；
+  - **新增冒烟 13**（导入 lite→统一列表→预览→实例化→阶段图与 CQ 就位→未知 404）。
+- **当前验证状态**：pytest **85 项全绿**；冒烟基线 **13 条全绿**（13 = 模板注册表）；前端无改动。
 
 ## 3. 现在卡在哪
 
@@ -52,11 +55,10 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I23 · 模板包注册表与浏览 API**（docs/10 §M7 表，估 3d）：模板注册表投影（`pack.registered` 事件；`ontology.imported` 复用为导入登记）+ `GET /template-packs`（内置扫描+已导入，含版本/概念数/CQ 摘要）+ 预览 + `instantiate` 一键建项目。DoD 并入**新增冒烟 13**。
-2. **I24 · 模板中心前端页**（估 3d）：浏览卡片+预览抽屉+「用此模板建项目」；资产库沉淀模板入口。
-3. **I25 · 项目级字段激活**（估 3d）：`project.field_disabled/enabled` 事件投影 → 校验器与看板分组候选过滤停用字段；前端开关入口。
-4. **M7 审阅**：冒烟 13 + 各迭代 DoD + 浏览器模板中心演示。
-5. M7 之后：按目标第 5 条调研定 M8（首选多人网络认证——按 Plane 两层成员模型裁剪，先决策部署形态）。
+1. **I24 · 模板中心前端页**（docs/10 §M7 表，估 3d）：浏览卡片 + 预览抽屉（concepts/phases/CQ）+「用此模板建项目」表单（调 instantiate）；项目列表页入口；资产库「沉淀为模板包」入口（asset→pack 复用导出，此处可发 `pack.registered`——投影侧已就绪）。DoD 并入冒烟 13：浏览器可见模板中心，从模板建项目跳转看板。
+2. **I25 · 项目级字段激活**（估 3d）：`project.field_disabled/enabled` 事件投影 → 校验器与看板分组候选过滤停用字段；`PATCH /projects/{id}/fields`；前端开关入口。
+3. **M7 审阅**：冒烟 13 + 各迭代 DoD + 浏览器模板中心演示。
+4. M7 之后：按目标第 5 条调研定 M8（首选多人网络认证——按 Plane 两层成员模型裁剪，先决策部署形态）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -76,8 +78,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 80 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 12 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 85 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 13 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
@@ -85,4 +87,4 @@ cd app && python -m uvicorn apm.main:app --port 8000 --reload
 # 一键起（Docker）：docker compose up -d --build && python tools/seed.py
 ```
 
-关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 学习 `ontology_learn.py` + 版本化 `ontology_versions.py` + CQ `ontology_cq.py` + 模板包 `ontology_pack.py` + 用户 `users.py` + 工作项（含 custom_fields 校验/过滤）`items.py`；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；前端本体页 `web/src/pages/OntologyPage.tsx`、看板 `web/src/pages/Board.tsx`（字段分组选择器+徽标）、外壳 `web/src/components/AppShell.tsx`（身份菜单）。
+关键代码位置：事件内核 `app/apm/core/`；本体 `app/apm/domains/ontology.py` + 学习 `ontology_learn.py` + 版本化 `ontology_versions.py` + CQ `ontology_cq.py` + 模板包 `ontology_pack.py` + 模板注册表 `template_packs.py` + 用户 `users.py` + 工作项（含 custom_fields 校验/过滤）`items.py`；LLM 角色 `agents/roles/ontology-curator.yaml` + 回放模板 `app/apm/runtime/replay_templates.py`；前端本体页 `web/src/pages/OntologyPage.tsx`、看板 `web/src/pages/Board.tsx`（字段分组选择器+徽标）、外壳 `web/src/components/AppShell.tsx`（身份菜单）。
