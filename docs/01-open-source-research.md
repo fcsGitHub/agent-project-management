@@ -188,3 +188,27 @@ Work Item Types：**六种属性类型**（Text / Number / Dropdown 单选多选
 **F.4 M7 取舍**
 
 M7 = **模板中心 + 项目级字段激活**（I23-I25）：继续本体线，全部复用既有资产（I18 模板包、I12 资产域、I20-I21 字段与分组）；多人网络认证列 M8（先做部署形态决策：单机 vs 网络服务）。
+
+## G. M8 前置调研：多人网络认证与部署形态（2026-09-03）
+
+> 目标第 5 条触发：M7 审阅通过后开启。首选方向 = 多人网络认证；部署形态先决策。
+
+**G.1 Plane：两层角色模型（裁剪底稿）**
+
+- 每个用户在 **workspace 级**持有一个角色，在其加入的**每个项目级**另持有一个角色——两层独立；Workspace Owner/Admin 对所有项目自动拥有完全访问（无需显式加入）；公开项目对所有 workspace 成员可见，**Guest 例外**（未被邀请不能进公开项目）；权限矩阵按「层级 × 角色」二维展开。
+- 对本项目的映射：**砍掉 workspace 层**（AgentPM 项目即顶层，全局用户池等价单 workspace），保留项目级 owner / contributor / viewer 三角色（对应 Plane Admin/Member→Contributor/Guest 裁剪）；无 workspace 管理员的「自动加入」语义——需要时用「项目创建者即 owner」表达。
+
+**G.2 Gitea：首管理员与账号供给模式（引导底稿）**
+
+- 安装向导完成 → 首个注册用户自动成为管理员（另有 CLI `gitea admin user create` 兜底）→ 之后 `DISABLE_REGISTRATION` 关闭开放注册，**仅管理员建号**；协作者不走邮件邀请——先有账号，再由管理员/仓库主在 Settings→Collaboration 添加（读/写/管理三级），API 同样提供。
+- 对本项目的映射：首启引导（env `APM_ADMIN_PASSWORD` 或首访设置页）产出一个管理员；**默认关闭开放注册**，账号由管理员创建——与 I19 已有的 users 注册表天然衔接；**不做邮件邀请链接**（Focalboard 一次性链接失效 issue 多发是前车之鉴，且省掉 SMTP 依赖）。
+
+**G.3 认证机制取舍**
+
+- 密码哈希用标准库 `hashlib.pbkdf2_hmac`（不新增依赖，够用）；会话 = 服务端签名 HttpOnly Cookie（settings 密钥，重启可存活），会话事件（logged_in/failed/logout）进审计流——与事件溯源原则一致。
+- 部署形态决策：**走「可信小团队网络服务」**（docker-compose + 反代 HTTPS 已具备），不做多租户 SaaS；`settings.auth_mode`：`local`（默认，现状单机免登录，开发/演示不受影响）/ `network`（登录强制 + 项目级鉴权）。SSO/LDAP/OAuth2 明确推迟 V3。
+- I28 收尾要点：本地「身份切换」菜单在网络模式降级为登录态展示（切换身份 = 登出再登录），审批/审计强制登录人，越权 403 有事件。
+
+**G.4 M8 取舍**
+
+M8 = **多人网络协作（认证 + 项目成员角色）**，I26 认证基座 / I27 项目成员与角色 / I28 网络协作收尾，约 9 人日。看板自动化规则（Kanboard 三段式）继续留在 backlog。
