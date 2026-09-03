@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M15 正式审阅通过，下一步 M16 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M16 已定义（I50-I52 自定义视图），下一步 I50）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -194,10 +194,11 @@
   - 实测：precache 7 项零 /api、caches 枚举零 /api、**断网 reload 外壳完整载入**、新 SW 静默接管、离线 modal 不再误弹；375px 生产构建正常（docs/m15-i48-*.png ×3）；
   - 坑：pnpm 下 virtual:pwa-register 需显式装 workbox-window，否则 Rollup resolve 失败。
 - **M15 三迭代完成（I47 `f287725`/I48 `16ce83e`/I49 `3d86ecf`）**：响应式布局基座（窄屏汉堡抽屉 + 横滚 + 栅格响应式 + 触控目标）→ PWA 可安装与离线外壳（vite-plugin-pwa generateSW+autoUpdate，`/api` 永不入缓存）→ 收尾（冒烟 21 + docs/12 §12 + docs/11 §4.1 + 关键路径触控复核）。
-- **M15 正式审阅通过（本提交，附录 A/B）**：
+- **M15 正式审阅通过（`771b366`，附录 A/B；该提交同时把 HANDOFF.md 行尾 CRLF 归一为 LF——仓库 §8 标准，全文 diff 属预期）**：
   - 审阅时点 HEAD `8fb1499` 重跑 pytest 142/冒烟 21/vitest 2 全绿；I47/I48/I49 DoD 逐项核对（窄屏折叠与抽屉/横滚与栅格/precache 零 /api 双验证/断网 reload 外壳/autoUpdate 接管/冒烟 21 产物深检/关键路径触控）；
   - **审阅即修 3 个既有前端缺陷**：①sonner `<Toaster>` 全仓从未挂载（历次 toast 静默）；②ProjectPicker 空库引导与加载失败混淆（离线误弹新建模态）；③通知下拉 375px 左溢 25px；
   - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：375px 视口 14 张截图（docs/m15-i47/i48/i49-*.png + m15-review-timeline-375.png）；无新增 B/C 级意见。
+- **M16 已定义（本提交，docs/01 §O + docs/10 §M16）**：三路调研——OpenProject 自定义查询分层（保存过滤/分组/排序是 Community 免费核心、跨项目聚合才是 Enterprise→做社区层等价）、Gitea SSO JIT 痛点（注册无 allowlist #27709、group claim 二次登录生效 #32566→需 IdP 演示环境成本高，降下一轮候选）、通知 digest（Redmine 靠插件/GitLab 仅专项摘要→同类均无原生，已有三层降噪，留 backlog）→ **M16 = 自定义视图与保存筛选（I50 视图数据层 saved_views 投影+view.* 事件+定义校验 fail-closed / I51 视图前端（保存/切换/管理+共享徽标+URL 直开）/ I52 默认视图+docs/12 §13+冒烟 22+审阅，约 9 人日）**。
 - **当前验证状态**：pytest **142 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -206,8 +207,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M16 调研定义**（模式同 M6-M15）：2-3 路并行 WebSearch 开源调研（候选：SSO/OIDC——Gitea OAuth2/OIDC JIT 注册与局限、通知 digest——Redmine/GitLab 摘要邮件节奏、高级自定义报表——OpenProject 企业版对照）→ 结论写入 docs/01 新节 + docs/10 §M16（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M16 调研定义」提交。
-2. 按新计划开工 M16 迭代（预计 3 个迭代，约 9 人日）。
+1. **I50 视图数据层**（M16 第 1 迭代，docs/10 §M16）：新域 `domains/views.py`——saved_views 投影表 + view.created/updated/deleted 事件（rebuild 存活，**drop_projections 清单同步**）；CRUD API（owner/admin 可改删、私有 owner 可读、public 全项目成员可读、非成员 403+access.denied）；definition 校验 fail-closed（filters 白名单 concept/status/priority/assignee/cf:/group_by，未知 422）；视图执行 = definition 展开为既有 board 过滤参数（纯复用）；单测（CRUD+rebuild/权限矩阵/校验矩阵/展开执行同数）→ 「M16-I50」三段式提交。
+2. I51 视图前端（保存/切换/管理 + 共享徽标 + ?view= URL 直开）→ I52 默认视图 + docs/12 §13 + 冒烟 22 + M16 审阅。
 
 ## 5. 有哪些坑不要再踩
 

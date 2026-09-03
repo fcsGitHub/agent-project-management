@@ -550,6 +550,36 @@ agent-project-management/
 
 **M15 审阅点**：冒烟 21 + 各迭代 DoD + 浏览器演示（375px 视口四页 + PWA 安装与离线外壳）。
 
+### M16 · 自定义视图与保存筛选（吸收 OpenProject 自定义查询，I50-I52，约 9 人日）
+
+> v1.5 新增（2026-09-04，M15 审阅通过后按目标协议调研）。调研结论见 docs/01 §O：OpenProject 自定义查询（保存过滤/分组/排序，私有/公开）是 Community 免费核心、跨项目聚合才是 Enterprise；Gitea SSO JIT 痛点（注册无 allowlist、group claim 二次登录生效）→ 需 IdP 演示环境成本高，降为下一轮候选；digest 同类均无原生内建 → backlog。选定自定义视图——AgentPM 当前过滤全部临时、刷新即失。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I50 | 视图数据层（saved_views 投影表 + view.* 事件 + CRUD + 定义校验 fail-closed） | 01 §O.1 | M6 字段过滤/M12 报表口径 | 3d |
+| I51 | 视图前端（看板/列表视图管理器：保存/切换/管理 + 共享徽标） | 01 §O.1 | 看板工具栏 | 3d |
+| I52 | 收尾审阅（默认视图 + docs/12 §13 + 冒烟 22 + M16 审阅） | 01 §O.2-O.4 | — | 3d |
+
+#### I50 · 视图数据层（3d）
+
+- 任务：`domains/views.py`——saved_views 投影表（id/name/project_id/owner_id/is_public/definition JSON/concept_id 可选收窄）+ `view.created/updated/deleted` 事件（rebuild 存活，drop_projections 清单同步）；CRUD API（owner 或 admin 可改删、成员可读私有+全项目可读 public、非成员 403+access.denied）；definition 校验 fail-closed（filters 白名单：concept/status/priority/assignee/cf:field/group_by/view 枚举，未知键/类型 422）；视图执行 = definition 展开为既有 board/group_by+cf 过滤参数（纯复用，不建第二条查询路径）。
+- DoD：单测（CRUD 往返 + rebuild 存活/权限矩阵（私有 vs 共享 vs 非成员）/定义校验全矩阵/视图展开执行与手工过滤同数）；pytest 全绿。
+- 演示路径：API 建视图 → GET board?view_id= 与手工过滤逐项一致。
+
+#### I51 · 视图前端（3d）
+
+- 任务：看板工具栏「视图」下拉（保存当前过滤为视图：名称 + 私有/共享；切换视图即应用 definition；重命名/删除；共享视图徽标「公开」）；列表视图同步支持；api.ts 增类型与方法；视图选中态入 URL（?view=）刷新/分享保持。
+- DoD：build + vitest 绿；浏览器隔离复演（建视图→切换→URL 直开还原过滤）截图。
+- 演示路径：375px + 桌面双视口走「保存 → 切换 → 分享」。
+
+#### I52 · 收尾审阅（3d）
+
+- 任务：默认视图（project.board_defaults 或项目级 default_view_id，看板直达）；docs/12 §13 自定义视图指南（定义 schema/权限/共享语义）；**新增冒烟 22**（视图全程：CRUD→权限→展开执行同数→rebuild 一致）；全量回归 + M16 审阅。
+- DoD（并入冒烟 22）：视图执行与手工过滤同数；rebuild 后视图存活；pytest/冒烟全绿。
+- 演示路径：冒烟 22 + 浏览器视图管理复演。
+
+**M16 审阅点**：冒烟 22 + 各迭代 DoD + 浏览器演示（视图保存/切换/共享 + URL 直开）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -690,6 +720,7 @@ agent-project-management/
 | I48 PWA 可安装与离线外壳 | 已完成 | 2026-09-04 | 2026-09-04 | vite-plugin-pwa（v1.3.0 generateSW、registerType autoUpdate）+ workbox-window 直依赖（pnpm 严格提升不透传）；manifest（name/short_name/theme_color #18181b/display standalone/start_url `/`/icons 192+512+maskable，PIL 生成靛蓝白 A 图标）；**workbox.navigateFallbackDenylist=[/^\\/api\\//] + 零 runtimeCaching——`/api/*` 永不入 SW 缓存**（事件溯源数据必须在线）；index.html 补 manifest link + theme-color + favicon（修 404）；main.tsx 注册 SW + **顺手修缺陷 ①：sonner `<Toaster>` 全仓从未挂载——所有 toast.* 一直静默无显示，补挂 top-center richColors**；新版本就绪弹「已发布新版本 · 立即刷新」toast。**顺手修缺陷 ②：ProjectPicker 空态引导与错误态混淆**——modal 初始值 `useState(!!projects.length ? false : true)` 使离线/后端故障时误弹「新建项目」（创建必失败），改 `autoOpen={!isError && 空列表}` 传参，保留空库引导排除错误态。验证：build 产物 sw.js+manifest.webmanifest+precache 7 项（源码级无 /api）；浏览器实测（vite preview 生产构建）：SW activated/scope `/`/caches 零 /api 条目/**断网 reload 外壳完整载入**（console 仅 ERR_INTERNET_DISCONNECTED @ /api 符合预期）/新 SW 自动接管（autoUpdate 实测）；375px 移动视口生产构建正常（docs/m15-i48-*.png ×3）；vitest 2 绿、pytest 141 零影响 |
 | I49 移动端打磨收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | **新增冒烟 21** test_smoke_21_pwa.py（源码级基建断言 VitePWA 配置/navigateFallbackDenylist/零 runtimeCaching 键/manifest link/theme-color/图标两枚；web/dist 存在时产物深检：manifest standalone+start_url+maskable、precache URL 清单零 /api、sw.js 含 /^\\/api\\// denylist；无 dist 则 skip 保留源码级）；**修通知下拉 375px 左溢**（`right-0 w-80`=320px 自右缘 295px 起算左溢 25px → 小屏 `fixed inset-x-2 top-14` 全宽悬浮 + `sm:` 恢复 absolute 原位，实测 panel left:8/right:367）；docs/12 §12 移动端与 PWA（安装/布局对照表/离线边界/更新与 HTTPS 注意）；375px 关键路径触控复核：审批中心 Gate 卡片三操作按钮、通知面板（修后）、NL 命令条全宽动作列表、页面零横向溢出；**pytest 142 项全绿、冒烟基线 21 条 GREEN**（截图 docs/m15-i49-*.png ×4） |
 | **M15 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 21 + I47/I48/I49 各迭代 DoD 逐项核对全过（审阅时点 HEAD `8fb1499` 重跑 pytest 142/冒烟 21/vitest 2）+ 浏览器隔离复演「375px 移动端全页面 + PWA 安装/离线外壳/autoUpdate」（截图 docs/m15-i47-*.png ×6、m15-i48-*.png ×3、m15-i49-*.png ×4、m15-review-timeline-375.png，见附录 B）；**审阅即修 3 个既有前端缺陷**（Toaster 未挂载/ProjectPicker 离线误弹/通知下拉左溢） |
+| **M16 自定义视图与保存筛选（I50-I52）** | 已定义 | 2026-09-04 | — | 3 迭代 / 约 9 人日（docs/01 §O + docs/10 §M16）：I50 视图数据层（saved_views 投影 + view.* 事件 + 定义校验 fail-closed）/ I51 视图前端（看板/列表视图管理器 + URL 直开）/ I52 默认视图 + docs/12 §13 + 冒烟 22 + 审阅；SSO/OIDC 降下一轮候选（需 IdP 演示环境）、digest/跨项目聚合报表留 backlog |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -785,6 +816,7 @@ agent-project-management/
 | 2026-09-04 | M13 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `edecddd` 重跑 pytest 134 项 + 冒烟 19 条全绿）：**I41** 里程碑 CRUD 往返 + rebuild 存活 ✓、校验 fail-closed 全矩阵（坏日期/缺日期/坏状态/未知关联）✓、进度与逾期计算 + rebuild 一致 ✓、item 日期 ISO 校验 + 报表口径三级回退 ✓、创建即关联 ✓（test_milestones.py 5 项）；**I42** TimelinePage 四要素 build+vitest 绿 + 浏览器验证 ✓；**I43** NDJSON 导出（行序+prev 链位+校验和行+gaps 披露）✓（冒烟 19）、docs/11 §5 备份与 docs/12 §10 在位 ✓。浏览器隔离复演（审阅时点，隔离环境演示库 p_bf3f9022c8）：时间线页日期轴 + 今日线 + 里程碑菱形（Beta 发布·09-20·悬停完成 33%）+ 任务行冲突红条（编码实现依赖设计评审）+ 行底红虚线 + 缺陷行蓝条（截图 docs/m13-review-timeline.png）；里程碑进度 API 实测 {3, 1, 0.33, 0} 与菱形悬停一致；NDJSON 导出实测 35 事件 + 校验和行（sha256/first_prev=4/gaps=3 显式披露跨项目间隙）。无新增 B/C 级意见。 | — | 里程碑通过 |
 | 2026-09-04 | M14 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `b1f93cb` 重跑 pytest 141 项 + 冒烟 20 条全绿）：**I44** propagate_reschedule 单级传播（delta 平移保时长 + item.rescheduled 归因 follow_of/delta_days）✓、手动模式零影响且无 rescheduled 事件 ✓、多级递归 A→B→C 各 +4 + 环 X↔Y 只平移一次（深度 20 + visited 防环）✓、rebuild 后日期存活 ✓（test_scheduling.py 4 项）；**I45** 导出→全新库导入 roundtrip（事件流与投影逐行一致）✓、拒绝矩阵（源库重导 409 / 篡改 422 / 坏 JSON 422 / 缺校验和 422 / 项目不匹配 422 / 拒绝后无半导入残留）✓（test_import.py 2 项）；**I46** 冒烟 20 全程（自动排期链 + 可携 roundtrip + 恢复库 rebuild 一致）✓、docs/12 §11 与 docs/11 §5.3 在位 ✓。浏览器隔离复演（审阅时点）：「依赖链-设计→开发→测试」三级链全开自动排期 → PATCH A due +6 → B（09-13/09-21）、C（09-21/09-27）自动顺延，时间线条形 hover「⏱ 自动排期」标注可见（截图 docs/m14-review-timeline.png）；审计页 item.rescheduled ×2 事件逐条展示 follow_of/delta_days=6（截图 docs/m14-review-audit-rescheduled.png）。无新增 B/C 级意见。 | — | 里程碑通过 |
 | 2026-09-04 | M15 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `8fb1499` 重跑 pytest 142 项 + 冒烟 21 条 GREEN + vitest 2 项全绿）：**I47** AppShell 窄屏断点（rail/功能列折叠 + 汉堡抽屉含导航与功能区 + ⌘K 图标化 + 触控目标）✓、看板列表/时间线横向滚动 + Reports/MyWork/Dashboard 栅格单列 ✓（Playwright 375×812 五截图 + 1440 桌面复核零回归）；**I48** 构建产物 manifest.webmanifest + sw.js + precache 7 项静态资产（源码与浏览器 caches 枚举双验证**零 /api 条目**）✓、**断网 reload 静态外壳完整载入**（console 仅 /api 请求失败，符合「外壳可离线、数据必在线」）✓、autoUpdate 新 SW 静默接管实测 ✓；**I49** 冒烟 21（源码级基建 + dist 产物深检：standalone/start_url/maskable/precache 零 /api/denylist 正则）✓、docs/12 §12 与 docs/11 §4.1 在位 ✓、375px 关键路径触控复核（审批 Gate 三按钮/通知面板/⌘K 命令条/时间线横滚实证）✓。**审阅即修 3 个既有前端缺陷**：①sonner `<Toaster>` 全仓从未挂载（历次 toast 全部静默无显示）；②ProjectPicker 空库引导与加载失败混淆（离线误弹「新建项目」模态）；③通知下拉 `right-0 w-80` 在 375px 左溢 25px（改小屏 fixed 全宽悬浮）。浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：375px 视口共 14 张截图（docs/m15-i47-*.png ×6、m15-i48-*.png ×3、m15-i49-*.png ×4、m15-review-timeline-375.png）。无新增 B/C 级意见。 | — | 里程碑通过 |
+| 2026-09-04 | M16 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**OpenProject 自定义查询分层**——自定义查询（保存过滤/排序/分组，私有/公开）是 Community 免费核心且为仪表盘构件，跨项目聚合报表/time report PDF 才是 Enterprise → 做社区层等价、不做聚合报表；②**Gitea SSO/OIDC JIT 痛点**——ENABLE_AUTO_REGISTRATION 全有或全无无 allowlist（#27709）、group claim 第二次登录才生效或静默失效（#32566/#19722）→ 需本地 IdP 演示环境成本高，降下一轮候选（设计约束：allowlist fail-closed/claim 缺失回落最低角色）；③**通知 digest**——Redmine 无原生（靠插件）、GitLab 仅安全/流水线专项摘要 → 同类均无原生内建，AgentPM 已有邮件开关+站内+Atom 三层降噪，留 backlog。选定 **M16 = 自定义视图与保存筛选**（当前过滤全部临时刷新即失）：I50 视图数据层（saved_views 投影表 + view.* 事件 + 定义校验 fail-closed + 展开执行纯复用既有过滤）/ I51 视图前端（保存/切换/管理 + 共享徽标 + URL 直开）/ I52 默认视图+docs/12 §13+冒烟 22+审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 22 于 I52。结论入 docs/01 §O。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

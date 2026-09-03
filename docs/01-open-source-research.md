@@ -374,3 +374,28 @@ M14 = **排程自动化与事件可携**：I44 依赖传播自动排期（items.
 **N.4 M15 取舍**
 
 M15 = **PWA 与移动端适配**：I47 响应式布局基座（窄屏断点 + rail 折叠移动导航 + 看板/表格横向滚动 + 触控目标）/ I48 PWA 可安装与离线外壳（manifest + generateSW + autoUpdate + API 永不缓存 + HTTPS 部署注记）/ I49 移动端关键路径打磨收尾（docs/12 §12 + 冒烟 21 + M15 审阅），约 9 人日。API 数据离线缓存/离线写（一致性风险）、Push 推送（需 VAPID 服务端）、原生 App/TWA（WeKan 教训）留 backlog。
+
+## O. M16 前置调研：自定义视图与保存筛选（2026-09-04）
+
+> 目标协议触发：M15 审阅通过后开启。三路调研（Gitea SSO/OIDC JIT 痛点、Redmine/GitLab 通知 digest、OpenProject 自定义查询分层），选定**自定义视图与保存筛选**——同类自托管项目管理的 Community 层核心日常功能，AgentPM 当前所有过滤（优先级/执行者/字段/分组）均为临时状态，刷新即失。
+
+**O.1 OpenProject 自定义查询：Community 免费 vs Enterprise 报表（主借鉴）**
+
+- **自定义查询（custom query）= 保存的过滤器 + 排序 + 分组，Community 免费核心**；可私有可公开，工作项表格支持列配置/过滤/分组/排序，查询是工作项视图的底层概念（一页可载多个查询），也是项目仪表盘的构件。
+- **Enterprise 独占**：跨项目聚合的高级报表模块、time report PDF、portfolio 视图、team planner。
+- 对本项目的映射：做 Community 层等价——**saved_views**（保存的过滤/分组/排序组合，私有/项目内共享），报表页保持 M12 固定五 widget（跨项目聚合属 Enterprise 层，不做）；看板分组（M6-I21）与列表过滤展开为视图定义的组成部分。
+
+**O.2 Gitea SSO/OIDC：JIT 注册的经典痛点（候选降级依据）**
+
+- Gitea 经验：`ENABLE_AUTO_REGISTRATION` 开 JIT，但①注册**全有或全无**——IdP 有号即可注册实例，无细粒度 allowlist（issue #27709）；②group claim（admin/restricted）**第二次登录才生效**或部分 IdP 静默失效（issue #32566/#19722）；③部分 IdP 重定向到账号链接页而非静默注册。
+- 对本项目的启示（做 SSO 时的设计约束）：JIT 建 users 行须配管理员域名/组 allowlist（fail-closed）；group claim 缺失时回落默认最低角色，绝不依赖 admin claim；回调路径显式处理账号链接分支。
+- **本轮不选**：SSO 需要本地 IdP（Keycloak/Authelia）演示环境，成本高且坑集中在 IdP 兼容性——作为下一轮候选（届时按上述约束设计）。
+
+**O.3 通知 digest：同类自托管均无原生内建（backlog 依据）**
+
+- Redmine 无原生 digest（逐事件即发邮件，digest 靠社区插件）；GitLab 只有安全告警/流水线等专项摘要，无通用活动 digest。
+- 结论：digest 是「减噪」增值而非核心缺口，且 AgentPM 已有「邮件开关 + 站内通知 + Atom feed」三层降噪（M11）；保持 backlog（实现路径：notifications 投影 + 定时汇总未读一封发出，可用外部 cron 触发端点，无需内建调度器）。
+
+**O.4 M16 取舍**
+
+M16 = **自定义视图与保存筛选**：I50 视图数据层（saved_views 投影表 + view.* 事件 + CRUD + 定义校验 fail-closed + rebuild 存活）/ I51 视图前端（看板/列表「视图」管理器：保存当前过滤、切换、重命名/删除、项目内共享徽标）/ I52 收尾（默认视图排序 + docs/12 §13 + 冒烟 22 + M16 审阅），约 9 人日。SSO/OIDC（按 O.2 约束设计，下一轮候选）、通知 digest、跨项目聚合报表（Enterprise 层）留 backlog。
