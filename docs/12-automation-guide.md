@@ -140,7 +140,7 @@ GET /api/projects/{project_id}/feed.atom?key={feed_key}
 | --- | --- |
 | 漏斗（funnel） | 工作项按 `status_group` 五桶计数（待办池/就绪/进行中/已完成/已取消），桶序固定、空桶补零 |
 | 挂起 Gate（gates_pending） | `approvals.status = 'pending'` 的审批（阶段门/工件审批），卡片直达审批中心 |
-| 超期 | 活跃项（非 done/cancelled）声明了 due 类自定义字段（`due`/`due_date`/`deadline`，ISO 日期）且日期早于今天 →「超期 N 天」 |
+| 超期 | 活跃项（非 done/cancelled）的截止日期早于今天 →「超期 N 天」。截止日期取值顺序（M13-I41 起三级回退）：① 工作项自身的 `due_date` 字段；② `due`/`due_date`/`deadline` 自定义字段；③ 两者皆无 → 按滞留口径处理 |
 | 滞留 | 活跃项未声明 due，且创建时间超过 14 天（`STALE_DAYS`）→「滞留超 14 天」；已完成/已取消恒不参与 |
 | 吞吐（throughput） | 近 14 天逐日计数：新建 = `item.created`；完成 = `item.status_changed` 且结果桶为 done |
 
