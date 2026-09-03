@@ -183,3 +183,30 @@ GET /api/projects/{project_id}/feed.atom?key={feed_key}
 ### 10.4 事件导出
 
 `GET /api/projects/{id}/events/export`（NDJSON，`application/x-ndjson`）：按全局追加序逐行输出项目事件（含 prev_event_id 链位），末行校验和（events 数 / sha256 / 首行 prev / 间隙数）。**导出是补充性数据出口，不是备份**（备份见 docs/11 §5）；跨项目间隙（gaps>0）属正常——全局链包含其他项目的事件。
+
+## 11. 排程自动化与事件可携（M14-I44/I45/I46）
+
+### 11.1 依赖传播自动排期
+
+工作项可开启 `auto_scheduled`（默认**手动**，OpenProject 15.4 同款哲学——自动化是可选项）：
+
+```
+PATCH /api/items/{id}  {"auto_scheduled": true}
+```
+
+- 前置项（被 `depends_on` 指向者）的 `due_date` 变化时，开启自动排期的后继项自动**平移 start/due（保持时长）**；多级依赖递归传播（深度上限 20，环安全）；
+- 每次平移都是**显式 `item.rescheduled` 事件**（payload 含 follow_of/delta_days/新日期/depth）——审计可见「因哪个前置项平移了多少」，投影按绝对日期写入，rebuild 幂等；
+- 手动模式（默认）不受任何影响；时间线条形 hover 标注「⏱ 自动排期」。
+
+### 11.2 事件导入恢复
+
+与导出配对（§10.4）：
+
+```
+POST /api/projects/{id}/events/import   {"data": "<NDJSON 全文>"}
+```
+
+- 校验流水线：校验和重算比对（原始行 sha256，篡改即 422）→ 逐行 JSON/schema + id 严格递增（422）→ 事件 id 与目标库冲突检测（**任一冲突整批 409**，不做部分导入）；
+- **恢复语义面向空/新库**：目标项目可不存在，但 payload 必须包含其 `project.created` 事件；
+- 通过后按序追加（保留原始 id/ts/actor，prev 重链到目标库当前头部）→ 全量 rebuild → 返回 `{imported, rebuilt}`；
+- 操作步骤见 docs/11 §5.3；导出/导入版本需同代（无跨版本兼容承诺）。

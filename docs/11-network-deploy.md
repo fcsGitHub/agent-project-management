@@ -84,5 +84,5 @@ compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`�
 
 ### 5.3 恢复
 
-1. 还原 `data_dir/`（或用备份的 apm.db 替换）→ 启动 api → `POST /api/system/rebuild-projections` 校验投影一致（`events_replayed` 应等于事件总数）；
-2. 只剩事件导出文件时：新建库 → 按序重放 NDJSON（人工/脚本，MVP 未内建导入——live==replay 保证重放即重建）。
+1. **首选：还原 `data_dir/`**（或用备份的 apm.db 替换）→ 启动 api → `POST /api/system/rebuild-projections` 校验投影一致（`events_replayed` 应等于事件总数）；
+2. **仅有事件导出文件时（M14-I45 起）**：调用 `POST /api/projects/{id}/events/import`（body `{"data": "<NDJSON 全文>"}`）——校验和/结构校验通过后按序追加并自动 rebuild；注意：id 与目标库冲突（非空库）会整批 409，导入/导出需同代版本（live==replay 保证重放即重建投影）。
