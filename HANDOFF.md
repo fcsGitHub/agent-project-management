@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M11-I37 完成，下一步 M11 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M11 正式审阅通过，下一步 M12 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -126,6 +126,10 @@
   - users 加 `email_notify`（默认 1，CREATE+ALTER 迁移）；`POST /api/notifications/prefs`（按 effective_actor 更新自身）+ GET /notifications 响应带 `email_enabled`；mailer 入队过滤 `email_notify=0`——**开关语义：只停邮件、站内通知照常**（通知=事实投影，邮件=可选投递介质）；
   - NotificationsBell 增「通知偏好」区：邮件开关（即时 POST prefs）+ feed key 显示/换发/复制订阅链接；api.ts 增 setNotificationPrefs/getFeedKey/rotateFeedKey；
   - test_mailer 第 6 项（开关后邮件止、站内 unread 照增）；docs/12 §8「邮件通知与 Atom 订阅」（SMTP env 表 + 阅读器订阅指引）；**pytest 123 全绿、冒烟 17 GREEN、vitest/build 绿**。
+- **M11 正式审阅通过（本提交，附录 B）**：
+  - 审阅时点 HEAD `0270169` 重跑 pytest 123/冒烟 17 全绿；I35/I36/I37 DoD 逐项核对；
+  - 浏览器隔离复演（隔离 data+ontologies + 本地 SMTP 接收桩 :2525）：UI 建项目 → API 建缺陷+指派 → 桩实测收信 → 审计链 #10→#11→#12 email.notified（docs/m11-review-mail-audit.png）→ QA 王 铃铛+偏好区（docs/m11-review-bell-prefs.png）→ 关邮件开关 → 二次指派：桩仍 1 封、铃铛「2」（邮件止站内照常）→ feed key+订阅链接（docs/m11-review-feed-key.png）→ 浏览器直开 feed.atom 渲染 XML（docs/m11-review-feed-atom.png）→ 局外人 key 403+access.denied；
+  - **语义澄清（非缺陷）**：local 模式「当前配置用户 settings.user_id」恒可读 feed=单机可信既定语义；探针须先固定配置身份再验 403（坑已记 §5）。
 - **当前验证状态**：pytest **123 项全绿**；冒烟基线 **17 条全绿**（17 = 邮件+feed 全程）；`pnpm vitest`/`pnpm build` 绿。
 - **M10-I33 webhook 前端与运维（本轮完成）**：
   - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
@@ -140,8 +144,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M11 正式审阅**（模式同 M8/M9/M10，见 HANDOFF §4 审阅清单）：审阅时点 HEAD 重跑全量（pytest 123/冒烟 17）→ I35/I36/I37 DoD 逐项核对 → 浏览器隔离复演「邮件投递留痕 + feed 订阅 + 通知偏好」→ 附录 B 记录 → 「M11 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研（目标协议第 1 条，候选：SSO/OIDC、本体版本事件级归档、移动端适配、报表增强）→ 定 M12 → 按新计划开工。
+1. **新一轮开源调研 → 定义 M12**（目标协议第 1 条，候选：SSO/OIDC、本体版本事件级归档、移动端适配、报表/统计增强；M10 调研时遗留 backlog：digest 邮件、邮件/RSS 已由 M11 落地）——2-3 路并行 WebSearch，结论写 docs/01 新节 + docs/10 §M12（迭代表+DoD+估时）+ 状态看板行 + 附录 A 合并日志，收口 HANDOFF 并提交。
+2. 按 M12 计划逐迭代开工（模式同 M8-M11：迭代实现→单测/冒烟→docs→提交→里程碑正式审阅）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -161,6 +165,7 @@
 - **投影器新生成实体的 id 禁止随机**（I34 踩坑）：通知 id 初版用 new_id，rebuild 后 id 漂移、已读事件引用失配、未读数回弹——投影中新实体 id 必须由事件流确定性导出（如 `n_{事件id}_{用户}`）。**单测 rebuild 断言要直接对比 id/未读数**。
 - **/api/session/identity 全局改 settings.user_id 会跨用例泄漏**（local 模式全局身份的固有语义）：依赖 effective_actor 的测试，文件内加身份还原夹具（保存→yield→还原）。
 - **改源码一律用 Edit 工具，禁 heredoc/python 脚本做源码修改**（I35 踩坑两次）：`\t`/`\n` 多层转义污染源文件；regex 探针误删 mailer.py 中段——探针脚本只读不改；临时调试探针提交前必须清理（grep 探针标记）。
+- **权限裁剪探针受 settings.user_id 全局身份影响**（M11 审阅踩坑）：local 模式「当前配置用户」恒放行（单机可信语义）——用 /me/feed-key 造 key 再测 403 时，先 /session/identity 固定配置身份为管理员，否则被测用户恰是配置身份会假性 200。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
