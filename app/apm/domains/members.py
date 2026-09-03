@@ -1,0 +1,208 @@
+"""Project membership & roles (M8-I27): owner / contributor / viewer, trimmed
+from Plane's two-tier model (docs/01 §G.1) — AgentPM projects are top-level, so
+only the project tier exists. Creator becomes owner (Gitea-style). Network mode
+gates project mutations on membership; denials are audited (`access.denied`)."""
+from __future__ import annotations
+
+import re
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+
+from apm import config
+from apm.core import db, events
+from apm.core.projections import on
+from apm.core.security import SESSION_COOKIE, session_user
+from apm.domains.projects import require_project
+
+router = APIRouter(tags=["members"])
+
+ROLES = ("owner", "contributor", "viewer")
+WRITE_ROLES = ("owner", "contributor")
+
+# ---------------------------------------------------------------- projectors
+@on("project.member_added")
+def _proj_member_added(conn, e):
+    conn.execute(
+        "INSERT INTO project_members (project_id, user_id, role, created_at, updated_at)"
+        " VALUES (?,?,?,?,?) ON CONFLICT(project_id, user_id)"
+        " DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at",
+        (e.project_id, e.payload["user_id"], e.payload["role"], e.ts, e.ts),
+    )
+
+
+@on("project.member_role_changed")
+def _proj_member_role_changed(conn, e):
+    conn.execute(
+        "UPDATE project_members SET role = ?, updated_at = ? WHERE project_id = ? AND user_id = ?",
+        (e.payload["role"], e.ts, e.project_id, e.payload["user_id"]),
+    )
+
+
+@on("project.member_removed")
+def _proj_member_removed(conn, e):
+    conn.execute(
+        "DELETE FROM project_members WHERE project_id = ? AND user_id = ?",
+        (e.project_id, e.payload["user_id"]),
+    )
+
+
+# ---------------------------------------------------------------- helpers
+def member_role(project_id: str, user_id: str) -> str | None:
+    row = db.get_conn().execute(
+        "SELECT role FROM project_members WHERE project_id = ? AND user_id = ?",
+        (project_id, user_id),
+    ).fetchone()
+    return row["role"] if row else None
+
+
+def list_members(project_id: str) -> list[dict]:
+    rows = db.get_conn().execute(
+        "SELECT m.user_id, m.role, m.created_at, u.name"
+        " FROM project_members m LEFT JOIN users u ON u.id = m.user_id"
+        " WHERE m.project_id = ? ORDER BY m.created_at, m.user_id",
+        (project_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def is_instance_admin(user_id: str) -> bool:
+    row = db.get_conn().execute(
+        "SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row["is_admin"]) if row else False
+
+
+def check_project_write(project_id: str, user_id: str) -> tuple[bool, str | None]:
+    """May `user_id` mutate `project_id`? Returns (allowed, effective role)."""
+    if is_instance_admin(user_id):
+        return True, "admin"
+    role = member_role(project_id, user_id)
+    if role in WRITE_ROLES:
+        return True, role
+    return False, role  # None = non-member; "viewer" = read-only member
+
+
+def project_id_for_path(path: str) -> str | None:
+    """Best-effort project context for a /api path (M8-I27 write gating)."""
+    m = re.match(r"^/api/projects/([^/]+)", path)
+    if m:
+        return m.group(1)
+    m = re.match(r"^/api/(items|conversations|runs|approvals|artifacts)/([^/]+)", path)
+    if m:
+        table, resource_id = m.group(1), m.group(2)  # table from a fixed whitelist
+        row = db.get_conn().execute(
+            f"SELECT project_id FROM {table} WHERE id = ?", (resource_id,)
+        ).fetchone()
+        return row["project_id"] if row else None
+    return None
+
+
+def _session_user(request: Request) -> str | None:
+    return session_user(request.cookies.get(SESSION_COOKIE))
+
+
+def _require_member_manager(project_id: str, request: Request) -> str:
+    """Who may change membership: instance admin or the project owner (network
+    mode); local mode is single-user and always allowed."""
+    if config.settings.auth_mode != "network":
+        return config.settings.user_id
+    user_id = _session_user(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="login required")
+    if is_instance_admin(user_id) or member_role(project_id, user_id) == "owner":
+        return user_id
+    events.emit(
+        event_type="access.denied",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        actor_type="human",
+        actor_id=user_id,
+        payload={"user_id": user_id, "summary": f"成员管理被拒绝：{user_id} @ {project_id}"},
+    )
+    raise HTTPException(status_code=403, detail="only the project owner may manage members")
+
+
+def _reject_last_owner_change(project_id: str, user_id: str, *, removing: bool, new_role: str | None = None) -> None:
+    if member_role(project_id, user_id) != "owner":
+        return
+    would_keep = removing is False and new_role == "owner"
+    others = [
+        m for m in list_members(project_id)
+        if m["role"] == "owner" and m["user_id"] != user_id
+    ]
+    if not would_keep and not others:
+        raise HTTPException(status_code=422, detail="cannot remove or demote the last owner")
+
+
+# ---------------------------------------------------------------- API
+class MemberIn(BaseModel):
+    user_id: str
+    role: str = "contributor"
+
+
+class MemberRoleIn(BaseModel):
+    user_id: str
+    role: str
+
+
+@router.get("/projects/{project_id}/members")
+def get_members(project_id: str) -> dict:
+    require_project(project_id)
+    return {"members": list_members(project_id)}
+
+
+@router.post("/projects/{project_id}/members")
+def add_member(project_id: str, body: MemberIn, request: Request) -> dict:
+    require_project(project_id)
+    _require_member_manager(project_id, request)
+    if body.role not in ROLES:
+        raise HTTPException(status_code=422, detail=f"role must be one of {ROLES}")
+    if not db.get_conn().execute("SELECT 1 FROM users WHERE id = ?", (body.user_id,)).fetchone():
+        raise HTTPException(status_code=422, detail=f"unknown user '{body.user_id}'")
+    if member_role(project_id, body.user_id):
+        raise HTTPException(status_code=409, detail=f"user '{body.user_id}' is already a member")
+    events.emit(
+        event_type="project.member_added",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        payload={"user_id": body.user_id, "role": body.role},
+    )
+    return {"project_id": project_id, "user_id": body.user_id, "role": body.role}
+
+
+@router.patch("/projects/{project_id}/members")
+def change_role(project_id: str, body: MemberRoleIn, request: Request) -> dict:
+    require_project(project_id)
+    _require_member_manager(project_id, request)
+    if body.role not in ROLES:
+        raise HTTPException(status_code=422, detail=f"role must be one of {ROLES}")
+    if not member_role(project_id, body.user_id):
+        raise HTTPException(status_code=404, detail=f"user '{body.user_id}' is not a member")
+    _reject_last_owner_change(project_id, body.user_id, removing=False, new_role=body.role)
+    events.emit(
+        event_type="project.member_role_changed",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        payload={"user_id": body.user_id, "role": body.role},
+    )
+    return {"project_id": project_id, "user_id": body.user_id, "role": body.role}
+
+
+@router.delete("/projects/{project_id}/members/{user_id}")
+def remove_member(project_id: str, user_id: str, request: Request) -> dict:
+    require_project(project_id)
+    _require_member_manager(project_id, request)
+    if not member_role(project_id, user_id):
+        raise HTTPException(status_code=404, detail=f"user '{user_id}' is not a member")
+    _reject_last_owner_change(project_id, user_id, removing=True)
+    events.emit(
+        event_type="project.member_removed",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        payload={"user_id": user_id},
+    )
+    return {"project_id": project_id, "user_id": user_id, "removed": True}

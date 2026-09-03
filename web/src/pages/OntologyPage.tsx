@@ -194,6 +194,8 @@ export function OntologyPage() {
 
       <FieldActivationPanel pid={pid!} concepts={o.concepts} disabled={disabledFields} />
 
+      <MembersPanel pid={pid!} />
+
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
         onLearn={runLearn} onLearnLlm={runLearnLlm} onApply={runApply} onToggle={toggle}
@@ -353,6 +355,89 @@ function FieldActivationPanel({ pid, concepts, disabled }: {
             </div>
           );
         })}
+      </div>
+    </Card>
+  );
+}
+
+const MEMBER_ROLE: Record<string, { label: string; tone: "green" | "violet" | "neutral" }> = {
+  owner: { label: "Owner", tone: "green" },
+  contributor: { label: "Contributor", tone: "violet" },
+  viewer: { label: "Viewer", tone: "neutral" },
+};
+
+/** Project members & roles (M8-I27): owner / contributor / viewer management. */
+function MembersPanel({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const [addId, setAddId] = useState("");
+  const [addRole, setAddRole] = useState("contributor");
+  const members = useQuery({
+    queryKey: ["members", pid],
+    queryFn: () => api.listMembers(pid),
+  });
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const candidates = (users.data?.users ?? []).filter(
+    (u) => !(members.data?.members ?? []).some((m) => m.user_id === u.id),
+  );
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["members", pid] });
+    qc.invalidateQueries({ queryKey: ["users"] });
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">项目成员</span>
+        <span className="text-xs text-mut">Owner 全权 · Contributor 读写 · Viewer 只读</span>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        {(members.data?.members ?? []).map((m) => {
+          const rb = MEMBER_ROLE[m.role] ?? { label: m.role, tone: "neutral" as const };
+          return (
+            <div key={m.user_id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs">
+              <span className="font-medium">{m.name || m.user_id}</span>
+              <span className="font-mono text-[10px] text-mut">{m.user_id}</span>
+              <Badge tone={rb.tone}>{rb.label}</Badge>
+              {m.role !== "owner" && (
+                <span className="ml-auto flex gap-1">
+                  {Object.entries(MEMBER_ROLE).filter(([r]) => r !== m.role).map(([r, def]) => (
+                    <button key={r} onClick={async () => {
+                      await api.changeMemberRole(pid, { user_id: m.user_id, role: r });
+                      invalidate();
+                    }} className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">
+                      → {def.label}
+                    </button>
+                  ))}
+                  <button onClick={async () => {
+                    await api.removeMember(pid, m.user_id);
+                    invalidate();
+                  }} className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-dan">移除</button>
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex items-center gap-1.5">
+        <select value={addId} onChange={(e) => setAddId(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          <option value="">添加用户…</option>
+          {candidates.map((u) => (
+            <option key={u.id} value={u.id}>{u.name}（{u.id}）</option>
+          ))}
+        </select>
+        <select value={addRole} onChange={(e) => setAddRole(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          {Object.entries(MEMBER_ROLE).map(([r, def]) => (
+            <option key={r} value={r}>{def.label}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="outline" disabled={!addId} onClick={async () => {
+          await api.addMember(pid, { user_id: addId, role: addRole });
+          setAddId("");
+          invalidate();
+        }}>＋ 添加</Button>
       </div>
     </Card>
   );

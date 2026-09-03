@@ -109,6 +109,15 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS project_members (
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (project_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS items (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -243,6 +252,7 @@ def create_all(conn: sqlite3.Connection) -> None:
 def drop_projections(conn: sqlite3.Connection) -> None:
     """Used by rebuild-projections: wipe caches, replay events through projectors."""
     for table in (
+        "project_members",
         "users",
         "ui_commands",
         "asset_links",

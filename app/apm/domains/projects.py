@@ -6,6 +6,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from apm import config
 from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
@@ -186,6 +187,7 @@ def post_project(body: ProjectIn) -> dict:
         agg_type="project",
         agg_id=pid,
         project_id=pid,
+        actor_id=config.settings.user_id,
         payload={
             "name": body.name,
             "description": body.description,
@@ -194,6 +196,15 @@ def post_project(body: ProjectIn) -> dict:
             "charter": charter,
             "requirement": body.requirement,
         },
+    )
+    # Creator becomes owner (M8-I27, Gitea-style bootstrap).
+    events.emit(
+        event_type="project.member_added",
+        agg_type="project",
+        agg_id=pid,
+        project_id=pid,
+        actor_id=config.settings.user_id,
+        payload={"user_id": config.settings.user_id, "role": "owner"},
     )
     created = apply_project_template(pid, body.ontology, body.requirement or "")
     events.emit(

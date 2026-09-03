@@ -103,6 +103,7 @@ class UserIn(BaseModel):
     id: str | None = None
     name: str
     email: str | None = None
+    password: str | None = None  # admin-style account creation (M8-I27); hashed, never evented
 
 
 @router.post("/users")
@@ -118,6 +119,12 @@ def register_user(body: UserIn) -> dict:
         agg_id=uid,
         payload={"name": body.name, "email": body.email},
     )
+    if body.password:
+        db.get_conn().execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (security.hash_password(body.password), uid),
+        )
+        db.get_conn().commit()
     return _safe_user(_require_user(uid))
 
 

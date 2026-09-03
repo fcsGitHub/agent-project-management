@@ -41,17 +41,38 @@ def create_app() -> FastAPI:
     from fastapi import Request
     from fastapi.responses import JSONResponse
 
+    from apm.core import events
     from apm.core.security import SESSION_COOKIE, session_user
 
     @app.middleware("http")
     async def auth_gate(request: Request, call_next):
-        """network 模式（M8-I26）：未登录拒绝一切 /api 写请求；GET 保持开放
-        （只读细粒度鉴权在 I27/I28）。local 模式零影响。"""
+        """network 模式（M8-I26/I27）：未登录拒绝一切 /api 写请求；有会话则按
+        项目成员角色放行（owner/contributor 可写，viewer 与非成员 403 并落
+        审计）。GET 保持开放；local 模式零影响。"""
         if config.settings.auth_mode == "network" and request.method not in ("GET", "HEAD", "OPTIONS"):
             path = request.url.path
             if path.startswith("/api/") and not path.startswith("/api/auth/"):
-                if not session_user(request.cookies.get(SESSION_COOKIE)):
+                user_id = session_user(request.cookies.get(SESSION_COOKIE))
+                if not user_id:
                     return JSONResponse({"detail": "login required"}, status_code=401)
+                from apm.domains.members import check_project_write, project_id_for_path
+
+                project_id = project_id_for_path(path)
+                if project_id:
+                    allowed, role = check_project_write(project_id, user_id)
+                    if not allowed:
+                        events.emit(
+                            event_type="access.denied",
+                            agg_type="project",
+                            agg_id=project_id,
+                            project_id=project_id,
+                            actor_type="human",
+                            actor_id=user_id,
+                            payload={"user_id": user_id, "role": role,
+                                     "path": path,
+                                     "summary": f"写入被拒绝：{user_id}（{role or '非成员'}）@ {project_id}"},
+                        )
+                        return JSONResponse({"detail": "forbidden"}, status_code=403)
         return await call_next(request)
 
     app.add_middleware(
@@ -70,6 +91,7 @@ def create_app() -> FastAPI:
     from apm.domains.events_api import router as events_router
     from apm.domains.features import router as features_router
     from apm.domains.items import router as items_router
+    from apm.domains.members import router as members_router
     from apm.domains.nl import router as nl_router
     from apm.domains.ontology import router as ontology_router
     from apm.domains.ontology_learn import router as ontology_learn_router
@@ -96,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(template_packs_router, prefix="/api")
     app.include_router(users_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
+    app.include_router(members_router, prefix="/api")
     app.include_router(features_router, prefix="/api")
     app.include_router(items_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")

@@ -285,6 +285,22 @@ export const api = {
     req<{ current: string; name: string; previous: string }>(
       "/session/identity", { method: "POST", body: JSON.stringify({ user_id: userId }) },
     ),
+
+  // Project members & roles (M8-I27)
+  listMembers: (pid: string) =>
+    req<{ members: { user_id: string; role: string; name?: string; created_at: string }[] }>(
+      `/projects/${pid}/members`,
+    ),
+  addMember: (pid: string, body: { user_id: string; role?: string }) =>
+    req<{ project_id: string; user_id: string; role: string }>(
+      `/projects/${pid}/members`, { method: "POST", body: JSON.stringify(body) },
+    ),
+  changeMemberRole: (pid: string, body: { user_id: string; role: string }) =>
+    req<{ project_id: string; user_id: string; role: string }>(
+      `/projects/${pid}/members`, { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  removeMember: (pid: string, userId: string) =>
+    req<{ removed: boolean }>(`/projects/${pid}/members/${userId}`, { method: "DELETE" }),
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
   importOntology: (pack: Record<string, unknown>, asName: string) =>
