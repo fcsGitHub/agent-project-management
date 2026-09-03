@@ -31,6 +31,9 @@ def create_app() -> FastAPI:
         from apm.domains.users import ensure_default_user
 
         ensure_default_user()
+        from apm.domains.template_packs import register_builtin_packs
+
+        register_builtin_packs()  # 模板库启动登记（幂等，M7-I23）
         yield
 
     app = FastAPI(title="AgentPM", version="0.1.0", lifespan=lifespan)
@@ -60,6 +63,7 @@ def create_app() -> FastAPI:
     from apm.domains.runs import router as runs_router
     from apm.domains.stream import router as stream_router
     from apm.domains.system import router as system_router
+    from apm.domains.template_packs import router as template_packs_router
     from apm.domains.users import router as users_router
 
     app.include_router(system_router, prefix="/api")
@@ -70,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(ontology_versions_router, prefix="/api")
     app.include_router(ontology_cq_router, prefix="/api")
     app.include_router(ontology_pack_router, prefix="/api")
+    app.include_router(template_packs_router, prefix="/api")
     app.include_router(users_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(features_router, prefix="/api")
