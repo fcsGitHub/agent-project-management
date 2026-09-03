@@ -381,7 +381,7 @@ agent-project-management/
 | **M5 里程碑审阅（正式）** | 已完成 | 2026-09-02 | 2026-09-02 | 冒烟 12 条 + 各迭代 DoD + 浏览器演示路径（身份切换→指派→按人审计→LLM 建议→模板包导入导出，截图 docs/m5-review-collab-page.png，见附录 B） |
 | I20 自定义字段值落地 | 已完成 | 2026-09-02 | 2026-09-02 | boolean/multiselect 字段类型 + items.custom_fields（ALTER 迁移）+ fail-closed 校验 + cf 过滤；顺手修两个隐藏投影 bug；pytest 79/冒烟 12 全绿 |
 | I21 看板字段分组与展示 | 已完成 | 2026-09-03 | 2026-09-03 | board `group_by=field:<id>` 分桶（声明值序+空列保留、multiselect 扇出、未设置列、未知 422）+ 前端分组选择器/卡片徽标/列表字段列；浏览器验证截图 docs/i21-board-field-grouping.png；pytest 80/冒烟 12 全绿 |
-| I22 LangGraph 1.2.11 升级验证 | 未开始 | — | — | M6 |
+| I22 LangGraph 1.2.11 升级验证 | 已完成 | 2026-09-03 | 2026-09-03 | langgraph 1.0.9→1.2.11（requirements 下限抬至 >=1.2.11）；pytest 80/冒烟 12 全绿零改动；浏览器打断-注入-恢复演示通过（revise 后 PRD 含注入约束、批准后 succeeded），截图 docs/i22-interrupt-inject-resume.png；无需回退 |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -418,6 +418,7 @@ agent-project-management/
 | 2026-09-02 | M5 审阅 + M6 启动 | **M5 里程碑正式审阅通过**（附录 B：各迭代 DoD 全对 + 浏览器演示注册「QA 王」→ LLM 建议 → 应用 v2，截图 docs/m5-review-collab-page.png；本次演示同时隔离 data+ontologies，M4 教训落实）。随即开启新一轮调研（目标第 5 条）：OpenProject 自定义字段（八格式+双层激活+可过滤标记）、Plane 工作项类型（六属性+按属性分组）、LangGraph 1.0.9→1.2.11 评估（同大版本可升），结论入 docs/01 §D。新增 M6 = I20 自定义字段值 / I21 看板字段分组 / I22 LangGraph 升级验证。范围变更：计划外新增里程碑，理由 = 目标第 5 条（调研吸收优点持续推进），估时 +9 人日。 |
 | 2026-09-02 | I20 | 自定义字段值落地：校验器新增字段类型枚举（+boolean/multiselect）与 values 必填；`items.custom_fields` JSON 列（init_db 内 PRAGMA 检查 + ALTER 迁移）；create/patch 双路径 `_validate_custom_fields`（未声明 422 / 类型严判 422，boolean 显式排除 int）；item.created/updated/assigned 三投影透传；`GET /items?cf=field:value`（multiselect 包含匹配）；get_item/list_items/get_item_detail 统一 `_parse_cf`。内置本体演示字段：bug.regression:boolean、task.tags:multiselect。**顺手修掉两个隐藏投影 bug**：① `item.updated` 投影 `sets.append(a, b)` 双参 TypeError——此前该分支从未收到过可写键，custom_fields 首次踩中；② INSERT 参数序与列序错位（cf 插在 priority 后、列在 estimate_hours 后，单事件建项时 assignee 恰好仍是位序错位最前面的，套跑才炸）。教训：**投影器 INSERT 列序与参数序必须目视逐列核对**。测试 79 项绿（新增 4：类型往返+过滤/fail-closed 三态/rebuild 一致/校验器）；冒烟 9 扩展 cf 过滤断言，12 条全绿；pnpm build/vitest 通过。下一步入口：I21 看板字段分组。 |
 | 2026-09-03 | I21 | 看板按自定义字段分组与展示：`GET /projects/{id}/board` 增 `group_by` 参数（默认取本体 board_defaults.group_by，缺省 lifecycle），`field:<id>` 按概念声明字段分桶——声明 values 保持本体顺序（空列保留）、multiselect 每值一列（工作项扇出复现，label 看板语义）、boolean 用 true/false 字面量（与 cf 过滤一致）、无值项入「未设置」列（恒最后）；未声明字段/未知模式 422 fail-closed。前端：看板页分组选择器（生命周期 + 跨概念去重全部声明字段，选中状态入 URL `?group=`）、卡片自定义字段徽标（`customFieldBadges` 按概念声明渲染，功能页切片同步）、列表视图增「字段」列。测试：新增 test_board_group_by_custom_field（pytest 80 项绿）；冒烟 9 扩展分组断言（声明桶序 frontend/backend/infra/_none、未声明 422、生命周期兜底），12 条 GREEN；pnpm build/vitest 通过。浏览器验证：隔离 data+ontologies 起服务种数切「分组：标签」，multiselect 扇出与徽标可见，截图 docs/i21-board-field-grouping.png。 |
+| 2026-09-03 | I22 | LangGraph 1.2.11 升级验证（docs/01 §D.3 评估结论落地）：`pip install langgraph==1.2.11` 连带 langchain-core 1.6.1 / langgraph-prebuilt 1.1.0 / sdk 0.4.4，langgraph-checkpoint-sqlite 3.1.1 不动；requirements 下限 `>=1.0.9`→`>=1.2.11`。**全量回归零改动通过**：pytest 80 项绿（Runtime 子图/录制回放/SqliteSaver 断点恢复/审批 Gate 全覆盖）、冒烟 12 条 GREEN。浏览器打断-注入-恢复演示（隔离 data+ontologies）：pm-agent 起草至 prd_review Gate 挂起（PRD commit 4773fa48）→ 对话内注入约束「必须兼容 Python 3.9…导出 Markdown」→ ▸ 继续（resume 从 checkpoint 续跑 revise）→ 产出新 PRD commit 9fa29d18 且 §5 补充约束逐条包含注入内容、重新回到 Gate → 批准后 run succeeded。截图 docs/i22-interrupt-inject-resume.png。**无需回退**；1.0.9 期间无遗留分支。M6 三个迭代（I20/I21/I22）全部完成，待 M6 正式审阅。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
