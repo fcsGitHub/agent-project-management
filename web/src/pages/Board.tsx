@@ -134,8 +134,8 @@ export function Board() {
       </div>
 
       {view === "list" && (
-        <div className="p-4">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto p-4">
+          <table className="w-full min-w-[640px] text-left text-xs">
             <thead>
               <tr className="border-b border-line text-mut">
                 <th className="py-2">标题</th><th>概念</th><th>状态</th><th>优先级</th><th>执行者</th><th>字段</th><th>更新</th>

@@ -119,8 +119,8 @@ export function TimelinePage() {
   const hasData = view.rows.length > 0 || msCount > 0;
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-      <Card className="p-4">
+    <div className="flex h-full flex-col gap-3 overflow-auto p-4">
+      <Card className="min-w-[640px] p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">📅 时间线</span>
           <span className="text-xs text-mut">

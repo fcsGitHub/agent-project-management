@@ -25,9 +25,9 @@ export function Dashboard() {
   const convCount = new Set(runs.data?.runs.map((r) => r.conversation_id)).size;
 
   return (
-    <div className="grid grid-cols-3 gap-4 p-4">
+    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
       {/* milestone / progress */}
-      <Card className="col-span-2 p-4">
+      <Card className="p-4 md:col-span-2">
         <div className="flex items-center justify-between text-xs text-mut">
           <span>进度 · 任务 {done}/{total} · 对话 {convCount} · Runs {runs.data?.runs.length ?? 0}</span>
           <span className="font-mono">{pct}%</span>
@@ -87,7 +87,7 @@ export function Dashboard() {
       </Card>
 
       {/* activity feed */}
-      <Card className="col-span-3 p-4">
+      <Card className="p-4 md:col-span-3">
         <div className="mb-2 text-sm font-semibold">项目活动流（人机混排 · 实时）</div>
         <div className="space-y-1">
           {(events.data?.events ?? []).map((e) => (

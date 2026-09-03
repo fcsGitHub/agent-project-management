@@ -25,9 +25,9 @@ export function ReportsPage() {
   const maxDay = r ? Math.max(1, ...r.throughput.series.map((d) => Math.max(d.created, d.done))) : 1;
 
   return (
-    <div className="grid grid-cols-3 gap-4 overflow-y-auto p-4">
+    <div className="grid grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
       {/* funnel */}
-      <Card className="col-span-2 p-4">
+      <Card className="p-4 md:col-span-2">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">阶段漏斗</span>
           <span className="text-xs text-mut">按五桶状态机计数 · 实时投影</span>
@@ -83,7 +83,7 @@ export function ReportsPage() {
       </Card>
 
       {/* overdue / stale */}
-      <Card className="col-span-2 p-4">
+      <Card className="p-4 md:col-span-2">
         <div className="mb-2 text-sm font-semibold">
           ⏰ 超期与滞留
           <span className="ml-2 text-xs font-normal text-mut">due 已过或活跃超 14 天 · 已完成不参与</span>

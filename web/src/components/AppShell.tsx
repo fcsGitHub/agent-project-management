@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, BarChart3, CalendarRange, Library, LayoutDashboard, KanbanSquare, ListTodo, MessagesSquare, ScrollText,
+  Activity, BarChart3, CalendarRange, Library, LayoutDashboard, KanbanSquare, ListTodo, Menu, MessagesSquare, ScrollText,
   Settings as SettingsIcon, Shapes, Workflow, Plus, Bell, BellRing, Command,
 } from "lucide-react";
 import { api } from "../lib/api";
@@ -54,6 +54,7 @@ export function AppShell() {
 
   const [newFeature, setNewFeature] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -71,8 +72,8 @@ export function AppShell() {
 
   return (
     <div className="flex h-full">
-      {/* icon rail */}
-      <nav className="flex w-16 shrink-0 flex-col items-center gap-1 bg-rail py-3 text-zinc-400">
+      {/* icon rail (desktop; <md collapses into hamburger drawer below) */}
+      <nav className="hidden w-16 shrink-0 flex-col items-center gap-1 bg-rail py-3 text-zinc-400 md:flex">
         {RAIL.map((r) => {
           const to = r.global ? r.to : `/p/${pid}${r.to}`;
           return (
@@ -99,8 +100,8 @@ export function AppShell() {
         </div>
       </nav>
 
-      {/* feature column */}
-      <aside className="flex w-44 shrink-0 flex-col border-r border-line bg-surface/60">
+      {/* feature column (desktop; features also listed inside the mobile drawer) */}
+      <aside className="hidden w-44 shrink-0 flex-col border-r border-line bg-surface/60 md:flex">
         <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-mut">
           功能
         </div>
@@ -131,16 +132,23 @@ export function AppShell() {
 
       {/* main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
+        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line bg-surface px-3 sm:gap-3 sm:px-4">
+          <button
+            onClick={() => setNavOpen(true)}
+            className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:bg-white/5 hover:text-ink md:hidden"
+            title="导航"
+          >
+            <Menu size={20} />
+          </button>
           <span className="truncate text-sm font-semibold">{active?.name ?? "AgentPM"}</span>
           {active && <Badge tone="violet">{active.ontology}</Badge>}
           <button
             onClick={() => setCmdOpen(true)}
-            className="ml-auto flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut hover:border-acc hover:text-acc"
+            className="ml-auto flex h-9 shrink-0 items-center gap-2 rounded-lg border border-line px-2.5 text-xs text-mut hover:border-acc hover:text-acc"
           >
-            <Command size={13} /> ⌘K 命令 / 自然语言
+            <Command size={13} /> <span className="hidden sm:inline">⌘K 命令 / 自然语言</span>
           </button>
-          <Link to={`/p/${pid}/approvals`} className="relative text-mut hover:text-acc" title="审批中心">
+          <Link to={`/p/${pid}/approvals`} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="审批中心">
             <Bell size={17} />
             {pendingCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-dan px-1 text-[10px] font-bold text-white">
@@ -157,6 +165,63 @@ export function AppShell() {
       </div>
 
       <CommandBar open={cmdOpen} onClose={() => setCmdOpen(false)} />
+
+      {/* mobile navigation drawer (I47): rail + features collapse into one slide-over <768px */}
+      {navOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-label="导航抽屉">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setNavOpen(false)} />
+          <nav className="absolute inset-y-0 left-0 flex w-64 flex-col overflow-y-auto bg-rail pb-3 text-zinc-300 shadow-xl">
+            <div className="flex items-center justify-between px-4 pb-1 pt-3">
+              <span className="truncate text-sm font-semibold text-white">{active?.name ?? "AgentPM"}</span>
+              <button
+                onClick={() => setNavOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white"
+                title="关闭"
+              >
+                ✕
+              </button>
+            </div>
+            {RAIL.map((r) => {
+              const to = r.global ? r.to : `/p/${pid}${r.to}`;
+              return (
+                <NavLink
+                  key={r.label}
+                  to={to}
+                  end={r.end}
+                  onClick={() => setNavOpen(false)}
+                  className={({ isActive }) =>
+                    cx("flex items-center gap-3 px-4 py-2.5 text-sm", isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-zinc-100")
+                  }
+                >
+                  <r.icon size={18} strokeWidth={1.8} /> {r.label}
+                </NavLink>
+              );
+            })}
+            {pid && (
+              <>
+                <div className="mt-2 border-t border-white/10 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  功能
+                </div>
+                {(features.data?.features ?? []).map((f) => (
+                  <Link
+                    key={f.id}
+                    to={`/p/${pid}/f/${f.id}`}
+                    onClick={() => setNavOpen(false)}
+                    className={cx(
+                      "truncate px-4 py-2.5 text-sm",
+                      featureId === f.id ? "bg-accbg font-medium text-acc" : "hover:bg-white/5 hover:text-zinc-100",
+                    )}
+                    title={f.title}
+                  >
+                    {f.title}
+                  </Link>
+                ))}
+              </>
+            )}
+          </nav>
+        </div>
+      )}
+
       <NewFeatureModal
         open={newFeature}
         onClose={() => setNewFeature(false)}
@@ -218,7 +283,7 @@ function NotificationsBell() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} className="relative text-mut hover:text-acc" title="通知中心">
+      <button onClick={() => setOpen((v) => !v)} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="通知中心">
         <BellRing size={17} />
         {unread > 0 && (
           <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-dan px-1 text-[10px] font-bold text-white">
@@ -327,7 +392,7 @@ function IdentitySwitcher() {
     // network 模式：身份 = 登录人，切换 = 登出重登。
     return (
       <div className="flex items-center gap-1.5">
-        <span className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut"
+        <span className="shrink-0 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut"
           title="网络模式 · 以登录身份归账">
           {me.data.is_admin ? "⭐" : "👤"} {me.data.name}
         </span>
@@ -376,7 +441,7 @@ function LocalSwitcher() {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut hover:border-acc hover:text-acc"
+        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-xs text-mut hover:border-acc hover:text-acc"
         title="切换身份（单机多身份）"
       >
         👤 {users.data?.current_name ?? "…"}

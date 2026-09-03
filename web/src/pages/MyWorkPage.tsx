@@ -24,8 +24,8 @@ export function MyWorkPage() {
           {work.data?.items.length ?? 0} 项工作 · {work.data?.approvals.length ?? 0} 个待决策
         </span>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-3 gap-4 overflow-y-auto p-4">
-        <Card className="col-span-2 p-4">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
+        <Card className="p-4 md:col-span-2">
           <div className="mb-2 text-sm font-semibold">分配给我</div>
           <div className="space-y-1.5">
             {(work.data?.items ?? []).map((it) => (
