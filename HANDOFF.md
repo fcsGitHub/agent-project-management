@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14-I45 完成，下一步 I46 收尾+M14 审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14-I46 完成，下一步 M14 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -175,7 +175,10 @@
 - **M14-I45 NDJSON 导入恢复（本轮完成）**：
   - `POST /projects/{id}/events/import`：校验和重算（原始行 sha256）+ schema/id 递增校验 + 冲突 409 整批拒绝（恢复面向空/新库）+ 目标项目可不存在但 payload 必含其 project.created；按序直插（保留原始 id/ts，prev 重链目标头部）→ 全量 rebuild；
   - roundtrip 测试（monkeypatch data_dir + db.reset_for_tests 切第二全新库）+ 拒绝矩阵；**pytest 140 全绿、冒烟 19 GREEN**。
-- **当前验证状态**：pytest **140 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M14-I46 排程与可携收尾（本轮完成）**：
+  - docs/12 §11 排程自动化与事件可携（语义/审计/导入流水线）；docs/11 §5.3 恢复步骤更新（import 端点实操）；
+  - **新增冒烟 20**（A←B←C 自动排期传播 + 导出→第二全新库导入 roundtrip + 恢复库 rebuild 一致）；pytest **141** 全绿、**冒烟 20 GREEN**。
+- **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 - **当前验证状态**：pytest **134 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -184,7 +187,7 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M14-I46 收尾**（docs/10 §M14）：docs/12 §11 排程与可携章节（auto_scheduled 语义/rescheduled 事件审计/导入恢复操作）；docs/11 §5.3 恢复步骤更新（导入+rebuild 实操）；**新增冒烟 20**（自动排期传播链 + 导出→导入 roundtrip + rebuild 一致）；随后 **M14 正式审阅**（HEAD 重跑全量→DoD→浏览器复演依赖传播→附录 B→「M14 正式审阅通过」提交）。
+1. **M14 正式审阅**（模式同 M8-M13）：审阅时点 HEAD 重跑全量（pytest 141/冒烟 20）→ I44/I45/I46 DoD 逐项核对 → 浏览器隔离复演「依赖传播（时间线 hover 审计 rescheduled 链）+ 导出→导入 roundtrip」→ 附录 B 记录 → 「M14 正式审阅通过」前缀提交。
 2. 审阅通过后：新一轮开源调研（首选 PWA/移动端；候选 SSO、通知 digest、高级报表）→ 定 M15。
 
 ## 5. 有哪些坑不要再踩
