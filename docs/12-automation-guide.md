@@ -242,3 +242,34 @@ AgentPM 前端为可安装 PWA（vite-plugin-pwa，generateSW + autoUpdate），
 - **更新**：新版发布后 SW 后台下载并静默接管，下次打开即新版；新 SW 就绪时弹「已发布新版本 · 立即刷新」toast；
 - **HTTPS**：service worker 仅在 secure context（HTTPS 或 localhost）注册——内网纯 HTTP 部署无 SW/安装能力（其余功能不变），移动端完整体验需按 docs/11 §4 配 TLS；
 - 构建产物断言见冒烟 21（dist 含 manifest.webmanifest + sw.js、precache 零 /api、denylist 在位）。
+
+## 13. 自定义视图与保存筛选（M16-I50/I51/I52）
+
+把常用过滤组合存为命名视图——OpenProject「自定义查询」的 Community 等价物（docs/01 §O.1）。视图 = 过滤参数的快照，执行时**复用既有过滤路径**（不建第二条查询实现）。
+
+### 13.1 定义与 API
+
+定义（definition）键白名单（fail-closed，未知键/空值/坏枚举 422）：
+
+| 键 | 含义 | 校验 |
+| --- | --- | --- |
+| `concept_id` | 概念收窄 | 透传 items 过滤 |
+| `status_group` | 五桶之一 | backlog / todo / in_progress / done / cancelled |
+| `status` | 具体状态 | 透传 items 过滤 |
+| `assignee_id` / `priority` | 执行者 / 优先级 | 透传 |
+| `cf` | 字段过滤 `field:value` | 字段须本体声明**且项目未停用**；multiselect 包含匹配 |
+| `group_by` | 看板分组 | `lifecycle` 或 `field:<id>`（同上声明+停用校验） |
+
+- API：`POST /projects/{pid}/views`（name+definition+is_public）、`GET /projects/{pid}/views`、`GET/PATCH/DELETE /views/{id}`、`POST /views/{id}/make-default`（项目级唯一默认，`view.made_default` 事件先清后设，rebuild 幂等）。
+- 执行：`GET /projects/{pid}/items?view_id=` 与 `GET /projects/{pid}/board?view_id=`——definition 提供基础过滤，显式 query 参数可覆盖。
+
+### 13.2 权限（对齐 M8）
+
+- local 模式全放行（单机可信语义）；
+- network 模式：**public** 视图项目成员可读；**private** 仅 owner 与实例管理员可读；viewer 不可创建；改/删仅 owner 与实例管理员；非成员访问列表/详情/执行一律 403。
+
+### 13.3 前端与默认视图
+
+- 看板工具栏「👁 视图」下拉：保存当前过滤、切换（definition 写回 URL 参数，功能切片保留）、公开徽标、hover 删除、设为默认；
+- 选中态入 URL（`?view=`）；**直开 `?view=<id>` 自动补齐定义参数**（显式参数优先）——分享链接即还原；
+- 默认视图：无显式 view/group 的看板请求自动落项目默认视图（board 响应 `applied_view_id`，工具栏 chip 与分组控件同步显示）。
