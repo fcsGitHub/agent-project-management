@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M9 三迭代完成，待正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M9 正式审阅通过，M10 已定义待开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -89,13 +89,21 @@
   - 审计页（AuditPage）发起者过滤增「⚡ 自动化」+ 域标签增 `automation`（rule_* 家族一键过滤）；
   - **docs/12-automation-guide.md 新建**：三段式模型、执行语义表（时机/归账/防循环/幂等教训/fail-closed）、测试运行与历史、权限与部署、backlog（出站 webhook、组合与区间条件）；
   - 浏览器演示：审计页 ⚡自动化 过滤命中 4 条（2 触发 + 2 动作，均按规则 id 归账），截图 docs/i31-audit-automation-filter.png。
-- **当前验证状态**：pytest **103 项全绿**；冒烟基线 **15 条全绿**（15 = 自动化规则全程）；`pnpm build`/`pnpm vitest` 绿。
 - **M8 正式审阅通过（`978da42`+`630e91f`，附录 B）**：
   - 审阅时点 HEAD `dec89c3` 重跑 pytest 97/冒烟 14 全绿；I26/I27/I28 DoD 逐项核对（凭证与审计/三角色矩阵与 rebuild/归账断言）；
   - 浏览器双账号协作演示（隔离 network 模式）：登录页登录 → 建项目（Owner=李雷）→ 管理员建号 qa-wang → 成员面板加 Viewer → viewer 写 403（access.denied 四元组审计）→ 升 Contributor 写成功 → 审计时间线归账链 #16/#20/#21 完整；截图 docs/m8-review-login.png、m8-review-admin-members.png、m8-review-viewer-denied.png、m8-review-audit-attribution.png；
   - **审阅即修 2 处前端缺陷**：①AppShell 全局 rail 链接硬编码 `/assets`（I24 引入，「模板」侧栏图标不可达——此前演示走项目列表页按钮入口未暴露）改 `r.global ? r.to : ...`；②FeaturePage 空态文案「也可从看板手动建卡」过时（看板无此入口、NL L1 无建项意图）删除子句。修后 build+vitest 全绿；
   - console 噪声归因：401×2=登出后 /auth/me 轮询（network 预期）、403×1=门禁演示本体、连接拒绝=后端进程被系统回收后遗留标签页重连，均非产品缺陷。
 - **M9 已定义（`630e91f`，docs/01 §H + docs/10 §M9）**：调研 Kanboard Automatic Actions（项目级「事件×动作」绑定+自省 API）、n8n/Node-RED 三段式抽象（trigger→condition→action，单机内嵌学模型不引编排器）、Plane Automations 与 webhook 重复触发教训（执行须幂等）→ **M9 = 看板自动化规则（I29 规则域与执行引擎 / I30 规则管理前端 / I31 收尾，约 9 人日）**；AgentPM 事件内核即天然事件源（订阅 event_bus，无需自建 dispatcher）；出站 webhook 留 backlog，SSO 维持 V3。
+- **M9 三迭代完成（I29 `e6a779e` / I30 `d8dd982` / I31 `bcc264a`）**：
+  - I29：`domains/automations.py`——规则事件溯源（automation_rules 表 + rule_* 事件，rebuild 存活）；执行器挂 events post-emit hook（`add_post_emit_hook`，同步调用、异常只记日志；rebuild 不经 emit 天然不触发）；trigger 白名单×condition 谓词×动作白名单 fail-closed；防循环双保险（automation actor 不进门 + dispatch contextvar）；动作归账 actor_type=automation；**顺手修 domains/__init__ 投影注册清单漏 members/template_packs**；单测 5 项 + 冒烟 15。
+  - I30：本体页「自动化规则」面板（三段式新建表单、enum 按本体出值下拉、multiselect 逗号转数组、测试运行 dry-run、历史抽屉）；api.ts 6 方法 4 类型；OntologyPage.tsx 行尾归一 LF（docs/10 §8 标准）。
+  - I31：审计页「⚡ 自动化」发起者过滤 + automation 域标签；docs/12-automation-guide.md 使用指南。
+- **M9 正式审阅通过（`440e4ae`，附录 B）**：
+  - 审阅时点 HEAD `064133f` 重跑 pytest 103/冒烟 15 全绿；I29/I30/I31 DoD 逐项核对（规则事件溯源与 rebuild/触发与 automation 归账/条件门与单层防循环/fail-closed 全矩阵/dry-run 不执行/面板与审计过滤）；
+  - 浏览器隔离复演：UI 建「缺陷建卡即指派 QA」→ API 建缺陷 → 自动指派 qa-wang → 看板卡片自动徽标 → 审计页 ⚡自动化 过滤精确命中 #12 item.assigned + #13 rule_fired（同归账 ar_07f8a246c7）；截图 docs/m9-review-automation-card.png、docs/m9-review-audit-automation.png。
+- **当前验证状态**：pytest **103 项全绿**；冒烟基线 **15 条全绿**（15 = 自动化规则全程）；`pnpm build`/`pnpm vitest` 绿。
+- **M10 已定义（`64ca1de`，docs/01 §I + docs/10 §M10）**：调研 Gitea/GitLab webhook（HMAC-SHA256 对原始 body 签名、X-Gitea-Event/Delivery 头幂等去重、明文 token 已被 GitLab legacy 化）、Redmine（邮件通知+feeds 是自托管桌上前提；规则化通知由 Redmineflux 插件验证为真实需求）→ **M10 = 出站集成：webhook 与通知（I32 webhook 基座——后台投递线程，post-emit hook 只入队绝不阻塞写路径（与 M9 同步执行器的本质差异）/ I33 webhook 前端与运维 + 冒烟 16 / I34 站内通知中心 + automation notify 动作，约 9 人日）**；邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
 
 ## 3. 现在卡在哪
 
@@ -103,9 +111,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M9 正式审阅**（按 M8 审阅模式，docs/10 §M9 审阅点）：审阅时点 HEAD 重跑 pytest 103 + 冒烟 15 取新鲜证据；I29/I30/I31 DoD 逐项核对；浏览器隔离复演「建规则→触发→自动动作→审计归账」演示路径（可复演 I30/I31 截图路径）+ 附录 B 审阅记录 + 审阅截图 + 带「M9 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研（目标协议第 1 条「持续调研相似开源功能」）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
-3. 调研后按新计划继续迭代开发。
+1. **M10-I32 开工：出站 webhook 基座**（docs/10 §M10，docs/01 §I）：`webhooks` 投影表 + `webhook.created/updated/deleted` 事件（rebuild 存活）；投递器——post-emit hook **只入队**，后台 worker 线程投递（网络 I/O 不阻塞写路径）；`X-APM-Event/Delivery/Signature` 头（对原始 body 的 HMAC-SHA256，secret 每条独立）；失败指数退避 3 次 + `webhook.delivered/failed` 留痕 + delivery ID 幂等；CRUD API 复用 M8 门禁；**新增冒烟 16**。
+2. I33 webhook 前端与运维（配置面板/投递历史/手动重发/测试 ping + docs/12 验签章节）→ I34 站内通知中心 + automation `notify` 动作 → **M10 正式审阅**（冒烟 16 + DoD + 演示：webhook 投递留痕 + 通知中心）。
+3. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M11（候选：邮件/RSS 通知、SSO/OIDC、本体版本事件级归档、移动端适配）。
 
 ## 5. 有哪些坑不要再踩
 
