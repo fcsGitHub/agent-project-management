@@ -33,6 +33,11 @@ export type Milestone = {
   progress?: { items_total: number; items_done: number; done_ratio: number | null; overdue_items: number };
   items?: Pick<Item, "id" | "title" | "concept_id" | "status" | "status_group" | "assignee_id">[];
 };
+export type SavedView = {
+  id: string; project_id: string; name: string; owner_id: string | null;
+  is_public: number; definition: Record<string, string>;
+  created_at: string; updated_at: string;
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -249,6 +254,13 @@ export const api = {
   patchMilestone: (id: string, body: Partial<Pick<Milestone, "title" | "description" | "due_date" | "status">>) =>
     req<Milestone>(`/milestones/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteMilestone: (id: string) => req<{ deleted: string }>(`/milestones/${id}`, { method: "DELETE" }),
+
+  listViews: (pid: string) => req<{ views: SavedView[] }>(`/projects/${pid}/views`),
+  createView: (pid: string, body: { name: string; definition: Record<string, string>; is_public: boolean }) =>
+    req<SavedView>(`/projects/${pid}/views`, { method: "POST", body: JSON.stringify(body) }),
+  patchView: (id: string, body: { name?: string; definition?: Record<string, string>; is_public?: boolean }) =>
+    req<SavedView>(`/views/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteView: (id: string) => req<{ deleted: string }>(`/views/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

@@ -1,6 +1,6 @@
 /** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start.
  * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,9 +15,35 @@ export function Board() {
   const priority = params.get("priority") ?? "";
   const assignee = params.get("assignee") ?? "";
   const group = params.get("group") ?? "";
+  const viewId = params.get("view") ?? "";
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"board" | "list">("board");
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  const [newViewPublic, setNewViewPublic] = useState(false);
+
+  const viewsQ = useQuery({
+    queryKey: ["views", pid],
+    queryFn: () => api.listViews(pid!),
+    enabled: !!pid,
+  });
+  const currentView = viewsQ.data?.views.find((v) => v.id === viewId);
+
+  // 直开 ?view=<id>（分享链接缺过滤参数时）自动补齐视图定义；显式 params 优先。
+  useEffect(() => {
+    if (!currentView) return;
+    const usp = new URLSearchParams(params);
+    let changed = false;
+    const put = (k: string, v: string | undefined) => {
+      if (v && !usp.has(k)) { usp.set(k, v); changed = true; }
+    };
+    put("priority", currentView.definition?.priority);
+    put("assignee", currentView.definition?.assignee_id);
+    put("group", currentView.definition?.group_by);
+    if (changed) setParams(usp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewId, currentView?.id]);
 
   const board = useQuery({
     queryKey: ["board", pid, featureId, group],
@@ -74,6 +100,52 @@ export function Board() {
     setParams(usp, { replace: true });
   };
 
+  /** M16-I51: a view is a named snapshot of the filter params; applying it
+   * writes the definition back into the URL (feature slice is preserved). */
+  const applyView = (v: import("../lib/api").SavedView) => {
+    const usp = new URLSearchParams();
+    if (featureId) usp.set("feature", featureId);
+    const d = v.definition ?? {};
+    if (d.priority) usp.set("priority", d.priority);
+    if (d.assignee_id) usp.set("assignee", d.assignee_id);
+    if (d.group_by) usp.set("group", d.group_by);
+    usp.set("view", v.id);
+    setParams(usp);
+    setViewsOpen(false);
+  };
+
+  const saveCurrentAsView = async () => {
+    if (!pid || !newViewName.trim()) return;
+    const definition: Record<string, string> = {};
+    if (priority) definition.priority = priority;
+    if (assignee) definition.assignee_id = assignee;
+    if (group) definition.group_by = group;
+    try {
+      const v = await api.createView(pid, { name: newViewName.trim(), definition, is_public: newViewPublic });
+      const usp = new URLSearchParams(params);
+      usp.set("view", v.id);
+      setParams(usp, { replace: true });
+      setNewViewName("");
+      setNewViewPublic(false);
+      setViewsOpen(false);
+      qc.invalidateQueries({ queryKey: ["views", pid] });
+      toast.success(`视图「${v.name}」已保存`);
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const removeView = async (id: string) => {
+    try {
+      await api.deleteView(id);
+      if (viewId === id) setFilter("view", "");
+      qc.invalidateQueries({ queryKey: ["views", pid] });
+      toast.info("视图已删除");
+    } catch (e) {
+      toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const toggle = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -102,6 +174,64 @@ export function Board() {
           ))}
         </div>
         {featureId && <Badge tone="indigo">功能切片</Badge>}
+        <div className="relative">
+          <button
+            onClick={() => setViewsOpen((v) => !v)}
+            className={cx(
+              "flex items-center gap-1 rounded-lg border px-2 py-1 text-xs",
+              currentView ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink",
+            )}
+            title="保存的视图（过滤快照）"
+          >
+            {currentView ? `👁 ${currentView.name}` : "👁 视图"} ▾
+          </button>
+          {viewsOpen && (
+            <div className="absolute left-0 top-9 z-40 w-72 rounded-xl border border-line bg-surface p-2 shadow-lg">
+              <div className="space-y-0.5">
+                {(viewsQ.data?.views ?? []).map((v) => (
+                  <div key={v.id} className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-bg">
+                    <button onClick={() => applyView(v)} className="min-w-0 flex-1 truncate text-left text-xs"
+                      title="应用此视图">
+                      <span className={cx("font-medium", v.id === viewId && "text-acc")}>{v.name}</span>
+                      {!!v.is_public && <Badge tone="violet">公开</Badge>}
+                      {v.id === viewId && <span className="ml-1 text-[10px] text-acc">当前</span>}
+                    </button>
+                    <button onClick={() => removeView(v.id)}
+                      className="shrink-0 text-[11px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100"
+                      title="删除视图">✕</button>
+                  </div>
+                ))}
+                {!viewsQ.data?.views.length && (
+                  <div className="px-2 py-2 text-xs text-mut">暂无视图——设置好过滤后保存</div>
+                )}
+              </div>
+              <div className="mt-2 space-y-1.5 border-t border-line pt-2">
+                <input
+                  className="w-full rounded-lg border border-line bg-bg px-2 py-1.5 text-xs"
+                  placeholder="保存当前过滤为视图…"
+                  value={newViewName}
+                  onChange={(e) => setNewViewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveCurrentAsView()}
+                />
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-[11px] text-mut">
+                    <input type="checkbox" checked={newViewPublic} onChange={(e) => setNewViewPublic(e.target.checked)} />
+                    项目内公开
+                  </label>
+                  <Button size="sm" variant="outline" onClick={saveCurrentAsView} disabled={!newViewName.trim()}>
+                    保存
+                  </Button>
+                </div>
+                {currentView && (
+                  <button onClick={() => { setFilter("view", ""); setViewsOpen(false); }}
+                    className="text-[11px] text-mut hover:text-acc">
+                    退出当前视图（保留过滤）
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <select value={group} onChange={(e) => setFilter("group", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
           <option value="">分组：生命周期</option>
