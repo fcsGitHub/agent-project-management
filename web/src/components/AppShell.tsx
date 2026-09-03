@@ -292,7 +292,7 @@ function NotificationsBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-40 w-80 rounded-xl border border-line bg-surface p-2 shadow-lg">
+        <div className="fixed inset-x-2 top-14 z-40 rounded-xl border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-9 sm:w-80">
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs font-semibold">通知</span>
             <button disabled={!unread} onClick={markAll}
