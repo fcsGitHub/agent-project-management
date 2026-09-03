@@ -51,19 +51,20 @@ export default function App() {
 
 /** Redirect to the first project when one exists, else show the picker. */
 function ProjectPicker() {
-  const { data, isLoading } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   if (isLoading) return <div className="p-8 text-sm text-mut">加载中…</div>;
-  return <PickerInner projects={data?.projects ?? []} />;
+  // 空库引导自动弹「新建项目」；后端不可达（离线/故障）时不弹——创建必失败，误导。
+  return <PickerInner projects={data?.projects ?? []} autoOpen={!isError && !(data?.projects.length ?? 0)} />;
 }
 
 import { Button, Card, Input, Textarea, Modal, Badge } from "./components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
-function PickerInner({ projects }: { projects: { id: string; name: string; ontology: string; status: string; item_counts?: Record<string, number>; gates_pending?: number }[] }) {
+function PickerInner({ projects, autoOpen = false }: { projects: { id: string; name: string; ontology: string; status: string; item_counts?: Record<string, number>; gates_pending?: number }[]; autoOpen?: boolean }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(!!projects.length ? false : true);
+  const [open, setOpen] = useState(autoOpen);
   const [name, setName] = useState("");
   const [req, setReq] = useState("");
   const [ontology, setOntology] = useState("software-dev");
