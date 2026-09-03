@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12-I39 完成，下一步 I40 报表收尾+M12 审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12-I40 完成，下一步 M12 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -146,7 +146,9 @@
   - ReportsPage（`#/p/{pid}/reports`）：五桶漏斗条形+概念 chips、挂起 Gate 卡片、超期/滞留清单（reason 徽标）、14 天吞吐双色柱图；全局 MyWorkPage（`#/my/work`）：分配给我+等我决策；rail 增「报表」「我的工作」；PickerInner 行健康徽标；api.ts 增 ProjectReport/MyWork + 2 方法；
   - 浏览器验证：报表页数字与 API 一致、列表徽标、QA 王 3 项 vs 李雷 0 项+1 待决策（截图 docs/i39-reports-page.png、i39-picker-health.png、i39-my-work.png）；build+vitest 绿；
   - 坑：独立脚本 emit 必须先 `import apm.domains`（注册投影器）且带 APM_DATA_DIR（首轮探针误入 dev 库已按「drop trg→删行→重建 trg」清理复原）。
-- **当前验证状态**：pytest **127 项全绿**；冒烟基线 **17 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M12-I40 报表收尾（本轮完成）**：
+  - CSV 导出 `GET /projects/{id}/report.csv`（section,key,title,reason,value 五列，与 JSON 同数）；docs/12 §9 报表与工作台（入口对照+五项口径定义+权限语义）；**新增冒烟 18**（漏斗/吞吐/Gate/my-work/CSV 同数/列表摘要/rebuild 不变）；pytest **128** 全绿、**冒烟 18 GREEN**。
+- **当前验证状态**：pytest **128 项全绿**；冒烟基线 **18 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -154,9 +156,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M12-I40 收尾**（docs/10 §M12）：报表 CSV 导出（/report?format=csv 或前端导出）；docs/12 §9 报表与工作台章节（口径定义：超期/滞留/吞吐/挂起判定）；**冒烟 18**（报表全程：造数→三端点→CSV→rebuild 一致）；随后 **M12 正式审阅**（审阅时点 HEAD 重跑全量→DoD 核对→浏览器复演报表页/列表徽标/我的工作→附录 B→「M12 正式审阅通过」提交）。
-2. I39 报表前端与项目工作台 → I40 收尾（CSV+docs+冒烟 18）→ **M12 正式审阅**（模式同 M8-M11）。
-3. 审阅通过后：新一轮开源调研 → 定 M13。
+1. **M12 正式审阅**（模式同 M8-M11）：审阅时点 HEAD 重跑全量（pytest 128/冒烟 18）→ I38/I39/I40 DoD 逐项核对 → 浏览器隔离复演「报表页四 widget + 列表健康徽标 + 我的工作 + CSV」→ 附录 B 记录 → 「M12 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研（候选：SSO/OIDC V3、事件导出归档、移动端适配、通知 digest、高级自定义报表）→ 定 M13 → 按新计划开工。
 
 ## 5. 有哪些坑不要再踩
 
