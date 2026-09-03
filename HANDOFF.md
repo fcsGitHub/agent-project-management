@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12 已定义（报表与跨项目工作台），下一步 I38 开工）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M12-I38 完成，下一步 I39 报表前端与项目工作台）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -130,7 +130,6 @@
   - 审阅时点 HEAD `0270169` 重跑 pytest 123/冒烟 17 全绿；I35/I36/I37 DoD 逐项核对；
   - 浏览器隔离复演（隔离 data+ontologies + 本地 SMTP 接收桩 :2525）：UI 建项目 → API 建缺陷+指派 → 桩实测收信 → 审计链 #10→#11→#12 email.notified（docs/m11-review-mail-audit.png）→ QA 王 铃铛+偏好区（docs/m11-review-bell-prefs.png）→ 关邮件开关 → 二次指派：桩仍 1 封、铃铛「2」（邮件止站内照常）→ feed key+订阅链接（docs/m11-review-feed-key.png）→ 浏览器直开 feed.atom 渲染 XML（docs/m11-review-feed-atom.png）→ 局外人 key 403+access.denied；
   - **语义澄清（非缺陷）**：local 模式「当前配置用户 settings.user_id」恒可读 feed=单机可信既定语义；探针须先固定配置身份再验 403（坑已记 §5）。
-- **当前验证状态**：pytest **123 项全绿**；冒烟基线 **17 条全绿**（17 = 邮件+feed 全程）；`pnpm vitest`/`pnpm build` 绿。
 - **M10-I33 webhook 前端与运维（本轮完成）**：
   - 后端运维端点：`_deliver` 增 retries 参数；`POST /webhooks/{id}/replay/{delivery_id}`（按留痕事件回放原始载荷、新 delivery ID、单次尝试）、`POST /webhooks/{id}/ping`（合成 ping 载荷）；均落留痕事件；
   - 前端本体页「Webhooks 出站」面板：创建表单（URL+订阅芯片）、**secret 一次性弹窗**（rotate 换发）、Ping/投递历史/换发/启停/删除、投递历史抽屉（已送达/失败徽章+重发）；api.ts 增 7 方法 + 2 类型；
@@ -138,6 +137,12 @@
   - 浏览器验证：python 接收桩实测签名投递（验 HMAC、delivery ID 与留痕一致）→ 历史抽屉 → UI 重发 → 接收桩收第二条新 delivery ID（截图 docs/i33-webhook-secret-modal.png、i33-webhook-delivery-history.png）。
 - **M10 已定义（`64ca1de`，docs/01 §I + docs/10 §M10）**：调研 Gitea/GitLab webhook（HMAC-SHA256 对原始 body 签名、X-Gitea-Event/Delivery 头幂等去重、明文 token 已被 GitLab legacy 化）、Redmine（邮件通知+feeds 是自托管桌上前提；规则化通知由 Redmineflux 插件验证为真实需求）→ **M10 = 出站集成：webhook 与通知（I32 webhook 基座——后台投递线程，post-emit hook 只入队绝不阻塞写路径（与 M9 同步执行器的本质差异）/ I33 webhook 前端与运维 + 冒烟 16 / I34 站内通知中心 + automation notify 动作，约 9 人日）**；邮件/RSS、SSO/OIDC、本体版本事件级归档、移动端适配留 backlog。
 - **M12 已定义（本提交，docs/01 §K + docs/10 §M12）**：三路调研——OpenProject 报表分层（社区版=custom query+widget+My page，高级报表企业版；→ 报表=投影查询+widget 拼装）、SSO/OIDC（独立 IdP+OIDC client 主流，Gitea JIT 受限；维持 V3）、GitLab 审计事件（DB 永久保留+流式外送；→ 归档=导出而非删除）→ **M12 = 报表与跨项目工作台（I38 报表数据层纯投影 API / I39 报表前端与项目工作台 / I40 CSV+docs/12 §9+冒烟 18+审阅，约 9 人日）**；SSO（V3）、事件导出归档、移动端、高级自定义报表留 backlog。
+- **M12-I38 报表数据层（本轮完成）**：
+  - 新域 `app/apm/domains/reports.py`——**纯投影查询，无新表无新事件**（rebuild 一致性由构造保证，测试仍显式断言）；GET /projects/{id}/report（五桶漏斗+概念分布+pending Gate+超期/滞留+近 14 天吞吐）、GET /my/work（**指派即授权**+Gate 仅 owner/instance admin）、GET /projects 列表补 item_counts+gates_pending；
+  - 超期口径：cf 声明 due（ISO 日期）早于今日→「超期 N 天」，否则活跃项创建超 14 天→「滞留」（docs/12 §9 于 I40 收口）；
+  - 初版成员可见性过滤方案废弃——与「被指派者须见自己的工作」冲突，指派即授权；
+  - test_reports.py 4 项；**pytest 127 全绿、冒烟 17 GREEN**。
+- **当前验证状态**：pytest **127 项全绿**；冒烟基线 **17 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -145,7 +150,7 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M12-I38 开工：报表数据层**（docs/10 §M12）：新域 `app/apm/domains/reports.py`——纯投影查询 API（无新表无新事件）：`GET /projects/{id}/report`（阶段漏斗、Gate 挂起清单、超期工作项、近 14 天吞吐）、`GET /my/work`（跨项目「分配给我」+ 我负责的 Gate 审批）、`GET /projects` 响应补健康摘要；单测含 viewer 可读/非成员 403/rebuild 后数字不变。
+1. **M12-I39 开工：报表前端与项目工作台**（docs/10 §M12）：新页「报表」（`#/p/{pid}/reports`，侧栏入口）：阶段漏斗条形、Gate 挂起卡片（直达审批中心）、超期清单（reason 徽标）、吞吐 sparkline（近 14 天 created/done）；项目列表页（App.tsx `PickerInner`）每行健康徽标（item_counts+gates_pending）；全局「我的工作」入口（AppShell 侧栏，`#/my/work`，跨项目聚合）；api.ts 增 getProjectReport/getMyWork + 类型；浏览器验证报表数字与看板/审计一致（截图）。
 2. I39 报表前端与项目工作台 → I40 收尾（CSV+docs+冒烟 18）→ **M12 正式审阅**（模式同 M8-M11）。
 3. 审阅通过后：新一轮开源调研 → 定 M13。
 
