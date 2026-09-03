@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M9-I29 完成，下一步 I30 规则管理前端）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M9-I30 完成，下一步 I31 收尾）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -80,7 +80,12 @@
   - API：CRUD `/projects/{id}/automations`（M8 门禁自动生效）+ `/test` dry-run + `/runs` 历史；main.py lifespan `install_automation_engine()` 幂等装配；
   - **顺手修 domains/__init__ 投影注册清单漏 members/template_packs**（此前靠 main 导入链间接注册，非应用上下文 rebuild 会静默丢投影）；
   - 新增 test_automations.py 5 项 + **冒烟 15**；pytest **103** 项全绿、冒烟 **15** 条 GREEN。
-- **当前验证状态**：pytest **103 项全绿**；冒烟基线 **15 条全绿**（15 = 自动化规则全程）；前端无改动（build/vitest 上次验证绿）。
+- **I30 规则管理前端（本轮完成）**：
+  - 本体页（项目设置）新增「自动化规则」面板：列表（触发徽章/条件摘要/动作摘要 + 测试运行/历史/启停/删除）、三段式新建表单（当〈事件〉→满足〈概念+可选谓词〉→则〈动作动态参数〉；enum 字段按本体声明出值下拉、multiselect 逗号分隔转数组、set_status 状态池按条件概念收窄）；
+  - 测试运行 = `/test` dry-run toast；历史抽屉 = `/runs`（#事件号/已执行-被拒绝徽章/动作明细）；
+  - api.ts 增 6 方法 + 4 类型（AutomationRule 等，action.value 多型）；
+  - 浏览器隔离复演：UI 建两条规则 → API 建缺陷触发 → 看板卡片自动「👤 qa-wang + 严重度： P0」徽标 → 历史抽屉「#14 已执行」（截图 docs/i30-automation-panel.png、i30-automation-fired.png、i30-automation-board-card.png）。
+- **当前验证状态**：pytest **103 项全绿**；冒烟基线 **15 条全绿**（15 = 自动化规则全程）；`pnpm build`/`pnpm vitest` 绿。
 - **M8 正式审阅通过（`978da42`+`630e91f`，附录 B）**：
   - 审阅时点 HEAD `dec89c3` 重跑 pytest 97/冒烟 14 全绿；I26/I27/I28 DoD 逐项核对（凭证与审计/三角色矩阵与 rebuild/归账断言）；
   - 浏览器双账号协作演示（隔离 network 模式）：登录页登录 → 建项目（Owner=李雷）→ 管理员建号 qa-wang → 成员面板加 Viewer → viewer 写 403（access.denied 四元组审计）→ 升 Contributor 写成功 → 审计时间线归账链 #16/#20/#21 完整；截图 docs/m8-review-login.png、m8-review-admin-members.png、m8-review-viewer-denied.png、m8-review-audit-attribution.png；
@@ -94,9 +99,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M9-I30 开工：规则管理前端**（docs/10 §M9）：项目设置页「自动化」面板——规则列表（启停开关）+ 新建表单（事件类型/条件字段谓词/动作白名单下拉）+「测试运行」（调 `/test` dry-run 显示将执行的动作）+ 触发历史抽屉（调 `/runs`）；api.ts 增对应方法。
-2. I31 收尾（审计页 automation 过滤入口 + docs/12 使用指南 + 浏览器演示）→ **M9 正式审阅**（冒烟 15 + DoD + 演示：建规则→触发→自动动作→审计归账）。
-3. M9 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
+1. **M9-I31 开工：收尾**（docs/10 §M9）：审计页 automation 归账过滤入口（审计页现有 actor_type 过滤验证可用即可）+ docs/12 自动化使用指南（三段式模型/动作白名单/防循环语义/出站 webhook 登记 backlog）+ 浏览器演示（建规则→触发→自动动作→审计归账）。
+2. **M9 正式审阅**（冒烟 15 + I29/I30/I31 DoD 核对 + 附录 B 记录 + 审阅截图，按 M8 审阅模式）。
+3. 审阅通过后：新一轮开源调研（目标协议第 1 条）→ 定 M10（候选：出站 webhook、本体版本事件级归档、SSO/OIDC、移动端适配）。
 
 ## 5. 有哪些坑不要再踩
 
