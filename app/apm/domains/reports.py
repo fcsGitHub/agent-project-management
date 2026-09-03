@@ -18,10 +18,12 @@ construction: there is nothing to project and nothing to replay.
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 from apm.core import db, events
 from apm.domains.items import BUCKET_NAMES
@@ -87,6 +89,29 @@ def _overdue_rows(project_id: str | None = None) -> list[dict]:
     return out
 
 
+@router.get("/projects/{project_id}/report.csv")
+def project_report_csv(project_id: str) -> Response:
+    """CSV export of the same numbers as /report (docs/12 §9): one
+    section,key,title,reason,value table so spreadsheets can filter by section."""
+    rep = project_report(project_id)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["section", "key", "title", "reason", "value"])
+    for bucket, n in rep["funnel"].items():
+        w.writerow(["funnel", bucket, "", "", n])
+    for concept, n in rep["concepts"].items():
+        w.writerow(["concept", concept, "", "", n])
+    w.writerow(["throughput", "created_total", "", "", rep["throughput"]["created_total"]])
+    w.writerow(["throughput", "done_total", "", "", rep["throughput"]["done_total"]])
+    for it in rep["overdue"]:
+        w.writerow(["overdue", it["id"], it["title"], it["reason"], ""])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="report-{project_id}.csv"'},
+    )
+
+
 @router.get("/projects/{project_id}/report")
 def project_report(project_id: str) -> dict:
     conn = db.get_conn()
@@ -106,11 +131,18 @@ def project_report(project_id: str) -> dict:
         (project_id,),
     ).fetchall()}
 
-    gates = [dict(r) for r in conn.execute(
+    gates = []
+    for r in conn.execute(
         "SELECT id, kind, run_id, item_id, conversation_id, requested_at, payload_snapshot"
         " FROM approvals WHERE project_id = ? AND status = 'pending' ORDER BY requested_at",
         (project_id,),
-    ).fetchall()]
+    ).fetchall():
+        g = dict(r)
+        try:
+            g["payload_snapshot"] = json.loads(g["payload_snapshot"] or "{}")
+        except (TypeError, ValueError):
+            g["payload_snapshot"] = {}
+        gates.append(g)
 
     since = (_now() - timedelta(days=THROUGHPUT_DAYS)).isoformat()
     created = {r["d"]: r["c"] for r in conn.execute(
