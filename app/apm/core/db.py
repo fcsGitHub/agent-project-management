@@ -78,6 +78,12 @@ def init_db() -> None:
         pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "field_overrides" not in pcols:
             conn.execute("ALTER TABLE projects ADD COLUMN field_overrides TEXT")
+        # Lightweight migration: 存量库补 saved_views.is_default（M16-I52）。
+        if any(r[0] == "saved_views" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            vcols = {r["name"] for r in conn.execute("PRAGMA table_info(saved_views)").fetchall()}
+            if "is_default" not in vcols:
+                conn.execute("ALTER TABLE saved_views ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0")
         # Lightweight migration: 存量库补 users 凭据列（M8-I26）。
         ucols = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
         if "password_hash" not in ucols:

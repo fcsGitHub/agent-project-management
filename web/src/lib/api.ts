@@ -35,7 +35,7 @@ export type Milestone = {
 };
 export type SavedView = {
   id: string; project_id: string; name: string; owner_id: string | null;
-  is_public: number; definition: Record<string, string>;
+  is_public: number; is_default?: number; definition: Record<string, string>;
   created_at: string; updated_at: string;
 };
 export type Run = {
@@ -82,7 +82,7 @@ export type MyWork = {
   projects: { id: string; name: string }[];
 };
 export type BoardData = {
-  project_id: string; feature_id?: string; group_by: string;
+  project_id: string; feature_id?: string; applied_view_id?: string; group_by: string;
   buckets: { id: string; name: string; items: Item[] }[];
   columns: { id: string; concept_id: string; concept_name: string; status: string; name: string; group: string }[];
   field?: { id: string; name: string; type: string } | null;
@@ -261,6 +261,7 @@ export const api = {
   patchView: (id: string, body: { name?: string; definition?: Record<string, string>; is_public?: boolean }) =>
     req<SavedView>(`/views/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteView: (id: string) => req<{ deleted: string }>(`/views/${id}`, { method: "DELETE" }),
+  makeViewDefault: (id: string) => req<SavedView>(`/views/${id}/make-default`, { method: "POST" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

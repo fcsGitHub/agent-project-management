@@ -287,6 +287,19 @@ def get_board(
             raise HTTPException(status_code=422, detail="view belongs to another project")
         views_domain._actor_can_read(v, core_events.effective_actor())
         view_def = v["definition"]
+    elif not view_id and not group_by:
+        # I52: no explicit view/group → fall back to the project default view.
+        from apm.core import events as core_events
+        from apm.domains import views as views_domain
+        row = db.get_conn().execute(
+            "SELECT id FROM saved_views WHERE project_id = ? AND is_default = 1",
+            (project_id,),
+        ).fetchone()
+        if row:
+            v = views_domain.require_view(row["id"])
+            views_domain._actor_can_read(v, core_events.effective_actor())
+            view_def = v["definition"]
+            view_id = v["id"]
     group_by = group_by or view_def.get("group_by")
     effective = group_by or onto.board_defaults.get("group_by", "lifecycle")
     inactive = disabled_fields(project_id)
@@ -320,6 +333,7 @@ def get_board(
     resp = {
         "project_id": project_id,
         "feature_id": feature_id,
+        "applied_view_id": view_id,
         "buckets": [
             {"id": b, "name": BUCKET_NAMES[b], "items": buckets.get(b, [])} for b in BUCKET_NAMES
         ],

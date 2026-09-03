@@ -296,6 +296,7 @@ CREATE TABLE IF NOT EXISTS saved_views (
   name TEXT NOT NULL,
   owner_id TEXT,
   is_public INTEGER NOT NULL DEFAULT 0,
+  is_default INTEGER NOT NULL DEFAULT 0,
   definition TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

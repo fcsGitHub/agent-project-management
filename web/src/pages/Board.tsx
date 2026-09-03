@@ -28,22 +28,23 @@ export function Board() {
     queryFn: () => api.listViews(pid!),
     enabled: !!pid,
   });
-  const currentView = viewsQ.data?.views.find((v) => v.id === viewId);
 
   // 直开 ?view=<id>（分享链接缺过滤参数时）自动补齐视图定义；显式 params 优先。
   useEffect(() => {
-    if (!currentView) return;
+    if (!viewId) return;
+    const v = viewsQ.data?.views.find((x) => x.id === viewId);
+    if (!v) return;
     const usp = new URLSearchParams(params);
     let changed = false;
     const put = (k: string, v: string | undefined) => {
       if (v && !usp.has(k)) { usp.set(k, v); changed = true; }
     };
-    put("priority", currentView.definition?.priority);
-    put("assignee", currentView.definition?.assignee_id);
-    put("group", currentView.definition?.group_by);
+    put("priority", v.definition?.priority);
+    put("assignee", v.definition?.assignee_id);
+    put("group", v.definition?.group_by);
     if (changed) setParams(usp, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewId, currentView?.id]);
+  }, [viewId, viewsQ.data]);
 
   const board = useQuery({
     queryKey: ["board", pid, featureId, group],
@@ -55,6 +56,11 @@ export function Board() {
     queryFn: () => api.getOntology(pid!, true),
     enabled: !!pid,
   });
+  // chip 优先显示 URL 选中的视图，其次后端落的默认视图（I52）
+  const currentView =
+    viewsQ.data?.views.find((v) => v.id === viewId) ??
+    viewsQ.data?.views.find((v) => v.id === board.data?.applied_view_id);
+
   // Distinct custom fields across concepts → grouping selector options (M6-I21),
   // minus the project-deactivated ones (M7-I25).
   const fieldOptions = useMemo(() => {
@@ -194,8 +200,20 @@ export function Board() {
                       title="应用此视图">
                       <span className={cx("font-medium", v.id === viewId && "text-acc")}>{v.name}</span>
                       {!!v.is_public && <Badge tone="violet">公开</Badge>}
+                      {v.is_default ? <Badge tone="amber">默认</Badge> : null}
                       {v.id === viewId && <span className="ml-1 text-[10px] text-acc">当前</span>}
                     </button>
+                    {!v.is_default && (
+                      <button onClick={async () => {
+                        try {
+                          await api.makeViewDefault(v.id);
+                          qc.invalidateQueries({ queryKey: ["views", pid] });
+                          toast.success(`「${v.name}」已设为项目默认视图`);
+                        } catch (e) { toast.error(String(e)); }
+                      }}
+                        className="shrink-0 text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
+                        title="设为项目默认视图（打开看板直达）">默认</button>
+                    )}
                     <button onClick={() => removeView(v.id)}
                       className="shrink-0 text-[11px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100"
                       title="删除视图">✕</button>
@@ -232,7 +250,8 @@ export function Board() {
             </div>
           )}
         </div>
-        <select value={group} onChange={(e) => setFilter("group", e.target.value)}
+        {/* 控件反映实际生效分组：显式 ?group= 优先，否则显示后端落的（默认视图）值 */}
+        <select value={group || board.data?.group_by || ""} onChange={(e) => setFilter("group", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
           <option value="">分组：生命周期</option>
           {fieldOptions.map(([fid, fname]) => (

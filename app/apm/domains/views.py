@@ -55,6 +55,13 @@ def _proj_view_deleted(conn, e):
     conn.execute("DELETE FROM saved_views WHERE id = ?", (e.agg_id,))
 
 
+@on("view.made_default")
+def _proj_view_made_default(conn, e):
+    """One default per project; replay-safe because clear-then-set is ordered."""
+    conn.execute("UPDATE saved_views SET is_default = 0 WHERE project_id = ?", (e.project_id,))
+    conn.execute("UPDATE saved_views SET is_default = 1 WHERE id = ?", (e.agg_id,))
+
+
 # ---------------------------------------------------------------- helpers
 def get_view(view_id: str) -> dict | None:
     row = db.get_conn().execute(
@@ -245,3 +252,18 @@ def delete_view(view_id: str) -> dict:
         payload={"name": v["name"]},
     )
     return {"deleted": view_id}
+
+
+@router.post("/views/{view_id}/make-default")
+def make_default_view(view_id: str) -> dict:
+    """Project-wide default: boards without an explicit view land here (I52)."""
+    v = require_view(view_id)
+    _actor_can_read(v, events.effective_actor())
+    events.emit(
+        event_type="view.made_default",
+        agg_type="view",
+        agg_id=view_id,
+        project_id=v["project_id"],
+        payload={},
+    )
+    return require_view(view_id)
