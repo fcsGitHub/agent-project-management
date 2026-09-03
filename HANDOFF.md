@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M16 正式审阅通过，下一步 M17 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17 已定义（I53-I55 OIDC 单点登录），下一步 I53）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -209,6 +209,7 @@
   - 审阅时点 HEAD `8b37d72` 重跑 pytest 147/冒烟 22/vitest 2 全绿；I50/I51/I52 DoD 逐项核对（事件溯源 CRUD+rebuild/双层 fail-closed 校验/M8 可见性矩阵/执行同数/URL 直开还原/默认视图直达/冒烟 22 全程）；
   - **审阅即修 1 个后端缺陷**：db.py 存量迁移条件把表名误查进列名集合致 ALTER 永不执行（隔离存量库 500 暴露）；
   - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：视图保存/切换/公开徽标/URL 直开/默认直达（docs/m15-i51-*.png ×5 + m15-i51-made-default.png + m15-i52-default-landing.png）；无新增 B/C 级意见。
+- **M17 已定义（本提交，docs/01 §P + docs/10 §M17）**：三路调研——FastAPI OIDC 模式（Authlib 事实标准：code flow + PKCE + state 存短命 cookie，复用 M8 HMAC 会话签发、握手后不缓存 id_token）、本地 IdP 取舍（Keycloak realm import 一键演示 vs Authelia 手工 YAML → 单测用本地 RSA JWT 桩离线覆盖、演示用 Keycloak compose）、Gitea 教训四约束（JIT 一次性定角色幂等不提升 #32566 反向规避 / allowlist 双层 #27709 / email 可信校验 / 账号不自动合并 409）→ **M17 = OIDC 单点登录（I53 OIDC client 基座+JWT 桩单测 / I54 会话整合与前端 / I55 Keycloak 演示环境+docs/12 §14+冒烟 23+审阅，约 10 人日）**；env 未配置=特性静默关闭（SMTP 同款）。
 - **当前验证状态**：pytest **147 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -217,8 +218,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M17 调研定义**（模式同 M6-M16）：2-3 路并行 WebSearch 开源调研（首选 SSO/OIDC——按 docs/01 §O.2 约束设计：JIT allowlist fail-closed、claim 缺失回落最低角色、账号链接分支显式处理；需本地 IdP 如 Keycloak/Authelia 演示环境；候选：通知 digest、事件归档）→ 结论写入 docs/01 新节 + docs/10 §M17（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M17 调研定义」提交。
-2. 按新计划开工 M17 迭代（预计 3 个迭代，约 9 人日）。
+1. **I53 OIDC client 基座**（M17 第 1 迭代，docs/10 §M17）：新模块 `core/oidc.py`——issuer discovery 缓存 + authorization URL（state/nonce/PKCE S256，state 存 HttpOnly 短命 cookie）+ `/auth/oidc/callback`（code 换 token、id_token 签名/issuer/audience/nonce/exp 验证）+ **JIT 四约束**（claim 齐+email_verified 才建号、角色 viewer 缺省且重登幂等不提升；`APM_OIDC_ALLOWED_GROUPS` 非空 fail-closed；email 缺失拒绝；同 email 本地账号 409 不合并）+ env 未配置整体关闭；单测用本地 RSA JWT 桩（mini jwks + authorize/token 桩）离线覆盖全协议路径与各拒绝矩阵 → 「M17-I53」三段式提交。
+2. I54 会话整合与前端（OIDC 按钮 + admin 配置面板 + 门禁兼容）→ I55 Keycloak 演示环境 + docs/11 §2 + docs/12 §14 + 冒烟 23 + M17 审阅。
 
 ## 5. 有哪些坑不要再踩
 

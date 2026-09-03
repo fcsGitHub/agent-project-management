@@ -399,3 +399,28 @@ M15 = **PWA 与移动端适配**：I47 响应式布局基座（窄屏断点 + ra
 **O.4 M16 取舍**
 
 M16 = **自定义视图与保存筛选**：I50 视图数据层（saved_views 投影表 + view.* 事件 + CRUD + 定义校验 fail-closed + rebuild 存活）/ I51 视图前端（看板/列表「视图」管理器：保存当前过滤、切换、重命名/删除、项目内共享徽标）/ I52 收尾（默认视图排序 + docs/12 §13 + 冒烟 22 + M16 审阅），约 9 人日。SSO/OIDC（按 O.2 约束设计，下一轮候选）、通知 digest、跨项目聚合报表（Enterprise 层）留 backlog。
+
+## P. M17 前置调研：OIDC 单点登录（2026-09-04）
+
+> 目标协议触发：M16 审阅通过后开启。三路调研（FastAPI OIDC 实现模式、本地 IdP 演示环境、Gitea 教训深化），选定 **OIDC 单点登录**——M8 遗留的 SSO 缺口，按 §O.2 约束设计。
+
+**P.1 FastAPI OIDC 实现模式（技术路线）**
+
+- **Authlib** 是 FastAPI 生态事实标准 OIDC client：authorization code 流的 state/nonce/PKCE verifier 存框架 session；session cookie 加固（HttpOnly/SameSite/secure）在 middleware 层完成；Auth0/Vouch 提供完整「code flow + PKCE + session middleware + claim 提取」参考实现。
+- 对本项目的映射：**复用 M8 既有会话体系**——OIDC 回调验证 id_token 后签发与本地登录同款的 HMAC 签名 HttpOnly cookie；state 用一次性随机值存短命 cookie（SameSite=Lax 防 CSRF）；confidential client 场景 PKCE(S256) 顺手启用；token 只在握手期使用，会话内不缓存 id_token（凭据不入事件，同 M8 语义）。
+
+**P.2 本地 IdP 演示环境（Keycloak vs Authelia）**
+
+- **Keycloak**：官方容器 + realm import JSON 一键（realm/client/test user 三件套），admin console 可视化，代价 ~1GB 内存；**Authelia**：~40MB 轻量，但 client 全手工 YAML。
+- 取舍：单测用「本地 JWT 签发桩」（自签 RSA 密钥 + mini jwks/authorize/token 端点）完全离线覆盖协议路径；演示/审阅环境用 Keycloak docker-compose（realm import 脚本化进 tools/），避免 Authelia 手工配置易错。
+
+**P.3 Gitea 教训深化 → 设计约束清单（主借鉴）**
+
+1. **JIT 注册一次性定角色**：注册时按 claim 定角色，claim 缺失 → 默认最低角色（viewer），**后续登录不再变更角色**（Gitea group-claim 标志第二次登录才生效的时序坑 #32566 的反向规避——幂等无提升）。
+2. **allowlist 双层**：IdP 侧组过滤（Keycloak group filtering）是第一层；应用侧 `APM_OIDC_ALLOWED_GROUPS` 非空时不在名单 fail-closed 403（Gitea 无 allowlist 的教训 #27709）。
+3. **信任链**：只信「验证过签名/issuer/audience」的 id_token claims；email 缺失或未验证 → 注册拒绝（Gitea Entra 跳账号链接页的教训：注册依赖可信 email claim）。
+4. **账号链接**：同 email 已存在本地账号时**不自动合并**——显式 409 提示管理员处理（合并是管理动作不是登录副作用）。
+
+**P.4 M17 取舍**
+
+M17 = **OIDC 单点登录**：I53 OIDC client 基座（discovery + authorization code + PKCE + id_token 验证 + JIT 建号四约束 + 本地 JWT 桩单测）/ I54 会话整合与前端（OIDC 登录按钮 + admin 面板配置 + network 门禁兼容）/ I55 Keycloak 演示环境（realm import 脚本）+ docs/11 §2 扩展 + docs/12 §14 + 冒烟 23 + M17 审阅，约 10 人日。通知 digest、事件归档、跨项目聚合报表继续留 backlog。

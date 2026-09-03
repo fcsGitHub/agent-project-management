@@ -580,6 +580,36 @@ agent-project-management/
 
 **M16 审阅点**：冒烟 22 + 各迭代 DoD + 浏览器演示（视图保存/切换/共享 + URL 直开）。
 
+### M17 · OIDC 单点登录（吸收 Authlib 模式 + Gitea 教训，I53-I55，约 10 人日）
+
+> v1.5 新增（2026-09-04，M16 审阅通过后按目标协议调研）。调研结论见 docs/01 §P：Authlib 模式（code flow + PKCE + state 存短命 cookie）复用 M8 会话签发；Keycloak realm import 一键演示（单测用本地 JWT 桩离线覆盖协议）；Gitea 教训四约束（JIT 一次性定角色 / allowlist 双层 / 可信 email / 账号不自动合并）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I53 | OIDC client 基座（discovery + code flow + PKCE + id_token 验证 + JIT 建号四约束 + 本地 JWT 桩单测） | 01 §P.1/P.3 | M8 security.py 会话 | 3.5d |
+| I54 | 会话整合与前端（OIDC 登录入口 + admin 配置面板 + network 门禁兼容） | 01 §P.1 | /login 页 + IdentitySwitcher | 3d |
+| I55 | Keycloak 演示环境 + docs/11 §2 扩展 + docs/12 §14 + 冒烟 23 + M17 审阅 | 01 §P.2 | — | 3.5d |
+
+#### I53 · OIDC client 基座（3.5d）
+
+- 任务：`core/oidc.py`——issuer discovery（.well-known/openid-configuration 缓存）+ authorization URL 构造（state/nonce/PKCE S256，state 存 HttpOnly 短命 cookie）+ `/auth/oidc/callback`（code 换 token、id_token 签名/issuer/audience/nonce/exp 验证）+ **JIT 建号四约束**（claim 齐全且 email_verified → users 表建行定角色 viewer 缺省、后续登录幂等不提升；allowlist `APM_OIDC_ALLOWED_GROUPS` 非空 fail-closed 403；email 缺失/未验证拒绝；同 email 本地账号存在 → 409 不自动合并）；配置走 env（APM_OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET/REDIRECT_URI）未配置=特性整体关闭（与 SMTP 同款静默语义）；单测用本地 RSA JWT 桩（mini jwks + authorize/token 桩端点）离线覆盖全协议路径。
+- DoD：单测（发现缓存/回调验证全绿 + 签名篡改/issuer 伪造/nonce 重放/email 未验证/组不在 allowlist/账号冲突 409 各拒绝路径 + JIT 幂等重登不提升角色）；pytest 全绿。
+- 演示路径：冒烟桩协议路径（Keycloak 真连留给 I55）。
+
+#### I54 · 会话整合与前端（3d）
+
+- 任务：回调成功签发 M8 同款 HMAC 会话 cookie（actor 归账走既有 events ContextVar 链路）；`GET /auth/me` source 增加 `oidc`；前端 `/login` 页 OIDC 按钮（特性关闭时不显示）+ 顶栏身份 chip 标注；本体页 admin「OIDC 配置」面板（issuer/client id/allowlist 展示，secret 不回显）；network 门禁/角色全兼容（OIDC 用户按 JIT 角色/成员角色归账）。
+- DoD：单测（回调→会话→写操作 actor 归账 / viewer 门禁对 OIDC 用户生效 / logout 清会话）；build+vitest 绿。
+- 演示路径：本地桩全流程「登录页 → OIDC → 会话 → 写操作审计归账」。
+
+#### I55 · Keycloak 演示环境 + 收尾审阅（3.5d）
+
+- 任务：`tools/keycloak/`（docker-compose + realm import JSON：realm/client/演示用户/admin 组）；docs/11 §2 扩展 OIDC env 表与流程；docs/12 §14 OIDC 单点登录指南（四约束语义/allowlist/账号冲突处置）；**新增冒烟 23**（OIDC 特性关闭零破坏 + 桩协议回归 + JIT 幂等）；全量回归 + M17 审阅。
+- DoD（并入冒烟 23）：关闭时行为与 M16 一致；pytest/冒烟全绿。
+- 演示路径：Keycloak 容器真连「登录 → JIT 建号 → 角色 → 审计」复演。
+
+**M17 审阅点**：冒烟 23 + 各迭代 DoD + 浏览器演示（桩全流程 + Keycloak 真连）。
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -724,6 +754,8 @@ agent-project-management/
 | I50 视图数据层 | 已完成 | 2026-09-04 | 2026-09-04 | 新域 `domains/views.py`：saved_views 投影表（id/project_id/name/owner_id/is_public/definition JSON，CREATE+drop_projections 清单同步）+ view.created/updated/deleted 事件（rebuild 存活）；CRUD（POST /projects/{pid}/views、GET 列表、GET/PATCH/DELETE /views/{id}）；**定义校验 fail-closed 双层**——键白名单（concept_id/status_group/status/assignee_id/priority/cf/group_by，未知键/空值/坏枚举/非 dict 422）+ 项目上下文（group_by=field:xxx 与 cf 的字段须本体声明**且项目未停用**）；**权限对齐 M8**：local 全放行；network 下 public 成员可读/private owner+admin、viewer 不可建、改删仅 owner+admin、非成员列表与详情 403；**执行纯复用**：get_items/get_board 增 view_id（definition 提供基础过滤、显式 query 参数覆盖；cf 匹配提取为模块级 `_cf_hit` 共用）；单测 4 项（CRUD+rebuild 前后一致/校验全矩阵含停用字段/执行与手工过滤同数+显式参覆盖+board 视图同数/network 可见性矩阵）；pytest **146** 全绿、冒烟 21 GREEN |
 | I51 视图前端 | 已完成 | 2026-09-04 | 2026-09-04 | 看板工具栏「视图」管理器：chip 按钮（当前视图名高亮 acc/未选中中性）+ 下拉面板（视图列表：应用/公开徽标/「当前」标注/hover 删除 ✕；保存区：名称输入+项目内公开勾选+保存；退出当前视图保留过滤）；**视图=过滤参数命名快照**——应用视图把 definition 写回 URL params（priority/assignee/group，功能切片保留），删当前视图自动清 view 键；**直开 `?view=<id>` 自动补齐 definition 参数**（显式 params 优先——分享链接还原语义）；api.ts 增 SavedView 类型 + listViews/createView/patchView/deleteView；build+vitest 绿；浏览器隔离复演（生产构建）：保存「高优先级」（priority=high+公开）→ URL `?priority=high&view=vw_x`、保存「按标签分组」（group=field:tags）→ 点击切换 chip 高亮+group 键被视图定义替换、**直开 `?view=vw_x` 自动补齐 priority+group** 分组下拉即选「分组：标签」（截图 docs/m15-i51-*.png ×5：保存面板/已保存/下拉列表/切换后/直开还原） |
 | I52 收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | **默认视图**：view.made_default 事件（投影先清项目内全部再设——rebuild 重放顺序执行幂等）+ saved_views.is_default 列（CREATE+ALTER 迁移）+ `POST /views/{id}/make-default` + board 无 view/group 参数时自动落项目默认视图（响应 `applied_view_id`）；前端 chip 认 applied_view_id（默认视图落点可见）、视图列表「设为默认」/「默认」徽标、**分组控件同步实际生效值**（`group || board.data?.group_by`）；**修 db.py 迁移条件 bug**——表名误查进列名集合致 ALTER 永不执行（隔离存量库 board 500 暴露，`sqlite_master` 存在性检查与列检查拆开修正）；docs/12 §13 自定义视图指南（定义 schema 表/权限/前端与默认视图）；**新增冒烟 22**（视图全程：CRUD→校验门→执行与手工过滤同数→make-default→board 落点→rebuild 一致→删除回落）；pytest **147** 全绿、冒烟基线 **22 条 GREEN**；build+vitest 绿（截图 docs/m15-i52-default-landing.png、m15-i51-made-default.png） |
+| **M16 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 22 + I50/I51/I52 各迭代 DoD 逐项核对全过（审阅时点 HEAD `8b37d72` 重跑 pytest 147/冒烟 22/vitest 2）+ 浏览器隔离复演「视图保存/切换/公开徽标/URL 直开/默认直达」（截图 docs/m15-i51-*.png ×5、m15-i51-made-default.png、m15-i52-default-landing.png，见附录 B）；审阅即修 db.py 存量迁移条件 bug |
+| **M17 OIDC 单点登录（I53-I55）** | 已定义 | 2026-09-04 | — | 3 迭代 / 约 10 人日（docs/01 §P + docs/10 §M17）：I53 OIDC client 基座（discovery + code flow + PKCE + JIT 建号四约束 + 本地 JWT 桩单测）/ I54 会话整合与前端（OIDC 按钮 + admin 配置面板 + 门禁兼容）/ I55 Keycloak 演示环境 + docs/12 §14 + 冒烟 23 + 审阅；digest/事件归档/聚合报表留 backlog |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -824,6 +856,7 @@ agent-project-management/
 | 2026-09-04 | I50 | 视图数据层：新域 `domains/views.py` + saved_views 投影表（drop_projections 清单同步）+ view.created/updated/deleted（rebuild 存活）；CRUD + **定义校验双层 fail-closed**（键白名单/值类型/枚举 + 项目上下文：group_by/cf 字段须声明**且未停用**——cf 分支初版漏停用检查，被单测「停用后 cf 视图应 422」当场拦住补上）；**权限对齐 M8**（local 放行；network public 成员读/private owner+admin 读/viewer 不可建/改删 owner+admin/非成员 403——列表语义为过滤掉不可读行而非整体 403，详情与执行端点才 403）；**执行纯复用**：get_items/get_board 增 view_id，definition 提供基础过滤、显式 query 参覆盖；cf 匹配提取模块级 `_cf_hit` 共用（get_items 原内嵌闭包消除）。测试踩坑记录：内置本体字段 id 是 `tags` 而非「概念.字段」全称、字段停用 API 是 `{field_id, active}`、tags 合法值 frontend/backend/infra、network 模式写请求须先 /auth/login（TestClient 无会话 cookie 首请求 401）。单测 4 项 + pytest **146** 全绿、冒烟 21 GREEN。 |
 | 2026-09-04 | I51 | 视图前端：看板工具栏「视图」管理器——chip 按钮（当前视图名 acc 高亮/未选中中性）+ 下拉面板（视图列表应用/公开徽标/「当前」标注/hover 删除 ✕；保存区：名称输入+项目内公开勾选；「退出当前视图」保留过滤只清 view 键）；**视图=过滤参数命名快照**：应用视图把 definition 写回 URL params（priority/assignee/group，功能切片 feature 保留），删当前视图自动清 view 键；**直开 `?view=<id>` 自动补齐 definition 参数**（useEffect 仅补 URL 缺失键、显式 params 优先——分享链接还原语义，避免 view id 成为第二过滤真源）；api.ts 增 SavedView + 4 方法。浏览器隔离复演（生产构建）：保存「高优先级」（priority=high+公开）URL 带 view id、保存「按标签分组」、点击切换 chip 高亮+group 键被视图定义替换、**直开 `?view=vw_x` 自动补齐 priority+group** 分组下拉即「分组：标签」（截图 docs/m15-i51-*.png ×5）。复演踩坑：**演示生产构建改代码后必须 SW update+reload**（autoUpdate precache 给旧 bundle，新 UI 静默不出现）；preview 代理在后端重启窗口期间歇 500（非产品缺陷）。build+vitest 绿。 |
 | 2026-09-04 | I52 | 收尾：**默认视图**——`view.made_default` 事件投影先清项目内 is_default 再设目标行（事件序重放=最终态，rebuild 幂等）；saved_views.is_default 列 CREATE+ALTER 迁移；`POST /views/{id}/make-default`；board 无 view/group 参数时自动落项目默认视图并回带 `applied_view_id`；前端 chip 认 applied_view_id（默认视图落点可见）、视图列表「设为默认/默认」徽标、分组控件 `group || board.data?.group_by` 同步实际生效值。**修 db.py 迁移条件 bug**：`"saved_views" in vcols` 把表名查进列名集合恒 False → ALTER 永不执行——隔离存量库 board 500 当场暴露（新表库 CREATE DDL 直接管、单测 tmp_data 全新库测不到存量迁移，**演示隔离库才是存量迁移的真测试场**），拆分「表存在性+缺列」两步修正。docs/12 §13 自定义视图指南（heredoc 追加中文产生 GBK 乱码一次——**中文文档段落一律 Edit 工具**，截断重写修复）。**新增冒烟 22**（CRUD→校验门→执行同数→make-default→board 落点→rebuild 一致→删除回落）。pytest **147** 全绿、冒烟基线 **22 条 GREEN**、build+vitest 绿（截图 docs/m15-i52-default-landing.png、m15-i51-made-default.png）。 |
+| 2026-09-04 | M17 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**FastAPI OIDC 实现模式**——Authlib 为事实标准（code flow 的 state/nonce/PKCE verifier 存框架 session、cookie 加固在 middleware；Auth0/Vouch 提供完整参考）→ 复用 M8 HMAC 会话签发，握手后不缓存 id_token；②**本地 IdP 演示环境**——Keycloak 官方容器 realm import JSON 一键（realm/client/user 三件套，~1GB）vs Authelia 40MB 手工 YAML → 单测用本地 RSA JWT 桩离线覆盖协议路径，演示用 Keycloak compose 脚本化；③**Gitea 教训深化**——group claim 派生标志第二次登录才生效（#32566）、无 allowlist（#27709）、Entra 缺可信 email 跳账号链接页 → 提炼四约束。选定 **M17 = OIDC 单点登录**（M8 遗留 SSO 缺口）：I53 OIDC client 基座（discovery+code flow+PKCE+id_token 验证+JIT 四约束+JWT 桩单测）/ I54 会话整合与前端（OIDC 按钮+admin 配置面板+门禁兼容）/ I55 Keycloak 演示环境+docs/11 §2+docs/12 §14+冒烟 23+审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +10 人日；新增冒烟 23 于 I55。结论入 docs/01 §P。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
