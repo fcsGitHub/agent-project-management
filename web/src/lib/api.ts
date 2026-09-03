@@ -374,6 +374,14 @@ export const api = {
   pingWebhook: (pid: string, hookId: string) =>
     req<DeliveryRecord>(`/projects/${pid}/webhooks/${hookId}/ping`, { method: "POST" }),
 
+  // Notification center (M10-I34): per-user feed with event-sourced read state.
+  listNotifications: () =>
+    req<{ notifications: { id: string; project_id: string; user_id: string; kind: string;
+      summary: string; ref_event_id: number | null; read: number; created_at: string }[];
+      unread: number; user_id: string }>("/notifications"),
+  markNotificationsRead: (body: { ids?: string[]; all?: boolean }) =>
+    req<{ ok: boolean }>("/notifications/read", { method: "POST", body: JSON.stringify(body) }),
+
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
   importOntology: (pack: Record<string, unknown>, asName: string) =>

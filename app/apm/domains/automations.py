@@ -34,7 +34,7 @@ BUILTIN_CONDITION_FIELDS = {
     "title", "priority", "status", "status_group",
     "assignee_type", "assignee_id",
 }
-ACTION_TYPES = ("assign", "set_priority", "set_field", "set_status")
+ACTION_TYPES = ("assign", "set_priority", "set_field", "set_status", "notify")
 
 _dispatching: ContextVar[bool] = ContextVar("apm_automation_dispatching", default=False)
 _installed = False
@@ -144,6 +144,14 @@ def _validate_action(onto, project_id: str, condition: dict, action: dict) -> No
         if not uid or not db.get_conn().execute(
                 "SELECT 1 FROM users WHERE id = ?", (uid,)).fetchone():
             raise HTTPException(status_code=422, detail=f"unknown user '{uid}'")
+    elif atype == "notify":
+        uid = action.get("user_id")
+        if not uid or not db.get_conn().execute(
+                "SELECT 1 FROM users WHERE id = ?", (uid,)).fetchone():
+            raise HTTPException(status_code=422, detail=f"unknown user '{uid}'")
+        message = action.get("message")
+        if message is not None and (not isinstance(message, str) or len(message) > 200):
+            raise HTTPException(status_code=422, detail="notify.message must be a string ≤200 chars")
     elif atype == "set_priority":
         if action.get("value") not in PRIORITIES:
             raise HTTPException(status_code=422, detail=f"priority must be one of {PRIORITIES}")
@@ -233,6 +241,14 @@ def _execute_action(rule: dict, item: dict) -> dict:
         if atype == "set_status":
             change_status(item, act["status"], actor_type="automation", actor_id=rid)
             return {"type": atype, "ok": True, "detail": f"状态置为 {act['status']}"}
+        if atype == "notify":
+            summary = act.get("message") or f"规则「{rule['name']}」已触发"
+            events.emit(
+                event_type="notification.sent", agg_type="item", agg_id=item["id"],
+                project_id=item["project_id"], actor_type="automation", actor_id=rid,
+                payload={"user_id": act["user_id"], "summary": summary, "kind": "rule_notify"},
+            )
+            return {"type": atype, "ok": True, "detail": f"已通知 {act['user_id']}：{summary}"}
         return {"type": atype, "ok": False, "detail": f"未知动作类型 {atype}"}
     except HTTPException as e:
         return {"type": atype, "ok": False, "detail": f"动作被拒绝：{e.detail}"}

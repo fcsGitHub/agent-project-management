@@ -9,6 +9,7 @@ from apm.domains import (  # noqa: F401
     items,
     members,
     nl,
+    notifications,
     ontology,
     ontology_cq,
     ontology_learn,

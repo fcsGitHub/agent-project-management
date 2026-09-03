@@ -118,5 +118,17 @@ def test_smoke_16_webhooks(client, tmp_data, isolated_ontologies, monkeypatch):
         hooks = client.get(f"/api/projects/{pid}/webhooks").json()["webhooks"]
         assert {h["url"] for h in hooks} == {f"{base}/ok", f"{base}/bad", f"{base}/slow"}
         assert client.delete(f"/api/projects/{pid}/webhooks/{slow['id']}").status_code == 200
+
+        # Notifications (M10-I34): assignment notifies the assignee; read-all clears.
+        client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+        client.patch(f"/api/items/{bug['id']}",
+                     json={"assignee_type": "human", "assignee_id": "qa-wang"})
+        client.post("/api/session/identity", json={"user_id": "qa-wang"})
+        notes = client.get("/api/notifications").json()
+        assert notes["user_id"] == "qa-wang" and notes["unread"] >= 1
+        assert notes["notifications"][0]["kind"] == "assigned"
+        assert client.post("/api/notifications/read", json={"all": True}).status_code == 200
+        assert client.get("/api/notifications").json()["unread"] == 0
+        client.post("/api/session/identity", json={"user_id": "u_admin"})
     finally:
         srv.shutdown()

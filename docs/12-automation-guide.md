@@ -74,3 +74,17 @@ if event["id"] <= last_seen_id:     # X-APM-Delivery 去重，幂等处理
 ```
 
 要点（来自 GitLab 明文 token 的历史教训）：**只认 HMAC 签名不认明文 token**；对**原始字节**计算摘要（重序列化会破坏签名）；比较用常量时间函数。
+
+## 7. 站内通知中心（M10-I34）
+
+顶栏铃铛 = 当前登录身份的通知流（15s 轮询 + 操作后刷新）：
+
+| 通知来源 | kind | 接收人 |
+| --- | --- | --- |
+| 工作项被指派给人类成员（`item.assigned`） | assigned | 被指派人 |
+| 阶段门/工件审批请求（`approval.requested`） | approval | 项目 Owner |
+| 自动化规则 `notify` 动作 | rule_notify | 动作指定的用户 |
+
+- **已读状态事件溯源**（`notification.read`，记录 ids 或 all），rebuild 后未读数精确还原；
+- 通知 id 确定性生成（`n_{源事件id}_{接收人}`），保证重放后与已读事件引用一致——这是事件溯源投影的通用要求（**投影生成的新实体 id 禁止随机**）；
+- 自动化规则里选「通知」动作即给指定用户发站内提醒（走 M9 防循环与 automation 归账，不产生邮件依赖）。

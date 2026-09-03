@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from "
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, Library, LayoutDashboard, KanbanSquare, MessagesSquare, ScrollText,
-  Settings as SettingsIcon, Shapes, Workflow, Plus, Bell, Command,
+  Settings as SettingsIcon, Shapes, Workflow, Plus, Bell, BellRing, Command,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { connectStream } from "../lib/sse";
@@ -145,6 +145,7 @@ export function AppShell() {
               </span>
             )}
           </Link>
+          <NotificationsBell />
           <IdentitySwitcher />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -163,9 +164,68 @@ export function AppShell() {
   );
 }
 
+const KIND_ICON: Record<string, string> = { assigned: "👤", approval: "◆", rule_notify: "⚡", notify: "🔔" };
+
+/** In-app notification center (M10-I34): unread badge + latest list + mark-read. */
+function NotificationsBell() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const notes = useQuery({
+    queryKey: ["notifications"],
+    queryFn: api.listNotifications,
+    refetchInterval: 15_000,
+  });
+  const unread = notes.data?.unread ?? 0;
+
+  const markAll = async () => {
+    await api.markNotificationsRead({ all: true });
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)} className="relative text-mut hover:text-acc" title="通知中心">
+        <BellRing size={17} />
+        {unread > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-dan px-1 text-[10px] font-bold text-white">
+            {unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-40 w-80 rounded-xl border border-line bg-surface p-2 shadow-lg">
+          <div className="flex items-center justify-between px-2 py-1">
+            <span className="text-xs font-semibold">通知</span>
+            <button disabled={!unread} onClick={markAll}
+              className={cx("text-[11px]", unread ? "text-acc hover:underline" : "text-mut")}>
+              全部已读
+            </button>
+          </div>
+          <div className="max-h-80 space-y-0.5 overflow-y-auto">
+            {(notes.data?.notifications ?? []).map((n) => (
+              <div key={n.id}
+                className={cx("flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs",
+                  !n.read && "bg-accbg/50")}>
+                <span>{KIND_ICON[n.kind] ?? "🔔"}</span>
+                <div className="min-w-0">
+                  <div className={cx("truncate", !n.read && "font-medium")}>{n.summary}</div>
+                  <div className="text-[10px] text-mut">{n.kind} · {new Date(n.created_at).toLocaleString()}</div>
+                </div>
+                {!n.read && <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-acc" />}
+              </div>
+            ))}
+            {!notes.data?.notifications.length && (
+              <div className="px-2 py-3 text-xs text-mut">暂无通知——指派、审批请求与自动化提醒会出现在这里</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewFeatureModal({ open, onClose, pid, onCreated }: {
-  open: boolean; onClose: () => void; pid?: string;
-  onCreated: (f: { id: string }) => void;
+  open: boolean; onClose: () => void; pid?: string;  onCreated: (f: { id: string }) => void;
 }) {
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
