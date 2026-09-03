@@ -231,7 +231,7 @@
 - **`items` 投影对 custom_fields 是整列覆盖**（I20 踩坑、I29 再防一次）：任何「改一个字段」的路径都必须合并现值后再发 item.updated，直接透传部分 dict 会清掉其他字段。
 - **投影器新生成实体的 id 禁止随机**（I34 踩坑）：通知 id 初版用 new_id，rebuild 后 id 漂移、已读事件引用失配、未读数回弹——投影中新实体 id 必须由事件流确定性导出（如 `n_{事件id}_{用户}`）。**单测 rebuild 断言要直接对比 id/未读数**。
 - **/api/session/identity 全局改 settings.user_id 会跨用例泄漏**（local 模式全局身份的固有语义）：依赖 effective_actor 的测试，文件内加身份还原夹具（保存→yield→还原）。
-- **改源码一律用 Edit 工具，禁 heredoc/python 脚本做源码修改**（I35 踩坑两次）：`\t`/`\n` 多层转义污染源文件；regex 探针误删 mailer.py 中段——探针脚本只读不改；临时调试探针提交前必须清理（grep 探针标记）。
+- **改源码一律用 Edit 工具，禁 heredoc/python 脚本做源码修改**（I35 踩坑两次）：`\t`/`\n` 多层转义污染源文件；regex 探针误删 mailer.py 中段——探针脚本只读不改；临时调试探针提交前必须清理（grep 探针标记）。**python 写文本文件必须 `write_bytes` 或 `write_text(..., newline="\n")`**（I50 踩坑：Windows 默认把 \n 转 CRLF，整文件行尾漂移制造全文 diff 噪声，已两次归一）。
 - **权限裁剪探针受 settings.user_id 全局身份影响**（M11 审阅踩坑）：local 模式「当前配置用户」恒放行（单机可信语义）——用 /me/feed-key 造 key 再测 403 时，先 /session/identity 固定配置身份为管理员，否则被测用户恰是配置身份会假性 200。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
