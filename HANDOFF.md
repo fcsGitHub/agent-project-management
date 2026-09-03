@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 三个迭代完成，待正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-03 更新 · M6 审阅通过，M7 已定义 I23-I25）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -42,6 +42,8 @@
   - langgraph 1.0.9→1.2.11（连带 langchain-core 1.6.1 / prebuilt 1.1.0 / sdk 0.4.4；checkpoint-sqlite 3.1.1 不动），requirements 下限抬至 `>=1.2.11`；
   - **全量回归零改动通过**：pytest 80 绿、冒烟 12 GREEN——Runtime 子图/录制回放/SqliteSaver 断点恢复/审批 Gate 在 1.2.11 下行为不变，无需回退；
   - 浏览器打断-注入-恢复演示（隔离环境）：pm-agent 至 prd_review Gate 挂起 → 注入约束 → ▸ 继续（checkpoint 续跑 revise）→ 新 PRD commit 逐条包含注入约束、回到 Gate → 批准后 succeeded。截图 `docs/i22-interrupt-inject-resume.png`。
+- **M6 正式审阅通过（`b5668e9`，附录 B）**：审阅时点重跑 pytest 80/冒烟 12 全绿；三迭代 DoD 逐项核对；浏览器隔离复演「按标签分组看板」与「打断-注入-恢复」（截图 docs/m6-review-board-grouping.png、docs/m6-review-interrupt-resume.png）；console 噪声逐条查明非产品缺陷。
+- **M7 已定义（`cd8b5dd`，docs/01 §F + docs/10 §4.7）**：调研 OpenProject 双层字段激活、n8n 模板市场、Plane/Focalboard 认证 → **M7 = 模板中心 + 项目级字段激活（I23-I25，约 9 人日）**；多人网络认证推迟 M8（横切改造，先做部署形态决策）。
 - **当前验证状态**：pytest **80 项全绿**；冒烟基线 **12 条全绿**（冒烟 9 含 cf 过滤+字段分组断言）；`pnpm build`/`pnpm vitest` 通过。
 
 ## 3. 现在卡在哪
@@ -50,9 +52,11 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M6 正式审阅**（docs/10 §4.4）：冒烟 9 + I20/I21/I22 DoD 核对 + 浏览器演示（字段分组演示复演 I21 路径；打断-注入-恢复复演 I22 路径）+ 附录 B 审阅记录 + 审阅截图。
-2. M6 审阅通过后：**新一轮开源调研**（目标第 5 条）→ 定 M7。候选：多人网络协作认证（users 无认证是已知 B 级遗留）、本体/资产模板市场（I18 模板包已就绪）、OpenProject 式「类型+项目双层激活」（需项目级本体覆盖机制）。
-3. 调研后按新计划继续迭代开发。
+1. **I23 · 模板包注册表与浏览 API**（docs/10 §M7 表，估 3d）：模板注册表投影（`pack.registered` 事件；`ontology.imported` 复用为导入登记）+ `GET /template-packs`（内置扫描+已导入，含版本/概念数/CQ 摘要）+ 预览 + `instantiate` 一键建项目。DoD 并入**新增冒烟 13**。
+2. **I24 · 模板中心前端页**（估 3d）：浏览卡片+预览抽屉+「用此模板建项目」；资产库沉淀模板入口。
+3. **I25 · 项目级字段激活**（估 3d）：`project.field_disabled/enabled` 事件投影 → 校验器与看板分组候选过滤停用字段；前端开关入口。
+4. **M7 审阅**：冒烟 13 + 各迭代 DoD + 浏览器模板中心演示。
+5. M7 之后：按目标第 5 条调研定 M8（首选多人网络认证——按 Plane 两层成员模型裁剪，先决策部署形态）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -66,6 +70,7 @@
 - **测试造信号必须发真实事件**（带 project_id）；sqlite Row 无 `.get()`；`Ontology.concepts` 是 dict；`asset_links.target_ref` 是 JSON 字符串；事件 append-only 触发器强制。
 - **前端是 HashRouter**：浏览器直接导航要用 `/#/p/{pid}/board`（不带 `/#` 会落在项目列表页，别当成 bug 查后端）。
 - **打/恢复演示（或相关测试）的确定性时序**：run 由后台线程执行，"interrupted" 状态 = 挂在 Gate 待评审；注入 = 对话内发消息（engine 把 run 开始后的用户消息收集为 constraints）；恢复 = ▸ 继续（resume 端点可带 instruction，Gate 挂起时走 revise）。参考 `app/tests/test_runtime.py` 的 `test_interrupt_inject_resume_*`。
+- **演示环境 console 会有 404/连接拒绝噪声**：长命浏览器标签页会跨隔离库轮询旧会话 ID、并在关服后持续重连——审阅时逐条核对来源再下结论，别当成产品缺陷，也别忽略。
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 
 ## 6. 快速上手命令
