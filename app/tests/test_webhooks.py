@@ -175,3 +175,35 @@ def test_disabled_webhook_stays_silent(client, project, receiver):
             break
         time.sleep(0.05)
     assert Receiver.requests and Receiver.requests[-1]["event"] == "item.created"
+
+
+def test_replay_and_ping(client, project, receiver):
+    pid = project["id"]
+    wh = client.post(f"/api/projects/{pid}/webhooks",
+                     json={"url": receiver, "events": ["item.created"]}).json()
+    client.post(f"/api/projects/{pid}/items", json={"concept_id": "bug", "title": "原始触发"})
+    import time
+    for _ in range(100):
+        if Receiver.requests:
+            break
+        time.sleep(0.05)
+    first_delivery = Receiver.requests[-1]["delivery"]
+    count_before = len(Receiver.requests)
+
+    # Ping: synthetic payload, single attempt, new delivery id.
+    ping = client.post(f"/api/projects/{pid}/webhooks/{wh['id']}/ping")
+    assert ping.status_code == 200 and ping.json()["attempts"] == 1
+    assert Receiver.requests[-1]["delivery"] != first_delivery
+    assert json.loads(Receiver.requests[-1]["raw"])["event_type"] == "ping"
+
+    # Replay: same payload as the original delivery, new delivery id.
+    replay = client.post(f"/api/projects/{pid}/webhooks/{wh['id']}/replay/{first_delivery}")
+    assert replay.status_code == 200
+    assert json.loads(Receiver.requests[-1]["raw"])["agg_id"] == json.loads(
+        next(r for r in Receiver.requests if r["delivery"] == first_delivery)["raw"])["agg_id"]
+    assert Receiver.requests[-1]["delivery"] != first_delivery
+    assert len(Receiver.requests) == count_before + 2
+
+    # Unknown delivery id → 404.
+    assert client.post(
+        f"/api/projects/{pid}/webhooks/{wh['id']}/replay/dl_nope").status_code == 404

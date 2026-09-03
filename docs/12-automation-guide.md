@@ -38,3 +38,39 @@
 - 每条规则绑定**单个动作**——需要组合动作时建多条规则（同触发事件按创建顺序执行）；
 - 出站 webhook（事件 → 外部 URL）登记 backlog：先内嵌后外联；
 - 条件谓词当前为标量相等 / multiselect 包含；区间与组合条件（AND/OR）留待有真实需求再加。
+
+## 6. Webhooks 出站（M10-I32/I33）
+
+项目 → 本体页 → **Webhooks 出站** 面板：配置接收端 URL + 订阅事件（白名单：item.* / approval.* / feature.created / automation.rule_fired），创建后 **secret 仅展示一次**（可随时「换发 secret」，旧签名立即失效）。
+
+### 6.1 投递语义（对齐 Gitea/GitLab，docs/01 §I.1）
+
+| 项 | 值 |
+| --- | --- |
+| 方法 / 体 | `POST` JSON，体 = 事件完整字典（原始字节） |
+| `X-APM-Event` | 事件类型（如 `item.created`） |
+| `X-APM-Delivery` | 投递 ID（`dl_` 前缀），接收方按它做幂等去重 |
+| `X-APM-Webhook` | 本条 webhook 的 id |
+| `X-APM-Signature` | `HMAC-SHA256(secret, 原始请求体字节)` 的十六进制摘要 |
+| 超时 / 重试 | 单次 5s 超时；失败按 1s/4s/16s 指数退避重试 3 次，共至多 4 次尝试 |
+
+每次投递终局都落事件流（`webhook.delivered` / `webhook.delivery_failed`：attempts、status_code、duration_ms、error），「投递历史」抽屉可查；失败投递可**一键重发**（新 delivery ID、单次尝试）；「Ping」发送合成测试载荷。投递在后台线程执行，**绝不阻塞写路径**。
+
+### 6.2 接收方验签（Python 示例）
+
+```python
+import hmac, hashlib
+
+def verify(secret: str, raw_body: bytes, signature: str) -> bool:
+    expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)   # 常量时间比较
+
+raw = request.get_data()            # 原始字节！不要 json.loads 后重序列化
+if not verify(WEBHOOK_SECRET, raw, request.headers["X-APM-Signature"]):
+    abort(401)
+event = json.loads(raw)
+if event["id"] <= last_seen_id:     # X-APM-Delivery 去重，幂等处理
+    return "dup"
+```
+
+要点（来自 GitLab 明文 token 的历史教训）：**只认 HMAC 签名不认明文 token**；对**原始字节**计算摘要（重序列化会破坏签名）；比较用常量时间函数。

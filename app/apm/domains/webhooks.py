@@ -216,6 +216,39 @@ def rotate_secret(project_id: str, webhook_id: str) -> dict:
     return {"webhook_id": webhook_id, "secret": secret}
 
 
+@router.post("/projects/{project_id}/webhooks/{webhook_id}/replay/{delivery_id}")
+def replay_delivery(project_id: str, webhook_id: str, delivery_id: str) -> dict:
+    """Manual redelivery (M10-I33): resend the payload of a recorded delivery
+    under a NEW delivery id, single attempt (an explicit human action)."""
+    require_project(project_id)
+    row = _row(webhook_id)
+    if not row or row["project_id"] != project_id:
+        raise HTTPException(status_code=404, detail=f"webhook {webhook_id} not found")
+    evs, _ = events.query_events(
+        project_id=project_id, agg_type="webhook", agg_id=webhook_id, limit=200)
+    original = next((e for e in evs
+                     if e.payload.get("delivery_id") == delivery_id
+                     and e.event_type in ("webhook.delivered", "webhook.delivery_failed")), None)
+    if original is None:
+        raise HTTPException(status_code=404, detail=f"delivery {delivery_id} not found")
+    source = events.get_event(original.payload.get("event_id") or 0)
+    if source is None:
+        raise HTTPException(status_code=410, detail="原始事件已不可用（事件流不含该 event_id）")
+    return _deliver(_parse(row, with_secret=True), source.as_dict(), retries=False)
+
+
+@router.post("/projects/{project_id}/webhooks/{webhook_id}/ping")
+def ping_webhook(project_id: str, webhook_id: str) -> dict:
+    """Test ping (M10-I33): deliver a synthetic ping payload, single attempt."""
+    require_project(project_id)
+    row = _row(webhook_id)
+    if not row or row["project_id"] != project_id:
+        raise HTTPException(status_code=404, detail=f"webhook {webhook_id} not found")
+    ping = {"id": 0, "event_type": "ping", "project_id": project_id,
+            "payload": {"summary": "AgentPM webhook 测试 ping"}}
+    return _deliver(_parse(row, with_secret=True), ping, retries=False)
+
+
 # ---------------------------------------------------------------- delivery
 def _sign(secret: str, raw_body: bytes) -> str:
     return hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
@@ -231,9 +264,10 @@ def _deliver_once(url: str, headers: dict[str, str], raw_body: bytes) -> tuple[i
         return e.code, time.monotonic() - start
 
 
-def _deliver(webhook: dict, event_dict: dict) -> None:
+def _deliver(webhook: dict, event_dict: dict, *, retries: bool = True) -> dict:
     """Deliver one event to one webhook with retries; record the outcome as an
-    event (delivered/failed) so history survives rebuild."""
+    event (delivered/failed) so history survives rebuild. `retries=False` gives
+    a single attempt (manual replay / ping)."""
     raw_body = json.dumps(event_dict, ensure_ascii=False).encode("utf-8")
     delivery_id = f"dl_{pysecrets.token_hex(8)}"
     headers = {
@@ -245,32 +279,36 @@ def _deliver(webhook: dict, event_dict: dict) -> None:
     if webhook.get("secret"):
         headers["X-APM-Signature"] = _sign(webhook["secret"], raw_body)
 
+    delays = RETRY_DELAYS if retries else ()
     attempts, last_code, last_err = 0, None, None
-    for attempt in range(1 + len(RETRY_DELAYS)):
+    for attempt in range(1 + len(delays)):
         if attempt:
-            time.sleep(RETRY_DELAYS[attempt - 1])
+            time.sleep(delays[attempt - 1])
         attempts = attempt + 1
         try:
             last_code, took = _deliver_once(webhook["url"], headers, raw_body)
             if 200 <= last_code < 300:
+                result = {"delivery_id": delivery_id, "event_type": event_dict["event_type"],
+                          "event_id": event_dict["id"], "attempts": attempts,
+                          "status_code": last_code, "duration_ms": round(took * 1000)}
                 events.emit(
                     event_type="webhook.delivered", agg_type="webhook", agg_id=webhook["id"],
                     project_id=webhook["project_id"], actor_type="system",
-                    payload={"delivery_id": delivery_id, "event_type": event_dict["event_type"],
-                             "event_id": event_dict["id"], "attempts": attempts,
-                             "status_code": last_code, "duration_ms": round(took * 1000)},
+                    payload=result,
                 )
-                return
+                return result
             last_err = f"HTTP {last_code}"
         except (urllib.error.URLError, OSError, ValueError) as e:
             last_err = str(e) or e.__class__.__name__
+    result = {"delivery_id": delivery_id, "event_type": event_dict["event_type"],
+              "event_id": event_dict["id"], "attempts": attempts,
+              "status_code": last_code, "error": last_err}
     events.emit(
         event_type="webhook.delivery_failed", agg_type="webhook", agg_id=webhook["id"],
         project_id=webhook["project_id"], actor_type="system",
-        payload={"delivery_id": delivery_id, "event_type": event_dict["event_type"],
-                 "event_id": event_dict["id"], "attempts": attempts,
-                 "status_code": last_code, "error": last_err},
+        payload=result,
     )
+    return result
 
 
 def _worker_loop() -> None:

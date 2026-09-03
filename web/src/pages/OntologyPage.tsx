@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
-import { api, type AutomationRule, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
+import { api, type AutomationRule, type DeliveryRecord, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
 import { Badge, Button, Card, Input, Modal, cx } from "../components/ui";
 
 export function OntologyPage() {
@@ -197,6 +197,8 @@ export function OntologyPage() {
       <MembersPanel pid={pid!} />
 
       <AutomationsPanel pid={pid!} concepts={o.concepts} />
+
+      <WebhooksPanel pid={pid!} />
 
       <LearnPanel
         scan={scan} scanning={scanning} applying={applying} selected={selected}
@@ -682,6 +684,189 @@ function RuleHistory({ pid, ruleId }: { pid: string; ruleId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+const WEBHOOK_EVENTS = [
+  "item.created", "item.updated", "item.status_changed", "item.assigned",
+  "approval.requested", "approval.granted", "approval.rejected",
+  "feature.created", "automation.rule_fired",
+];
+
+/** Outbound webhooks (M10-I33): signed event push — config, secret rotation,
+ *  delivery history, manual replay, test ping. */
+function WebhooksPanel({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const hooks = useQuery({ queryKey: ["webhooks", pid], queryFn: () => api.listWebhooks(pid) });
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [evs, setEvs] = useState<Set<string>>(new Set());
+  const [secretOnce, setSecretOnce] = useState<string | null>(null);
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["webhooks", pid] });
+
+  const create = async () => {
+    try {
+      const wh = await api.createWebhook(pid, { url: url.trim(), events: [...evs] });
+      setSecretOnce(wh.secret ?? null);
+      setUrl("");
+      setEvs(new Set());
+      setOpen(false);
+      await invalidate();
+      toast.success("Webhook 已创建——secret 仅此一次展示，请立即保存");
+    } catch (e) {
+      toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const rotate = async (id: string) => {
+    try {
+      const r = await api.rotateWebhookSecret(pid, id);
+      setSecretOnce(r.secret);
+      await invalidate();
+    } catch (e) {
+      toast.error(`换发失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const ping = async (id: string) => {
+    try {
+      const r = await api.pingWebhook(pid, id);
+      r.status_code && r.status_code < 300
+        ? toast.success(`Ping 成功（HTTP ${r.status_code}，${r.duration_ms}ms）`)
+        : toast.error(`Ping 失败：${r.error ?? `HTTP ${r.status_code}`}`);
+      await qc.invalidateQueries({ queryKey: ["webhook-deliveries", pid, id] });
+    } catch (e) {
+      toast.error(`Ping 失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">Webhooks 出站</span>
+        <span className="text-xs text-mut">事件推送 · HMAC-SHA256 签名 · 投递留痕可重发</span>
+        <Button size="sm" variant="outline" className="ml-auto" onClick={() => setOpen((v) => !v)}>＋ 新建 Webhook</Button>
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        {(hooks.data?.webhooks ?? []).map((w) => (
+          <div key={w.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs">
+            <span className={cx("font-mono", !w.enabled && "text-mut line-through")}>{w.url}</span>
+            <span className="text-[10px] text-mut">{w.events.length} 类事件</span>
+            {!w.has_secret && <Badge tone="amber">secret 已失效（rebuild 后需 rotate）</Badge>}
+            <span className="ml-auto flex items-center gap-1">
+              <button onClick={() => ping(w.id)}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">Ping</button>
+              <button onClick={() => setHistoryOf(w.id)}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">投递历史</button>
+              <button onClick={() => rotate(w.id)}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">换发 secret</button>
+              <button onClick={async () => { await api.patchWebhook(pid, w.id, { enabled: !w.enabled }); invalidate(); }}
+                className={cx("rounded-md border px-1.5 py-0.5 text-[10px]",
+                  w.enabled ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink")}>
+                {w.enabled ? "已启用" : "已停用"}
+              </button>
+              <button onClick={async () => { await api.deleteWebhook(pid, w.id); invalidate(); }}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-dan">删除</button>
+            </span>
+          </div>
+        ))}
+        {!hooks.data?.webhooks.length && <div className="px-1 py-1 text-xs text-mut">还没有出站 webhook——把项目事件推给 IM 机器人、CI 或任意接收端</div>}
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2 rounded-xl border border-line bg-bg p-3 text-xs">
+          <Input placeholder="接收端 URL（http/https）" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <div className="flex flex-wrap gap-1">
+            {WEBHOOK_EVENTS.map((ev) => {
+              const on = evs.has(ev);
+              return (
+                <button key={ev} onClick={() => {
+                  const next = new Set(evs);
+                  on ? next.delete(ev) : next.add(ev);
+                  setEvs(next);
+                }}
+                  className={cx("rounded-full border px-2 py-0.5 text-[11px]",
+                    on ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink")}>
+                  {ev}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" disabled={!url.trim() || !evs.size} onClick={create}>创建 Webhook</Button>
+          </div>
+        </div>
+      )}
+
+      <Modal open={!!secretOnce} onClose={() => setSecretOnce(null)} title="Webhook secret（仅此一次展示）">
+        <div className="space-y-2 text-xs">
+          <p className="text-mut">接收方以此 secret 对原始请求体做 HMAC-SHA256 验签（X-APM-Signature）。关闭后无法再查看，只能换发新的。</p>
+          <pre className="overflow-auto rounded-lg border border-line bg-bg px-3 py-2 font-mono">{secretOnce}</pre>
+        </div>
+      </Modal>
+
+      <Modal open={!!historyOf} onClose={() => setHistoryOf(null)} title="投递历史">
+        <DeliveryHistory pid={pid} hookId={historyOf!} />
+      </Modal>
+    </Card>
+  );
+}
+
+function DeliveryHistory({ pid, hookId }: { pid: string; hookId: string }) {
+  const qc = useQueryClient();
+  const deliveries = useQuery({
+    queryKey: ["webhook-deliveries", pid, hookId],
+    queryFn: () => api.listEvents({ project_id: pid, agg_type: "webhook", agg_id: hookId, limit: 50 }),
+  });
+  const rows = (deliveries.data?.events ?? [])
+    .filter((e) => e.event_type === "webhook.delivered" || e.event_type === "webhook.delivery_failed");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const replay = async (deliveryId: string) => {
+    setBusy(deliveryId);
+    try {
+      const r = await api.replayWebhookDelivery(pid, hookId, deliveryId);
+      r.status_code && r.status_code < 300
+        ? toast.success(`重发成功（HTTP ${r.status_code}）`)
+        : toast.error(`重发失败：${r.error ?? `HTTP ${r.status_code}`}`);
+      await qc.invalidateQueries({ queryKey: ["webhook-deliveries", pid, hookId] });
+    } catch (e) {
+      toast.error(`重发失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!rows.length) return <div className="p-2 text-xs text-mut">还没有投递记录——命中订阅事件后这里会留痕</div>;
+  return (
+    <div className="space-y-1.5 text-xs">
+      {rows.map((e) => {
+        const p = e.payload as unknown as DeliveryRecord;
+        const ok = e.event_type === "webhook.delivered";
+        return (
+          <div key={e.id} className="rounded-lg border border-line px-3 py-1.5">
+            <div className="flex items-center gap-2">
+              <Badge tone={ok ? "green" : "red"}>{ok ? "已送达" : "失败"}</Badge>
+              <span className="font-mono text-[10px] text-mut">{p.delivery_id}</span>
+              <span className="text-mut">{p.event_type}{p.event_type === "ping" ? "" : ` → #${p.event_id}`}</span>
+              <span className="ml-auto text-mut">
+                {p.status_code != null ? `HTTP ${p.status_code} · ` : ""}{p.attempts} 次{p.duration_ms != null ? ` · ${p.duration_ms}ms` : ""}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              {!ok && p.error && <span className="text-[11px] text-dan">{p.error}</span>}
+              <button disabled={busy === p.delivery_id} onClick={() => replay(p.delivery_id)}
+                className="ml-auto rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">
+                重发
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

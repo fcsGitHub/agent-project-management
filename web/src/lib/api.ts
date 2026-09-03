@@ -154,6 +154,15 @@ export type AutomationRun = {
   trigger_event_id: number; item_id: string; item_title: string;
   result: { type: string; ok: boolean; detail: string };
 };
+export type Webhook = {
+  id: string; project_id: string; url: string; events: string[];
+  enabled: boolean; has_secret: boolean; secret?: string;
+  created_at: string; updated_at: string;
+};
+export type DeliveryRecord = {
+  delivery_id: string; event_type: string; event_id: number;
+  attempts: number; status_code?: number; duration_ms?: number; error?: string;
+};
 export type TemplatePackPreview = {
   name: string; display_name: string; version: number; source: string;
   summary: { concepts: number; states: number; fields: number; phases: number; relations: number; competency_questions: number };
@@ -270,7 +279,7 @@ export const api = {
     req<{ path: string; content: string; history: { commit: string; date: string; message: string }[]; diff_vs_previous: string }>(
       `/projects/${pid}/artifacts/${path}`),
 
-  listEvents: (params: { project_id?: string; event_type?: string; actor_type?: string; limit?: number; offset?: number }) => {
+  listEvents: (params: { project_id?: string; event_type?: string; actor_type?: string; agg_type?: string; agg_id?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v !== undefined && v !== "" && q.set(k, String(v)));
     return req<{ events: AEvent[]; total: number }>(`/events?${q.toString()}`);
@@ -348,6 +357,22 @@ export const api = {
     req<AutomationTestRun>(`/projects/${pid}/automations/${ruleId}/test`, { method: "POST" }),
   automationHistory: (pid: string, ruleId: string) =>
     req<{ runs: AutomationRun[]; total: number }>(`/projects/${pid}/automations/${ruleId}/runs`),
+
+  // Outbound webhooks (M10-I32/I33): signed event push with delivery records.
+  listWebhooks: (pid: string) =>
+    req<{ webhooks: Webhook[] }>(`/projects/${pid}/webhooks`),
+  createWebhook: (pid: string, body: { url: string; events: string[]; enabled?: boolean }) =>
+    req<Webhook>(`/projects/${pid}/webhooks`, { method: "POST", body: JSON.stringify(body) }),
+  patchWebhook: (pid: string, hookId: string, body: { url?: string; events?: string[]; enabled?: boolean }) =>
+    req<Webhook>(`/projects/${pid}/webhooks/${hookId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteWebhook: (pid: string, hookId: string) =>
+    req<{ deleted: boolean }>(`/projects/${pid}/webhooks/${hookId}`, { method: "DELETE" }),
+  rotateWebhookSecret: (pid: string, hookId: string) =>
+    req<{ webhook_id: string; secret: string }>(`/projects/${pid}/webhooks/${hookId}/rotate`, { method: "POST" }),
+  replayWebhookDelivery: (pid: string, hookId: string, deliveryId: string) =>
+    req<DeliveryRecord>(`/projects/${pid}/webhooks/${hookId}/replay/${deliveryId}`, { method: "POST" }),
+  pingWebhook: (pid: string, hookId: string) =>
+    req<DeliveryRecord>(`/projects/${pid}/webhooks/${hookId}/ping`, { method: "POST" }),
 
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
