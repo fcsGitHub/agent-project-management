@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
     from apm.domains.conversations import router as conversations_router
     from apm.domains.events_api import router as events_router
     from apm.domains.features import router as features_router
+    from apm.domains.feed import router as feed_router
     from apm.domains.items import router as items_router
     from apm.domains.members import router as members_router
     from apm.domains.nl import router as nl_router
@@ -142,6 +143,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router, prefix="/api")
     app.include_router(webhooks_router, prefix="/api")
     app.include_router(notifications_router, prefix="/api")
+    app.include_router(feed_router, prefix="/api")
     app.include_router(webhooks_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(members_router, prefix="/api")

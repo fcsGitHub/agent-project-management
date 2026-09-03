@@ -76,6 +76,9 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
         if "is_admin" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        # Lightweight migration: 存量库补 users.feed_key（M11-I36）。
+        if "feed_key" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN feed_key TEXT")
         conn.commit()
 
 

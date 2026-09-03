@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT,
   password_hash TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0,
+  feed_key TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

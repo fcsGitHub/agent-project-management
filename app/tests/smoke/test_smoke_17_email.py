@@ -87,3 +87,18 @@ def test_smoke_17_email_channel(client, tmp_data, isolated_ontologies, monkeypat
     projections.rebuild()
     assert client.get("/api/events",
                       params={"event_type": "email.notified"}).json()["events"]
+
+    # Atom feed (M11-I36): key-authenticated, member-visible, well-formed.
+    import xml.etree.ElementTree as ET
+    key = client.get("/api/me/feed-key").json()["feed_key"]
+    r = client.get(f"/api/projects/{pid}/feed.atom", params={"key": key})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/atom+xml")
+    root = ET.fromstring(r.text)
+    assert root.tag.endswith("feed")
+    # Rotating the key kills the old one.
+    new_key = client.post("/api/me/feed-key/rotate").json()["feed_key"]
+    assert client.get(f"/api/projects/{pid}/feed.atom",
+                      params={"key": key}).status_code == 401
+    assert client.get(f"/api/projects/{pid}/feed.atom",
+                      params={"key": new_key}).status_code == 200
