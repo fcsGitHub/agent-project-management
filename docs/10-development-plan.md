@@ -382,6 +382,7 @@ agent-project-management/
 | I20 自定义字段值落地 | 已完成 | 2026-09-02 | 2026-09-02 | boolean/multiselect 字段类型 + items.custom_fields（ALTER 迁移）+ fail-closed 校验 + cf 过滤；顺手修两个隐藏投影 bug；pytest 79/冒烟 12 全绿 |
 | I21 看板字段分组与展示 | 已完成 | 2026-09-03 | 2026-09-03 | board `group_by=field:<id>` 分桶（声明值序+空列保留、multiselect 扇出、未设置列、未知 422）+ 前端分组选择器/卡片徽标/列表字段列；浏览器验证截图 docs/i21-board-field-grouping.png；pytest 80/冒烟 12 全绿 |
 | I22 LangGraph 1.2.11 升级验证 | 已完成 | 2026-09-03 | 2026-09-03 | langgraph 1.0.9→1.2.11（requirements 下限抬至 >=1.2.11）；pytest 80/冒烟 12 全绿零改动；浏览器打断-注入-恢复演示通过（revise 后 PRD 含注入约束、批准后 succeeded），截图 docs/i22-interrupt-inject-resume.png；无需回退 |
+| **M6 里程碑审阅（正式）** | 已完成 | 2026-09-03 | 2026-09-03 | 冒烟 9 + I20/I21/I22 各迭代 DoD 逐项核对全过（审阅时点重跑 pytest 80/冒烟 12）+ 浏览器复演字段分组与打断-注入-恢复两条演示路径（截图 docs/m6-review-board-grouping.png、docs/m6-review-interrupt-resume.png，见附录 B） |
 
 ## 8. 开发执行风险（补充 07 §6）
 
@@ -428,6 +429,7 @@ agent-project-management/
 | 2026-09-02 | M4 正式审阅 | CQ 证据行的 events 源是全局计数（不按项目过滤），多项目同本体时口径偏大 | B | 排入后续迭代任务清单（可在 evidence 的 events 源加 project_id 过滤；不影响单项目正确性） |
 | 2026-09-02 | M4 正式审阅 | 本体学习/版本面板未做权限分层（单用户 MVP 无影响，多租户时 apply 应挂审批） | B | 入附录 C backlog（对齐 07 §5 V2 治理） |
 | 2026-09-02 | M5 正式审阅 | 各迭代 DoD 核对：I17 回放候选确定性+confidence≥0.65+与 pattern 合并不重复+apply 同链路 ✓，CQ events 按项目过滤 ✓；I18 导出→改名导入→新本体建项目（7 阶段图继承）✓，同名 409/坏包 422 ✓，角色复用不覆盖 ✓；I19 双身份按人可分审计流 ✓，human 指派未知用户 fail-closed ✓，assignee 过滤看板切片 ✓，审批 decided_by 过滤 ✓。浏览器演示（本次**同时隔离** data 与 ontologies 目录——M4 教训落实）：注册「QA 王」→ 自动切换（顶栏 👤 QA 王）→ 本体页「✨ LLM 建议」→ 2 条 LLM 候选（0.72，通道 llm）→ 勾选应用 → v2 + 时间线；导出/导入入口在位。截图 docs/m5-review-collab-page.png。 | — | 里程碑通过 |
+| 2026-09-03 | M6 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD `6e73cde` 重跑）：**I20** 三类新类型读写往返 ✓（test_custom_field_types_roundtrip）、未声明/类型错/越界 fail-closed 422 ✓（test_custom_field_validation_fail_closed）、multiselect 多值存储 ✓、rebuild 投影一致 ✓（test_custom_fields_survive_rebuild）；**I21** 分组 API 桶序/扇出/未设置列/未知 422 ✓（test_board_group_by_custom_field）、冒烟 9 含 cf 过滤+字段分组断言 ✓；**I22** langgraph 1.2.11 下 pytest 80 项全绿 + 冒烟 12 条 GREEN 零改动 ✓。浏览器复演两条演示路径（隔离 data+ontologies）：①「按标签分组看板」frontend×2/backend×1/infra×1/未设置×2，multiselect 扇出与卡片徽标可见（截图 docs/m6-review-board-grouping.png）；②「打断-注入-恢复」pm-agent 至 prd_review 挂起（commit 9e781813）→ 注入「兼容 Python 3.9 / 导出 Markdown」→ ▸ 继续 checkpoint 续跑 revise → 新稿 4fffc13e 逐条含注入约束回到 Gate → 批准后 run succeeded（截图 docs/m6-review-interrupt-resume.png）。演示中浏览器 console 的 404/连接拒绝噪声逐条查明：均为跨隔离环境旧会话轮询与关服后标签页重连，非产品缺陷。 | — | 里程碑通过 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
