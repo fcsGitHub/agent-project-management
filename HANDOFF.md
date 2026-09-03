@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14-I46 完成，下一步 M14 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M14 正式审阅通过，下一步 M15 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -178,8 +178,10 @@
 - **M14-I46 排程与可携收尾（本轮完成）**：
   - docs/12 §11 排程自动化与事件可携（语义/审计/导入流水线）；docs/11 §5.3 恢复步骤更新（import 端点实操）；
   - **新增冒烟 20**（A←B←C 自动排期传播 + 导出→第二全新库导入 roundtrip + 恢复库 rebuild 一致）；pytest **141** 全绿、**冒烟 20 GREEN**。
+- **M14 正式审阅通过（本提交，附录 A/B）**：
+  - 审阅时点 HEAD `b1f93cb` 重跑 pytest 141/冒烟 20 全绿；I44/I45/I46 DoD 逐项核对（单级传播保时长+归因/手动零影响/多级+环安全/rebuild 存活；roundtrip 事件流与投影逐行一致/拒绝矩阵六例/冒烟 20 全程；docs/12 §11 与 docs/11 §5.3 在位）；
+  - 浏览器隔离复演：「依赖链-设计→开发→测试」三级链全开自动排期 → PATCH A due +6 → B/C 自动顺延（时间线 hover「⏱ 自动排期」，docs/m14-review-timeline.png）；审计页 item.rescheduled ×2 逐条 follow_of/delta_days=6（docs/m14-review-audit-rescheduled.png）；无新增 B/C 级意见。
 - **当前验证状态**：pytest **141 项全绿**；冒烟基线 **20 条全绿**；`pnpm vitest`/`pnpm build` 绿。
-- **当前验证状态**：pytest **134 项全绿**；冒烟基线 **19 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -187,8 +189,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M14 正式审阅**（模式同 M8-M13）：审阅时点 HEAD 重跑全量（pytest 141/冒烟 20）→ I44/I45/I46 DoD 逐项核对 → 浏览器隔离复演「依赖传播（时间线 hover 审计 rescheduled 链）+ 导出→导入 roundtrip」→ 附录 B 记录 → 「M14 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研（首选 PWA/移动端；候选 SSO、通知 digest、高级报表）→ 定 M15。
+1. **M15 调研定义**（模式同 M6-M14）：2-3 路并行 WebSearch 开源调研（首选 PWA/移动端适配：WeKan PWA、Focalboard/Plane 移动策略；候选 SSO/OIDC、通知 digest、高级自定义报表）→ 结论写入 docs/01 新节 + docs/10 §M15（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M15 调研定义」提交。
+2. 按新计划开工 M15 迭代（预计 3 个迭代，约 9 人日）；其余候选（SSO、digest、高级报表）按调研结论排入后续里程碑或 backlog。
 
 ## 5. 有哪些坑不要再踩
 
@@ -216,8 +218,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 123 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 17 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 141 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 20 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
