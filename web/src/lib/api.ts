@@ -3,7 +3,7 @@ export type Project = {
   id: string; name: string; description?: string; ontology: string; template: string;
   status: string; charter?: string; created_at: string; updated_at: string;
   features?: Feature[]; item_counts?: Record<string, number>; bootstrap?: Record<string, string>;
-  disabled_fields?: string[];
+  disabled_fields?: string[]; gates_pending?: number;
 };
 export type Feature = {
   id: string; project_id: string; title: string; brief?: string; status: string;
@@ -37,7 +37,7 @@ export type Span = {
   attributes: Record<string, unknown>; io?: Record<string, unknown> | null;
 };
 export type Approval = {
-  id: string; project_id?: string; run_id?: string; conversation_id?: string; kind: string;
+  id: string; project_id?: string; run_id?: string; conversation_id?: string; item_id?: string; kind: string;
   status: string; requested_at?: string; decided_at?: string; reviewer_id?: string;
   comment?: string; payload_snapshot: {
     gate?: string; gate_label?: string; role?: string; tool?: string; summary?: string;
@@ -47,6 +47,26 @@ export type Approval = {
 export type AEvent = {
   id: number; ts: string; actor_type: string; actor_id: string; project_id: string;
   agg_type: string; agg_id: string; event_type: string; payload: Record<string, unknown>;
+};
+export type ProjectReport = {
+  project_id: string;
+  funnel: Record<string, number>;
+  concepts: Record<string, number>;
+  gates_pending: (Pick<Approval, "id" | "kind" | "run_id" | "item_id" | "conversation_id" | "requested_at" | "payload_snapshot">)[];
+  overdue: (Pick<Item, "id" | "title" | "status" | "project_id" | "created_at"> & {
+    project_name?: string; status_group: string; reason: string;
+  })[];
+  throughput: {
+    days: number;
+    series: { date: string; created: number; done: number }[];
+    created_total: number; done_total: number;
+  };
+};
+export type MyWork = {
+  user_id: string;
+  items: (Item & { project_name?: string })[];
+  approvals: (Pick<Approval, "id" | "project_id" | "kind" | "run_id" | "item_id" | "requested_at"> & { project_name?: string })[];
+  projects: { id: string; name: string }[];
 };
 export type BoardData = {
   project_id: string; feature_id?: string; group_by: string;
@@ -212,6 +232,8 @@ export const api = {
   createProject: (body: { name: string; ontology: string; requirement?: string; description?: string }) =>
     req<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   getProject: (id: string) => req<Project>(`/projects/${id}`),
+  getProjectReport: (id: string) => req<ProjectReport>(`/projects/${id}/report`),
+  getMyWork: () => req<MyWork>("/my/work"),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

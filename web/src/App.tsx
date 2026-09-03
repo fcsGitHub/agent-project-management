@@ -16,6 +16,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { OntologyPage } from "./pages/OntologyPage";
+import { ReportsPage } from "./pages/ReportsPage";
+import { MyWorkPage } from "./pages/MyWorkPage";
 
 export default function App() {
   return (
@@ -32,10 +34,12 @@ export default function App() {
           <Route path="graph" element={<GraphView />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="audit" element={<AuditPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="ontology" element={<OntologyPage />} />
         </Route>
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/my/work" element={<MyWorkPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -54,7 +58,7 @@ import { Button, Card, Input, Textarea, Modal, Badge } from "./components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
-function PickerInner({ projects }: { projects: { id: string; name: string; ontology: string; status: string }[] }) {
+function PickerInner({ projects }: { projects: { id: string; name: string; ontology: string; status: string; item_counts?: Record<string, number>; gates_pending?: number }[] }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(!!projects.length ? false : true);
@@ -71,16 +75,24 @@ function PickerInner({ projects }: { projects: { id: string; name: string; ontol
           <p className="mt-1 text-sm text-mut">人指挥 · Agent 执行 —— 以对话为中心的项目管理</p>
         </div>
         <Card className="divide-y divide-line">
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => navigate(`/p/${p.id}`)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
-            >
-              <span className="flex-1 text-sm font-medium">{p.name}</span>
-              <Badge tone="violet">{p.ontology}</Badge>
-            </button>
-          ))}
+          {projects.map((p) => {
+            const c = p.item_counts ?? {};
+            const gates = p.gates_pending ?? 0;
+            return (
+              <button
+                key={p.id}
+                onClick={() => navigate(`/p/${p.id}`)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
+              >
+                <span className="flex-1 text-sm font-medium">{p.name}</span>
+                <span className="text-[11px] text-mut">
+                  待办 {c.backlog ?? 0} · 进行 {c.in_progress ?? 0} · 完成 {c.done ?? 0}
+                </span>
+                {gates > 0 && <Badge tone="amber">◆ {gates} 待审</Badge>}
+                <Badge tone="violet">{p.ontology}</Badge>
+              </button>
+            );
+          })}
           {!projects.length && (
             <div className="px-4 py-10 text-center text-sm text-mut">
               还没有项目——从一句话需求开始，PM-Agent 会帮你拆任务
