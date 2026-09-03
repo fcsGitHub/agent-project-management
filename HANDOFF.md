@@ -199,7 +199,11 @@
   - **审阅即修 3 个既有前端缺陷**：①sonner `<Toaster>` 全仓从未挂载（历次 toast 静默）；②ProjectPicker 空库引导与加载失败混淆（离线误弹新建模态）；③通知下拉 375px 左溢 25px；
   - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：375px 视口 14 张截图（docs/m15-i47/i48/i49-*.png + m15-review-timeline-375.png）；无新增 B/C 级意见。
 - **M16 已定义（本提交，docs/01 §O + docs/10 §M16）**：三路调研——OpenProject 自定义查询分层（保存过滤/分组/排序是 Community 免费核心、跨项目聚合才是 Enterprise→做社区层等价）、Gitea SSO JIT 痛点（注册无 allowlist #27709、group claim 二次登录生效 #32566→需 IdP 演示环境成本高，降下一轮候选）、通知 digest（Redmine 靠插件/GitLab 仅专项摘要→同类均无原生，已有三层降噪，留 backlog）→ **M16 = 自定义视图与保存筛选（I50 视图数据层 saved_views 投影+view.* 事件+定义校验 fail-closed / I51 视图前端（保存/切换/管理+共享徽标+URL 直开）/ I52 默认视图+docs/12 §13+冒烟 22+审阅，约 9 人日）**。
-- **当前验证状态**：pytest **142 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M16-I50 视图数据层（本轮完成，`668aced`+`06ae4a2`）**：
+  - 新域 `domains/views.py`：saved_views 投影表 + view.* 事件（rebuild 存活）；CRUD；定义校验双层 fail-closed（键白名单 + 字段须声明且**未停用**——cf 分支漏停用检查被单测拦住补上）；权限对齐 M8（local 放行 / network public 成员读、private owner+admin、viewer 不可建、非成员 403）；
+  - **执行纯复用**：get_items/get_board 增 view_id（definition 为基础过滤、显式 query 参覆盖）；`_cf_hit` 提取模块级共用；
+  - 测试踩坑：字段 id 是 `tags`（非 concept.field 全称）、停用 API `{field_id, active}`、tags 值 frontend/backend/infra、network 写请求须先 /auth/login；**pytest 146/冒烟 21**。
+- **当前验证状态**：pytest **146 项全绿**；冒烟基线 **21 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -207,8 +211,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I50 视图数据层**（M16 第 1 迭代，docs/10 §M16）：新域 `domains/views.py`——saved_views 投影表 + view.created/updated/deleted 事件（rebuild 存活，**drop_projections 清单同步**）；CRUD API（owner/admin 可改删、私有 owner 可读、public 全项目成员可读、非成员 403+access.denied）；definition 校验 fail-closed（filters 白名单 concept/status/priority/assignee/cf:/group_by，未知 422）；视图执行 = definition 展开为既有 board 过滤参数（纯复用）；单测（CRUD+rebuild/权限矩阵/校验矩阵/展开执行同数）→ 「M16-I50」三段式提交。
-2. I51 视图前端（保存/切换/管理 + 共享徽标 + ?view= URL 直开）→ I52 默认视图 + docs/12 §13 + 冒烟 22 + M16 审阅。
+1. **I51 视图前端**（M16 第 2 迭代，docs/10 §M16）：看板工具栏「视图」下拉（保存当前过滤为视图：名称+私有/共享；切换视图即应用 definition 到过滤器与分组；重命名/删除；共享徽标「公开」）；列表视图同步；api.ts 增 SavedView 类型 + 4 方法；选中态入 URL `?view=` 刷新/分享保持 → DoD：build+vitest 绿 + 浏览器隔离复演（建→切→URL 直开还原）截图 → 「M16-I51」三段式提交。
+2. I52 默认视图 + docs/12 §13 + 冒烟 22 + M16 正式审阅（审阅时点 HEAD 重跑 pytest 146/冒烟 21 + 附录 A/B + 截图）。
 
 ## 5. 有哪些坑不要再踩
 
