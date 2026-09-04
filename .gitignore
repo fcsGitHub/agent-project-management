@@ -29,3 +29,6 @@ data/
 
 # Smoke reports
 tools/smoke/reports/
+
+# 演示隔离数据目录
+.demo-m18/
