@@ -169,6 +169,19 @@ def jit_account(claims: dict) -> dict:
 
 
 # ------------------------------------------------------------- endpoints
+@router.get("/auth/oidc/status")
+def oidc_status() -> dict:
+    """Feature probe for the login page / admin panel. Never echoes the secret."""
+    s = config.settings
+    return {
+        "enabled": enabled(),
+        "issuer": s.oidc_issuer or None,
+        "client_id": s.oidc_client_id or None,
+        "redirect_uri": s.oidc_redirect_uri or None,
+        "allowed_groups": allowed_groups(),
+    }
+
+
 @router.get("/auth/oidc/login")
 def oidc_login():
     if not enabled():

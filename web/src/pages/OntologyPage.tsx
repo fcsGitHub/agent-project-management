@@ -196,6 +196,8 @@ export function OntologyPage() {
 
       <MembersPanel pid={pid!} />
 
+      <OidcPanel />
+
       <AutomationsPanel pid={pid!} concepts={o.concepts} />
 
       <WebhooksPanel pid={pid!} />
@@ -368,7 +370,37 @@ const MEMBER_ROLE: Record<string, { label: string; tone: "green" | "violet" | "n
   owner: { label: "Owner", tone: "green" },
   contributor: { label: "Contributor", tone: "violet" },
   viewer: { label: "Viewer", tone: "neutral" },
-};/** Project members & roles (M8-I27): owner / contributor / viewer management. */
+};/** OIDC SSO diagnostics (M17-I54): read-only env-derived config; secret never echoed. */
+function OidcPanel() {
+  const st = useQuery({ queryKey: ["oidc-status"], queryFn: api.oidcStatus });
+  const d = st.data;
+  if (!d) return null;
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">OIDC 单点登录</span>
+        {d.enabled
+          ? <Badge tone="ok">已启用</Badge>
+          : <Badge tone="neutral">未配置</Badge>}
+      </div>
+      {d.enabled ? (
+        <div className="space-y-1 text-xs text-mut">
+          <div>Issuer：<span className="font-mono text-ink">{d.issuer}</span></div>
+          <div>Client ID：<span className="font-mono text-ink">{d.client_id}</span></div>
+          <div>回调地址：<span className="font-mono text-ink">{d.redirect_uri}</span></div>
+          <div>组白名单：{d.allowed_groups.length
+            ? d.allowed_groups.map((g) => <Badge key={g} tone="indigo">{g}</Badge>)
+            : <span>未设（任何已验证 IdP 用户可注册）</span>}</div>
+          <div className="pt-1 text-[11px]">JIT 注册角色 = viewer 缺省；配置项走 APM_OIDC_* 环境变量，client secret 不回显。</div>
+        </div>
+      ) : (
+        <div className="text-xs text-mut">设置 APM_OIDC_ISSUER / APM_OIDC_CLIENT_ID / APM_OIDC_CLIENT_SECRET 后启用；当前登录页不显示 SSO 入口。</div>
+      )}
+    </Card>
+  );
+}
+
+/** Project members & roles (M8-I27): owner / contributor / viewer management. */
 function MembersPanel({ pid }: { pid: string }) {
   const qc = useQueryClient();
   const [addId, setAddId] = useState("");

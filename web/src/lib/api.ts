@@ -262,6 +262,9 @@ export const api = {
     req<SavedView>(`/views/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteView: (id: string) => req<{ deleted: string }>(`/views/${id}`, { method: "DELETE" }),
   makeViewDefault: (id: string) => req<SavedView>(`/views/${id}/make-default`, { method: "POST" }),
+
+  oidcStatus: () =>
+    req<{ enabled: boolean; issuer: string | null; client_id: string | null; redirect_uri: string | null; allowed_groups: string[] }>("/auth/oidc/status"),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

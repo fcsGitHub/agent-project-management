@@ -188,6 +188,36 @@ def test_rejection_matrix(client, tmp_data, isolated_ontologies, idp, monkeypatc
     assert not [u for u in users if u.get("email") == "zhang@corp.test"]
 
 
+def test_oidc_user_hits_network_gate(client, tmp_data, isolated_ontologies, idp, monkeypatch):
+    """Provisioned-by-OIDC user: no project membership -> writes are 403 (M8 gate)."""
+    from apm import config as cfg
+    cfg.settings.admin_password = "admin-pass"
+    from apm.domains.users import ensure_default_user
+    ensure_default_user()
+    _setup(monkeypatch)
+    cfg.settings.auth_mode = "network"
+    try:
+        assert client.post("/api/auth/login", json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+        r = client.post("/api/projects", json={"name": "门禁项目", "ontology": "software-dev", "requirement": "o"})
+        pid = r.json()["id"]
+
+        # OIDC login provisions zhang and lands as a session identity
+        r = client.get("/api/auth/oidc/login", follow_redirects=False)
+        state, nonce, verifier = r.cookies.get("apm_oidc_handshake").split("|")
+        idp["id_token"].id_token = _mint(idp["key"], {}, nonce=nonce)
+        idp["id_token"].verifier = verifier
+        assert client.get(f"/api/auth/oidc/callback?code=good-code&state={state}", follow_redirects=False).status_code == 302
+        me = client.get("/api/auth/me").json()
+        assert me["name"] == "zhang" and me["source"] == "session"
+
+        # no membership in pid -> the M8 network gate keeps writes out
+        r = client.post(f"/api/projects/{pid}/items", json={"concept_id": "task", "title": "越权写"})
+        assert r.status_code == 403
+    finally:
+        cfg.settings.auth_mode = "local"
+        cfg.settings.admin_password = ""
+
+
 def test_local_account_conflict_is_409_not_merged(client, tmp_data, isolated_ontologies, idp, monkeypatch):
     _setup(monkeypatch)
     client.post("/api/users", json={"id": "u_local", "name": "zhang"})  # local account, same name
