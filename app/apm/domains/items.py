@@ -632,6 +632,14 @@ def get_items(
     )
     if merged.get("cf"):
         items = [it for it in items if _cf_hit(it, merged["cf"])]
+    if items:  # M19-I59: spent-time totals ride along (plan vs actual on cards)
+        ids = [it["id"] for it in items]
+        marks = ",".join("?" * len(ids))
+        spent = {r["item_id"]: r["total"] for r in db.get_conn().execute(
+            f"SELECT item_id, SUM(minutes) total FROM item_time_entries"
+            f" WHERE item_id IN ({marks}) AND deleted_at IS NULL GROUP BY item_id", ids)}
+        for it in items:
+            it["spent_minutes"] = spent.get(it["id"], 0)
     return {"items": items}
 
 
@@ -643,6 +651,10 @@ def get_item_detail(item_id: str) -> dict:
         (item_id, item_id),
     ).fetchall()
     item["relations"] = [dict(r) for r in rels]
+    row = db.get_conn().execute(
+        "SELECT COALESCE(SUM(minutes), 0) total FROM item_time_entries"
+        " WHERE item_id = ? AND deleted_at IS NULL", (item_id,)).fetchone()
+    item["spent_minutes"] = row["total"]
     return _parse_cf(_with_assignee_name(item))
 
 

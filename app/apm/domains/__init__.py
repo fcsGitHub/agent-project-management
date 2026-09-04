@@ -24,6 +24,7 @@ from apm.domains import (  # noqa: F401
     stream,
     system,
     template_packs,
+    timelog,
     users,
     views,
     webhooks,
