@@ -10,7 +10,20 @@ import { api } from "../lib/api";
 import { renderCommentMd } from "../lib/md";
 import { Button, Modal } from "./ui";
 
-const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
+const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_input]:mr-1 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
+
+// M23-I73: GitHub markdown-toolbar semantics — buttons wrap the textarea
+// selection (or insert a placeholder) and keep focus/selection for chaining.
+type Tool = { label: string; title: string; wrap?: [string, string]; linePrefix?: string };
+const TOOLS: Tool[] = [
+  { label: "B", title: "加粗", wrap: ["**", "**"] },
+  { label: "I", title: "斜体", wrap: ["*", "*"] },
+  { label: "‹›", title: "行内代码", wrap: ["`", "`"] },
+  { label: "🔗", title: "链接", wrap: ["[", "](https://)"] },
+  { label: "• 列表", title: "无序列表", linePrefix: "- " },
+  { label: "☑ 任务", title: "任务清单", linePrefix: "- [ ] " },
+  { label: "❝ 引用", title: "引用", linePrefix: "> " },
+];
 
 export function CommentsModal({ itemId, title, onClose }: {
   itemId: string; title?: string; onClose: () => void;
@@ -66,6 +79,32 @@ export function CommentsModal({ itemId, title, onClose }: {
     } catch (e) {
       toast.error(`评论失败：${e instanceof Error ? e.message : e}`);
     }
+  };
+
+  // M23-I73: wrap the selection (or insert a placeholder) — storage stays text
+  const applyTool = (t: Tool) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? draft.length;
+    const end = el.selectionEnd ?? draft.length;
+    if (t.wrap) {
+      const sel = draft.slice(start, end) || "文本";
+      const next = draft.slice(0, start) + t.wrap[0] + sel + t.wrap[1] + draft.slice(end);
+      setDraft(next);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + t.wrap![0].length, start + t.wrap![0].length + sel.length);
+      });
+      return;
+    }
+    const ls = draft.lastIndexOf("\n", Math.max(start - 1, 0)) + 1;
+    const leAt = draft.indexOf("\n", end);
+    const le = leAt === -1 ? draft.length : leAt;
+    const block = draft.slice(ls, le).split("\n")
+      .map((l) => (l.startsWith(t.linePrefix!) ? l : t.linePrefix + l)).join("\n");
+    const next = draft.slice(0, ls) + block + draft.slice(le);
+    setDraft(next);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(ls, ls + block.length); });
   };
 
   const remove = async (id: string) => {
@@ -124,6 +163,16 @@ export function CommentsModal({ itemId, title, onClose }: {
             <div className={`${MD_BODY} min-h-[4.5rem] rounded-lg border border-line bg-bg px-3 py-2 text-xs`}
               dangerouslySetInnerHTML={{ __html: renderCommentMd(draft, (users.data?.users ?? []).map((u) => u.name)) }} />
           ) : (
+            <>
+            <div className="mb-1 flex flex-wrap gap-1">
+              {TOOLS.map((t) => (
+                <button key={t.title} type="button" title={t.title}
+                  onMouseDown={(e) => { e.preventDefault(); applyTool(t); }}
+                  className="rounded border border-line px-1.5 py-0.5 text-[10px] text-mut hover:border-acc hover:text-acc">
+                  {t.label}
+                </button>
+              ))}
+            </div>
             <textarea
               ref={inputRef}
               className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs"
@@ -133,6 +182,7 @@ export function CommentsModal({ itemId, title, onClose }: {
               onChange={(e) => { setDraft(e.target.value); setMentionOpen(e.target.value.includes("@")); }}
               onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(); }}
             />
+            </>
           )}
           {preview && (
             <button onClick={() => { setPreview(false); setTimeout(() => inputRef.current?.focus(), 0); }}
