@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 已完成（评论与参与通知，审阅通过），下一步 M19 调研）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 已完成（审阅通过），M19 已定义（工时跟踪 I59-I61），下一步 I59）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -238,6 +238,7 @@
   - **审阅即修 1 个 A 级缺陷**：`change_status` 签名默认 actor_id 硬编码 `"u_admin"`——PATCH 状态变更审计归因全错 + 参与者通知操作者排除失效（M5-I19「全仓清除 actor 硬编码」以**签名默认值**形式漏网，grep 清扫扫不到默认参数）→ `actor_id or events.effective_actor()` + 回归单测；
   - 审阅排障纪要：复演中「李雷面板无状态变更通知」的真因是该缺陷（qa 的改状态被记成 u_admin → qa 被当成旁观者通知、真旁观者李雷被排除），不是通知投影丢失——**双绑端口与身份切错先排除后再怀疑投影**。
 - **当前验证状态**：pytest **161 项全绿**；冒烟基线 **24 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
+- **M19 已定义（本提交，docs/01 §R + docs/10 §M19）**：三路调研——OpenProject time entry 模型（时长/日期/备注/作者 + 16.0 个人日历，Community 免费）、GitLab `/spend` 斜杠命令 vs Redmine 显式「Log time」（#27780 用户偏好后者 → AgentPM 取显式入口）、Plane worklog 仅工作项级（**项目级聚合 = 官方 open 缺口 #8045** → AgentPM 直接纳入报表差异化补位）→ **M19 = 工时跟踪与汇总报表（I59 工时数据层：time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐 / I60 工时前端：记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25 / I61 项目工时报表：按人/按日聚合 + 审阅，约 9 人日）**；不做：成本费率（Enterprise 增强范畴）、斜杠命令、实时计时器；个人日历视图留 backlog。
 
 ## 3. 现在卡在哪
 
@@ -245,8 +246,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M19 调研定义**（目标协议第 1 条，三路并行 WebSearch 开源调研）：首选候选**工时跟踪**（OpenProject Community 核心 spent time——docs/01 §Q.2 已有初步调研**勿重查**，直接深化：记录/报表/日历边界与 estimate_hours 的关系）；备选：通知 digest（同类均无原生内建，低优）、富文本评论/通知层级细分（backlog）。产出：docs/01 新节 + docs/10 §M19 定义 + 看板行 + 附录 A 日志 + HANDOFF 收口 → 「M§ 调研定义」提交。
-2. 按 M19 计划走 3 迭代（每个三段式提交）→ 正式审阅（审阅时点 HEAD 重跑全量 + DoD 逐项 + 浏览器隔离复演 + 附录 B + 「M§ 正式审阅通过」提交）。
+1. **I59 工时数据层**（M19 第 1 迭代，docs/10 §M19）：新域 `domains/timelog.py`——item_time_entries 投影表（id/item_id/project_id/user_id/minutes/spent_on/note/created_at/deleted_at）+ `time.logged/edited/deleted` 事件（rebuild 存活，drop_projections 同步）；CRUD `/items/{id}/time_entries`（校验 fail-closed：minutes 正数/spent_on ISO 日期/note 长度）；item 详情与 get_items 附 spent_minutes 汇总（SUM 与 estimate_hours 并列）；权限对齐 M8（local 放行/network 成员读写+非成员 403+删除限本人·admin）；记工时者进参与投影（复用 item_participants，source='time' 首次来源语义）→ 单测（CRUD+rebuild/校验矩阵/汇总/权限/参与者接入）→ 「M19-I59」三段式提交。
+2. I60 工时前端（⏱ 记工时抽屉 + 卡片 spent/estimate 徽标 + docs/12 §16 + 冒烟 25）→ I61 项目工时报表（按人/按日聚合，复用 M12 报表框架）+ 全量回归 + M19 正式审阅（DoD 逐项 + 附录 B + 浏览器隔离复演「记时→汇总→报表」+「M§ 正式审阅通过」提交）。
 3. 每轮纪律不变：调研先查 docs/01 已有结论；演示/审阅隔离 data+ontologies 且 netstat 确认单监听；中文文档用 Edit 工具；python 写文本必须 newline="\n"。
 
 ## 5. 有哪些坑不要再踩
