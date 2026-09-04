@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M24 进行中：I74 已完成，下一步 I75 CSV 导入导出）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M24 进行中：I74/I75 已完成，下一步 I76 泳道避让与多基线 + 收尾）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -50,9 +50,9 @@
 
 1. ~~M24 调研定义~~ ✅ **已完成**（`c8a3964`，docs/01 §W + docs/10 §M24）：三路调研（OpenProject 层级缩进与后代过滤器 / Redmine 内建 CSV 导入映射 / 区间染色泳道 + MS Project 多基线分 Row 分色）→ 选定结构与管理三件套。
 1b. ~~M24-I74 子任务层级~~ ✅ **已完成**（`5aad4c3`+docs）：`_validate_parent` 防环 + ItemPatch parent_id（re-parent）+ 投影器键表补 parent_id + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标；test_hierarchy.py 全绿。
-1c. **M24-I75 CSV 导入导出**（§W.2）：`POST /projects/{id}/items/import`（固定表头 title/concept_id/status/priority/start_date/due_date/estimate_hours/parent_title——parent 按标题引用已有或同批先导行；逐行 create_item 校验，逐行 ok/行号/错误不整批回滚）+ `GET .../items/import-template` + `GET .../items.csv` + 列表工具栏导入入口；单测含 roundtrip。**只跑相关验证。**
-2. **M24-I76 泳道避让与多基线 + 收尾**（§W.3）：TimelinePage 概念行内子行贪心分配（区间染色：start 排序 + min-heap 行末线，行高自适应——修 M21 重叠 C 级）；baselines 去 UNIQUE 迁移 + set 追加历史 + baselines 列表与 `?baseline_id=`/all 切换（幽灵分 Row 偏移）；docs/12 §21；**新增冒烟 30**（层级 roundtrip/导入逐行/泳道不重叠/多基线历史 + rebuild 一致）。
-3. **M24 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 182+ / 冒烟 29+30 / vitest+build）+ I74/I75/I76 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M24 正式审阅通过」提交。之后 M25 调研定义（先 grep docs/01 防重查）。
+1c. ~~M24-I75 CSV 导入导出~~ ✅ **已完成**（`c3905a3`+docs）：import 端点（固定表头 + parent_title 引用 + 逐行校验报告，**日期校验补在导入循环内**——create_item 不含日期校验）+ 模板/items.csv 导出 +「⬆ 导入 CSV」弹窗；test_csv_import.py 全绿。
+2. **M24-I76 泳道避让与多基线 + 收尾**（§W.3）：TimelinePage 概念行内子行贪心分配（区间染色：start 排序 + min-heap 行末线，行高自适应——修 M21 重叠 C 级）；baselines 去 UNIQUE 迁移 + set 追加历史 + `GET /projects/{id}/baselines` 列表 + 幽灵按选择分 Row 偏移；docs/12 §21；**新增冒烟 30**（层级 roundtrip/导入逐行/泳道不重叠/多基线历史 + rebuild 一致）。
+3. **M24 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 183+ / 冒烟 29+30 / vitest+build）+ I74/I75/I76 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M24 正式审阅通过」提交。之后 M25 调研定义（先 grep docs/01 防重查）。
 4. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 违例至 M23 仍在发生——彻底禁止**）；**commit message 含反引号/美元符必须单引号包裹**（M23-I72 踩：_visible 被 bash 吞）；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
