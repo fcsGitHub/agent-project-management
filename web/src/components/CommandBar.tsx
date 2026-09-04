@@ -49,6 +49,11 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()));
 
+  // M22-I68: with a query typed, offer the global search jump first
+  const entries = q.trim()
+    ? [{ id: "global-search", label: `🔍 搜索 '${q.trim()}'`, run: () => navigate(`/search?q=${encodeURIComponent(q.trim())}`) }, ...filtered]
+    : filtered;
+
   if (!open) return null;
 
   const pageState = {
@@ -118,7 +123,7 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") onClose();
-              if (e.key === "Enter" && mode === "command" && filtered[0]) { filtered[0].run(); onClose(); }
+              if (e.key === "Enter" && mode === "command" && entries[0]) { entries[0].run(); onClose(); }
               if (e.key === "Enter" && mode === "nl") runNl();
             }}
             placeholder={mode === "command" ? "搜索动作…（回车执行第一个）" : "试试：只看高优先级任务 / 打开审计页 / 批量批准"}
@@ -129,7 +134,7 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
 
         <div className="max-h-96 overflow-y-auto p-2">
           {mode === "command" &&
-            filtered.map((c) => (
+            entries.map((c) => (
               <button
                 key={c.id}
                 onClick={() => { c.run(); onClose(); }}
@@ -138,7 +143,7 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
                 {c.label}
               </button>
             ))}
-          {mode === "command" && !filtered.length && (
+          {mode === "command" && !entries.length && (
             <div className="px-3 py-6 text-center text-xs text-mut">
               没有匹配动作——按 Tab 切到「自然语言」模式试试
             </div>

@@ -20,6 +20,7 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { MyWorkPage } from "./pages/MyWorkPage";
 import { MyTimePage } from "./pages/MyTimePage";
+import { SearchPage } from "./pages/SearchPage";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/my/work" element={<MyWorkPage />} />
         <Route path="/my/time" element={<MyTimePage />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

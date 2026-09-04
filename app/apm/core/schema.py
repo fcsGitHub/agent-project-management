@@ -353,6 +353,9 @@ CREATE INDEX IF NOT EXISTS idx_extracted_tasks_project ON extracted_tasks(projec
 FTS_DDL = """
 -- Asset full-text index; Chinese indexed as character bigrams (docs/09 §5).
 CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(asset_id UNINDEXED, text);
+-- Global search (M22-I68): same bigram scheme over items and comments.
+CREATE VIRTUAL TABLE IF NOT EXISTS items_search USING fts5(item_id UNINDEXED, text);
+CREATE VIRTUAL TABLE IF NOT EXISTS comments_search USING fts5(comment_id UNINDEXED, text);
 """
 
 

@@ -353,6 +353,8 @@ export const api = {
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
   addRelation: (iid: string, body: { to_item: string; relation_type: string }) =>
     req<{ id: string }>(`/items/${iid}/relations`, { method: "POST", body: JSON.stringify(body) }),
+  globalSearch: (q: string, types = "items,comments") =>
+    req<{ q: string; items: { id: string; title: string; status: string; status_group: string; concept_id: string; project_id: string; project_name: string }[]; comments: { id: string; body: string; item_id: string; project_id: string; item_title?: string | null; project_name?: string | null }[] }>(`/search?q=${encodeURIComponent(q)}&types=${types}`),
   getBoard: (pid: string, featureId?: string, groupBy?: string) => {
     const q = new URLSearchParams();
     if (featureId) q.set("feature_id", featureId);

@@ -22,6 +22,7 @@ from apm.domains import (  # noqa: F401
     orchestrator_api,
     projects,
     runs,
+    search,
     stream,
     system,
     template_packs,
