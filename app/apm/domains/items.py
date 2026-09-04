@@ -53,7 +53,7 @@ def _proj_item_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
-                "start_date", "due_date", "auto_scheduled"):
+                "start_date", "due_date", "auto_scheduled", "parent_id"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -160,6 +160,7 @@ def create_item(
         group = onto.validate_item_status(concept_id, status)
     except OntologyError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    _validate_parent(project_id, parent_id)
     iid = new_id("i")
     events.emit(
         event_type="item.created",
@@ -436,6 +437,30 @@ def _validate_milestone(project_id: str, milestone_id: str | None) -> None:
             raise HTTPException(status_code=422, detail="milestone belongs to another project")
 
 
+def _validate_parent(project_id: str, parent_id: str | None, *, self_id: str | None = None) -> None:
+    """M24-I74: parent must exist, live in the same project, and re-parenting
+    must not create a cycle (walk up the proposed ancestor chain)."""
+    if not parent_id:
+        return
+    if self_id and parent_id == self_id:
+        raise HTTPException(status_code=422, detail="item cannot be its own parent")
+    parent = db.get_conn().execute(
+        "SELECT id, project_id, parent_id FROM items WHERE id = ?", (parent_id,)).fetchone()
+    if parent is None:
+        raise HTTPException(status_code=422, detail=f"unknown parent '{parent_id}'")
+    if parent["project_id"] != project_id:
+        raise HTTPException(status_code=422, detail="parent belongs to another project")
+    seen = {self_id} if self_id else set()
+    cur = parent
+    while cur is not None:
+        if cur["id"] in seen:
+            raise HTTPException(status_code=422, detail="parent chain would create a cycle")
+        seen.add(cur["id"])
+        cur = db.get_conn().execute(
+            "SELECT id, parent_id FROM items WHERE id = ?",
+            (cur["parent_id"],)).fetchone() if cur["parent_id"] else None
+
+
 # ------------------------------------------------- auto-scheduling (M14-I44)
 MAX_SCHEDULE_DEPTH = 20
 
@@ -557,6 +582,7 @@ class ItemPatch(BaseModel):
     due_date: str | None = None
     auto_scheduled: bool | None = None
     custom_fields: dict | None = None
+    parent_id: str | None = None  # re-parent (M24-I74); clearing not supported
 
 
 class RelationIn(BaseModel):
@@ -620,6 +646,8 @@ def get_items(
     priority: str | None = None,
     cf: str | None = None,
     view_id: str | None = None,
+    parent: str | None = None,
+    descendants: str | None = None,
 ) -> dict:
     base: dict = {}
     if view_id:  # M16-I50: saved view supplies base filters; explicit params win
@@ -646,6 +674,20 @@ def get_items(
     )
     if merged.get("cf"):
         items = [it for it in items if _cf_hit(it, merged["cf"])]
+    # M24-I74 hierarchy scopes (explicit params only — not part of saved views)
+    if parent:
+        items = [it for it in items if it["parent_id"] == parent]
+    if descendants:
+        children: dict[str, list[str]] = {}
+        for it in items:
+            children.setdefault(it["parent_id"], []).append(it["id"])
+        keep, stack = set(), [descendants]
+        while stack:
+            for ch in children.get(stack.pop(), []):
+                if ch not in keep:
+                    keep.add(ch)
+                    stack.append(ch)
+        items = [it for it in items if it["id"] in keep]
     _attach_spent(items)
     return {"items": items}
 
@@ -678,6 +720,8 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
                              changes.get("due_date", item.get("due_date")))
     if "milestone_id" in changes:
         _validate_milestone(item["project_id"], changes["milestone_id"])
+    if "parent_id" in changes:
+        _validate_parent(item["project_id"], changes["parent_id"], self_id=item_id)
     if "auto_scheduled" in changes:
         changes["auto_scheduled"] = 1 if changes["auto_scheduled"] else 0
     if "status" in changes:

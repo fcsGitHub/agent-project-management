@@ -120,6 +120,57 @@ export function Board() {
   // M22-I70: the flat list currently shown in list view (select-all scope)
   const listed = (board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches));
 
+  // M24-I74: hierarchy — parent titles, collapsible tree rows, descendant scope
+  const allItems = useMemo(() => (board.data?.buckets ?? []).flatMap((b) => b.items), [board.data]);
+  const titleMap = useMemo(() => Object.fromEntries(allItems.map((i) => [i.id, i.title])) as Record<string, string>, [allItems]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [scopeDesc, setScopeDesc] = useState<{ id: string; title: string } | null>(null);
+
+  const scopedListed = useMemo(() => {
+    if (!scopeDesc) return listed;
+    const children: Record<string, string[]> = {};
+    for (const it of allItems) (children[it.parent_id ?? ""] ??= []).push(it.id);
+    const keep = new Set<string>();
+    const stack = [scopeDesc.id];
+    while (stack.length) {
+      for (const ch of children[stack.pop()!] ?? []) {
+        if (!keep.has(ch)) { keep.add(ch); stack.push(ch); }
+      }
+    }
+    return listed.filter((i) => keep.has(i.id));
+  }, [scopeDesc, listed, allItems]);
+
+  const listRows = useMemo(() => {
+    const ids = new Set(scopedListed.map((i) => i.id));
+    const children: Record<string, typeof scopedListed> = {};
+    const roots: typeof scopedListed = [];
+    for (const it of scopedListed) {
+      if (it.parent_id && ids.has(it.parent_id)) (children[it.parent_id] ??= []).push(it);
+      else roots.push(it);
+    }
+    const out: { item: (typeof scopedListed)[number]; depth: number }[] = [];
+    const walk = (list: typeof scopedListed, depth: number) => {
+      for (const it of list) {
+        out.push({ item: it, depth });
+        if (children[it.id] && !collapsed.has(it.id)) walk(children[it.id], depth + 1);
+      }
+    };
+    walk(roots, 0);
+    return out;
+  }, [scopedListed, collapsed]);
+
+  const addSubtask = async (parent: { id: string; concept_id: string; project_id: string }) => {
+    const title = window.prompt("子任务标题");
+    if (!title) return;
+    try {
+      await api.createItem(parent.project_id, { concept_id: parent.concept_id, title, parent_id: parent.id });
+      toast.success("已创建子任务");
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   const setFilter = (k: string, v: string) => {
     const usp = new URLSearchParams(params);
     if (v) usp.set(k, v); else usp.delete(k);
@@ -294,6 +345,11 @@ export function Board() {
           ))}
         </select>
         <div className="ml-auto flex items-center gap-2 text-xs">
+          {scopeDesc && (
+            <button onClick={() => setScopeDesc(null)}
+              className="rounded-lg border border-acc px-2 py-1 text-acc"
+              title="清除后代范围">仅看「{scopeDesc.title}」后代 ✕</button>
+          )}
           <select value={priority} onChange={(e) => setFilter("priority", e.target.value)}
             className="rounded-lg border border-line bg-surface px-2 py-1.5">
             <option value="">优先级（全部）</option>
@@ -356,10 +412,10 @@ export function Board() {
               <tr className="border-b border-line text-mut">
                 <th className="py-2">
                   <input type="checkbox" title="全选/全不选（当前列表）"
-                    checked={listed.length > 0 && listed.every((i) => selected.has(i.id))}
+                    checked={listRows.length > 0 && listRows.every(({ item }) => selected.has(item.id))}
                     onChange={(e) => {
                       const next = new Set(selected);
-                      for (const i of listed) e.target.checked ? next.add(i.id) : next.delete(i.id);
+                      for (const { item } of listRows) e.target.checked ? next.add(item.id) : next.delete(item.id);
                       setSelected(next);
                     }} />
                 </th>
@@ -367,7 +423,7 @@ export function Board() {
               </tr>
             </thead>
             <tbody>
-              {listed.map((item) => (
+              {listRows.map(({ item, depth }) => (
                 <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
                   <td className="py-2">
                     <input type="checkbox" checked={selected.has(item.id)} readOnly
@@ -377,7 +433,23 @@ export function Board() {
                         setSelected(next);
                       }} />
                   </td>
-                  <td className="font-medium">{item.title}</td>
+                  <td className="py-2" style={{ paddingLeft: depth * 16 }}>
+                    <div className="flex items-center gap-1">
+                      {scopedListed.some((i) => i.parent_id === item.id) ? (
+                        <button className="w-3 text-mut" title={collapsed.has(item.id) ? "展开子任务" : "折叠子任务"}
+                          onClick={() => {
+                            const next = new Set(collapsed);
+                            next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                            setCollapsed(next);
+                          }}>{collapsed.has(item.id) ? "▸" : "▾"}</button>
+                      ) : <span className="w-3" />}
+                      <span className="font-medium">{item.title}</span>
+                      <button title="添加子任务" className="text-[10px] text-mut hover:text-acc"
+                        onClick={() => addSubtask(item)}>＋子</button>
+                      <button title="仅看该任务的后代" className="text-[10px] text-mut hover:text-acc"
+                        onClick={() => setScopeDesc({ id: item.id, title: item.title })}>后代</button>
+                    </div>
+                  </td>
                   <td className="text-mut">{item.concept_id}</td>
                   <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
                   <td>{item.priority ?? "—"}</td>
@@ -435,6 +507,9 @@ export function Board() {
                         <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5" />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">{item.title}</div>
+                          {item.parent_id && titleMap[item.parent_id] && (
+                            <div className="mt-0.5 truncate text-[10px] text-mut" title="父任务">↳ {titleMap[item.parent_id]}</div>
+                          )}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
                             {item.priority === "high" && <Badge tone="red">高优</Badge>}

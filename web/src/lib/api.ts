@@ -22,7 +22,7 @@ export type Item = {
   id: string; project_id: string; feature_id?: string; concept_id: string; title: string;
   status: string; status_group: string; priority?: string; assignee_type?: string;
   assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
-  milestone_id?: string | null; auto_scheduled?: number | boolean;
+  milestone_id?: string | null; auto_scheduled?: number | boolean; parent_id?: string | null;
   custom_fields?: Record<string, unknown> | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
@@ -390,6 +390,8 @@ export const api = {
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
   batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>
     req<{ results: { id: string; ok: boolean; error?: string }[]; updated: number }>(`/projects/${pid}/items/batch-patch`, { method: "POST", body: JSON.stringify({ ids, patch }) }),
+  createItem: (pid: string, body: { concept_id: string; title: string; parent_id?: string; status?: string; priority?: string }) =>
+    req<Item>(`/projects/${pid}/items`, { method: "POST", body: JSON.stringify(body) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
   getRun: (rid: string) => req<Run>(`/runs/${rid}`),
