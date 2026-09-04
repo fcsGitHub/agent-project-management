@@ -1,16 +1,22 @@
 /** Work-item comments drawer (M18-I57): thread list + composer with @mention
- * completion against project members/users. Reused by Board cards and slices. */
+ * completion against project members/users. Reused by Board cards and slices.
+ * M20-I64: bodies render as read-only GFM (marked + DOMPurify, docs/01 §S.3);
+ * storage stays plain text, composer gains an edit/preview toggle. */
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { renderCommentMd } from "../lib/md";
 import { Button, Modal } from "./ui";
+
+const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
 
 export function CommentsModal({ itemId, title, onClose }: {
   itemId: string; title?: string; onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [preview, setPreview] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const comments = useQuery({
@@ -82,7 +88,8 @@ export function CommentsModal({ itemId, title, onClose }: {
                   className="ml-auto text-[10px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100"
                   title="删除评论">✕</button>
               </div>
-              <div className="mt-1 whitespace-pre-wrap text-ink">{highlightMentions(c.body, users.data?.users ?? [])}</div>
+              <div className={MD_BODY}
+                dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name)) }} />
             </div>
           ))}
           {!comments.data?.comments.length && (
@@ -90,15 +97,24 @@ export function CommentsModal({ itemId, title, onClose }: {
           )}
         </div>
         <div className="relative">
-          <textarea
-            ref={inputRef}
-            className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs"
-            rows={3}
-            placeholder="写下评论… 用 @ 提及同事"
-            value={draft}
-            onChange={(e) => { setDraft(e.target.value); setMentionOpen(e.target.value.includes("@")); }}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(); }}
-          />
+          {preview ? (
+            <div className={`${MD_BODY} min-h-[4.5rem] rounded-lg border border-line bg-bg px-3 py-2 text-xs`}
+              dangerouslySetInnerHTML={{ __html: renderCommentMd(draft, (users.data?.users ?? []).map((u) => u.name)) }} />
+          ) : (
+            <textarea
+              ref={inputRef}
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs"
+              rows={3}
+              placeholder="写下评论… 用 @ 提及同事，支持 Markdown（表格 / 清单 / 代码块）"
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); setMentionOpen(e.target.value.includes("@")); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(); }}
+            />
+          )}
+          {preview && (
+            <button onClick={() => { setPreview(false); setTimeout(() => inputRef.current?.focus(), 0); }}
+              className="absolute bottom-2 right-2 text-[10px] text-mut hover:text-acc">返回编辑</button>
+          )}
           {mentionOpen && candidates.length > 0 && (
             <div className="absolute bottom-full left-0 z-10 mb-1 w-56 rounded-lg border border-line bg-surface p-1 shadow-lg">
               {candidates.map((u) => (
@@ -117,6 +133,11 @@ export function CommentsModal({ itemId, title, onClose }: {
               title="订阅后，该工作项的状态变更与新评论都会通知你">
               {subscribed ? "🔔 已订阅" : "🔕 订阅"}
             </button>
+            <button onClick={() => setPreview(!preview)}
+              className="rounded-lg border border-line px-2 py-1 text-[10px] text-mut hover:border-acc hover:text-acc"
+              title="Markdown 只读预览（存储仍是纯文本）">
+              {preview ? "✏️ 编辑" : "👁 预览"}
+            </button>
             <span className="text-[10px] text-mut">Ctrl+Enter 发送 · @提及会发通知</span>
           </div>
           <Button size="sm" variant="primary" disabled={!draft.trim()} onClick={submit}>发送</Button>
@@ -125,18 +146,3 @@ export function CommentsModal({ itemId, title, onClose }: {
     </Modal>
   );
 }
-
-function highlightMentions(body: string, users: { id: string; name: string }[]) {
-  const names = users.map((u) => u.name).filter((n) => body.includes(`@${n}`));
-  if (!names.length) return body;
-  const parts = body.split(new RegExp(`(@(?:${names.map(escapeRe).join("|")}))`, "g"));
-  return parts.map((p, i) =>
-    p.startsWith("@") ? (
-      <span key={i} className="rounded bg-accbg px-1 font-medium text-acc">{p}</span>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
-  );
-}
-
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
