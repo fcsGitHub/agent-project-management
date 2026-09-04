@@ -179,6 +179,61 @@ def project_report(project_id: str) -> dict:
     }
 
 
+@router.get("/portfolio/report")
+def portfolio_report() -> dict:
+    """Cross-project portfolio overview (M23-I72, docs/01 §V.2): one row per
+    project visible to the caller plus a totals row — the Community-edition
+    stand-in for OpenProject's Enterprise portfolio dashboards. Pure
+    projection aggregation, zero ETL (M12 principle)."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    from apm.domains.feed import _visible
+    today = _now().date().isoformat()
+    projects = []
+    totals = {"items_active": 0, "done": 0, "gates_pending": 0, "overdue": 0, "timelog_minutes": 0}
+    if user is not None:
+        for p in conn.execute(
+            "SELECT id, name, ontology FROM projects WHERE status != 'archived' ORDER BY created_at"
+        ).fetchall():
+            if not _visible(p["id"], user):
+                continue
+            funnel = {b: 0 for b in BUCKET_NAMES}
+            for r in conn.execute(
+                "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? GROUP BY status_group",
+                (p["id"],),
+            ).fetchall():
+                if r["status_group"] in funnel:
+                    funnel[r["status_group"]] = r["c"]
+            gates = conn.execute(
+                "SELECT COUNT(*) c FROM approvals WHERE project_id = ? AND status = 'pending'",
+                (p["id"],),
+            ).fetchone()["c"]
+            overdue = conn.execute(
+                "SELECT COUNT(*) c FROM items WHERE project_id = ?"
+                " AND due_date IS NOT NULL AND due_date < ? AND " + _active_where(),
+                (p["id"], today),
+            ).fetchone()["c"]
+            minutes = conn.execute(
+                "SELECT COALESCE(SUM(minutes), 0) m FROM item_time_entries"
+                " WHERE project_id = ? AND deleted_at IS NULL",
+                (p["id"],),
+            ).fetchone()["m"]
+            active = sum(v for k, v in funnel.items() if k not in ("done", "cancelled"))
+            projects.append({
+                "project_id": p["id"], "name": p["name"], "ontology": p["ontology"],
+                "funnel": funnel, "items_active": active, "gates_pending": gates,
+                "overdue": overdue, "timelog_minutes": minutes,
+            })
+    for row in projects:
+        totals["items_active"] += row["items_active"]
+        totals["done"] += row["funnel"]["done"]
+        totals["gates_pending"] += row["gates_pending"]
+        totals["overdue"] += row["overdue"]
+        totals["timelog_minutes"] += row["timelog_minutes"]
+    return {"projects": projects, "totals": totals, "generated_at": _now().isoformat()}
+
+
 @router.get("/projects/{project_id}/timelog_report")
 def timelog_report(project_id: str, days: int = 14) -> dict:
     """M19-I61: project time report — per-user totals + per-day trend, read

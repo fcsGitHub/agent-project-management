@@ -141,3 +141,40 @@ def test_my_work_and_list_health(client, tmp_data, isolated_ontologies):
     assert by_id[p1["id"]]["item_counts"]["backlog"] == 1
     assert by_id[p1["id"]]["gates_pending"] == 1
     assert by_id[p2["id"]]["gates_pending"] == 0
+
+
+def test_portfolio_report_aggregates_visible_projects(client, tmp_data, isolated_ontologies, project):
+    """M23-I72: the portfolio card's numbers must equal the per-project
+    reports summed over exactly the caller-visible projects."""
+    from apm import config
+
+    pid = project["id"]
+    p2 = client.post("/api/projects", json={"name": "第二个项目", "ontology": "software-dev", "requirement": "p2"}).json()
+    client.post(f"/api/projects/{pid}/items", json={"concept_id": "task", "title": "甲", "priority": "high"})
+    client.post(f"/api/projects/{pid}/items", json={"concept_id": "task", "title": "乙", "due_date": "2026-01-01"})  # overdue
+    client.post(f"/api/projects/{p2['id']}/items", json={"concept_id": "task", "title": "丙"})
+    client.post(f"/api/projects/{pid}/milestones", json={"title": "M", "due_date": "2026-12-01"})
+    client.post(f"/api/items/{list(client.get(f'/api/projects/{pid}/items').json()['items'])[0]['id']}/time_entries",
+                json={"minutes": 60, "spent_on": "2026-09-05"})
+
+    rep = client.get("/api/portfolio/report").json()
+    by_id = {p["project_id"]: p for p in rep["projects"]}
+    assert pid in by_id and p2["id"] in by_id
+    assert by_id[pid]["overdue"] == 1 and by_id[p2["id"]]["overdue"] == 0
+    assert by_id[pid]["timelog_minutes"] == 60 and by_id[p2["id"]]["timelog_minutes"] == 0
+    assert rep["totals"]["timelog_minutes"] == 60
+    assert rep["totals"]["overdue"] == sum(p["overdue"] for p in rep["projects"])
+    assert rep["totals"]["items_active"] == sum(p["items_active"] for p in rep["projects"])
+
+    # outsider (network mode) sees nothing; members see their projects
+    config.settings.admin_password = "admin-pass"
+    from apm.domains.users import ensure_default_user
+    ensure_default_user()
+    client.post("/api/users", json={"id": "outsider", "name": "外人", "password": "out-pass"})
+    config.settings.auth_mode = "network"
+    try:
+        assert client.post("/api/auth/login", json={"user_id": "outsider", "password": "out-pass"}).status_code == 200
+        assert client.get("/api/portfolio/report").json()["projects"] == []
+    finally:
+        config.settings.auth_mode = "local"
+        config.settings.admin_password = ""

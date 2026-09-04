@@ -1,9 +1,11 @@
-/** Dashboard: milestone bar, approvals waiting, feature progress, activity feed. */
+/** Dashboard: milestone bar, approvals waiting, feature progress, activity feed.
+ * M23-I72: cross-project portfolio overview card on top. */
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
-import { Badge, Card, Empty, Button } from "../components/ui";
+import { fmtMinutes } from "../components/TimeLogModal";
+import { Badge, Card, Empty, Button, cx } from "../components/ui";
 
 const ICON: Record<string, string> = { human: "👤", agent: "🤖", system: "⚙️", ui_agent: "⌨️" };
 
@@ -15,6 +17,7 @@ export function Dashboard() {
   const runs = useQuery({ queryKey: ["runs", pid], queryFn: () => api.listRuns(pid!), enabled: !!pid });
   const events = useQuery({ queryKey: ["events", pid], queryFn: () => api.listEvents({ project_id: pid, limit: 25 }), enabled: !!pid });
   const convs = useQuery({ queryKey: ["conversations", pid], queryFn: () => api.listConversations(pid!), enabled: !!pid });
+  const portfolio = useQuery({ queryKey: ["portfolio"], queryFn: api.getPortfolioReport, refetchInterval: 15_000 });
 
   if (!pid) return null;
   const counts = project.data?.item_counts ?? {};
@@ -26,6 +29,38 @@ export function Dashboard() {
 
   return (
     <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+      {/* M23-I72: cross-project portfolio overview */}
+      <Card className="p-4 md:col-span-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">🗺 组合总览</span>
+          <span className="text-xs text-mut">
+            {portfolio.data?.projects.length ?? 0} 个可见项目 · 合计 活跃 {portfolio.data?.totals.items_active ?? 0} ·
+            超期 {portfolio.data?.totals.overdue ?? 0} · 待审 Gate {portfolio.data?.totals.gates_pending ?? 0} ·
+            工时 {fmtMinutes(portfolio.data?.totals.timelog_minutes ?? 0)}
+          </span>
+        </div>
+        <div className="space-y-1">
+          {(portfolio.data?.projects ?? []).map((p) => (
+            <Link key={p.project_id} to={`/p/${p.project_id}`}
+              className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs hover:border-acc">
+              <span className="w-32 shrink-0 truncate font-medium">{p.name}</span>
+              <div className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-full bg-bg">
+                {(["backlog", "todo", "in_progress", "done", "cancelled"] as const).map((k) => (
+                  <div key={k} title={`${k}: ${p.funnel[k] ?? 0}`}
+                    className={cx("h-full", k === "done" ? "bg-ag" : k === "in_progress" ? "bg-acc" : "bg-line")}
+                    style={{ width: `${p.items_active + p.funnel.done ? (p.funnel[k] ?? 0) / Math.max(Object.values(p.funnel).reduce((a, b) => a + b, 0), 1) * 100 : 0}%` }} />
+                ))}
+              </div>
+              <span className="w-20 shrink-0 text-right text-mut">活跃 {p.items_active}</span>
+              <span className="w-16 shrink-0 text-right text-mut">⏱ {fmtMinutes(p.timelog_minutes)}</span>
+              {p.overdue > 0 && <Badge tone="red">超期 {p.overdue}</Badge>}
+              {p.gates_pending > 0 && <Badge tone="amber">◆ {p.gates_pending}</Badge>}
+            </Link>
+          ))}
+          {!portfolio.data?.projects.length && <div className="py-2 text-center text-xs text-mut">没有可见项目</div>}
+        </div>
+      </Card>
+
       {/* milestone / progress */}
       <Card className="p-4 md:col-span-2">
         <div className="flex items-center justify-between text-xs text-mut">

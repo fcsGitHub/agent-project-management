@@ -58,6 +58,15 @@ export type MyTimelog = {
   user_id: string; days: MyTimelogDay[]; total_minutes: number;
   window: { start: string; end: string; days: number };
 };
+export type PortfolioRow = {
+  project_id: string; name: string; ontology: string;
+  funnel: Record<string, number>; items_active: number;
+  gates_pending: number; overdue: number; timelog_minutes: number;
+};
+export type PortfolioReport = {
+  projects: PortfolioRow[]; totals: PortfolioRow;
+  generated_at: string;
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -271,6 +280,8 @@ export const api = {
 
   listProjects: (includeArchived = false) =>
     req<{ projects: Project[] }>(`/projects${includeArchived ? "?include_archived=true" : ""}`),
+  getPortfolioReport: () =>
+    req<PortfolioReport>("/portfolio/report"),
   archiveProject: (pid: string) =>
     req<Project>(`/projects/${pid}/archive`, { method: "POST" }),
   reopenProject: (pid: string) =>
