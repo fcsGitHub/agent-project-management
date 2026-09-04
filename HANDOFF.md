@@ -220,7 +220,11 @@
   - 审阅时点 HEAD `84c57cc` 重跑 pytest 154（0 失败）/冒烟 23/vitest 2 全绿；I53/I54/I55 DoD 逐项核对（零依赖 RS256 验签/JIT 四约束/env 关闭语义/门禁兼容/Keycloak 与桩环境/冒烟 23 全程）；
   - 浏览器隔离复演（network 模式 + tools/oidc_stub.py 真流程）：登录页 SSO → 桩 authorize → callback → 会话 → 顶栏 chip → 越权写 403 → OIDC 面板（docs/m17-i54-*.png ×3）；无新增 B/C 级意见。
 - **M18 已定义（本提交，docs/01 §Q + docs/10 §M18）**：三路调研——Plane/GitLab 评论+@mention 即通知（AgentPM 工作项无评论流，真实缺口）、OpenProject 工时跟踪 Community 核心（spent time，留下一轮首选候选）、GitLab 参与即通知层级（采「参与者+被提及」最小面）→ **M18 = 工作项评论与参与通知（I56 评论域：comment.* 事件 + @mention 解析 → 通知 + 参与投影 / I57 评论前端：评论区 + mention 补全 + 通知跳转 / I58 订阅 watch/subscriber + docs/12 §15 + 冒烟 24 + 审阅，约 9 人日）**；本提交顺带整理了 docs/10 附录结构（附录 A 后半段错位回位 + 补 I54/I55 附录 A 行 + 看板 M17 审阅行）。
-- **当前验证状态**：pytest **154 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M18-I56 评论域（本轮完成，`32cdbf1`+`891738a`）**：
+  - `domains/comments.py`：item_comments 投影表（软删除）+ item_participants 参与投影（去重）+ comment.* 事件（rebuild 存活）；@mention 解析（`@姓名` 精确最长匹配 users.name，作者自身排除）；mention 通知走 M10 notification.sent 通道；参与面接入 item.assigned；CRUD 权限对齐 M8；
+  - 单测 4 项；pytest **158/冒烟 23**；**坑：/api/notifications 按当前身份过滤**——逐身份断言须 /session/identity 切换；
+  - 本提交顺带修复 docs/10 附录结构错位（附录 A 后半段六行错落附录 B 内且重复——移回+去重+补 I54/I55 附录 A 行+看板 M17 审阅行）。**docs/10 的 Edit 锚点务必唯一定位**（多次以「审阅行尾」做锚把附录 A 行插进了附录 B）。
+- **当前验证状态**：pytest **158 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -228,8 +232,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I56 评论域**（M18 第 1 迭代，docs/10 §M18）：新域 `domains/comments.py`——item_comments 投影表 + comment.created/deleted 事件（rebuild 存活，**drop_projections 清单同步**）；CRUD（项目成员可评、author/admin 可删）；**@mention 解析**（`@姓名` 匹配 users → mentions 入事件 + M10 通知投影 + M11 邮件联动）；**参与投影**（item_participants：author/assignee/mentioned 去重）；单测（CRUD+rebuild/mention 通知/参与去重/权限矩阵/删除隐藏）→ 「M18-I56」三段式提交。
-2. I57 评论前端（评论区 + mention 补全 + 通知跳转）→ I58 订阅（watch/subscriber）+ docs/12 §15 + 冒烟 24 + M18 正式审阅。
+1. **I57 评论前端**（M18 第 2 迭代，docs/10 §M18）：FeaturePage（或工作项抽屉）加评论区（列表 + 输入框 + `@` 成员补全下拉）；看板卡片徽标显示评论数；通知铃 mention 通知点击跳转对应工作项；api.ts 增 Comment 类型 + 3 方法 → build+vitest 绿 + 浏览器双身份复演（A 评论 @B → B 铃铛 → 跳转）截图 → 「M18-I57」三段式提交。
+2. I58 订阅（item.subscribed/unsubscribed + 参与者收后续事件通知）+ docs/12 §15 + 冒烟 24 + M18 正式审阅（审阅时点 HEAD 重跑 pytest 158/冒烟 23 + 附录 B + 截图）。
 
 ## 5. 有哪些坑不要再踩
 
