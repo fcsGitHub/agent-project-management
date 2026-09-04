@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 已定义（治理与效率三件套），下一步 I68 全局搜索）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 进行中：I68 已完成，下一步 I69 归档与克隆）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -44,8 +44,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M22-I68 全局搜索**（docs/01 §U.1）：FTS5 虚表 items_search/comments_search（中文 bigram 同资产域，参考 docs/09 §5 与 assets_fts 实现）+ 触发器同步；`GET /search?q=&types=`（工作项标题/描述、评论 body；按 _visible 可见项目裁剪；空 q 422）；⌘K 增「搜索 'xx'」跳 `#/search?q=` 结果页（类型 chips + 点击直达）。**只跑相关验证。**
-2. **M22-I69 项目归档与克隆**（§U.2）：projects.status（CREATE+ALTER）+ `project.archived/reopened` 事件（drop_projections 无需——列在既有 projects 投影上更新）；归档写路径 409 统一守卫；列表「显示已归档」开关 + 设置页归档/恢复；`POST /projects/{id}/clone`（复制选择 structure/items/milestones，**成员永不复制**；逐实体 emit + project.cloned 事件）。
+1. ~~M22-I68 全局搜索~~ ✅ **已完成**（`dd23aff`+docs）：`domains/search.py` FTS5 索引（handler 注册在 items/comments 投影器之后——注册序即执行序）+ `GET /search?q=&types=`（`_visible` 裁剪）+ ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；test_search.py 全绿。
+2. **M22-I69 项目归档与克隆**（docs/01 §U.2）：projects.status（CREATE+ALTER）+ `project.archived/reopened` 事件（既有 projects 投影上加列更新）；归档写路径 **409 统一守卫**（project_id 写端点）；列表「显示已归档」开关 + 设置页归档/恢复按钮（owner/admin）；`POST /projects/{id}/clone`（structure/items/milestones 复制选择，**成员永不复制**；逐实体 emit + `project.cloned` 事件）。**只跑相关验证。**
 3. **M22-I70 批量编辑 + 收尾**（§U.3）：列表 checkbox 多选 + 底部批量条（状态/指派/优先级/清里程碑）+ `POST /projects/{id}/items/batch-patch`（逐项 item.updated 审计保真、逐项结果不整批回滚、选择与分组解耦防 #8683）；docs/12 §19；**新增冒烟 28**（搜索/归档门禁/克隆 roundtrip/批量审计 + rebuild 一致）。
 4. **M22 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 173+ / 冒烟 27+28 / vitest+build）+ I68/I69/I70 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M22 正式审阅通过」提交。之后 M23 调研定义（先 grep docs/01 防重查）。
 5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
