@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M23 三迭代已完成，下一步 M23 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M23 已完成（计划对照与总览三件套，审阅通过），下一步 M24 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -38,7 +38,8 @@
 - **M22 已定义（docs/01 §U + docs/10 §M22）**：治理与效率三件套——I68 全局搜索（FTS5 中文 bigram 复用 + `GET /search?q=` 可见性裁剪 + ⌘K 入口与结果页）/ I69 项目归档与克隆（projects.status + archived/reopened 事件 + 归档写 409 + clone 成员永不复制）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件、选择与分组解耦）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅，约 8 人日。
 - **M22 治理与效率三件套（I68-I70，审阅通过）**：全局搜索（`domains/search.py` FTS5 中文 bigram + `GET /search?q=` 可见性裁剪 + ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；索引 handler 注册在 items/comments 投影器之后——注册序即执行序）、项目归档与克隆（`add_emit_guard` pre-emit 守卫：归档项目写 409，白名单 reopened/cloned/access.denied；`/reopen` 专用事件；`/clone` 成员/指派永不复制、关系复制；列表 include_archived + 归档/恢复/克隆按钮）、批量编辑（`POST /projects/{id}/items/batch-patch` 逐项复用 patch_item——逐事件审计、逐项结果不回滚；列表 checkbox + 批量条，同概念才能改状态，选择与分组解耦）；docs/12 §19；冒烟 28。
 - **M23 已定义（docs/01 §V + docs/10 §M23）**：计划对照与总览三件套——I71 甘特基线（baselines 投影 + baseline.set/cleared 事件 + TimelinePage 幽灵条形偏差）/ I72 组合总览（`GET /portfolio/report` 纯投影聚合 + Dashboard 组合卡）/ I73 Markdown 工具栏（手写选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 于 I73 + 审阅，约 8 人日。
-- **当前验证基线：pytest 177 全绿；冒烟 28 GREEN；vitest 2/build 绿。**
+- **M23 计划对照与总览三件套（I71-I73，审阅通过）**：甘特基线（baselines 投影 UNIQUE 单活动快照 + baseline.set/cleared 事件 + TimelinePage 幽灵虚线条形偏离 amber；改期永不触碰快照）、组合总览（`GET /portfolio/report` `_visible` 裁剪 + totals 对账 + Dashboard「🗺 组合总览」卡）、Markdown 工具栏（CommentsModal 手写选区包裹/行前缀、保焦点选区、存储纯文本）；docs/12 §20；冒烟 29。
+- **当前验证基线：pytest 180 全绿；冒烟 29 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -46,11 +47,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M23-I71 甘特基线~~ ✅ **已完成**（`26a5bf0`+docs）：baselines 投影（UNIQUE 单活动基线）+ baseline.set/cleared 事件（覆盖式重设）+ `/projects/{id}/baseline` 三端点 + TimelinePage 幽灵虚线条形（偏离 amber）+ 设为/清除按钮；test_baselines.py 全绿。
-2. ~~M23-I72 组合总览~~ ✅ **已完成**：`GET /portfolio/report`（`_visible` 裁剪、五桶/Gate/超期/工时聚合 + totals）+ Dashboard「🗺 组合总览」卡（15s 轮询）；reports 单测 5 项绿。
-3. ~~M23-I73 Markdown 工具栏 + 收尾~~ ✅ **已完成**（`923b0e3`）：CommentsModal 手写工具栏（选区包裹/行前缀，保焦点选区）+ docs/12 §20；**冒烟 29 GREEN（基线 29）**。
-4. **下一步：M23 正式审阅**——审阅时点 HEAD 重跑**全量**（pytest 178+ / 冒烟 29 / vitest+build）+ I71/I72/I73 DoD 逐项 + 浏览器隔离复演三件套（设基线→拖改期→幽灵条形留原位；Dashboard 组合卡数字与项目一致；工具栏包裹→渲染）+ 附录 B +「M23 正式审阅通过」提交。之后 M24 调研定义（先 grep docs/01 防重查）。
-5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
+1. **M24 调研定义**（目标协议第 1 条，三路并行 WebSearch）——先 grep docs/01 防重查。候选池：甘特基线多历史链（M23 单基线延伸）、同概念条形重叠避让（M21 审阅 C 级）、评论编辑器增强、跨项目聚合报表深化（widget 拖装 Enterprise 等价）、本体版本事件级归档（§K.3 已有导出立场）、通知 digest（低优）。产出：docs/01 新节 + docs/10 §M24 + 看板行 + 附录 A + HANDOFF 收口 →「M24 调研定义」提交。
+2. 按 M24 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**；动 events/db 内核的迭代主动升级全量）→ M24 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 违例至 M23 仍在发生——彻底禁止**）；**commit message 含反引号/美元符必须单引号包裹**（M23-I72 踩：_visible 被 bash 吞）；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 
