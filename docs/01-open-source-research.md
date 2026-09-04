@@ -547,3 +547,36 @@ M20 = **体验补齐三件套**：I62 个人工时日历（my/timelog 聚合 + �
 **T.5 M21 取舍**
 
 M21 = **日程集成三件套**：I65 依赖连线图内编辑（端点圆圈拖拽 → depends_on + 冲突重算）/ I66 iCal 日历订阅（/my/calendar.ics + feed_key + VEVENT 全日事件）/ I67 评论清单项转子任务（提取语义 + extracted_tasks + 渲染链接）+ docs/12 §18 + 冒烟 27 + M21 审阅，约 8 人日。start/end 打卡、任务清单 checkbox 回写、甘特基线对比、digest 留 backlog。
+
+## U. M22 前置调研：治理与效率——全局搜索 / 项目归档克隆 / 批量编辑（2026-09-05）
+
+> 目标协议触发：M21 审阅通过后开启。防重查先行：全局搜索/项目归档/克隆/批量编辑在 docs/01 均无既有调研（grep 确认）；digest 与 start/end 打卡维持既往结论。本轮三路（OpenProject 全局搜索 / OpenProject·Redmine 归档与克隆语义 / Plane 批量操作形态），选定 **M22 = 治理与效率三件套**——数据量增长后「找得到（搜索）+ 管得住（归档）+ 动得快（批量）」是落地标准的日常运营面。
+
+**U.1 全局搜索：跨内容类型 + 快捷过滤**
+
+- OpenProject 全局搜索：关键字/ID **跨内容类型**（工作包、wiki 等）检索，结果页按类型快捷过滤（[Global search](https://www.openproject.org/docs/mobile-app-guide/core-features/global-search/)、[Search features](https://www.openproject.org/docs/user-guide/search/)）；跨项目列表同样支持搜索/过滤/保存视图。
+- AgentPM 现状：⌘K 命令面板只做导航与过滤（I10），工作项/评论/资产无统一文本检索面；FTS5 已在栈内（资产域中文 bigram，docs/09 §5）。
+- → 取舍：`GET /search?q=` 复用 FTS5——items.title/描述 与评论 body 入虚拟表（中文 bigram 同款 tokenizer），结果按项目可见性裁剪（`_visible` 同款）+ 类型 chips（工作项/评论/资产）；⌘K 面板增「搜索 'xx'」入口跳结果页。不做 wiki 类内容（无此域）。
+
+**U.2 项目归档与克隆：只读可逆 vs 创建时复制**
+
+- OpenProject 归档：项目设置 Information 页 ⋯ 菜单「Archive project」（实例/项目管理员）——归档后项目**只读**（数据不可变）并移出活跃列表，**可逆**（unarchive 恢复）；删除才不可逆（恢复靠备份）（[Manage project information](https://www.openproject.org/docs/user-guide/projects/project-settings/project-information/)、[Restoring backup](https://www.openproject.org/docs/installation-and-operations/operation/restoring/)）。
+- 克隆：OpenProject 支持复制项目（结构+工作包等，需权限）；Redmine 在**创建项目时**勾选「Copy projects」并选择复制内容（issues/members/versions，[Feature #4687](https://www.redmine.org/issues/4687)——管理员限定曾是长期痛点）。
+- → 取舍：①归档=`project.archived/reopened` 事件 + projects.status 列（active/archived），归档项目**全端只读门禁**（写路径 409 + SSE/报表仍可见），列表默认隐藏 + 「显示已归档」开关；②克隆=`POST /projects/{id}/clone`（新名 + 选择复制：结构/工作项/里程碑，**成员不复制**防越权——创建时勾选语义同 Redmine），逐实体走既有 emit 链路保审计。
+
+**U.3 批量操作：checkbox 选择 + 底部批量条**
+
+- Plane 批量更新：列表 checkbox 逐个/全选 → **底部批量操作条**应用修改（无右键菜单形态，[Bulk ops 文档](https://docs.plane.so/core-concepts/issues/bulk-ops)）；分组视图下批量条曾因选择丢失出 bug（[#8683](https://github.com/makeplane/plane/issues/8683)——分组状态与选择状态要解耦）。
+- AgentPM 现状：看板卡片多选只有「批量让 Agent 做」（M2）与审批中心批量决策（M2），无批量字段编辑。
+- → 取舍：列表视图增 checkbox 多选 + 底部批量条（改状态/指派/优先级/设置里程碑）→ `POST /projects/{id}/items/batch-patch`（ids+patch，**逐项发 item.updated 事件**——审计与 automation hook 保真，失败项逐条返回不整批回滚）；选择状态与分组/过滤解耦（#8683 教训）。
+
+**U.4 M22 设计映射与验证纪律（沿用）**
+
+- I68 全局搜索：FTS5 虚表 items/search + comments/search（中文 bigram）+ 触发器同步；`GET /search?q=` 可见性裁剪 + ⌘K 入口 + 结果页（类型 chips + 点击直达）。
+- I69 归档与克隆：status 列（ALTER 迁移）+ archived/reopened 事件 + 写门禁 409 + 列表开关 + clone 端点（复制选择 + 审计事件 project.cloned）。
+- I70 批量编辑：列表 checkbox + 批量条 + batch-patch 端点（逐事件、逐项结果）；冒烟 28 收尾。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M22 审阅；HANDOFF 每轮修剪。
+
+**U.5 M22 取舍**
+
+M22 = **治理与效率三件套**：I68 全局搜索（FTS5 复用 + 可见性裁剪 + ⌘K 入口）/ I69 项目归档与克隆（只读可逆 + 创建时复制语义 + 成员不复制）/ I70 批量编辑（checkbox + 底部批量条 + 逐事件 batch-patch）+ docs/12 §19 + 冒烟 28 + M22 审阅，约 8 人日。digest、start/end 打卡、甘特基线、编辑器工具栏留 backlog。

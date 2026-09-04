@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M21 已完成（日程集成三件套，审阅通过），下一步 M22 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 已定义（治理与效率三件套），下一步 I68 全局搜索）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -34,7 +34,8 @@
 - **M18 评论与参与通知（I56-I58，审阅通过）**：评论域（@mention 精确最长匹配→通知 + item_participants 参与投影）、评论前端（补全下拉/💬 徽标/`?item=` 直开/点击置已读）、订阅 watch + 参与者通知最小面；**审阅即修 change_status actor_id 硬编码 A 级缺陷**。
 - **M19 工时跟踪与报表（I59-I61，审阅通过）**：time.* 事件 + item_time_entries 投影 + CRUD（校验 fail-closed）、记时抽屉 + spent/estimate 徽标、项目工时报表按人/按日 + 本周工时（**补位 Plane GH #8045** 项目级聚合缺口，对账单测）。
 - **M20 体验补齐三件套（I62-I64，审阅通过 8005d36）**：个人工时日历（GET /my/timelog + `#/my/time` 周/月视图 + 点日快捷记时，own-data）、时间线拖拽改期（条形拖拽移动/右缘缩放 → 单 PATCH，M14 审计与冲突重算自动生效，半透明预览 + Esc 取消）、评论 Markdown 渲染（lib/md.ts：marked+DOMPurify，mentions 令牌化 chip，任务清单只读 checkbox，存储纯文本不变）；docs/12 §17；冒烟 26。审阅即修：任务清单 checkbox 被 DOMPurify FORBID input 剔除 → 钩子白名单放行。
-- **M21 日程集成三件套（I65-I67，审阅通过）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
+- **M21 日程集成三件套（I65-I67，审阅通过 f27bb33）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
+- **M22 已定义（docs/01 §U + docs/10 §M22）**：治理与效率三件套——I68 全局搜索（FTS5 中文 bigram 复用 + `GET /search?q=` 可见性裁剪 + ⌘K 入口与结果页）/ I69 项目归档与克隆（projects.status + archived/reopened 事件 + 归档写 409 + clone 成员永不复制）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件、选择与分组解耦）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅，约 8 人日。
 - **当前验证基线：pytest 173 全绿；冒烟 27 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
@@ -43,9 +44,11 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M22 调研定义**（目标协议第 1 条，三路并行 WebSearch）——先 grep docs/01 防重查。候选池：甘特基线对比（计划 vs 实际，Easy Redmine Pro 有、Community 普遍缺）、同概念条形重叠避让（M21 审阅 C 级）、通知 digest（低优）、start/end 精确打卡（已否过，需新证据）、任务清单 checkbox 回写（与提取语义并存设计）、评论编辑器工具栏。产出：docs/01 新节 + docs/10 §M22 + 看板行 + 附录 A + HANDOFF 收口 →「M22 调研定义」提交。
-2. 按 M22 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**）→ M22 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。
-3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
+1. **M22-I68 全局搜索**（docs/01 §U.1）：FTS5 虚表 items_search/comments_search（中文 bigram 同资产域，参考 docs/09 §5 与 assets_fts 实现）+ 触发器同步；`GET /search?q=&types=`（工作项标题/描述、评论 body；按 _visible 可见项目裁剪；空 q 422）；⌘K 增「搜索 'xx'」跳 `#/search?q=` 结果页（类型 chips + 点击直达）。**只跑相关验证。**
+2. **M22-I69 项目归档与克隆**（§U.2）：projects.status（CREATE+ALTER）+ `project.archived/reopened` 事件（drop_projections 无需——列在既有 projects 投影上更新）；归档写路径 409 统一守卫；列表「显示已归档」开关 + 设置页归档/恢复；`POST /projects/{id}/clone`（复制选择 structure/items/milestones，**成员永不复制**；逐实体 emit + project.cloned 事件）。
+3. **M22-I70 批量编辑 + 收尾**（§U.3）：列表 checkbox 多选 + 底部批量条（状态/指派/优先级/清里程碑）+ `POST /projects/{id}/items/batch-patch`（逐项 item.updated 审计保真、逐项结果不整批回滚、选择与分组解耦防 #8683）；docs/12 §19；**新增冒烟 28**（搜索/归档门禁/克隆 roundtrip/批量审计 + rebuild 一致）。
+4. **M22 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 173+ / 冒烟 27+28 / vitest+build）+ I68/I69/I70 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M22 正式审阅通过」提交。之后 M23 调研定义（先 grep docs/01 防重查）。
+5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 

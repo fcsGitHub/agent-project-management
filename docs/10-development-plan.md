@@ -728,6 +728,36 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 27 GREEN；审阅全绿。
 - 演示路径：评论 `- [ ] 写部署文档` → 转为子任务 → 渲染变链接 → 新工作项上卡。
 
+**M21 审阅点**：冒烟 27 + 各迭代 DoD + 浏览器演示（拖端点圆圈建依赖冲突红条 + 订阅卡 ICS + 清单项转子任务链接徽标）。（已通过：附录 B，f27bb33）
+
+### M22 · 治理与效率三件套（吸收 OpenProject 搜索/归档克隆 + Plane 批量操作，I68-I70，约 8 人日）
+
+> v1.8 新增（2026-09-05，M21 审阅通过后按目标协议调研）。调研结论见 docs/01 §U：OpenProject 全局搜索跨内容类型+快捷过滤（AgentPM ⌘K 只做导航，FTS5 栈已在可复用）；OpenProject 归档=只读可逆、Redmine 克隆在创建时选择复制内容且成员复制是越权风险点（→ 克隆不复制成员）；Plane 批量操作=checkbox+底部批量条（无右键菜单），#8683 选择与分组耦合出 bug（→ 状态解耦）。主题=「找得到（搜索）+ 管得住（归档）+ 动得快（批量）」。验证纪律沿用：迭代期只跑相关测试、全量收敛至 M22 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I68 | 全局搜索（FTS5 虚表 items/comments + GET /search 可见性裁剪 + ⌘K 入口与结果页） | 01 §U.1 | 资产域 FTS5 bigram 方案/_visible 裁剪 | 3d |
+| I69 | 项目归档与克隆（archived/reopened 事件 + 只读门禁 + clone 复制选择） | 01 §U.2 | 事件内核/模板包实例化经验 | 3d |
+| I70 | 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件）+ docs/12 §19 + 冒烟 28 + M22 审阅 | 01 §U.3 | M2 多选/列表视图 | 2d |
+
+#### I68 · 全局搜索（3d）
+
+- 任务：FTS5 虚表 items_search/comments_search（中文 bigram tokenizer 同资产域）+ 触发器同步（item.created/updated、comment.created 路径）；`GET /search?q=&types=`（工作项标题+描述、评论 body——逐类型结果 + **按用户可见项目裁剪**（`_visible` 同款））；⌘K 面板增「搜索 'xx'」项跳 `#/search?q=`，结果页类型 chips 过滤 + 点击直达（工作项跳 `?item=`、评论跳所在工作项）。
+- DoD：单测（索引同步/中文命中/可见性裁剪/空 query 422）；build+vitest 绿。
+- 演示路径：⌘K 输入中文关键词 → 结果页分类命中 → 点击直达工作项。
+
+#### I69 · 项目归档与克隆（3d）
+
+- 任务：projects.status 列（CREATE+ALTER 迁移，active/archived）+ `project.archived/reopened` 事件（rebuild 存活）；归档项目**写路径 409**（project_id 写端点统一守卫，SSE/报表/搜索只读可见）；项目列表默认隐藏已归档 + 「显示已归档」开关 + 项目设置「归档/恢复」按钮（owner/admin）；`POST /projects/{id}/clone`（新名 + 复制选择 structure/items/milestones——**成员永不复制**防越权；逐实体复用既有 emit 链路 + `project.cloned` 事件留源/目标）；`GET /projects?include_archived=`。
+- DoD：单测（归档后写 409 恢复可写/克隆 roundtrip 与 rebuild/成员不复制断言）；相关验证。
+- 演示路径：归档项目从列表消失 → 开「显示已归档」可见 → 恢复；克隆出新项目含结构+工作项。
+
+#### I70 · 批量编辑 + 收尾审阅（2d）
+
+- 任务：列表视图 checkbox 多选（表头全选）+ 底部批量操作条（改状态/指派/优先级/清里程碑，按所选概念状态池校验）；`POST /projects/{id}/items/batch-patch`（ids+patch——**逐项发 item.updated**（审计与 automation 保真），返回逐项 ok/失败清单不整批回滚）；选择状态与分组/过滤解耦（#8683 教训）；docs/12 §19；**新增冒烟 28**（搜索命中/归档写门禁/克隆 roundtrip/批量逐事件审计 + rebuild 一致）；相关验证 + M22 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 28 GREEN；审阅全绿。
+- 演示路径：列表勾选 3 项 → 批量改状态 → 卡片徽标随刷新变化 → 审计页逐项 item.updated。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -886,6 +916,7 @@ agent-project-management/
 | I60 工时前端 | 已完成 | 2026-09-04 | 2026-09-04 | 新组件 `TimeLogModal.tsx`（⏱ 抽屉：条目列表 人/时长徽标/日期/备注 + 记时表单 minutes/spent_on/note + **合计行**实时更新，`fmtMinutes` 时长格式化 1h30/45m）+ 看板卡片 **⏱ spent 徽标**（spent_minutes>0 才显示）与 ⏱ 按钮（与 💬 并列）；api.ts 增 TimeEntry 类型+4 方法+Item.spent_minutes；docs/12 §16 工时跟踪指南；**新增冒烟 25**（双身份记时→合计/详情/列表三处一致→校验门→软删缩合计→rebuild 条目与徽标复现）；浏览器隔离复演：李雷记 90m「⏱ 1h30」徽标上卡→切 QA 王见首条目再记 45m→**合计 2h15**（截图 docs/m19-i60-*.png ×4）；build+vitest 2 绿、pytest **166** 全绿、冒烟基线 **25 条 GREEN** |
 | **M20 体验补齐三件套（I62-I64）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §S + docs/10 §M20）：I62 个人工时日历（GET /my/timelog 聚合 + 周/月日历页 + 点日快捷记时，OpenProject 16.0 My time tracking 吸收）/ I63 时间线拖拽改期（条形拖拽移动+右缘缩放 → PATCH，补 M13 只读与 M14 自动排程之间的手动层）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览，存储保持纯文本）+ docs/12 §17 + 冒烟 26 + 审阅（截图 docs/m20-review-*.png ×6，见附录 B）；审阅即修任务清单 checkbox 渲染；start/end 打卡/依赖连线图内编辑/任务清单回写留 backlog |
 | **M21 日程集成三件套（I65-I67）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §T + docs/10 §M21）：I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款交互）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用，OpenProject 13.0 内建、Redmine #1077 缺位补位）/ I67 评论清单项转子任务（GitHub tasklist→sub-issue 提取语义 + extracted_tasks 投影 + 渲染链接）+ docs/12 §18 + 冒烟 27 + 审阅（截图 docs/m21-review-*.png ×3 + m21-i65-*.png ×2，见附录 B）；同概念条形重叠避让/start-end 打卡/checkbox 回写/甘特基线/digest 留 backlog |
+| **M22 治理与效率三件套（I68-I70）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 8 人日（docs/01 §U + docs/10 §M22）：I68 全局搜索（FTS5 复用 + GET /search 可见性裁剪 + ⌘K 入口，OpenProject 全局搜索吸收）/ I69 项目归档与克隆（archived 只读可逆 + clone 创建时复制且成员永不复制，OpenProject/Redmine 吸收）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件，Plane 吸收 + #8683 解耦教训）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅；digest/start-end 打卡/甘特基线/编辑器工具栏留 backlog |
 | I65 依赖连线图内编辑 | 已完成 | 2026-09-05 | 2026-09-05 | TimelinePage 条形 hover 显两端端点圆圈（**@workiom/frappe-gantt fork 同款**——核心库只有依赖渲染无拖拽创建），从端点拖到目标条形 → `POST /items/{拖动条}/relations depends_on`（拖动条依赖目标条）；橡皮筋虚线实时绘制（复用冲突连线 SVG 坐标系，svgRef getBoundingClientRect 取景）；elementFromPoint 命中 `data-item-id` 为落点、自依赖/落空静默取消、后端校验错误 toast；**Esc 取消**（与改期拖拽共用监听）；落点后连线与冲突重算随 invalidate 生效；api.ts 补 addRelation（此前 M13 只读）；浏览器复演（圆圈+橡皮筋截图 docs/m21-i65-*.png ×2，toast + API relations 断言）；build+vitest 绿。复演注记：同概念行多条形重叠时落点命中最上层条形（DOM 序）——依赖语义仍正确，重叠避让已留 backlog |
 | I66 iCal 日历订阅 | 已完成 | 2026-09-05 | 2026-09-05 | 新域 `domains/ical.py`：`GET /my/calendar.ics?key=`——**复用 M11 feed_key** 认证（owner 可反复读、rotate 后旧 key 401）与 `_visible` 项目可见性裁剪（防 #20173 式泄漏）；内容=**分配给我的活跃项**（VEVENT 全日事件：DTSTART=due、双日期时 DTSTART=start、DTEND 排他 due+1）+ 可见项目**里程碑截止**（◆ 前缀）；UID=`{id}@agentpm` 确定性、DTSTAMP 事件 ts、RFC 5545 TEXT 转义（`\,\;\\` + 换行）+ 74 字符折行 + CRLF 帧结构，**手写文本零新依赖**；「我的工作」页新增「📅 订阅日历」卡（显示订阅链接/复制/换发密钥）；test_ical.py（401/own-data 裁剪：他人项与 done 项不出现/里程碑可见性+确定性 UID+排他 DTEND/转义+rotate 旧 key 401）；单测全绿、build 绿 |
 | I67 评论清单项转子任务+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | extracted_tasks 投影表（schema+drop_projections 同步）+ `comment.task_extracted` 事件（rebuild 存活）；`POST /comments/{id}/extract-task`（校验文本确为评论任务清单项 → **复用 create_item** 建 task 工作项；重复 409/非清单项 422/未知 404；**评论存储字节不变**——GitHub tasklist→sub-issue 提取语义）；list_comments 带 extracted 映射；md.ts 任务清单项后处理（已提取→🔗链接+徽标跳 `?item=`；未提取→显式「转为子任务」按钮，data-extract 委托点击防 #4261 hover 误触）；docs/12 §18；**新增冒烟 27**（依赖建立→ICS 认证/裁剪/VEVENT→提取往返 409→rebuild 四面一致）；comments+ical **8 项**绿、冒烟基线 **27 条 GREEN**、build+vitest 绿 |
@@ -1009,6 +1040,8 @@ agent-project-management/
 | 2026-09-05 | I66 | iCal 日历订阅：新域 `domains/ical.py`（注册两处 main.py + domains/__init__）；`/my/calendar.ics?key=` 三层语义——①认证复用 feed.py `_user_by_feed_key`（rotate 后旧 key 401）；②内容 own-data：`assignee_type='human' AND assignee_id=me AND status_group NOT IN done/cancelled AND 有日期`（指派即授权，my/work 同口径）+ 里程碑逐项目 `_visible`（admin 全见/成员/loca 配置身份）；③格式 RFC 5545：UID 确定性、DTEND 排他 +1 天、TEXT 转义、折行、CRLF；实现坑：f-string 嵌套同引号在 Python <3.12 语法错误（PEP 701 前）——改预计算变量；test_ical.py 4 组断言全绿、build 绿。 |
 
 | 2026-09-05 | I67 | 评论清单项转子任务：`extracted_tasks` 投影表 + `comment.task_extracted` 事件 + `POST /comments/{id}/extract-task`（`_TASK_LINE` 正则解析评论清单项，文本不匹配 422、重复 409；创建复用 `items.create_item`——新工作项天然带完整事件溯源与看板可达）；渲染层后处理在 mention chip 注入**之前**做（data-extract 属性值不含令牌无冲突）；冒烟 27 两处踩坑记录：①未指派项正确地不进本人 ICS（断言写反）；②**rebuild 清运行态 feed_key**（M11 与 password_hash 同语义）——rebuild 后须重取 key。冒烟基线 **27 条 GREEN**。 |
+
+| 2026-09-05 | M22 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：全局搜索/归档/克隆/批量编辑在 docs/01 均无覆盖，grep 确认）：①**OpenProject 全局搜索**——关键字/ID 跨内容类型 + 快捷过滤；AgentPM ⌘K 只做导航无文本检索，FTS5 中文 bigram 栈已在（资产域）→ 复用；②**归档与克隆**——OpenProject 归档=只读可逆（unarchive 恢复，删除才靠备份）、Redmine 克隆在创建时勾选复制内容（#4687 权限痛点）→ AgentPM 归档做只读门禁 + 克隆**成员永不复制**防越权；③**Plane 批量操作**——checkbox + 底部批量条（无右键菜单），#8683 分组与选择耦合 bug → 解耦设计。选定 **M22 = 治理与效率三件套**：I68 全局搜索（找得到）/ I69 归档与克隆（管得住）/ I70 批量编辑（动得快）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +8 人日。结论入 docs/01 §U。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
