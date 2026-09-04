@@ -34,3 +34,6 @@ tools/smoke/reports/
 .demo-m18/
 .demo-m18-review/
 .demo-m19/
+
+# M20 复演隔离环境
+.replay-m20/

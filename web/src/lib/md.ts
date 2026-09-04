@@ -15,6 +15,10 @@ function installLinkHook() {
       node.setAttribute("target", "_blank");
       node.setAttribute("rel", "noopener noreferrer nofollow");
     }
+    // task-list checkboxes are the only inputs allowed through (read-only)
+    if (node.tagName === "INPUT" && node.getAttribute("type") !== "checkbox") {
+      node.remove();
+    }
   });
   hookInstalled = true;
 }
@@ -36,8 +40,9 @@ export function renderCommentMd(body: string, names: string[]): string {
       (m) => `@@m:${m.slice(1)}@@`)
     : body;
   const html = marked.parse(tokenized, { async: false }) as string;
+  // form forbidden + the hook keeps only disabled task-list checkboxes
   const clean = DOMPurify.sanitize(html, {
-    FORBID_TAGS: ["style", "form", "input"],
+    FORBID_TAGS: ["style", "form"],
     FORBID_ATTR: ["style"],
   });
   return clean.replace(/@@m:(.*?)@@/g, (_m, name: string) =>
