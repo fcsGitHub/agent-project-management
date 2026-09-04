@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 已定义（I56-I58 工作项评论与参与通知），下一步 I56）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 进行中（I56 评论域 + I57 评论前端完成），下一步 I58）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -224,7 +224,13 @@
   - `domains/comments.py`：item_comments 投影表（软删除）+ item_participants 参与投影（去重）+ comment.* 事件（rebuild 存活）；@mention 解析（`@姓名` 精确最长匹配 users.name，作者自身排除）；mention 通知走 M10 notification.sent 通道；参与面接入 item.assigned；CRUD 权限对齐 M8；
   - 单测 4 项；pytest **158/冒烟 23**；**坑：/api/notifications 按当前身份过滤**——逐身份断言须 /session/identity 切换；
   - 本提交顺带修复 docs/10 附录结构错位（附录 A 后半段六行错落附录 B 内且重复——移回+去重+补 I54/I55 附录 A 行+看板 M17 审阅行）。**docs/10 的 Edit 锚点务必唯一定位**（多次以「审阅行尾」做锚把附录 A 行插进了附录 B）。
-- **当前验证状态**：pytest **158 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M18-I57 评论前端（本轮完成，`a0db1c7`+docs 段）**：
+  - 新组件 `web/src/components/CommentsModal.tsx`：评论列表（author_name + @提及高亮）、textarea、**@补全下拉**（`draft.lastIndexOf('@')` 后缀匹配 users）、Ctrl+Enter 发送、hover 作者删除；看板卡片 💬 按钮 + 评论数徽标 + **`?item=<id>` 直开**（useEffect 命中 buckets 即开）；通知中心 mention 项**点击跳转** `#/p/{pid}/board?item=`（`notifications.py` get_notifications 以 ref_event_id→events.agg_id 解析 item_id）**且点击即置已读**（markNotificationsRead 单条 + invalidate）；
+  - 审阅即修 2：mention 通知摘要带**工作项标题**（「T2 需求池…」而非裸 i_xxx——`_require_item` 补 title 列，单测补断言）；跳转后徽标清零；
+  - 浏览器双身份复演通过（生产构建 + SW 清缓存）：李雷 @补全发评论 → API 验证 mentions=["qa"] → 切 QA 王铃徽标 1 → 带标题通知 → 点击跳转 Modal 自动开 + @QA 王 蓝色高亮 + 徽标清零（docs/m18-i57-*.png ×4）；
+  - **复演排障定案**：上次「铃徽标 1 但面板暂无通知」= **双后端进程同时 LISTEN 8000**（Windows 允许端口双绑，两次轮询打到不同数据目录实例——badge 与列表同源自相矛盾即此症）；重建隔离库时**先建用户再发评论**（评论先于被提及者落库则 mentions 为空、无通知）；
+  - 本 docs 段顺带清理附录 A 残留：874-878 与 883-887 **五行完全重复**（I56 整理未去净）+ 补记缺失的 I56 附录 A 行；补交 M17 审阅截图 docs/m17-i54-*.png ×3（审阅提交时遗漏入库）。
+- **当前验证状态**：pytest **158 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -232,8 +238,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I57 评论前端**（M18 第 2 迭代，docs/10 §M18）：FeaturePage（或工作项抽屉）加评论区（列表 + 输入框 + `@` 成员补全下拉）；看板卡片徽标显示评论数；通知铃 mention 通知点击跳转对应工作项；api.ts 增 Comment 类型 + 3 方法 → build+vitest 绿 + 浏览器双身份复演（A 评论 @B → B 铃铛 → 跳转）截图 → 「M18-I57」三段式提交。
-2. I58 订阅（item.subscribed/unsubscribed + 参与者收后续事件通知）+ docs/12 §15 + 冒烟 24 + M18 正式审阅（审阅时点 HEAD 重跑 pytest 158/冒烟 23 + 附录 B + 截图）。
+1. **I58 订阅与收尾审阅**（M18 第 3 迭代，docs/10 §M18）：工作项订阅（`item.subscribed/unsubscribed` 事件 + 参与投影扩展：assignee/author/mentioned 自动参与 + 手动订阅切换按钮）；通知面接入参与者（item.* 后续事件通知参与者——最小面：状态变更与评论）；docs/12 §15 评论与参与通知指南；**新增冒烟 24**（评论全程：CRUD→mention 通知→参与集合→订阅→rebuild 一致）；全量回归 + M18 正式审阅（审阅时点 HEAD 重跑 pytest/冒烟/vitest + DoD 逐项核对 + 附录 B + 浏览器隔离复演双身份「评论→提及→通知→状态变更通知参与者」）→ 「M18-I58」三段式 + 「M§ 正式审阅通过」提交。
+2. 审阅后：**M19 调研**（目标协议第 1 条）——首选候选**工时跟踪**（OpenProject Community 核心 spent time，docs/01 §Q.2 已调研勿重查）；备选：通知 digest（同类均无原生内建，低优）、富文本评论/通知层级细分（backlog）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -257,6 +263,8 @@
 - **commit 纪律**：迭代号前缀；冒烟基线只增不减；范围变更先记 docs/10 附录 A。小本体主义是硬约束（概念 ≤12、字段 ≤10、关系 ≤6，校验器会拦）；别引入 RDF/SPARQL/推理机（docs/08 §2 取舍）。
 - **全局导航入口的 to 映射别硬编码**（M8 审阅踩坑）：AppShell rail 曾把所有 global 入口写死 `/assets`，模板入口静默失效一个里程碑——因为存在备用入口（项目列表页按钮），常规演示没暴露。加导航项时逐条点一遍图标。
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
+- **Windows 允许多进程同时 LISTEN 同一端口**（I57 复演踩坑，oidc_stub 9001 同症）：重启后端前旧进程没死净，两个实例双绑 8000 各持不同数据目录——请求随机分流，前端「铃徽标 1 但面板空」这类同源数据自相矛盾即此症；**起演示先 `netstat -ano | grep :8000` 确认单监听**，kill 旧 PID 再起。
+- **复演造数顺序：先建用户再发 @ 评论**（I57 踩坑）：评论先于被提及者落库则 `_parse_mentions` 查无此人、mentions 为空、无通知——复演脚本第一步先把双身份用户建齐。
 
 ## 6. 快速上手命令
 
