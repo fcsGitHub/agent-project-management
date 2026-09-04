@@ -113,3 +113,57 @@ def test_comment_permission_network(client, pid, monkeypatch):
     finally:
         config.settings.auth_mode = "local"
         config.settings.admin_password = ""
+
+
+def test_subscription_and_participant_notifications(client, pid):
+    """M18-I58: manual watch + participants notified on follow-up item events."""
+    from apm.core import projections as _prj
+    client.post("/api/users", json={"id": "u_watch", "name": "观察者"})
+    item = _mk_item(client, pid, "订阅目标")
+
+    def inbox(uid):
+        saved = config.settings.user_id
+        try:
+            client.post("/api/session/identity", json={"user_id": uid})
+            notes = client.get("/api/notifications").json()["notifications"]
+        finally:
+            client.post("/api/session/identity", json={"user_id": saved})
+        return notes
+
+    # watcher subscribes (double subscribe is idempotent)
+    saved = config.settings.user_id
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_watch"})
+        assert client.post(f"/api/items/{item['id']}/subscription").json()["subscribed"] is True
+        client.post(f"/api/items/{item['id']}/subscription")
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+
+    # status change notifies the watcher-participant, never the actor (u_admin)
+    assert client.patch(f"/api/items/{item['id']}", json={"status": "done"}).status_code == 200
+    watch_notes = inbox("u_watch")
+    status_notes = [n for n in watch_notes if n["kind"] == "item"]
+    assert len(status_notes) == 1 and "订阅目标" in status_notes[0]["summary"]
+    assert all(n["kind"] != "item" for n in inbox("u_admin"))  # actor excluded
+
+    # a new comment (no mentions) notifies the watcher, not its author
+    _comment(client, pid, item["id"], "第二条评论，无提及")
+    watch_notes = inbox("u_watch")
+    comment_notes = [n for n in watch_notes if n["kind"] == "comment"]
+    assert len(comment_notes) == 1 and "第二条评论" in comment_notes[0]["summary"]
+
+    # unsubscribe stops the noise; author/mentioned participation is untouched
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_watch"})
+        assert client.delete(f"/api/items/{item['id']}/subscription").json()["subscribed"] is False
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+    assert client.patch(f"/api/items/{item['id']}", json={"status": "ready"}).status_code == 200
+    assert len([n for n in inbox("u_watch") if n["kind"] == "item"]) == 1
+
+    # rebuild consistency: participants and notification rows survive identically
+    parts_before = client.get(f"/api/items/{item['id']}/comments").json()["participants"]
+    watch_before = [(n["id"], n["read"]) for n in inbox("u_watch")]
+    _prj.rebuild()
+    assert client.get(f"/api/items/{item['id']}/comments").json()["participants"] == parts_before
+    assert [(n["id"], n["read"]) for n in inbox("u_watch")] == watch_before

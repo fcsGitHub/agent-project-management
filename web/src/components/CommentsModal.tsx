@@ -55,6 +55,20 @@ export function CommentsModal({ itemId, title, onClose }: {
     }
   };
 
+  // M18-I58: manual watch — subscribers hear about status changes and new comments
+  const me = users.data?.current;
+  const subscribed = !!(comments.data?.participants ?? []).some(
+    (p) => p.user_id === me && p.source === "watch");
+  const toggleSub = async () => {
+    try {
+      if (subscribed) await api.unsubscribeItem(itemId);
+      else await api.subscribeItem(itemId);
+      await qc.invalidateQueries({ queryKey: ["comments", itemId] });
+    } catch (e) {
+      toast.error(`订阅失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
   return (
     <Modal open onClose={onClose} title={`💬 评论${title ? ` · ${title}` : ""}`}>
       <div className="space-y-3">
@@ -97,7 +111,14 @@ export function CommentsModal({ itemId, title, onClose }: {
           )}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-mut">Ctrl+Enter 发送 · @提及会发通知</span>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleSub}
+              className={`rounded-lg border px-2 py-1 text-[10px] ${subscribed ? "border-acc text-acc" : "border-line text-mut hover:border-acc hover:text-acc"}`}
+              title="订阅后，该工作项的状态变更与新评论都会通知你">
+              {subscribed ? "🔔 已订阅" : "🔕 订阅"}
+            </button>
+            <span className="text-[10px] text-mut">Ctrl+Enter 发送 · @提及会发通知</span>
+          </div>
           <Button size="sm" variant="primary" disabled={!draft.trim()} onClick={submit}>发送</Button>
         </div>
       </div>

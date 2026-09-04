@@ -276,6 +276,10 @@ export const api = {
   createComment: (itemId: string, body: { body: string }) =>
     req<ItemComment>(`/items/${itemId}/comments`, { method: "POST", body: JSON.stringify(body) }),
   deleteComment: (id: string) => req<{ deleted: string }>(`/comments/${id}`, { method: "DELETE" }),
+  subscribeItem: (itemId: string) =>
+    req<{ item_id: string; subscribed: boolean }>(`/items/${itemId}/subscription`, { method: "POST" }),
+  unsubscribeItem: (itemId: string) =>
+    req<{ item_id: string; subscribed: boolean }>(`/items/${itemId}/subscription`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

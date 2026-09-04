@@ -1,9 +1,14 @@
 """In-app notification center (M10-I34): notifications are a pure projection of
 existing events — human assignees get notified on `item.assigned`, project
 owners on `approval.requested`, and the automation engine's `notify` action
-emits `notification.sent` for a targeted user. Read-state is event-sourced
-(`notification.read`), so rebuilds reproduce unread counts exactly."""
+emits `notification.sent` for a targeted user. Since M18-I58 participants
+(author/assignee/mentioned/watchers, see `item_participants`) are notified on
+follow-up item events — minimal face: status changes and new comments. Read
+state is event-sourced (`notification.read`), so rebuilds reproduce unread
+counts exactly."""
 from __future__ import annotations
+
+import json
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -16,7 +21,15 @@ router = APIRouter(tags=["notifications"])
 
 
 # ---------------------------------------------------------------- projectors
-NOTIFY_EVENTS = ("item.assigned", "approval.requested", "notification.sent")
+NOTIFY_EVENTS = (
+    "item.assigned", "approval.requested", "notification.sent",
+    "comment.created", "item.status_changed",
+)
+
+
+def _item_title(conn, item_id: str) -> str:
+    row = conn.execute("SELECT title FROM items WHERE id = ?", (item_id,)).fetchone()
+    return row["title"] if row else item_id
 
 
 def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
@@ -27,8 +40,7 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
     if e.event_type == "item.assigned":
         if e.payload.get("assignee_type") != "human" or not e.payload.get("assignee_id"):
             return out
-        row = conn.execute("SELECT title FROM items WHERE id = ?", (e.agg_id,)).fetchone()
-        title = row["title"] if row else e.agg_id
+        title = _item_title(conn, e.agg_id)
         out.append((e.payload["assignee_id"], "assigned", f"被指派工作项「{title}」"))
     elif e.event_type == "approval.requested":
         owners = conn.execute(
@@ -41,6 +53,30 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         p = e.payload
         if p.get("user_id"):
             out.append((p["user_id"], p.get("kind", "notify"), p.get("summary", "")))
+    elif e.event_type == "comment.created":
+        # M18-I58: participants hear about new comments; the author and the
+        # mentioned users are skipped (mentioned users already got the
+        # targeted mention notification via notification.sent). agg_id is the
+        # comment id — the item comes from the payload.
+        p = e.payload
+        item_id = p.get("item_id") or e.agg_id
+        skip = {p.get("author_id")} | set(json.loads(p.get("mentions_json", "[]")))
+        title = _item_title(conn, item_id)
+        preview = (p.get("body") or "")[:60]
+        for r in conn.execute(
+                "SELECT user_id FROM item_participants WHERE item_id = ?", (item_id,)):
+            if r["user_id"] not in skip:
+                out.append((r["user_id"], "comment",
+                            f"参与的工作项「{title}」有新评论：{preview}"))
+    elif e.event_type == "item.status_changed":
+        # M18-I58: watchers/participants follow the item's lifecycle; the actor
+        # who made the change is never notified
+        title = _item_title(conn, e.agg_id)
+        for r in conn.execute(
+                "SELECT user_id FROM item_participants WHERE item_id = ?", (e.agg_id,)):
+            if r["user_id"] != e.actor_id:
+                out.append((r["user_id"], "item",
+                            f"参与的工作项「{title}」状态变更为 {e.payload.get('status', '?')}"))
     return out
 
 
@@ -72,6 +108,19 @@ def _proj_notify_approval(conn, e):
 def _proj_notify_sent(conn, e):
     p = e.payload
     _notify(conn, e, p.get("user_id"), p.get("kind", "notify"), p.get("summary", ""))
+
+
+@on("comment.created")
+def _proj_notify_comment(conn, e):
+    # runs after comments.py's participant-join (same event, earlier import)
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
+
+
+@on("item.status_changed")
+def _proj_notify_status(conn, e):
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
 
 
 @on("notification.read")

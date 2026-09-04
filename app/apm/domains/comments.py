@@ -46,6 +46,22 @@ def _proj_comment_participant(conn, e):
                        [(p["user_id"], p.get("source", "watch"))])
 
 
+@on("item.subscribed")
+def _proj_subscribed(conn, e):
+    _join_participants(conn, e.project_id, e.agg_id,
+                       [(e.payload["user_id"], "watch")])
+
+
+@on("item.unsubscribed")
+def _proj_unsubscribed(conn, e):
+    # only a manual watch is removable: assignee/author/mentioned participation
+    # is derived from history and would come back on rebuild anyway
+    conn.execute(
+        "DELETE FROM item_participants WHERE item_id = ? AND user_id = ? AND source = 'watch'",
+        (e.agg_id, e.payload["user_id"]),
+    )
+
+
 @on("item.assigned")
 def _proj_assignee_participant(conn, e):
     p = e.payload
@@ -186,3 +202,36 @@ def delete_comment(comment_id: str) -> dict:
         payload={"item_id": c["item_id"]},
     )
     return {"deleted": comment_id}
+
+
+@router.post("/items/{item_id}/subscription")
+def subscribe_item(item_id: str) -> dict:
+    """Manual watch (M18-I58): the actor joins the item's participant audience
+    until they unsubscribe. assignee/author/mentioned participation is derived
+    and unaffected."""
+    item = _require_item(item_id)
+    _gate(item["project_id"])
+    user_id = events.effective_actor()
+    events.emit(
+        event_type="item.subscribed",
+        agg_type="item",
+        agg_id=item_id,
+        project_id=item["project_id"],
+        payload={"user_id": user_id},
+    )
+    return {"item_id": item_id, "user_id": user_id, "subscribed": True}
+
+
+@router.delete("/items/{item_id}/subscription")
+def unsubscribe_item(item_id: str) -> dict:
+    item = _require_item(item_id)
+    _gate(item["project_id"])
+    user_id = events.effective_actor()
+    events.emit(
+        event_type="item.unsubscribed",
+        agg_type="item",
+        agg_id=item_id,
+        project_id=item["project_id"],
+        payload={"user_id": user_id},
+    )
+    return {"item_id": item_id, "user_id": user_id, "subscribed": False}
