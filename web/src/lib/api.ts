@@ -371,6 +371,8 @@ export const api = {
   },
   batchStart: (ids: string[]) =>
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
+  batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>
+    req<{ results: { id: string; ok: boolean; error?: string }[]; updated: number }>(`/projects/${pid}/items/batch-patch`, { method: "POST", body: JSON.stringify({ ids, patch }) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
   getRun: (rid: string) => req<Run>(`/runs/${rid}`),

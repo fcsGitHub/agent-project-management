@@ -712,6 +712,34 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
     return get_item(item_id)  # type: ignore[return-value]
 
 
+class BatchPatchIn(BaseModel):
+    ids: list[str]
+    patch: ItemPatch
+
+
+@router.post("/projects/{project_id}/items/batch-patch")
+def batch_patch_items(project_id: str, body: BatchPatchIn) -> dict:
+    """Bulk edit (M22-I70, Plane bulk-bar semantics): the same patch applied to
+    many items. Each item goes through patch_item so every change emits its own
+    item.updated/item.status_changed/item.assigned event — the audit trail and
+    automations see a batch exactly like N hand edits. Failures are reported
+    per item; one bad item never rolls back the others."""
+    if not body.ids:
+        raise HTTPException(status_code=422, detail="ids must not be empty")
+    results: list[dict] = []
+    for iid in body.ids:
+        try:
+            row = db.get_conn().execute(
+                "SELECT project_id FROM items WHERE id = ?", (iid,)).fetchone()
+            if row is None or row["project_id"] != project_id:
+                raise HTTPException(status_code=404, detail=f"item '{iid}' not in this project")
+            patch_item(iid, body.patch)
+            results.append({"id": iid, "ok": True})
+        except HTTPException as e:
+            results.append({"id": iid, "ok": False, "error": str(e.detail)})
+    return {"results": results, "updated": sum(1 for r in results if r["ok"])}
+
+
 @router.post("/items/{item_id}/relations")
 def post_relation(item_id: str, body: RelationIn) -> dict:
     item = require_item(item_id)

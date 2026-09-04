@@ -32,6 +32,10 @@ export function Board() {
     queryFn: () => api.listViews(pid!),
     enabled: !!pid,
   });
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const [batchStatus, setBatchStatus] = useState("");
+  const [batchPriority, setBatchPriority] = useState("");
+  const [batchAssignee, setBatchAssignee] = useState("");
 
   // 直开 ?view=<id>（分享链接缺过滤参数时）自动补齐视图定义；显式 params 优先。
   useEffect(() => {
@@ -113,6 +117,9 @@ export function Board() {
   const matches = (item: { priority?: string; assignee_id?: string }) =>
     (!priority || item.priority === priority) && (!assignee || item.assignee_id === assignee);
 
+  // M22-I70: the flat list currently shown in list view (select-all scope)
+  const listed = (board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches));
+
   const setFilter = (k: string, v: string) => {
     const usp = new URLSearchParams(params);
     if (v) usp.set(k, v); else usp.delete(k);
@@ -178,6 +185,21 @@ export function Board() {
     });
     setSelected(new Set());
     qc.invalidateQueries();
+  };
+
+  // M22-I70: bulk edit — one PATCH per item server-side, per-item results
+  const applyBatch = async (patch: Record<string, unknown>) => {
+    if (!Object.keys(patch).length) { toast.error("先选择要修改的值"); return; }
+    try {
+      const r = await api.batchPatch(pid!, [...selected], patch);
+      const fails = r.results.filter((x) => !x.ok);
+      if (fails.length) toast.error(`${r.updated} 项成功，${fails.length} 项失败`, { description: fails[0].error });
+      else toast.success(`已批量更新 ${r.updated} 项`);
+      setBatchStatus(""); setBatchPriority(""); setBatchAssignee("");
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`批量更新失败：${e instanceof Error ? e.message : e}`);
+    }
   };
 
   return (
@@ -288,6 +310,38 @@ export function Board() {
           {selected.size > 0 && (
             <>
               <span className="text-mut">已选 {selected.size}</span>
+              {(() => {
+                const sel = (board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches)).filter((i) => selected.has(i.id));
+                const concepts = new Set(sel.map((i) => i.concept_id));
+                const sameConcept = concepts.size === 1 ? [...concepts][0] : null;
+                const states = sameConcept ? (onto.data?.concepts.find((c) => c.id === sameConcept)?.states ?? []) : [];
+                return (
+                  <>
+                    <select value={batchStatus}
+                      onChange={(e) => { setBatchStatus(e.target.value); if (e.target.value) applyBatch({ status: e.target.value }); }}
+                      disabled={!sameConcept}
+                      title={sameConcept ? "批量改状态" : "所选工作项概念不同，无法统一改状态"}
+                      className="rounded-lg border border-line bg-surface px-2 py-1.5 disabled:opacity-50">
+                      <option value="">{sameConcept ? "改状态…" : "改状态（概念不同）"}</option>
+                      {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <select value={batchPriority}
+                      onChange={(e) => { setBatchPriority(e.target.value); if (e.target.value) applyBatch({ priority: e.target.value }); }}
+                      className="rounded-lg border border-line bg-surface px-2 py-1.5">
+                      <option value="">改优先级…</option>
+                      <option value="high">高</option>
+                      <option value="medium">中</option>
+                      <option value="low">低</option>
+                    </select>
+                    <select value={batchAssignee}
+                      onChange={(e) => { setBatchAssignee(e.target.value); if (e.target.value) applyBatch({ assignee_type: "human", assignee_id: e.target.value }); }}
+                      className="rounded-lg border border-line bg-surface px-2 py-1.5">
+                      <option value="">指派…</option>
+                      {(users.data?.users ?? []).map((u) => <option key={u.id} value={u.id}>👤 {u.name}</option>)}
+                    </select>
+                  </>
+                );
+              })()}
               <Button size="sm" variant="primary" onClick={batchStart}>▶ 让 Agent 做</Button>
               <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>清除</Button>
             </>
@@ -300,13 +354,30 @@ export function Board() {
           <table className="w-full min-w-[640px] text-left text-xs">
             <thead>
               <tr className="border-b border-line text-mut">
+                <th className="py-2">
+                  <input type="checkbox" title="全选/全不选（当前列表）"
+                    checked={listed.length > 0 && listed.every((i) => selected.has(i.id))}
+                    onChange={(e) => {
+                      const next = new Set(selected);
+                      for (const i of listed) e.target.checked ? next.add(i.id) : next.delete(i.id);
+                      setSelected(next);
+                    }} />
+                </th>
                 <th className="py-2">标题</th><th>概念</th><th>状态</th><th>优先级</th><th>执行者</th><th>字段</th><th>更新</th>
               </tr>
             </thead>
             <tbody>
-              {(board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches)).map((item) => (
+              {listed.map((item) => (
                 <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
-                  <td className="py-2 font-medium">{item.title}</td>
+                  <td className="py-2">
+                    <input type="checkbox" checked={selected.has(item.id)} readOnly
+                      onClick={(e) => {
+                        const next = new Set(selected);
+                        e.currentTarget.checked ? next.add(item.id) : next.delete(item.id);
+                        setSelected(next);
+                      }} />
+                  </td>
+                  <td className="font-medium">{item.title}</td>
                   <td className="text-mut">{item.concept_id}</td>
                   <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
                   <td>{item.priority ?? "—"}</td>
