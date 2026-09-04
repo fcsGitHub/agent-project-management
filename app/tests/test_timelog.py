@@ -161,3 +161,49 @@ def test_timelog_report_reconciles_with_entries(client, pid):
 
     # unknown project 404
     assert client.get("/api/projects/p_nope/timelog_report").status_code == 404
+
+
+def test_my_timelog_calendar_feed(client, pid):
+    """M20-I62: personal calendar feed — own entries grouped by day with daily
+    totals, soft-deleted entries dropped, window clamped, rebuild-stable."""
+    from datetime import date as _date
+    a = _mk_item(client, pid, "日历甲")
+    b = _mk_item(client, pid, "日历乙")
+    today = _date.today().isoformat()
+    yesterday = _date.fromordinal(_date.today().toordinal() - 1).isoformat()
+    _log(client, a["id"], 90, spent_on=today, note="今天")
+    _log(client, b["id"], 30, spent_on=yesterday, note="昨天")
+
+    feed = client.get("/api/my/timelog").json()
+    by_day = {d["date"]: d for d in feed["days"]}
+    assert by_day[today]["total_minutes"] == 90
+    assert by_day[today]["entries"][0]["item_title"] == "日历甲"
+    assert by_day[today]["entries"][0]["project_name"] == "工时演示"
+    assert by_day[yesterday]["total_minutes"] == 30
+    assert feed["total_minutes"] == 120
+    assert feed["window"]["days"] == 28
+
+    # only my own entries (other users' logs never show up in my feed)
+    client.post("/api/users", json={"id": "u_other", "name": "别人"})
+    saved = config.settings.user_id
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_other"})
+        _log(client, a["id"], 45, spent_on=today)
+        other = client.get("/api/my/timelog").json()
+        assert other["total_minutes"] == 45
+        client.post("/api/session/identity", json={"user_id": saved})
+        mine = client.get("/api/my/timelog?days=60").json()
+        assert mine["total_minutes"] == 120 and mine["window"]["days"] == 60
+        assert client.get("/api/my/timelog?days=0").json()["window"]["days"] == 1
+        assert client.get("/api/my/timelog?days=999").json()["window"]["days"] == 60
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+
+    # soft delete drops the entry out of the feed and survives rebuild
+    e = _log(client, a["id"], 15, spent_on=yesterday, note="临时")
+    assert client.get("/api/my/timelog").json()["total_minutes"] == 135
+    client.delete(f"/api/time_entries/{e['id']}")
+    projections.rebuild()
+    feed = client.get("/api/my/timelog").json()
+    assert feed["total_minutes"] == 120
+    assert all(x["id"] != e["id"] for d in feed["days"] for x in d["entries"])

@@ -19,6 +19,7 @@ import { OntologyPage } from "./pages/OntologyPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { MyWorkPage } from "./pages/MyWorkPage";
+import { MyTimePage } from "./pages/MyTimePage";
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/my/work" element={<MyWorkPage />} />
+        <Route path="/my/time" element={<MyTimePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

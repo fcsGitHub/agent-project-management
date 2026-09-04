@@ -4,7 +4,7 @@ sits next to each other: items carry estimate_hours, the SUM of entries is the
 spent side. Logging time also joins the item's participant audience (M18)."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
@@ -223,3 +223,36 @@ def delete_time_entry(entry_id: str) -> dict:
         payload={"item_id": entry["item_id"]},
     )
     return {"deleted": entry_id}
+
+
+@router.get("/my/timelog")
+def my_timelog(days: int = 28) -> dict:
+    """Personal time-tracking calendar feed (docs/01 §S.1, OpenProject 16.0
+    "My time tracking"): my own entries grouped by spent_on over the last N
+    days. Pure projection aggregation, same own-data semantics as /my/work."""
+    days = max(1, min(days, 60))
+    me = events.effective_actor()
+    conn = db.get_conn()
+    today = date.today()
+    start = (today - timedelta(days=days - 1)).isoformat()
+    rows = conn.execute(
+        "SELECT t.id, t.item_id, t.project_id, t.minutes, t.spent_on, t.note,"
+        " t.created_at, i.title AS item_title, p.name AS project_name"
+        " FROM item_time_entries t"
+        " JOIN items i ON i.id = t.item_id"
+        " JOIN projects p ON p.id = t.project_id"
+        " WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.spent_on >= ?"
+        " ORDER BY t.spent_on DESC, t.created_at",
+        (me, start),
+    ).fetchall()
+    by_day: dict[str, dict] = {}
+    for r in rows:
+        d = by_day.setdefault(r["spent_on"], {"date": r["spent_on"], "entries": [], "total_minutes": 0})
+        d["entries"].append(dict(r))
+        d["total_minutes"] += r["minutes"]
+    return {
+        "user_id": me,
+        "days": [by_day[k] for k in sorted(by_day, reverse=True)],
+        "total_minutes": sum(r["minutes"] for r in rows),
+        "window": {"start": start, "end": today.isoformat(), "days": days},
+    }

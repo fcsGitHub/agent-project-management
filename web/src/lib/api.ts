@@ -49,6 +49,15 @@ export type TimeEntry = {
   user_name?: string | null; minutes: number; spent_on: string;
   note: string; created_at: string; deleted_at: string | null;
 };
+export type MyTimelogDay = {
+  date: string;
+  entries: (TimeEntry & { item_title?: string | null; project_name?: string | null })[];
+  total_minutes: number;
+};
+export type MyTimelog = {
+  user_id: string; days: MyTimelogDay[]; total_minutes: number;
+  window: { start: string; end: string; days: number };
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -268,6 +277,7 @@ export const api = {
   getTimelogReport: (id: string, days = 14) =>
     req<TimelogReport>(`/projects/${id}/timelog_report?days=${days}`),
   getMyWork: () => req<MyWork>("/my/work"),
+  getMyTimelog: (days = 60) => req<MyTimelog>(`/my/timelog?days=${days}`),
 
   listMilestones: (pid: string) => req<{ milestones: Milestone[] }>(`/projects/${pid}/milestones`),
   createMilestone: (pid: string, body: { title: string; due_date: string; description?: string }) =>
