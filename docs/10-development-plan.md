@@ -788,6 +788,36 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 29 GREEN；审阅全绿。
 - 演示路径：选中文字点 B → 包裹 ** ** → 发送渲染加粗；设基线 → 拖改期 → 幽灵条形显偏差；Dashboard 组合卡数字与项目一致。
 
+**M23 审阅点**：冒烟 29 + 各迭代 DoD + 浏览器演示（设基线→拖改期幽灵条形留原位 + 组合卡对账 + 工具栏包裹）。（已通过：附录 B，66e2b1e）
+
+### M24 · 结构与数据管理三件套（吸收 OpenProject 层级·CSV 导入/区间染色泳道/多基线，I74-I76，约 9 人日）
+
+> v2.0 新增（2026-09-05，M23 审阅通过后按目标协议调研）。调研结论见 docs/01 §W：OpenProject 层级=右键缩进+children 分屏+15.5 后代过滤器，Plane 有 sub-work items——AgentPM items.parent_id 自 MVP 闲置待激活；Redmine 核心内置 CSV 导入（首行表头自动映射+手工映射+多项目列 #25808），OpenProject 反而靠外部工具——内建导入是自托管期待；泳道避让=区间图染色贪心（start 排序+min-heap O(n log n)），MS Project 11 条基线分 Row 分色渲染。验证纪律沿用：迭代期只跑相关测试（动 schema 升级全量），全量收敛至 M24 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I74 | 子任务层级（parent 校验防环 + 列表缩进树 + descendants 过滤） | 01 §W.1 | MVP parent_id 列/事件内核 | 3d |
+| I75 | CSV 导入导出（列映射 + 逐行校验报告 + 模板下载 + items.csv 导出） | 01 §W.2 | create_item 校验/I70 逐行报告语义 | 3d |
+| I76 | 泳道避让与多基线（区间染色子行 + baselines 多条化与切换）+ docs/12 §21 + 冒烟 30 + M24 审阅 | 01 §W.3 | M23 baselines/时间线 | 3d |
+
+#### I74 · 子任务层级（3d）
+
+- 任务：create/patch parent_id 校验 fail-closed（父存在/同项目/**沿父链防环**）+ `GET /items?parent=<id>`（直接子代）与 `?descendants=<id>`（递归后代，应用层沿链 BFS）+ 列表视图缩进树（children 嵌套 + ▸ 展开/折叠）+ 抽屉「↳ 子任务」区与「+ 子任务」预填 parent_id；看板卡片缩进徽标「↳ 父标题」。
+- DoD：单测（parent 校验矩阵/防环/后代递归/rebuild 存活）；build+vitest 绿。
+- 演示路径：建父任务 → 「+ 子任务」两条 → 列表树形缩进 → descendants 过滤命中全部层级。
+
+#### I75 · CSV 导入导出（3d）
+
+- 任务：`POST /projects/{id}/items/import`（CSV 文本：首行固定表头 title/concept_id/status/priority/start_date/due_date/estimate_hours/parent_title——parent 按标题引用**先前已存在或同批先导行**；逐行走 create_item 全量校验）返回逐行 ok/行号/错误（不整批回滚）；`GET /projects/{id}/items/import-template`（表头+两行示例）；`GET /projects/{id}/items.csv`（工作项导出）；列表工具栏「导入 CSV」入口（上传框 + 逐行结果表 + 模板链接）。
+- DoD：单测（合法导入/行级错误隔离/parent 标题引用/模板与导出 roundtrip）；相关验证。
+- 演示路径：下载模板 → 填 3 行（含一条坏日期）→ 导入 → 2 成功 1 失败逐行报告。
+
+#### I76 · 泳道避让与多基线 + 收尾审阅（3d）
+
+- 任务：TimelinePage 概念行内**子行贪心分配**（区间图染色：按 start 排序 + min-heap 行末线，行高自适应 ROW_H 倍数——修 M21 重叠 C 级）；baselines 多条化（去 UNIQUE 迁移 + set 追加保留历史 + `GET /projects/{id}/baselines` 列表 + `?baseline_id=` 选择展示某条或 all 幽灵分 Row 偏移渲染）+ UI「基线」下拉（显隐与选择）；docs/12 §21；**新增冒烟 30**（层级 roundtrip/导入逐行/泳道不重叠断言/多基线历史 + rebuild 一致）；相关验证 + M24 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 30 GREEN；审阅全绿。
+- 演示路径：同概念 3 条重叠条形自动分 2-3 子行不再叠；设两条基线切显隐；CSV 导入含层级引用。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -948,6 +978,7 @@ agent-project-management/
 | **M21 日程集成三件套（I65-I67）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §T + docs/10 §M21）：I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款交互）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用，OpenProject 13.0 内建、Redmine #1077 缺位补位）/ I67 评论清单项转子任务（GitHub tasklist→sub-issue 提取语义 + extracted_tasks 投影 + 渲染链接）+ docs/12 §18 + 冒烟 27 + 审阅（截图 docs/m21-review-*.png ×3 + m21-i65-*.png ×2，见附录 B）；同概念条形重叠避让/start-end 打卡/checkbox 回写/甘特基线/digest 留 backlog |
 | **M22 治理与效率三件套（I68-I70）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §U + docs/10 §M22）：I68 全局搜索（FTS5 复用 + GET /search 可见性裁剪 + ⌘K 入口，OpenProject 全局搜索吸收）/ I69 项目归档与克隆（archived 只读可逆 + clone 创建时复制且成员永不复制，OpenProject/Redmine 吸收）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件，Plane 吸收 + #8683 解耦教训）+ docs/12 §19 + 冒烟 28 + 审阅（截图 docs/m22-review-*.png ×3，见附录 B）；digest/start-end 打卡/甘特基线/编辑器工具栏留 backlog |
 | **M23 计划对照与总览三件套（I71-I73）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §V + docs/10 §M23）：I71 甘特基线（单活动基线快照 + 幽灵条形偏差，Redmine #13419 缺位插件补位实证）/ I72 组合总览（GET /portfolio/report 纯投影聚合 + Dashboard 组合卡，OpenProject Portfolios Enterprise 独占的 Community 等价）/ I73 Markdown 工具栏（GitHub markdown-toolbar-element 路线：纯 textarea 选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 + 审阅（截图 docs/m23-review-*.png ×3，见附录 B）；多基线历史/widget 拖装/WYSIWYG/digest/start-end 打卡留 backlog |
+| **M24 结构与数据管理三件套（I74-I76）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §W + docs/10 §M24）：I74 子任务层级（parent 校验防环 + 列表缩进树 + descendants 过滤——parent_id 列自 MVP 闲置激活，OpenProject 缩进/后代过滤器吸收）/ I75 CSV 导入导出（固定表头映射 + 逐行校验报告 + 模板与 items.csv 导出，Redmine 内建导入吸收）/ I76 泳道避让与多基线（区间图染色贪心子行 + baselines 多条化切换，MS Project 分 Row 分色吸收）+ docs/12 §21 + 冒烟 30 于 I76 + 审阅；widget 拖装/WYSIWYG/digest/start-end 打卡/打印 PDF 留 backlog |
 | I71 甘特基线 | 已完成 | 2026-09-05 | 2026-09-05 | 新域 `domains/baselines.py`：baselines 投影表（**project_id UNIQUE 单活动基线** + snapshot JSON：已排期项 [start,due] + 里程碑 due，无日期项不入快照）+ `project.baseline_set/cleared` 事件（**覆盖式重设** set 先删后插 rebuild 幂等，drop_projections 同步）；POST/DELETE/GET `/projects/{id}/baseline`；**改期永不触碰快照**（语义对齐 #13419 生态插件）；TimelinePage 叠加幽灵虚线条形（偏离→amber 描边 + title「已偏离基线」）+ 工具栏「📌 设为基线/清除基线」；api.ts 三方法；单测 test_baselines.py（快照筛选/改期不触基线/重设替换/清除/rebuild 重放 set→set→clear 历史终态一致/404）；单测绿、build 绿 |
 | I72 组合总览 | 已完成 | 2026-09-05 | 2026-09-05 | reports.py 增 `GET /portfolio/report`（`_visible` 裁剪的可见项目逐行：五桶漏斗/活跃数/挂起 Gate/超期数（due_date < today 且 active）/工时合计 + totals 总计行——纯投影聚合零 ETL，已归档项目天然排除）；Dashboard 顶部「🗺 组合总览」卡（每项目一行：迷你五段漏斗条+活跃数+⏱ 工时+超期/Gate 徽标，15s 轮询，点击直达项目）；api.ts PortfolioReport/getPortfolioReport；单测 test_portfolio_report_aggregates_visible_projects（跨项目聚合口径/超期与工时对账/总计=分项和/network 局外人空结果）；reports **5 项**绿、build 绿 |
 | I73 Markdown 工具栏+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | CommentsModal 手写紧凑工具栏（B/I/行内代码/链接/无序列表/任务清单/引用——**选区包裹插入**、行前缀模式、无选区插占位符、onMouseDown preventDefault 保选区、插入后 requestAnimationFrame 恢复焦点与选区——GitHub markdown-toolbar 语义，零新依赖）；存储仍纯文本（工具栏只改草稿）；docs/12 §20；**新增冒烟 29**（基线快照在 +3 天漂移下纹丝不动 / portfolio 聚合与总计对账 / 工具栏语义评论字节级往返 / rebuild 三面一致）；冒烟基线 **29 条 GREEN**、build 绿 |
@@ -1093,6 +1124,8 @@ agent-project-management/
 | 2026-09-05 | I72 | 组合总览：portfolio/report 复用 M12 口径（`_overdue_rows` 同款日期谓词、BUCKET_NAMES 漏斗、item_time_entries 合计）；可见性 = feed 域 `_visible` 三层；**纪律违例第三次**：git commit -m 内含反引号词被 bash 命令替换吞掉（`_visible` 从提交消息中消失，代码本身无损）——commit message 含反引号/美元符必须用单引号包裹或文件方式，此坑与文档 Edit 纪律同源。 |
 
 | 2026-09-05 | I73 | Markdown 工具栏：TOOLS 声明式清单（wrap 类=选区包裹、linePrefix 类=逐行前缀幂等——已带前缀的行不重复加）；applyTool 用 textarea selectionStart/End + requestAnimationFrame 恢复焦点选区（支持连续按）；onMouseDown preventDefault 防止点击按钮时 textarea 失焦丢选区；预览/渲染链路（§17.3）不变。冒烟 29：基线在 +3 天漂移下快照不变（I71 核心语义）、portfolio totals=分项和（I72 对账）、工具栏语义评论字节级存储（I64 原则延续）。 |
+
+| 2026-09-05 | M24 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：widget 拖装维持 §K.1 Enterprise/YAGNI 立场、事件级归档维持 §K.3 立场）：①**工作包层级**——OpenProject 右键缩进 + children 分屏 + 15.5 后代过滤器、Plane sub-work items；AgentPM items.parent_id 自 MVP 闲置（ItemIn 可传但无校验无 UI）→ 激活；②**CSV 导入**——Redmine 核心内建（首行表头自动映射+手工映射+多项目列 #25808），OpenProject 反靠外部工具 → 内建导入 + 逐行校验报告；③**泳道与多基线**——区间图染色贪心（start 排序 + min-heap O(n log n)）修同概念重叠 C 级，MS Project 11 条基线分 Row 分色 → baselines 多条化 + 切换。选定 **M24 = 结构与数据管理三件套**：I74 子任务层级 / I75 CSV 导入导出 / I76 泳道与多基线 + docs/12 §21 + 冒烟 30 于 I76 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §W。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

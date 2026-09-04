@@ -612,3 +612,35 @@ M22 = **治理与效率三件套**：I68 全局搜索（FTS5 复用 + 可见性�
 **V.5 M23 取舍**
 
 M23 = **计划对照与总览三件套**：I71 甘特基线（单活动基线快照 + 幽灵条形偏差）/ I72 组合总览（portfolio/report 聚合 + Dashboard 卡）/ I73 Markdown 工具栏（GitHub 路线选区包裹）+ docs/12 §20 + 冒烟 29 + M23 审阅，约 8 人日。多基线历史、widget 拖装、WYSIWYG、digest、start/end 打卡留 backlog。
+
+## W. M24 前置调研：结构与数据管理——子任务层级 / CSV 导入 / 泳道与多基线（2026-09-05）
+
+> 目标协议触发：M23 审阅通过后开启。防重查先行：widget 拖装维持 §K.1 的 Enterprise/YAGNI 立场；事件级归档维持 §K.3 立场。本轮三路（工作包层级 / CSV 导入 / 泳道避让与多基线），选定 **M24 = 结构与数据管理三件套**——AgentPM items.parent_id 列自 MVP 闲置、数据进出只有手工创建与报表导出、时间线同概念重叠是 M21 审阅 C 级观察——三者都是「结构化数据管理」的真实缺口。
+
+**W.1 工作包层级：缩进与后代过滤是 Community 标配**
+
+- OpenProject：层级=父子关系，表格右键 **Indent/Outdent** 建层级、排序保持父子完整、「children」分屏视图，15.5 新增 **Descendants of 过滤器**展示所有层级后代（[层级文档](https://www.openproject.org/docs/user-guide/work-packages/work-package-relations-hierarchies/)、[15.5 发布](https://www.openproject.org/blog/openproject-15-5-release/)）；Plane 有 sub-work items（其 #7279 即子项过滤 bug）。
+- AgentPM 现状：items.parent_id 列自 MVP 就在（ItemIn 可传）但**无校验、无 UI、无遍历**——数据模型等了 24 个迭代。
+- → 取舍：①写路径校验 fail-closed（parent 存在/同项目/不得成环——沿父链上溯）②列表视图缩进呈现（children 嵌套渲染 + 展开/折叠）③抽屉/详情「↳ 子任务」区 + 「+ 子任务」快捷创建（预填 parent_id）④`GET /items?parent=id` 直查与 `descendants=1` 递归后代。
+
+**W.2 CSV 导入：Redmine 核心内置，列映射 + 逐行校验**
+
+- Redmine 内置导入：Issues 页 Import 链接 → CSV 首行表头**自动匹配字段**或手工映射，自定义字段可导，多项目导入靠把 Project 列映射到文件列（[HowTo import issues](https://www.redmine.org/projects/redmine/wiki/HowTo_import_issues)、[#25808](https://www.redmine.org/issues/25808)）；OpenProject 官方无内建 UI，靠 OpenProjectExcel 外部工具（[博客](https://www.openproject.org/blog/synchronize-excel-openproject/)）——内建导入是自托管的普遍期待。
+- → 取舍：`POST /projects/{id}/items/import`（CSV 文本体：首行表头固定列名 title/concept_id/status/priority/start_date/due_date/estimate_hours/parent_title——**parent 按标题引用已存在项**实现层级导入；逐行走 create_item 全量校验）+ 返回逐行 ok/行号/错误（fail-closed 不整批回滚——复用 I70 批量语义）；`GET /projects/{id}/items/import-template`（带表头与示例行的模板）；工作项 CSV 导出（items 导出补充报表导出）。UI：列表工具栏「导入 CSV」上传框 + 结果表 + 模板下载链接。
+
+**W.3 泳道避让与多基线：区间图染色 + 分 Row 渲染**
+
+- 泳道避让是经典**区间图染色**：按 start 排序，贪心把每个条形放进第一条「末线 ≤ 新 start」的子行，min-heap 维护行末线，O(n log n)（[TimelinePacking](https://metacpan.org/pod/Algorithm::TimelinePacking)、[CLRS 贪心](https://www.calameo.com/books/0008647671f94aa8e9f06)）。
+- 多基线：MS Project 支持 11 条基线，多条并用自定义条形样式 **Row 偏移分色渲染**防重叠（[MS 官方](https://support.microsoft.com/en-us/project/create-or-update-a-baseline-or-an-interim-plan-in-project-desktop)、[Ten Six 指南](https://tensix.com/displaying-two-gantt-chart-baselines-in-microsoft-project/)）；Easy Gantt 亦多基线同图对比。
+- → 取舍：①TimelinePage 概念行内**子行拆分**（贪心泳道分配，行高自适应——直接修 M21/M22 的重叠 C 级观察）②基线升级为**多基线**：baselines 表去 UNIQUE、`baseline.list` 返回全部、GET `?which=` 选择展示某条或全部幽灵（全部时按行偏移防叠）、UI「基线」下拉切换显隐；`set` 语义不变（追加新快照，保留历史）。
+
+**W.4 M24 设计映射与验证纪律（沿用）**
+
+- I74 子任务层级：create/patch parent 校验（存在/同项目/防环）+ descendants 递归（CTE 或应用层沿链）+ 列表缩进树 + 子任务快捷创建；冒烟覆盖层级 roundtrip。
+- I75 CSV 导入导出：import 端点（逐行校验报告）+ 模板下载 + items.csv 导出 + 列表工具栏入口。
+- I76 泳道与多基线：贪心子行分配 + baselines 多条化（schema 迁移：UNIQUE 去除）+ 幽灵条形 Row 偏移渲染 + 基线切换 UI；docs/12 §21 + 冒烟 30 收尾。
+- 验证纪律：每迭代只跑相关测试（动 schema/内核升级全量）；全量收敛至 M24 审阅。
+
+**W.5 M24 取舍**
+
+M24 = **结构与数据管理三件套**：I74 子任务层级（parent 校验防环 + 缩进树 + descendants）/ I75 CSV 导入导出（列映射 + 逐行校验报告 + 模板）/ I76 泳道避让与多基线（区间染色子行 + 多基线历史与切换）+ docs/12 §21 + 冒烟 30 + M24 审阅，约 9 人日。widget 拖装、WYSIWYG、digest、start/end 打卡、打印 PDF 留 backlog。
