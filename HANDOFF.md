@@ -210,7 +210,12 @@
   - **审阅即修 1 个后端缺陷**：db.py 存量迁移条件把表名误查进列名集合致 ALTER 永不执行（隔离存量库 500 暴露）；
   - 浏览器隔离复演（隔离 data+ontologies + vite preview 生产构建）：视图保存/切换/公开徽标/URL 直开/默认直达（docs/m15-i51-*.png ×5 + m15-i51-made-default.png + m15-i52-default-landing.png）；无新增 B/C 级意见。
 - **M17 已定义（本提交，docs/01 §P + docs/10 §M17）**：三路调研——FastAPI OIDC 模式（Authlib 事实标准：code flow + PKCE + state 存短命 cookie，复用 M8 HMAC 会话签发、握手后不缓存 id_token）、本地 IdP 取舍（Keycloak realm import 一键演示 vs Authelia 手工 YAML → 单测用本地 RSA JWT 桩离线覆盖、演示用 Keycloak compose）、Gitea 教训四约束（JIT 一次性定角色幂等不提升 #32566 反向规避 / allowlist 双层 #27709 / email 可信校验 / 账号不自动合并 409）→ **M17 = OIDC 单点登录（I53 OIDC client 基座+JWT 桩单测 / I54 会话整合与前端 / I55 Keycloak 演示环境+docs/12 §14+冒烟 23+审阅，约 10 人日）**；env 未配置=特性静默关闭（SMTP 同款）。
-- **当前验证状态**：pytest **147 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M17-I53 OIDC client 基座（本轮完成，`82f748c`+`30d21d5`）**：
+  - `core/oidc.py` 零新依赖（RS256 验签自实现，cryptography RSA PKCS1v15+SHA256 + jwks kid 匹配）；discovery 缓存 / code flow + PKCE S256 / state 三元组 HttpOnly 短命 cookie / id_token 全校验（alg/签名/iss/aud/exp/nonce）；
+  - **JIT 四约束**（Gitea 教训）：email_verified 必须 / allowlist `APM_OIDC_ALLOWED_GROUPS` fail-closed / 同 email 幂等重入 / 同名本地账号 409 不合并；**角色一次性定 viewer、重登不重派**（规避 #32566）；env 未配置整体 404；
+  - 单测 5 项：本地 RSA JWT 桩（monkeypatch oidc.httpx）离线覆盖全协议路径 + 拒绝矩阵七例；**pytest 152/冒烟 22**；
+  - **坑：TestClient 默认 follow_redirects=True**，302 到外部 IdP 后的 404 极易误判为路由缺失——OIDC 端点断言必须 `follow_redirects=False`。
+- **当前验证状态**：pytest **152 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -218,8 +223,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I53 OIDC client 基座**（M17 第 1 迭代，docs/10 §M17）：新模块 `core/oidc.py`——issuer discovery 缓存 + authorization URL（state/nonce/PKCE S256，state 存 HttpOnly 短命 cookie）+ `/auth/oidc/callback`（code 换 token、id_token 签名/issuer/audience/nonce/exp 验证）+ **JIT 四约束**（claim 齐+email_verified 才建号、角色 viewer 缺省且重登幂等不提升；`APM_OIDC_ALLOWED_GROUPS` 非空 fail-closed；email 缺失拒绝；同 email 本地账号 409 不合并）+ env 未配置整体关闭；单测用本地 RSA JWT 桩（mini jwks + authorize/token 桩）离线覆盖全协议路径与各拒绝矩阵 → 「M17-I53」三段式提交。
-2. I54 会话整合与前端（OIDC 按钮 + admin 配置面板 + 门禁兼容）→ I55 Keycloak 演示环境 + docs/11 §2 + docs/12 §14 + 冒烟 23 + M17 审阅。
+1. **I54 会话整合与前端**（M17 第 2 迭代，docs/10 §M17）：`GET /auth/me` source 增加 `oidc` 标注（或顶栏 chip 显示）→ 前端 `/login` 页 OIDC 按钮（`GET /api/auth/oidc/status` 探测特性开关，关闭不显示）→ 本体页 admin「OIDC 配置」面板（issuer/client id/allowlist 展示，secret 不回显）→ network 门禁/角色对 OIDC 用户兼容断言（JIT viewer 写 403）→ build+vitest 绿 + 桩全流程浏览器复演 → 「M17-I54」三段式提交。
+2. I55 Keycloak 演示环境（tools/keycloak compose + realm import）+ docs/11 §2 扩展 + docs/12 §14 + 冒烟 23 + M17 正式审阅。
 
 ## 5. 有哪些坑不要再踩
 
