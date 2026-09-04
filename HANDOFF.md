@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M19 进行中（I59 工时数据层完成），下一步 I60 工时前端）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M19 进行中（I59 数据层 + I60 工时前端完成），下一步 I61 报表+审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -241,7 +241,12 @@
   - 新域 `domains/timelog.py`：item_time_entries 投影表（软删 deleted_at）+ time.logged/edited/deleted 事件（rebuild 存活）；CRUD `/items/{id}/time_entries` + `/time_entries/{id}`；校验 fail-closed（minutes∈(0,1440]、spent_on ISO、note 截 500）；item 详情与 get_items 附 **spent_minutes**（列表单 GROUP BY 合并）；权限对齐 M8（改删限本人·admin）；记工时者进参与投影（source='time' 首次来源语义）；
   - 单测 4 项；pytest **165** 全绿、冒烟 24 GREEN；
   - **注册新域两处都要**：`main.py`（import + include_router）与 `apm/domains/__init__.py`（handler 注册——rebuild 靠它，漏了 rebuild 后投影丢失）。
-- **当前验证状态**：pytest **165 项全绿**；冒烟基线 **24 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
+- **M19-I60 工时前端（本轮完成）**：
+  - 新组件 `TimeLogModal.tsx`（⏱ 抽屉：条目列表 + 记时表单 + 合计行，`fmtMinutes` 1h30/45m 格式化）；看板卡片 ⏱ spent 徽标（仅 spent_minutes>0 显示）与工时按钮；api.ts 增 TimeEntry + 4 方法 + Item.spent_minutes；
+  - docs/12 §16 工时跟踪指南；**新增冒烟 25**（双身份记时→四处合计一致→校验门→软删→rebuild 复现）；
+  - 浏览器隔离复演：李雷记 90m → 卡片「⏱ 1h30」徽标上卡 → 切 QA 王记 45m → 合计 2h15（docs/m19-i60-*.png ×4）；
+  - 踩坑：给 `get_items` 加 helper 时把 `_attach_spent` 定义插到了 `@router.get` 装饰器与函数名之间——装饰器落到 helper 头上，原端点 405/KeyError（单测当场拦住）；**装饰器与函数名之间永远不要插新函数**。
+- **当前验证状态**：pytest **166 项全绿**；冒烟基线 **25 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
 - **M19 已定义（本提交，docs/01 §R + docs/10 §M19）**：三路调研——OpenProject time entry 模型（时长/日期/备注/作者 + 16.0 个人日历，Community 免费）、GitLab `/spend` 斜杠命令 vs Redmine 显式「Log time」（#27780 用户偏好后者 → AgentPM 取显式入口）、Plane worklog 仅工作项级（**项目级聚合 = 官方 open 缺口 #8045** → AgentPM 直接纳入报表差异化补位）→ **M19 = 工时跟踪与汇总报表（I59 工时数据层：time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐 / I60 工时前端：记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25 / I61 项目工时报表：按人/按日聚合 + 审阅，约 9 人日）**；不做：成本费率（Enterprise 增强范畴）、斜杠命令、实时计时器；个人日历视图留 backlog。
 
 ## 3. 现在卡在哪
@@ -250,8 +255,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I60 工时前端**（M19 第 2 迭代，docs/10 §M19）：「⏱ 工时」抽屉（评论抽屉同型：条目列表 人/日/时长/备注 + 记时表单 minutes/spent_on/note）；看板卡片与列表视图 spent 徽标（get_items 已带 spent_minutes）；api.ts 类型与方法（TimeEntry + 4 方法）；docs/12 §16 工时跟踪指南；**新增冒烟 25**（记工时全程：CRUD→汇总→rebuild 一致）→ build+vitest 绿 + 浏览器隔离复演（双身份记时 → 徽标/汇总可见）截图 → 「M19-I60」三段式提交。
-2. I61 项目工时报表（按人/按日聚合，复用 M12 报表框架 + SQL 对账单测）+「我的工作」本周记时合计（个人最小面）+ 全量回归 + M19 正式审阅（审阅时点 HEAD 重跑 pytest/冒烟/vitest + DoD 逐项 + 附录 B + 浏览器隔离复演「记时→汇总→报表」+「M§ 正式审阅通过」提交）。
+1. **I61 项目工时报表 + 收尾审阅**（M19 第 3 迭代，docs/10 §M19）：报表页增工时小部件（按人合计 + 按日趋势，纯投影聚合 SQL + 与条目清单对账的单测）；「我的工作」页增本周记时合计（个人最小面）；全量回归 + M19 正式审阅（审阅时点 HEAD 重跑 pytest/冒烟/vitest + DoD 逐项 + 附录 B + 浏览器隔离复演「记时→汇总→报表」+「M§ 正式审阅通过」提交）。
+2. 审阅后：**M20 调研定义**（目标协议第 1 条，三路并行 WebSearch）——候选池：通知 digest（同类均无原生内建，低优）、个人工时日历视图（OpenProject 16.0）、评论 Markdown 富文本、甘特/依赖图增强（M14 延伸）；调研时先 grep docs/01 防重查。
 3. 每轮纪律不变：调研先查 docs/01 已有结论；演示/审阅隔离 data+ontologies 且 netstat 确认单监听；中文文档用 Edit 工具；python 写文本必须 newline="\n"。
 
 ## 5. 有哪些坑不要再踩
