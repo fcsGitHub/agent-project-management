@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     smtp_pass: str = ""
     smtp_from: str = ""
     smtp_tls: bool = True
+    # OIDC single sign-on (M17): entirely optional — issuer/client_id/secret all
+    # set enables the feature, otherwise it stays off (same semantics as SMTP).
+    # allowed_groups: comma-separated IdP group names; empty disables the group
+    # gate (any authenticated IdP user with a verified email may JIT).
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_redirect_uri: str = ""
+    oidc_allowed_groups: str = ""
     # Tests redirect ontology YAML here (learning writes back to this dir).
     ontology_dir_override: Path | None = None
     # Tests redirect agents/ here (ontology pack import writes role files).
