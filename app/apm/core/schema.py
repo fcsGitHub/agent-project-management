@@ -348,6 +348,13 @@ CREATE TABLE IF NOT EXISTS extracted_tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_extracted_tasks_comment ON extracted_tasks(comment_id);
 CREATE INDEX IF NOT EXISTS idx_extracted_tasks_project ON extracted_tasks(project_id);
+
+CREATE TABLE IF NOT EXISTS baselines (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL UNIQUE,
+  snapshot TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 """
 
 FTS_DDL = """
@@ -377,6 +384,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "item_participants",
         "item_time_entries",
         "extracted_tasks",
+        "baselines",
         "project_members",
         "users",
         "ui_commands",

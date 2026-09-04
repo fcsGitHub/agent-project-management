@@ -30,6 +30,8 @@ export function TimelinePage() {
   const items = useQuery({ queryKey: ["items", pid], queryFn: () => api.listItems(pid!), enabled: !!pid });
   const milestones = useQuery({ queryKey: ["milestones", pid], queryFn: () => api.listMilestones(pid!), enabled: !!pid });
   const ontology = useQuery({ queryKey: ["ontology", pid], queryFn: () => api.getOntology(pid!, true), enabled: !!pid });
+  // I71: the active baseline snapshot (ghost bars + drift indication)
+  const baseline = useQuery({ queryKey: ["baseline", pid], queryFn: () => api.getBaseline(pid!), enabled: !!pid });
 
   // I63 drag-to-reschedule state: delta is whole days since pointer-down.
   type Drag = {
@@ -239,9 +241,18 @@ export function TimelinePage() {
       <Card className="min-w-[640px] p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">📅 时间线</span>
-          <span className="text-xs text-mut">
-            {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止 / 悬停条形拖端点圆圈到另一条形建依赖（Esc 取消）
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-mut">
+              {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止 / 悬停条形拖端点圆圈到另一条形建依赖（Esc 取消）
+            </span>
+            {baseline.data?.baseline ? (
+              <button onClick={async () => { await api.clearBaseline(pid!); toast.success("已清除基线"); qc.invalidateQueries(); }}
+                className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">清除基线</button>
+            ) : (
+              <button onClick={async () => { await api.setBaseline(pid!); toast.success("已设为基线（当前日期快照）"); qc.invalidateQueries(); }}
+                className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📌 设为基线</button>
+            )}
+          </div>
         </div>
 
         {/* date header */}
@@ -290,6 +301,17 @@ export function TimelinePage() {
               </div>
               <div className="relative h-full flex-1 mr-2">
                 {row.list.map((d) => {
+                  // I71: ghost bar at the baseline position (drift → amber)
+                  const bEntry = baseline.data?.baseline?.items?.[d.item.id];
+                  const ghost = (() => {
+                    if (!bEntry) return null;
+                    const bs = parseDay(bEntry[0]) ?? parseDay(bEntry[1]);
+                    const bd = parseDay(bEntry[1]) ?? parseDay(bEntry[0]);
+                    if (!bs || !bd) return null;
+                    const gl = view.pct(bs);
+                    const drifted = bEntry[0] !== d.item.start_date || bEntry[1] !== d.item.due_date;
+                    return { gl, gw: Math.max(view.pct(bd) - gl, 0.8), drifted, label: `${bEntry[0]} ~ ${bEntry[1]}` };
+                  })();
                   // live preview while this bar is dragged (half-transparent, ANKO-style)
                   const dragging = drag?.id === d.item.id && drag.delta !== 0;
                   const start = dragging && drag!.mode === "move"
@@ -305,9 +327,16 @@ export function TimelinePage() {
                     : d.conflict ? "bg-red-500 ring-2 ring-red-300" : "bg-acc";
                   const fmt = (x: Date) => x.toISOString().slice(0, 10);
                   return (
-                    <div
-                      key={d.item.id}
-                      data-item-id={d.item.id}
+                    <div key={d.item.id}>
+                      {ghost && (
+                        <div
+                          title={`📌 基线 ${ghost.label}${ghost.drifted ? "（已偏离基线）" : ""}`}
+                          className={`pointer-events-none absolute top-1/2 h-4 -translate-y-1/2 rounded-full border border-dashed ${ghost.drifted ? "border-amber-500" : "border-line"}`}
+                          style={{ left: `${ghost.gl}%`, width: `${ghost.gw}%` }}
+                        />
+                      )}
+                      <div
+                        data-item-id={d.item.id}
                       title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}${dragging && drag ? ` → 改为 ${fmt(start)} ~ ${fmt(due)}` : ""}`}
                       onPointerDown={(e) => beginDrag(e, d, "move")}
                       onPointerMove={onDragMove}
@@ -328,6 +357,7 @@ export function TimelinePage() {
                           className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white bg-indigo-500 opacity-0 shadow transition-opacity group-hover:opacity-100 cursor-crosshair ${pt === "left" ? "-left-1.5" : "-right-1.5"}`}
                         />
                       ))}
+                      </div>
                     </div>
                   );
                 })}
