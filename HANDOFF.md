@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 进行中（I56 评论域 + I57 评论前端完成），下一步 I58）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 已完成（评论与参与通知，审阅通过），下一步 M19 调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -230,7 +230,14 @@
   - 浏览器双身份复演通过（生产构建 + SW 清缓存）：李雷 @补全发评论 → API 验证 mentions=["qa"] → 切 QA 王铃徽标 1 → 带标题通知 → 点击跳转 Modal 自动开 + @QA 王 蓝色高亮 + 徽标清零（docs/m18-i57-*.png ×4）；
   - **复演排障定案**：上次「铃徽标 1 但面板暂无通知」= **双后端进程同时 LISTEN 8000**（Windows 允许端口双绑，两次轮询打到不同数据目录实例——badge 与列表同源自相矛盾即此症）；重建隔离库时**先建用户再发评论**（评论先于被提及者落库则 mentions 为空、无通知）；
   - 本 docs 段顺带清理附录 A 残留：874-878 与 883-887 **五行完全重复**（I56 整理未去净）+ 补记缺失的 I56 附录 A 行；补交 M17 审阅截图 docs/m17-i54-*.png ×3（审阅提交时遗漏入库）。
-- **当前验证状态**：pytest **158 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
+- **M18-I58 订阅与收尾（本轮完成）**：
+  - `item.subscribed/unsubscribed` 事件 + 投影（watch 参与行；退订只删 watch 行——assignee/author/mentioned 是派生参与，不随退订消失）+ `POST/DELETE /items/{id}/subscription` + 评论抽屉「🔕 订阅/🔔 已订阅」切换；
+  - **通知面接入参与者**（最小面：新评论 + 状态变更）：`plan_notifications` 扩展 comment.created（排除作者与被提及——防与定向 mention 通知双发）与 item.status_changed（排除操作者）；NOTIFY_EVENTS 同步扩展 → 邮件通道（mailer.enqueue 同函数收人）自动一致；
+  - docs/12 §15 评论与参与通知指南；**新增冒烟 24**（CRUD 软删→mention 通知+深链→参与集合首次来源胜出→订阅→后续事件通知参与者→退订降噪→rebuild 三投影一致）。
+- **M18 正式审阅通过（本轮，附录 B 有记录）**：DoD 逐项核对（审阅时点 HEAD `61b8afd` 重跑 pytest 161/冒烟 24/vitest 2 全绿）+ 浏览器隔离复演双身份全链路（李雷订阅+@评论 → QA 王 mention 通知 → 跳转 → QA 王改状态 → 李雷收参与者通知，截图 docs/m18-review-*.png ×6）；
+  - **审阅即修 1 个 A 级缺陷**：`change_status` 签名默认 actor_id 硬编码 `"u_admin"`——PATCH 状态变更审计归因全错 + 参与者通知操作者排除失效（M5-I19「全仓清除 actor 硬编码」以**签名默认值**形式漏网，grep 清扫扫不到默认参数）→ `actor_id or events.effective_actor()` + 回归单测；
+  - 审阅排障纪要：复演中「李雷面板无状态变更通知」的真因是该缺陷（qa 的改状态被记成 u_admin → qa 被当成旁观者通知、真旁观者李雷被排除），不是通知投影丢失——**双绑端口与身份切错先排除后再怀疑投影**。
+- **当前验证状态**：pytest **161 项全绿**；冒烟基线 **24 条全绿**；`pnpm vitest`（2）/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -238,8 +245,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I58 订阅与收尾审阅**（M18 第 3 迭代，docs/10 §M18）：工作项订阅（`item.subscribed/unsubscribed` 事件 + 参与投影扩展：assignee/author/mentioned 自动参与 + 手动订阅切换按钮）；通知面接入参与者（item.* 后续事件通知参与者——最小面：状态变更与评论）；docs/12 §15 评论与参与通知指南；**新增冒烟 24**（评论全程：CRUD→mention 通知→参与集合→订阅→rebuild 一致）；全量回归 + M18 正式审阅（审阅时点 HEAD 重跑 pytest/冒烟/vitest + DoD 逐项核对 + 附录 B + 浏览器隔离复演双身份「评论→提及→通知→状态变更通知参与者」）→ 「M18-I58」三段式 + 「M§ 正式审阅通过」提交。
-2. 审阅后：**M19 调研**（目标协议第 1 条）——首选候选**工时跟踪**（OpenProject Community 核心 spent time，docs/01 §Q.2 已调研勿重查）；备选：通知 digest（同类均无原生内建，低优）、富文本评论/通知层级细分（backlog）。
+1. **M19 调研定义**（目标协议第 1 条，三路并行 WebSearch 开源调研）：首选候选**工时跟踪**（OpenProject Community 核心 spent time——docs/01 §Q.2 已有初步调研**勿重查**，直接深化：记录/报表/日历边界与 estimate_hours 的关系）；备选：通知 digest（同类均无原生内建，低优）、富文本评论/通知层级细分（backlog）。产出：docs/01 新节 + docs/10 §M19 定义 + 看板行 + 附录 A 日志 + HANDOFF 收口 → 「M§ 调研定义」提交。
+2. 按 M19 计划走 3 迭代（每个三段式提交）→ 正式审阅（审阅时点 HEAD 重跑全量 + DoD 逐项 + 浏览器隔离复演 + 附录 B + 「M§ 正式审阅通过」提交）。
+3. 每轮纪律不变：调研先查 docs/01 已有结论；演示/审阅隔离 data+ontologies 且 netstat 确认单监听；中文文档用 Edit 工具；python 写文本必须 newline="\n"。
 
 ## 5. 有哪些坑不要再踩
 
@@ -265,6 +273,8 @@
 - **演示中后端后台进程可能被系统回收**（Windows exit 1073807364）：长演示中途截图前先探 `GET /api/health`，别把连接拒绝误判为产品问题；遗留标签页的 SSE/审批轮询会持续重连刷 console 噪声。
 - **Windows 允许多进程同时 LISTEN 同一端口**（I57 复演踩坑，oidc_stub 9001 同症）：重启后端前旧进程没死净，两个实例双绑 8000 各持不同数据目录——请求随机分流，前端「铃徽标 1 但面板空」这类同源数据自相矛盾即此症；**起演示先 `netstat -ano | grep :8000` 确认单监听**，kill 旧 PID 再起。
 - **复演造数顺序：先建用户再发 @ 评论**（I57 踩坑）：评论先于被提及者落库则 `_parse_mentions` 查无此人、mentions 为空、无通知——复演脚本第一步先把双身份用户建齐。
+- **actor 归因排查先看事件行的 actor_id**（M18 审阅踩坑）：「通知没到/到了不该到的人」先查 events.actor_id 是否等于真实操作者——签名默认参数里的硬编码身份 grep 扫不出来（M5 清扫漏网），新加带 actor 的函数一律 `actor_id: str | None = None` + `or events.effective_actor()`。
+- **`/api/session/identity` 是后端全局状态**（local 模式）：bash 用 curl 切过身份后，浏览器的身份也变了（复演截图前先核对顶栏 chip）；后端重启窗口期的前端 refetch 失败会留下陈旧缓存（console 13 错误），先 reload 再下结论。
 
 ## 6. 快速上手命令
 
