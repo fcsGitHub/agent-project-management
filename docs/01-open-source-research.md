@@ -424,3 +424,26 @@ M16 = **自定义视图与保存筛选**：I50 视图数据层（saved_views 投
 **P.4 M17 取舍**
 
 M17 = **OIDC 单点登录**：I53 OIDC client 基座（discovery + authorization code + PKCE + id_token 验证 + JIT 建号四约束 + 本地 JWT 桩单测）/ I54 会话整合与前端（OIDC 登录按钮 + admin 面板配置 + network 门禁兼容）/ I55 Keycloak 演示环境（realm import 脚本）+ docs/11 §2 扩展 + docs/12 §14 + 冒烟 23 + M17 审阅，约 10 人日。通知 digest、事件归档、跨项目聚合报表继续留 backlog。
+
+## Q. M18 前置调研：工作项评论与参与通知（2026-09-04）
+
+> 目标协议触发：M17 审阅通过后开启。三路调研（Plane/GitLab 评论与提及、OpenProject 工时跟踪、GitLab 通知订阅层级），选定 **工作项评论与参与通知**——AgentPM 工作项目前无评论流（对话域消息不挂工作项），协作闭环的最后一个明显缺口。
+
+**Q.1 Plane/GitLab：评论 + @mention 是协作核心（主借鉴）**
+
+- Plane 工作项：评论线程 + `@` 提及成员即通知 + 活动日志并列呈现；GitLab：讨论线程 + mention 产生 todo 与邮件。
+- AgentPM 映射：评论 = 事件溯源域（`comment.created/deleted`，agg 挂工作项）；**@mention 解析为通知**（复用 M10 通知投影 + M11 邮件通道，收件人 = 被提及用户）；**评论者自动成为参与者**（GitLab 参与语义：评论/编辑/被提及即参与 → 参与者收后续事件通知）。
+
+**Q.2 OpenProject 工时跟踪：Community 核心（下一轮候选）**
+
+- work package 记录 spent time（时长/日期/备注/作者）是 **Community 免费**功能，16.0 增个人「My time tracking」日历。AgentPM 有 estimate_hours（计划）无 spent（实际）——与 M14 自动排期（计划侧）互补的执行侧缺口。
+- 本轮不选：工时数据模型简单但配套（报表口径、个人视图）体量不小；评论协作频次更高、与既有通知体系联动更直接。**留下一轮首选候选**。
+
+**Q.3 GitLab 通知订阅层级：参与即通知（订阅面设计）**
+
+- GitLab 层级：Watch（全项目）/ Participating（参与的项）/ On mention / Subscribed（手动订阅未参与的项）/ Custom。参与者自动成为通知对象。
+- AgentPM 映射：M10 通知触发面扩展——评论被提及（Q.1）+ **工作项订阅**（`watch` 动作：assignee 自动订阅 + 手动订阅/退订）；通知层级细分（watch 级全量 vs mention 级）留 V2，本轮做「参与者+被提及」最小面。
+
+**Q.4 M18 取舍**
+
+M18 = **工作项评论与参与通知**：I56 评论域（comment.* 事件 + CRUD + @mention → 通知 + 参与投影）/ I57 评论前端（功能页与卡片评论抽屉 + mention 补全 + 通知点击跳转工作项）/ I58 订阅与收尾（watch/subscriber + docs/12 §15 + 冒烟 24 + M18 审阅），约 9 人日。工时跟踪（下一轮首选候选）、通知层级细分、评论 Markdown 富文本留 backlog。
