@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M21 已定义（日程集成三件套），下一步 I65）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M21 进行中：I65 已完成，下一步 I66 iCal 订阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -43,8 +43,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M21-I65 依赖连线图内编辑**（docs/01 §T.1）：TimelinePage 条形 hover 显两端圆圈 → 从拖动条端点拖到目标条形 → `POST /items/{拖动条}/relations {to_item, relation_type: depends_on}`；自依赖/成环 422 toast；落点连线与冲突随 refetch 生效；Esc 取消；SVG 层复用 I63 体系。**只跑相关验证（build+vitest；relations 后端已有矩阵）。**
-2. **M21-I66 iCal 日历订阅**（§T.3）：`GET /my/calendar.ics?key=`（feed_key 同 M11 Atom 语义，rotate 后旧 key 401；own-data：分配给我的活跃项 VEVENT 全日事件 + 里程碑截止日；UID=`{id}@agentpm` 确定性、CRLF+转义、零新依赖）+「我的工作」页订阅链接区；新建 test_ical.py（key 401/裁剪/VEVENT 计数与 UID/转义）。
+1. ~~M21-I65 依赖连线图内编辑~~ ✅ **已完成**（`a1b6ecb`+docs）：条形 hover 端点圆圈 → 拖到目标条形 → POST relations depends_on（橡皮筋线复用 SVG 坐标系，Esc 取消，elementFromPoint 落点）；复演 toast+API 断言（截图 docs/m21-i65-*.png）。
+2. **M21-I66 iCal 日历订阅**（docs/01 §T.3）：`GET /my/calendar.ics?key=`（feed_key 同 M11 Atom——owner 可反复读、rotate 后旧 key 401；own-data：分配给我的活跃项 VEVENT 全日事件 + 里程碑截止日；UID=`{id}@agentpm` 确定性、CRLF+转义、零新依赖）+「我的工作」页订阅链接区；新建 test_ical.py（key 401/裁剪/VEVENT 计数与 UID/转义）。**只跑相关验证。**
 3. **M21-I67 评论清单项转子任务 + 收尾**（§T.2）：`POST /comments/{id}/extract-task`（校验清单项存在 → 创建 task + extracted_tasks 投影表 + `comment.task_extracted` 事件，drop_projections 同步；同评论同文本 409）+ CommentsModal 已提取项渲染为链接+徽标、未提取项显式按钮（防 #4261 hover 误触）+ 原文零改动；docs/12 §18；**新增冒烟 27**（依赖建立 → ICS 字段 → 提取往返 + rebuild 一致）。
 4. **M21 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 170+ / 冒烟 26+27 / vitest+build）+ I65/I66/I67 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M21 正式审阅通过」提交。之后 M22 调研定义（先 grep docs/01 防重查）。
 5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**双端都要查**——M20 审阅踩 4173 残留旧 preview 抢答）；中文文档/源码/测试一律 Edit/Write 工具（M20 两次 heredoc 侥幸无损，勿再犯）；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
