@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17 已定义（I53-I55 OIDC 单点登录），下一步 I53）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17-I55 完成，下一步 M17 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -215,7 +215,8 @@
   - **JIT 四约束**（Gitea 教训）：email_verified 必须 / allowlist `APM_OIDC_ALLOWED_GROUPS` fail-closed / 同 email 幂等重入 / 同名本地账号 409 不合并；**角色一次性定 viewer、重登不重派**（规避 #32566）；env 未配置整体 404；
   - 单测 5 项：本地 RSA JWT 桩（monkeypatch oidc.httpx）离线覆盖全协议路径 + 拒绝矩阵七例；**pytest 152/冒烟 22**；
   - **坑：TestClient 默认 follow_redirects=True**，302 到外部 IdP 后的 404 极易误判为路由缺失——OIDC 端点断言必须 `follow_redirects=False`。
-- **当前验证状态**：pytest **152 项全绿**；冒烟基线 **22 条全绿**；`pnpm vitest`/`pnpm build` 绿。
+- **M17-I55 收尾（本提交）**：`tools/keycloak/`（docker-compose + realm import：client agentpm/用户 zhang.demo·li.admin/组 agentpm-admins·users）；docs/11 §2.1 OIDC env 表；docs/12 §14（协议安全语义/JIT 四约束表/门禁兼容/配置演示）；**新增冒烟 23**（特性关闭零破坏/桩协议全路径/JIT 幂等/M8 门禁）；pytest **154** 全绿、冒烟 **23** GREEN。
+- **当前验证状态**：pytest **154 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
 
@@ -223,8 +224,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **I54 会话整合与前端**（M17 第 2 迭代，docs/10 §M17）：`GET /auth/me` source 增加 `oidc` 标注（或顶栏 chip 显示）→ 前端 `/login` 页 OIDC 按钮（`GET /api/auth/oidc/status` 探测特性开关，关闭不显示）→ 本体页 admin「OIDC 配置」面板（issuer/client id/allowlist 展示，secret 不回显）→ network 门禁/角色对 OIDC 用户兼容断言（JIT viewer 写 403）→ build+vitest 绿 + 桩全流程浏览器复演 → 「M17-I54」三段式提交。
-2. I55 Keycloak 演示环境（tools/keycloak compose + realm import）+ docs/11 §2 扩展 + docs/12 §14 + 冒烟 23 + M17 正式审阅。
+1. **M17 正式审阅**（模式同 M8-M16）：审阅时点 HEAD 重跑全量（pytest 154/冒烟 23/vitest 2）→ I53/I54/I55 DoD 逐项核对 → 浏览器隔离复演（tools/oidc_stub.py 真流程：登录页 SSO → 会话 → 门禁 → OIDC 面板，截图已有 docs/m17-i54-*.png ×3）→ 附录 B 记录 → 「M17 正式审阅通过」前缀提交。
+2. 审阅通过后：新一轮开源调研定 M18（候选：通知 digest、事件归档/冷备、报表导出 PDF——docs/01 backlog）。
 
 ## 5. 有哪些坑不要再踩
 
