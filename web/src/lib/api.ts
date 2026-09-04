@@ -349,6 +349,8 @@ export const api = {
   getItem: (iid: string) => req<Item>(`/items/${iid}`),
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
+  addRelation: (iid: string, body: { to_item: string; relation_type: string }) =>
+    req<{ id: string }>(`/items/${iid}/relations`, { method: "POST", body: JSON.stringify(body) }),
   getBoard: (pid: string, featureId?: string, groupBy?: string) => {
     const q = new URLSearchParams();
     if (featureId) q.set("feature_id", featureId);

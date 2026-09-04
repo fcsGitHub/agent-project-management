@@ -5,7 +5,7 @@
  * M20-I63 (docs/01 §S.2): bars are draggable — move shifts start/due together,
  * the right edge resizes due only — PATCHing through the existing endpoint so
  * M14 rescheduled audit and conflict recomputation apply; Esc cancels. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -38,13 +38,6 @@ export function TimelinePage() {
     clientX0: number; pxPerDay: number; delta: number;
   };
   const [drag, setDrag] = useState<Drag | null>(null);
-
-  useEffect(() => {
-    if (!drag) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrag(null); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drag]);
 
   const beginDrag = (e: React.PointerEvent, d: Dated, mode: "move" | "resize") => {
     e.preventDefault();
@@ -85,6 +78,68 @@ export function TimelinePage() {
     } catch (err) {
       toast.error(`改期失败：${err instanceof Error ? err.message : err}`);
     }
+  };
+
+  // I65: drag from a bar's endpoint circle onto another bar to create
+  // depends_on (dragged bar depends on the drop target). Rubber-band line
+  // renders in the connector SVG's coordinate space (% x, px y).
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const linkMeta = useRef<{ rect: DOMRect; fromId: string; from: { x: number; y: number }; cancelled: boolean } | null>(null);
+  const [linkLine, setLinkLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+
+  const toSvgPoint = (rect: DOMRect, x: number, y: number) => ({
+    px: ((x - rect.left) / rect.width) * 100,
+    py: y - rect.top,
+  });
+
+  const cancelLink = () => {
+    if (linkMeta.current) linkMeta.current.cancelled = true;
+    setLinkLine(null);
+  };
+
+  // Esc cancels both an in-progress date drag and a dependency link drag
+  useEffect(() => {
+    if (!drag && !linkLine) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setDrag(null); cancelLink(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drag, linkLine]);
+
+  const beginLinkDrag = (e: React.PointerEvent, d: Dated) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const from = { x: e.clientX, y: e.clientY };
+    linkMeta.current = { rect, fromId: d.item.id, from, cancelled: false };
+    const p1 = toSvgPoint(rect, from.x, from.y);
+    setLinkLine({ x1: p1.px, y1: p1.py, x2: p1.px, y2: p1.py });
+    const move = (ev: PointerEvent) => {
+      if (linkMeta.current?.cancelled) return;
+      const p2 = toSvgPoint(rect, ev.clientX, ev.clientY);
+      setLinkLine({ x1: p1.px, y1: p1.py, x2: p2.px, y2: p2.py });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      const meta = linkMeta.current;
+      linkMeta.current = null;
+      setLinkLine(null);
+      if (!meta || meta.cancelled) return;
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const toId = el?.closest("[data-item-id]")?.getAttribute("data-item-id");
+      if (!toId || toId === meta.fromId) return;
+      api.addRelation(meta.fromId, { to_item: toId, relation_type: "depends_on" })
+        .then(() => {
+          toast.success("已建立依赖：前置完成后本任务才能开始");
+          qc.invalidateQueries();
+        })
+        .catch((err) => toast.error(`建立依赖失败：${err instanceof Error ? err.message : err}`));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
   };
 
   const all = items.data?.items ?? [];
@@ -185,7 +240,7 @@ export function TimelinePage() {
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">📅 时间线</span>
           <span className="text-xs text-mut">
-            {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止（Esc 取消）
+            {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止 / 悬停条形拖端点圆圈到另一条形建依赖（Esc 取消）
           </span>
         </div>
 
@@ -252,12 +307,13 @@ export function TimelinePage() {
                   return (
                     <div
                       key={d.item.id}
+                      data-item-id={d.item.id}
                       title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}${dragging && drag ? ` → 改为 ${fmt(start)} ~ ${fmt(due)}` : ""}`}
                       onPointerDown={(e) => beginDrag(e, d, "move")}
                       onPointerMove={onDragMove}
                       onPointerUp={() => endDrag(false)}
                       onPointerCancel={() => endDrag(true)}
-                      className={`absolute top-1/2 h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
+                      className={`group absolute top-1/2 h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%` }}
                     >
                       <div
@@ -265,6 +321,13 @@ export function TimelinePage() {
                         title="拖动右缘改截止日"
                         className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize rounded-r-full bg-black/20 hover:bg-black/40"
                       />
+                      {(["left", "right"] as const).map((pt) => (
+                        <span key={pt}
+                          onPointerDown={(e) => beginLinkDrag(e, d)}
+                          title="拖到目标条形建立依赖（本任务 depends_on 目标）"
+                          className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white bg-indigo-500 opacity-0 shadow transition-opacity group-hover:opacity-100 cursor-crosshair ${pt === "left" ? "-left-1.5" : "-right-1.5"}`}
+                        />
+                      ))}
                     </div>
                   );
                 })}
@@ -272,12 +335,17 @@ export function TimelinePage() {
             </div>
           ))}
 
-          {/* dependency connectors (only conflict edges are drawn, per docs/01 §L.1) */}
-          <svg className="pointer-events-none absolute inset-0 ml-32 h-full w-[calc(100%-8.5rem)]" aria-hidden>
+          {/* dependency connectors (only conflict edges are drawn, per docs/01 §L.1)
+              + I65 rubber-band line while dragging a new dependency */}
+          <svg ref={svgRef} className="pointer-events-none absolute inset-0 ml-32 h-full w-[calc(100%-8.5rem)]" aria-hidden>
             {view.connectors.map((c) => (
               <line key={c.key} x1={`${c.x1}%`} y1={c.y1} x2={`${c.x2}%`} y2={c.y2}
                     stroke="rgb(239 68 68)" strokeDasharray="4 3" strokeWidth="1.5" />
             ))}
+            {linkLine && (
+              <line x1={`${linkLine.x1}%`} y1={linkLine.y1} x2={`${linkLine.x2}%`} y2={linkLine.y2}
+                    stroke="rgb(99 102 241)" strokeWidth="2" strokeDasharray="6 4" />
+            )}
           </svg>
         </div>
 
