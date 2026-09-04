@@ -392,6 +392,8 @@ export const api = {
     req<{ results: { id: string; ok: boolean; error?: string }[]; updated: number }>(`/projects/${pid}/items/batch-patch`, { method: "POST", body: JSON.stringify({ ids, patch }) }),
   createItem: (pid: string, body: { concept_id: string; title: string; parent_id?: string; status?: string; priority?: string }) =>
     req<Item>(`/projects/${pid}/items`, { method: "POST", body: JSON.stringify(body) }),
+  importItems: (pid: string, csv: string) =>
+    req<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string; item_id?: string }[] }>(`/projects/${pid}/items/import`, { method: "POST", body: JSON.stringify({ csv }) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
   getRun: (rid: string) => req<Run>(`/runs/${rid}`),

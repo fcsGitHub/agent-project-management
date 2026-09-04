@@ -8,7 +8,7 @@ import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
-import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, cx } from "../components/ui";
+import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, cx } from "../components/ui";
 
 export function Board() {
   const { pid } = useParams();
@@ -125,6 +125,9 @@ export function Board() {
   const titleMap = useMemo(() => Object.fromEntries(allItems.map((i) => [i.id, i.title])) as Record<string, string>, [allItems]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [scopeDesc, setScopeDesc] = useState<{ id: string; title: string } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importCsv, setImportCsv] = useState("");
+  const [importResult, setImportResult] = useState<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string }[] } | null>(null);
 
   const scopedListed = useMemo(() => {
     if (!scopeDesc) return listed;
@@ -344,6 +347,10 @@ export function Board() {
             <option key={fid} value={`field:${fid}`}>分组：{fname}</option>
           ))}
         </select>
+        <button onClick={() => setImportOpen(true)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-mut hover:border-acc hover:text-acc">
+          ⬆ 导入 CSV
+        </button>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {scopeDesc && (
             <button onClick={() => setScopeDesc(null)}
@@ -577,6 +584,58 @@ export function Board() {
       {timelogFor && (
         <TimeLogModal itemId={timelogFor.id} title={timelogFor.title}
           onClose={() => setTimelogFor(null)} />
+      )}
+      {importOpen && (
+        <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center gap-2">
+              <a href={`/api/projects/${pid}/items/import-template`} className="text-acc hover:underline">下载模板</a>
+              <a href={`/api/projects/${pid}/items.csv`} className="text-acc hover:underline">导出当前工作项</a>
+              <label className="ml-auto cursor-pointer rounded-lg border border-line px-2 py-1 hover:border-acc">
+                选择文件…
+                <input type="file" accept=".csv,text/csv" className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setImportCsv(String(reader.result ?? ""));
+                    reader.readAsText(f, "utf-8");
+                  }} />
+              </label>
+            </div>
+            <textarea rows={6} value={importCsv}
+              onChange={(e) => setImportCsv(e.target.value)}
+              placeholder={"粘贴或选择 CSV（首行表头：title,concept_id,status,priority,start_date,due_date,estimate_hours,parent_title）"}
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 font-mono text-[11px]" />
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-mut">parent_title 引用已有项或同文件先导行；坏行单独报错不整批回滚</span>
+              <Button size="sm" variant="primary" disabled={!importCsv.trim() || !!importResult}
+                onClick={async () => {
+                  try {
+                    const r = await api.importItems(pid!, importCsv);
+                    setImportResult(r);
+                    qc.invalidateQueries();
+                    toast.success(`导入完成：成功 ${r.created} · 失败 ${r.failed}`);
+                  } catch (e) {
+                    toast.error(`导入失败：${e instanceof Error ? e.message : e}`);
+                  }
+                }}>开始导入</Button>
+            </div>
+            {importResult && (
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
+                {importResult.results.map((r) => (
+                  <div key={r.line} className="flex items-center gap-2">
+                    <span className="w-10 font-mono text-[10px] text-mut">#{r.line}</span>
+                    <span className="flex-1 truncate">{r.title || "（空）"}</span>
+                    {r.ok ? <Badge tone="green">✓</Badge> : <Badge tone="red">{r.error}</Badge>}
+                  </div>
+                ))}
+                <button className="text-[10px] text-mut hover:text-acc"
+                  onClick={() => { setImportResult(null); setImportCsv(""); setImportOpen(false); }}>完成</button>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   );

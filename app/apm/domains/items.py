@@ -1,10 +1,12 @@
 """Work item domain: ontology-driven types, five-bucket state machine, relations."""
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from apm.core import db, events
@@ -805,3 +807,100 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
         payload={"from_item": item_id, "to_item": body.to_item, "relation_type": body.relation_type},
     )
     return get_item_detail(item_id)
+
+
+# ------------------------------------------------- CSV import/export (M24-I75)
+IMPORT_FIELDS = ["title", "concept_id", "status", "priority", "start_date",
+                 "due_date", "estimate_hours", "parent_title"]
+
+
+class CsvImportIn(BaseModel):
+    csv: str
+
+
+@router.post("/projects/{project_id}/items/import")
+def import_items(project_id: str, body: CsvImportIn) -> dict:
+    """Bulk import (M24-I75, Redmine import semantics): first row is the header
+    (fixed field names — see /items/import-template), each following row goes
+    through create_item with full validation. parent_title references an
+    existing item or an earlier row of the same file. Failures are reported
+    per line; valid lines still import (no batch rollback)."""
+    from apm.domains.projects import require_project
+    require_project(project_id)
+    require_project(project_id)
+    reader = csv.DictReader(io.StringIO(body.csv))
+    if not reader.fieldnames or "title" not in reader.fieldnames:
+        raise HTTPException(status_code=422, detail="first row must be a header containing 'title'")
+    known: dict[str, str] = {}
+    for it in list_items(project_id=project_id):
+        known.setdefault(it["title"], it["id"])
+    results: list[dict] = []
+    created = 0
+    for line, row in enumerate(reader, start=2):
+        title = (row.get("title") or "").strip()
+        if not title:
+            results.append({"line": line, "title": "", "ok": False, "error": "empty title"})
+            continue
+        parent_title = (row.get("parent_title") or "").strip() or None
+        parent_id = known.get(parent_title) if parent_title else None
+        if parent_title and not parent_id:
+            results.append({"line": line, "title": title, "ok": False,
+                            "error": f"unknown parent_title '{parent_title}'"})
+            continue
+        try:
+            estimate = row.get("estimate_hours") or None
+            s_date = (row.get("start_date") or "").strip() or None
+            d_date = (row.get("due_date") or "").strip() or None
+            _validate_item_dates(s_date, d_date)  # date validation lives outside create_item
+            item = create_item(
+                project_id=project_id,
+                concept_id=(row.get("concept_id") or "").strip() or "task",
+                title=title,
+                status=(row.get("status") or "").strip() or None,
+                priority=(row.get("priority") or "").strip() or None,
+                start_date=s_date,
+                due_date=d_date,
+                estimate_hours=float(estimate) if estimate else None,
+                parent_id=parent_id,
+            )
+            known[title] = item["id"]
+            created += 1
+            results.append({"line": line, "title": title, "ok": True, "item_id": item["id"]})
+        except HTTPException as e:
+            results.append({"line": line, "title": title, "ok": False, "error": str(e.detail)})
+    return {"created": created, "failed": len(results) - created, "results": results}
+
+
+@router.get("/projects/{project_id}/items/import-template")
+def import_template(project_id: str) -> Response:
+    from apm.domains.projects import require_project
+    require_project(project_id)
+    sample = (
+        ",".join(IMPORT_FIELDS) + "\n"
+        "搭建登录页,task,,high,2026-09-10,2026-09-12,4,\n"
+        "兼容旧接口,task,,,2026-09-13,,2,搭建登录页\n"
+    )
+    return Response(content=sample, media_type="text/csv; charset=utf-8")
+
+
+@router.get("/projects/{project_id}/items.csv")
+def export_items_csv(project_id: str) -> Response:
+    from apm.domains.projects import require_project
+    require_project(project_id)
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT i.*, p.title AS parent_title FROM items i"
+        " LEFT JOIN items p ON p.id = i.parent_id"
+        " WHERE i.project_id = ? ORDER BY i.created_at", (project_id,),
+    ).fetchall()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(IMPORT_FIELDS + ["assignee_id", "status_group"])
+    for it in rows:
+        writer.writerow([
+            it["title"], it["concept_id"], it["status"], it["priority"] or "",
+            it["start_date"] or "", it["due_date"] or "", it["estimate_hours"] or "",
+            it["parent_title"] or "", it["assignee_id"] or "", it["status_group"],
+        ])
+    # BOM so Excel opens UTF-8 Chinese correctly
+    return Response(content="\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8")
