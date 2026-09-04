@@ -273,3 +273,27 @@ AgentPM 前端为可安装 PWA（vite-plugin-pwa，generateSW + autoUpdate），
 - 看板工具栏「👁 视图」下拉：保存当前过滤、切换（definition 写回 URL 参数，功能切片保留）、公开徽标、hover 删除、设为默认；
 - 选中态入 URL（`?view=`）；**直开 `?view=<id>` 自动补齐定义参数**（显式参数优先）——分享链接即还原；
 - 默认视图：无显式 view/group 的看板请求自动落项目默认视图（board 响应 `applied_view_id`，工具栏 chip 与分组控件同步显示）。
+
+## 14. OIDC 单点登录（M17-I53/I54/I55）
+
+network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Authelia/authentik/Entra ID）登录，JIT（首次登录自动）建号。未配置 env 时特性整体关闭，行为与 M17 之前完全一致。
+
+### 14.1 流程与安全语义
+
+- **协议**：Authorization Code + PKCE(S256)；state/nonce/verifier 存 HttpOnly 短命 cookie（10 分钟），回调三方全验（RS256 签名 via jwks、iss/aud/exp/nonce）后才进入建号逻辑；握手后**不缓存 id_token**（凭据不入事件，会话 = M8 同款 HMAC cookie）。
+- **JIT 注册四约束**（Gitea 教训，docs/01 §P.3）：
+
+| 约束 | 语义 | 违反时 |
+| --- | --- | --- |
+| email 可信 | email 存在且 `email_verified=true` 才受理 | 422 |
+| 组白名单 | `APM_OIDC_ALLOWED_GROUPS` 非空时须有交集（fail-closed） | 403 |
+| 角色一次性 | 建号即 viewer 缺省；**重登不重派角色**（规避 Gitea #32566 二次登录时序坑） | — |
+| 不自动合并 | 同 name 本地账号已存在 → 409，合并须管理员显式操作 | 409 |
+
+- **门禁兼容**：JIT 用户与本地建号用户走同一 M8 门禁——未加入项目成员前写操作 403（`access.denied` 审计）；角色提升走管理员建号接口，不由 IdP claim 自动决定。
+
+### 14.2 配置与演示
+
+- 配置走 `APM_OIDC_*` 环境变量（表见 docs/11 §2.1）；本体页「OIDC 单点登录」面板为只读诊断（secret 不回显）。
+- Keycloak 演示：`tools/keycloak/docker-compose.yml`（realm import：client `agentpm` + 用户 zhang.demo/li.admin + 组）→ `docker compose up -d` → 按 §2.1 设 env；
+- 无容器环境：`python tools/oidc_stub.py`（mini IdP，:9001）——authorize 即回 callback，适合本地真流程演示。

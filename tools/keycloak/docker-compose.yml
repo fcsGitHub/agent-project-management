@@ -1,0 +1,24 @@
+# Keycloak demo IdP for AgentPM (M17-I55): one realm-imported realm with a
+# public-facing OIDC client and two demo users. Start with:
+#   docker compose up -d
+#   # console: http://localhost:8081  (admin / admin-pass)
+# Then start AgentPM with:
+#   APM_AUTH_MODE=network APM_ADMIN_PASSWORD=admin-pass
+#   APM_OIDC_ISSUER=http://localhost:8081/realms/agentpm
+#   APM_OIDC_CLIENT_ID=agentpm
+#   APM_OIDC_CLIENT_SECRET=agentpm-demo-secret
+#   APM_OIDC_REDIRECT_URI=http://localhost:8000/api/auth/oidc/callback
+#   APM_OIDC_ALLOWED_GROUPS=agentpm-admins
+# (point APM_OIDC_REDIRECT_URI at your front-end origin when proxied — the
+#  cookie lands on whatever host serves the callback).
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm", "--http-port=8081"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin-pass
+    volumes:
+      - ./realm-agentpm.json:/opt/keycloak/data/import/realm-agentpm.json:ro
+    ports:
+      - "8081:8081"

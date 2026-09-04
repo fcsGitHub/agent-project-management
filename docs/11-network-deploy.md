@@ -34,6 +34,23 @@ curl -X POST http://host:8000/api/users -H "Content-Type: application/json" \
 
 （账号供给 = Gitea 模式：默认不开放自助注册，管理员建号；不做邮件邀请。）
 
+### 2.1 OIDC 单点登录（M17，可选）
+
+配置以下环境变量即启用 SSO（缺任一必需项则特性整体关闭，行为与未配置时完全一致）：
+
+```bash
+- APM_OIDC_ISSUER=https://sso.corp.test/realms/agentpm   # 必需
+- APM_OIDC_CLIENT_ID=agentpm                             # 必需
+- APM_OIDC_CLIENT_SECRET=...                             # 必需
+- APM_OIDC_REDIRECT_URI=https://apm.corp.test/api/auth/oidc/callback  # 必需；须与对外域名同源
+- APM_OIDC_ALLOWED_GROUPS=agentpm-users                  # 可选；非空时组外用户 fail-closed 403
+```
+
+- 登录页出现「🔑 使用单点登录」入口；回调成功签发与本地登录同款会话 cookie；
+- **JIT 注册四约束**（详见 docs/12 §14）：email 必须已验证；角色一次性定 viewer 缺省、重登不提升；组白名单 fail-closed；同 email/name 的本地账号冲突 409 不自动合并（合并 = 管理员手工动作）；
+- **redirect_uri 必须与前端同源**（经反代时指向对外域名）——回调会话 cookie 落在该域；
+- 本地演示：`tools/keycloak/docker-compose.yml`（realm import 一键）或 `tools/oidc_stub.py`（无容器 mini IdP）。
+
 ## 3. 角色与归账规则（M8-I27/I28）
 
 - 建项目者自动成为该项目 **owner**；owner 可在「本体 → 项目成员」面板添加/改角色/移除成员。
