@@ -188,7 +188,10 @@ def create_item(
     return get_item(iid)  # type: ignore[return-value]
 
 
-def change_status(item: dict, new_status: str, actor_type="human", actor_id="u_admin") -> dict:
+def change_status(item: dict, new_status: str, actor_type="human", actor_id: str | None = None) -> dict:
+    # actor falls back to the effective identity (M18 审阅即修：默认硬编码
+    # "u_admin" 使 PATCH 状态变更的审计归因与通知的操作者排除全部失真)
+    actor_id = actor_id or events.effective_actor()
     onto = project_ontology(item["project_id"])
     try:
         group = onto.validate_item_status(item["concept_id"], new_status)
@@ -660,7 +663,7 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
         changes["auto_scheduled"] = 1 if changes["auto_scheduled"] else 0
     if "status" in changes:
         new_status = changes.pop("status")
-        item = change_status(item, new_status)
+        item = change_status(item, new_status, actor_id=events.effective_actor())
     if "assignee_type" in changes or "assignee_id" in changes:
         _ensure_human_assignee(
             changes.get("assignee_type", item["assignee_type"]),

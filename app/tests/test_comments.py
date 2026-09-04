@@ -167,3 +167,19 @@ def test_subscription_and_participant_notifications(client, pid):
     _prj.rebuild()
     assert client.get(f"/api/items/{item['id']}/comments").json()["participants"] == parts_before
     assert [(n["id"], n["read"]) for n in inbox("u_watch")] == watch_before
+
+
+def test_status_change_attributes_real_actor(client, pid):
+    """M18 审阅即修: PATCH 状态变更必须记真实操作者——change_status 的
+    actor_id 默认硬编码 "u_admin"，使审计归因与参与者通知的操作者排除失真。"""
+    client.post("/api/users", json={"id": "u_mover", "name": "流转者"})
+    item = _mk_item(client, pid, "归因目标")
+    saved = config.settings.user_id
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_mover"})
+        assert client.patch(f"/api/items/{item['id']}", json={"status": "ready"}).status_code == 200
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+    ev = client.get("/api/events", params={"agg_id": item["id"]}).json()["events"]
+    st = [e for e in ev if e["event_type"] == "item.status_changed"]
+    assert st and st[-1]["actor_id"] == "u_mover"
