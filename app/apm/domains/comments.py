@@ -82,7 +82,7 @@ def _parse_mentions(body: str) -> list[tuple[str, str]]:
 
 def _require_item(item_id: str) -> dict:
     row = db.get_conn().execute(
-        "SELECT id, project_id, assignee_id FROM items WHERE id = ?", (item_id,)).fetchone()
+        "SELECT id, project_id, assignee_id, title FROM items WHERE id = ?", (item_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail=f"unknown item '{item_id}'")
     return dict(row)
@@ -126,8 +126,9 @@ def post_comment(item_id: str, body: CommentIn) -> dict:
             "author_name": author_name,
         },
     )
-    # mention notifications ride the existing M10 channel (inbox + mailer)
-    item_ref = f"{item_id}"
+    # mention notifications ride the existing M10 channel (inbox + mailer);
+    # the summary carries the item title (id as fallback) so the inbox is readable
+    item_ref = f"「{item['title']}」" if item.get("title") else item_id
     for uid, name in mentions:
         events.emit(
             event_type="notification.sent",
@@ -145,7 +146,9 @@ def list_comments(item_id: str) -> dict:
     item = _require_item(item_id)
     _gate(item["project_id"])
     rows = db.get_conn().execute(
-        "SELECT * FROM item_comments WHERE item_id = ? AND deleted_at IS NULL ORDER BY created_at",
+        "SELECT c.*, u.name AS author_name FROM item_comments c"
+        " LEFT JOIN users u ON u.id = c.author_id"
+        " WHERE c.item_id = ? AND c.deleted_at IS NULL ORDER BY c.created_at",
         (item_id,),
     ).fetchall()
     participants = db.get_conn().execute(
@@ -158,7 +161,9 @@ def list_comments(item_id: str) -> dict:
 
 def get_comment(comment_id: str) -> dict:
     row = db.get_conn().execute(
-        "SELECT * FROM item_comments WHERE id = ?", (comment_id,)).fetchone()
+        "SELECT c.*, u.name AS author_name FROM item_comments c"
+        " LEFT JOIN users u ON u.id = c.author_id"
+        " WHERE c.id = ?", (comment_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail=f"unknown comment '{comment_id}'")
     return dict(row)

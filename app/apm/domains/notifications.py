@@ -106,8 +106,18 @@ def get_notifications() -> dict:
         "SELECT email_notify FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     email_enabled = bool(pref["email_notify"]) if pref else True
+    out = []
+    for r in rows:
+        d = dict(r)
+        # mention 通知跳转工作项：ref_event_id → 事件 agg_id 即 item_id（M18-I57）
+        if d.get("ref_event_id"):
+            ev = conn.execute(
+                "SELECT agg_id FROM events WHERE id = ?", (d["ref_event_id"],)).fetchone()
+            if ev:
+                d["item_id"] = ev["agg_id"]
+        out.append(d)
     return {
-        "notifications": [dict(r) for r in rows],
+        "notifications": out,
         "unread": unread,
         "user_id": user_id,
         "email_enabled": email_enabled,

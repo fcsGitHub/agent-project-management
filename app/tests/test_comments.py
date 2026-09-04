@@ -69,6 +69,7 @@ def test_mention_parses_and_notifies(client, pid, monkeypatch):
             mention_notes = [n for n in notes if n["kind"] == "mention"]
             assert len(mention_notes) == 1, (uid, notes)
             assert "的评论中提到了你" in mention_notes[0]["summary"]
+            assert "提及目标" in mention_notes[0]["summary"]  # 摘要带标题而非裸 id
     finally:
         config.settings.user_id = saved
 

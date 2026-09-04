@@ -239,6 +239,7 @@ const KIND_ICON: Record<string, string> = { assigned: "👤", approval: "◆", r
 function NotificationsBell() {
   const qc = useQueryClient();
   const { pid } = useParams();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showKey, setShowKey] = useState<string | null>(null);
   const notes = useQuery({
@@ -303,8 +304,21 @@ function NotificationsBell() {
           <div className="max-h-64 space-y-0.5 overflow-y-auto">
             {(notes.data?.notifications ?? []).map((n) => (
               <div key={n.id}
+                onClick={async () => {
+                  // M18-I57: mention notifications deep-link to the commented item;
+                  // following the link also reads the notification
+                  if (n.kind === "mention" && (n as { item_id?: string }).item_id && pid) {
+                    setOpen(false);
+                    if (!n.read) {
+                      await api.markNotificationsRead({ ids: [n.id] });
+                      invalidate();
+                    }
+                    navigate(`/p/${pid}/board?item=${(n as { item_id?: string }).item_id}`);
+                  }
+                }}
                 className={cx("flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs",
-                  !n.read && "bg-accbg/50")}>
+                  !n.read && "bg-accbg/50",
+                  n.kind === "mention" && (n as { item_id?: string }).item_id && "cursor-pointer hover:bg-bg")}>
                 <span>{KIND_ICON[n.kind] ?? "🔔"}</span>
                 <div className="min-w-0">
                   <div className={cx("truncate", !n.read && "font-medium")}>{n.summary}</div>

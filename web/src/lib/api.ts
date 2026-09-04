@@ -38,6 +38,11 @@ export type SavedView = {
   is_public: number; is_default?: number; definition: Record<string, string>;
   created_at: string; updated_at: string;
 };
+export type ItemComment = {
+  id: string; item_id: string; project_id: string; author_id: string;
+  author_name?: string | null; body: string; mentions: string;
+  created_at: string; deleted_at: string | null;
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -265,6 +270,12 @@ export const api = {
 
   oidcStatus: () =>
     req<{ enabled: boolean; issuer: string | null; client_id: string | null; redirect_uri: string | null; allowed_groups: string[] }>("/auth/oidc/status"),
+
+  listItemComments: (itemId: string) =>
+    req<{ comments: ItemComment[]; participants: { user_id: string; source: string }[] }>(`/items/${itemId}/comments`),
+  createComment: (itemId: string, body: { body: string }) =>
+    req<ItemComment>(`/items/${itemId}/comments`, { method: "POST", body: JSON.stringify(body) }),
+  deleteComment: (id: string) => req<{ deleted: string }>(`/comments/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>
@@ -431,7 +442,7 @@ export const api = {
   // Notification center (M10-I34): per-user feed with event-sourced read state.
   listNotifications: () =>
     req<{ notifications: { id: string; project_id: string; user_id: string; kind: string;
-      summary: string; ref_event_id: number | null; read: number; created_at: string }[];
+      summary: string; ref_event_id: number | null; item_id?: string; read: number; created_at: string }[];
       unread: number; user_id: string; email_enabled: boolean }>("/notifications"),
   markNotificationsRead: (body: { ids?: string[]; all?: boolean }) =>
     req<{ ok: boolean }>("/notifications/read", { method: "POST", body: JSON.stringify(body) }),

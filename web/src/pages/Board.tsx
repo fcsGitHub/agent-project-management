@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
+import { CommentsModal } from "../components/CommentsModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, cx } from "../components/ui";
 
 export function Board() {
@@ -22,6 +23,7 @@ export function Board() {
   const [viewsOpen, setViewsOpen] = useState(false);
   const [newViewName, setNewViewName] = useState("");
   const [newViewPublic, setNewViewPublic] = useState(false);
+  const [commentsFor, setCommentsFor] = useState<import("../lib/api").Item | null>(null);
 
   const viewsQ = useQuery({
     queryKey: ["views", pid],
@@ -60,6 +62,15 @@ export function Board() {
   const currentView =
     viewsQ.data?.views.find((v) => v.id === viewId) ??
     viewsQ.data?.views.find((v) => v.id === board.data?.applied_view_id);
+
+  // ?item=<id>（通知跳转/分享）直接打开该工作项的评论区（M18-I57）
+  const focusItem = params.get("item") ?? "";
+  useEffect(() => {
+    if (!focusItem || commentsFor) return;
+    const found = (board.data?.buckets ?? []).flatMap((b) => b.items).find((i) => i.id === focusItem);
+    if (found) setCommentsFor(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusItem, board.data]);
 
   // Distinct custom fields across concepts → grouping selector options (M6-I21),
   // minus the project-deactivated ones (M7-I25).
@@ -362,6 +373,12 @@ export function Board() {
                             {customFieldBadges(item, onto.data?.concepts).map((b) => (
                               <Badge key={b.label} tone="neutral">{b.label}: {b.text}</Badge>
                             ))}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setCommentsFor(item); }}
+                              className="ml-auto text-[10px] text-mut hover:text-acc" title="评论"
+                            >
+                              💬
+                            </button>
                           </div>
                           {run && (
                             <Link
@@ -395,6 +412,11 @@ export function Board() {
           );
         })}
       </div>
+
+      {commentsFor && (
+        <CommentsModal itemId={commentsFor.id} title={commentsFor.title}
+          onClose={() => { setCommentsFor(null); if (focusItem) setFilter("item", ""); }} />
+      )}
     </div>
   );
 }
