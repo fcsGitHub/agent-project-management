@@ -91,6 +91,14 @@ export type MyWork = {
   items: (Item & { project_name?: string })[];
   approvals: (Pick<Approval, "id" | "project_id" | "kind" | "run_id" | "item_id" | "requested_at"> & { project_name?: string })[];
   projects: { id: string; name: string }[];
+  week_minutes?: number;
+};
+export type TimelogReport = {
+  project_id: string;
+  total_minutes: number;
+  by_user: { user_id: string; user_name?: string | null; minutes: number }[];
+  by_day: { date: string; minutes: number }[];
+  window_days: number;
 };
 export type BoardData = {
   project_id: string; feature_id?: string; applied_view_id?: string; group_by: string;
@@ -257,6 +265,8 @@ export const api = {
     req<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   getProject: (id: string) => req<Project>(`/projects/${id}`),
   getProjectReport: (id: string) => req<ProjectReport>(`/projects/${id}/report`),
+  getTimelogReport: (id: string, days = 14) =>
+    req<TimelogReport>(`/projects/${id}/timelog_report?days=${days}`),
   getMyWork: () => req<MyWork>("/my/work"),
 
   listMilestones: (pid: string) => req<{ milestones: Milestone[] }>(`/projects/${pid}/milestones`),

@@ -119,6 +119,58 @@ export function ReportsPage() {
           <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-ag" />完成</span>
         </div>
       </Card>
+
+      {/* timelog (M19-I61): per-user totals + per-day trend */}
+      <TimelogCard pid={pid} />
     </div>
+  );
+}
+
+function TimelogCard({ pid }: { pid: string }) {
+  const tl = useQuery({
+    queryKey: ["timelog-report", pid],
+    queryFn: () => api.getTimelogReport(pid),
+    enabled: !!pid,
+    refetchInterval: 15_000,
+  });
+  const t = tl.data;
+  const total = t?.total_minutes ?? 0;
+  const fmt = (m: number) => (m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${m % 60 ? (m % 60).toString().padStart(2, "0") : ""}`);
+  const maxUser = t ? Math.max(1, ...t.by_user.map((u) => u.minutes)) : 1;
+  const maxDay = t ? Math.max(1, ...t.by_day.map((d) => d.minutes)) : 1;
+  return (
+    <Card className="p-4 md:col-span-3">
+      <div className="mb-1 flex items-baseline justify-between">
+        <div className="text-sm font-semibold">⏱ 工时 · 近 {t?.window_days ?? 14} 天</div>
+        <div className="text-xs text-mut">合计 <span className="font-medium text-acc">{fmt(total)}</span></div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <div className="mb-1 text-[10px] text-mut">按人</div>
+          <div className="space-y-1.5">
+            {(t?.by_user ?? []).map((u) => (
+              <div key={u.user_id} className="flex items-center gap-2 text-xs" title={u.user_name ?? u.user_id}>
+                <span className="w-16 shrink-0 truncate">{u.user_name ?? u.user_id}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-bg">
+                  <div className="h-full rounded-full bg-acc" style={{ width: `${(u.minutes / maxUser) * 100}%` }} />
+                </div>
+                <span className="w-12 shrink-0 text-right font-medium">{fmt(u.minutes)}</span>
+              </div>
+            ))}
+            {!t?.by_user.length && <div className="text-xs text-mut">还没有工时记录——在看板卡片点 ⏱ 记一笔</div>}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-[10px] text-mut">按日</div>
+          <div className="flex h-20 items-end gap-1">
+            {(t?.by_day ?? []).map((d) => (
+              <div key={d.date} className="flex flex-1 flex-col items-center" title={`${d.date} ${fmt(d.minutes)}`}>
+                <div className="w-full rounded-t bg-ag" style={{ height: `${(d.minutes / maxDay) * 100}%`, minHeight: d.minutes ? 2 : 0 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }

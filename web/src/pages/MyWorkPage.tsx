@@ -4,6 +4,7 @@
  * decision rights as approval notifications (owner / instance admin). */
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { fmtMinutes } from "../components/TimeLogModal";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { Badge, Card, Empty } from "../components/ui";
@@ -22,6 +23,8 @@ export function MyWorkPage() {
         <span className="text-xs text-mut">跨项目聚合 · 指派给我的活跃项 + 等我决策的 Gate</span>
         <span className="ml-auto text-xs text-mut">
           {work.data?.items.length ?? 0} 项工作 · {work.data?.approvals.length ?? 0} 个待决策
+          {(work.data?.week_minutes ?? 0) > 0 &&
+            <> · 本周工时 <span className="font-medium text-acc">{fmtMinutes(work.data!.week_minutes ?? 0)}</span></>}
         </span>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">

@@ -122,3 +122,42 @@ def test_timelog_permission_network(client, pid):
     finally:
         config.settings.auth_mode = "local"
         config.settings.admin_password = ""
+
+
+def test_timelog_report_reconciles_with_entries(client, pid):
+    """M19-I61: the project report's per-user/per-day aggregation must equal
+    the raw entry lists (Plane GH #8045 的反面——项目级聚合与条目对账)."""
+    item_a = _mk_item(client, pid, "报表甲")
+    item_b = _mk_item(client, pid, "报表乙")
+    _log(client, item_a["id"], 90, spent_on="2026-09-01", note="a1")
+    _log(client, item_a["id"], 30, spent_on="2026-09-02", note="a2")
+    client.post("/api/users", json={"id": "u_qa2", "name": "测试王"})
+    saved = config.settings.user_id
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_qa2"})
+        _log(client, item_b["id"], 60, spent_on="2026-09-01", note="b1")
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+
+    entries_total = sum(e["minutes"] for it in (item_a, item_b)
+                        for e in client.get(f"/api/items/{it['id']}/time_entries").json()["entries"])
+    rep = client.get(f"/api/projects/{pid}/timelog_report").json()
+    assert rep["total_minutes"] == entries_total == 180
+    assert {u["user_id"]: u["minutes"] for u in rep["by_user"]} == {"u_admin": 120, "u_qa2": 60}
+    assert sum(d["minutes"] for d in rep["by_day"]) == 180
+
+    # my/work personal week total (u_qa2 logged exactly one entry this week)
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_qa2"})
+        mw = client.get("/api/my/work").json()
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+    assert mw["week_minutes"] == 60
+
+    # soft-deleted entries drop out of the report
+    e = _log(client, item_a["id"], 15, spent_on="2026-09-03", note="临时")
+    client.delete(f"/api/time_entries/{e['id']}")
+    assert client.get(f"/api/projects/{pid}/timelog_report").json()["total_minutes"] == 180
+
+    # unknown project 404
+    assert client.get("/api/projects/p_nope/timelog_report").status_code == 404

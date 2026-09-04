@@ -179,6 +179,41 @@ def project_report(project_id: str) -> dict:
     }
 
 
+@router.get("/projects/{project_id}/timelog_report")
+def timelog_report(project_id: str, days: int = 14) -> dict:
+    """M19-I61: project time report — per-user totals + per-day trend, read
+    straight off the item_time_entries projection (same numbers as the item
+    drawer totals by construction; the tests reconcile them). Plane ships no
+    project-level time analytics at all (docs/01 §R.3, GH #8045)."""
+    days = max(1, min(days, 90))
+    conn = db.get_conn()
+    if not conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone():
+        raise HTTPException(status_code=404, detail=f"unknown project '{project_id}'")
+
+    total = conn.execute(
+        "SELECT COALESCE(SUM(minutes), 0) t FROM item_time_entries"
+        " WHERE project_id = ? AND deleted_at IS NULL", (project_id,)).fetchone()["t"]
+    by_user = [dict(r) for r in conn.execute(
+        "SELECT t.user_id, u.name AS user_name, SUM(t.minutes) AS minutes"
+        " FROM item_time_entries t LEFT JOIN users u ON u.id = t.user_id"
+        " WHERE t.project_id = ? AND t.deleted_at IS NULL"
+        " GROUP BY t.user_id ORDER BY minutes DESC", (project_id,))]
+    logged = {r["d"]: r["c"] for r in conn.execute(
+        "SELECT spent_on d, SUM(minutes) c FROM item_time_entries"
+        " WHERE project_id = ? AND deleted_at IS NULL GROUP BY d", (project_id,))}
+    today = _now().date()
+    series = [{"date": (today - timedelta(days=i)).isoformat(),
+               "minutes": logged.get((today - timedelta(days=i)).isoformat(), 0)}
+              for i in range(days - 1, -1, -1)]
+    return {
+        "project_id": project_id,
+        "total_minutes": total,
+        "by_user": by_user,
+        "by_day": series,
+        "window_days": days,
+    }
+
+
 @router.get("/my/work")
 def my_work() -> dict:
     """Cross-project "my page" (docs/01 §K.1). Assignment is authorization:
@@ -210,4 +245,12 @@ def my_work() -> dict:
         row = conn.execute("SELECT id, name FROM projects WHERE id = ?", (pid,)).fetchone()
         if row:
             projects.append(dict(row))
-    return {"user_id": me, "items": items, "approvals": approvals, "projects": projects}
+    # M19-I61: personal minimal face — minutes logged by me this ISO week
+    week_start = (_now().date() - timedelta(days=_now().date().weekday())).isoformat()
+    week_minutes = conn.execute(
+        "SELECT COALESCE(SUM(minutes), 0) m FROM item_time_entries"
+        " WHERE user_id = ? AND deleted_at IS NULL AND spent_on >= ?",
+        (me, week_start),
+    ).fetchone()["m"]
+    return {"user_id": me, "items": items, "approvals": approvals, "projects": projects,
+            "week_minutes": week_minutes}
