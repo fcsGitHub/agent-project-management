@@ -1,10 +1,14 @@
 /** Timeline page (M13-I42): a Gantt-lite date axis — bars for scheduled items
  * grouped by concept, diamonds for milestones, dependency connectors for
  * depends_on relations. Conflicts (dependent starting before its prerequisite
- * ends) are flagged red; there is no automatic rescheduling (docs/01 §L.1). */
-import { useMemo } from "react";
+ * ends) are flagged red; there is no automatic rescheduling (docs/01 §L.1).
+ * M20-I63 (docs/01 §S.2): bars are draggable — move shifts start/due together,
+ * the right edge resizes due only — PATCHing through the existing endpoint so
+ * M14 rescheduled audit and conflict recomputation apply; Esc cancels. */
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { Item } from "../lib/api";
 import { Card, Empty } from "../components/ui";
@@ -22,9 +26,66 @@ function parseDay(s?: string | null): Date | null {
 
 export function TimelinePage() {
   const { pid } = useParams();
+  const qc = useQueryClient();
   const items = useQuery({ queryKey: ["items", pid], queryFn: () => api.listItems(pid!), enabled: !!pid });
   const milestones = useQuery({ queryKey: ["milestones", pid], queryFn: () => api.listMilestones(pid!), enabled: !!pid });
   const ontology = useQuery({ queryKey: ["ontology", pid], queryFn: () => api.getOntology(pid!, true), enabled: !!pid });
+
+  // I63 drag-to-reschedule state: delta is whole days since pointer-down.
+  type Drag = {
+    id: string; mode: "move" | "resize";
+    origStart: Date; origDue: Date; hasStart: boolean;
+    clientX0: number; pxPerDay: number; delta: number;
+  };
+  const [drag, setDrag] = useState<Drag | null>(null);
+
+  useEffect(() => {
+    if (!drag) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrag(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drag]);
+
+  const beginDrag = (e: React.PointerEvent, d: Dated, mode: "move" | "resize") => {
+    e.preventDefault();
+    e.stopPropagation();
+    const track = e.currentTarget.parentElement as HTMLElement;
+    const w = track.getBoundingClientRect().width;
+    if (w <= 0) return;
+    setDrag({
+      id: d.item.id, mode,
+      origStart: d.start, origDue: d.due, hasStart: !!d.item.start_date,
+      clientX0: e.clientX, pxPerDay: w / view.days, delta: 0,
+    });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!drag) return;
+    const raw = Math.round((e.clientX - drag.clientX0) / drag.pxPerDay);
+    // resize keeps due on/after start; move keeps the original span
+    const delta = drag.mode === "move"
+      ? raw
+      : Math.max(raw, Math.round((drag.origStart.getTime() - drag.origDue.getTime()) / DAY));
+    if (delta !== drag.delta) setDrag({ ...drag, delta });
+  };
+
+  const endDrag = async (cancel = false) => {
+    if (!drag) return;
+    const d = drag;
+    setDrag(null);
+    if (cancel || d.delta === 0) return;
+    const shift = (x: Date) => new Date(x.getTime() + d.delta * DAY).toISOString().slice(0, 10);
+    const body: Record<string, unknown> = { due_date: shift(d.origDue) };
+    if (d.mode === "move" && d.hasStart) body.start_date = shift(d.origStart);
+    try {
+      await api.patchItem(d.id, body);
+      toast.success(`已改期 ${d.delta > 0 ? "+" : ""}${d.delta} 天${d.mode === "resize" ? "（仅截止）" : ""}——依赖与冲突已重算`);
+      qc.invalidateQueries();
+    } catch (err) {
+      toast.error(`改期失败：${err instanceof Error ? err.message : err}`);
+    }
+  };
 
   const all = items.data?.items ?? [];
   const dated = all.filter((i) => i.start_date || i.due_date);
@@ -124,7 +185,7 @@ export function TimelinePage() {
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">📅 时间线</span>
           <span className="text-xs text-mut">
-            {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突
+            {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止（Esc 取消）
           </span>
         </div>
 
@@ -174,18 +235,37 @@ export function TimelinePage() {
               </div>
               <div className="relative h-full flex-1 mr-2">
                 {row.list.map((d) => {
-                  const left = view.pct(d.start);
-                  const width = Math.max(view.pct(d.due) - left, 0.8);
+                  // live preview while this bar is dragged (half-transparent, ANKO-style)
+                  const dragging = drag?.id === d.item.id && drag.delta !== 0;
+                  const start = dragging && drag!.mode === "move"
+                    ? new Date(d.start.getTime() + drag!.delta * DAY)
+                    : d.start;
+                  const due = dragging && drag
+                    ? new Date(d.due.getTime() + drag.delta * DAY)
+                    : d.due;
+                  const left = view.pct(start);
+                  const width = Math.max(view.pct(due) - left, 0.8);
                   const tone = d.item.status_group === "done" ? "bg-ag"
                     : d.item.status_group === "cancelled" ? "bg-line"
                     : d.conflict ? "bg-red-500 ring-2 ring-red-300" : "bg-acc";
+                  const fmt = (x: Date) => x.toISOString().slice(0, 10);
                   return (
                     <div
                       key={d.item.id}
-                      title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}`}
-                      className={`absolute top-1/2 h-4 -translate-y-1/2 rounded-full ${tone}`}
+                      title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}${dragging && drag ? ` → 改为 ${fmt(start)} ~ ${fmt(due)}` : ""}`}
+                      onPointerDown={(e) => beginDrag(e, d, "move")}
+                      onPointerMove={onDragMove}
+                      onPointerUp={() => endDrag(false)}
+                      onPointerCancel={() => endDrag(true)}
+                      className={`absolute top-1/2 h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
                       style={{ left: `${left}%`, width: `${width}%` }}
-                    />
+                    >
+                      <div
+                        onPointerDown={(e) => beginDrag(e, d, "resize")}
+                        title="拖动右缘改截止日"
+                        className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize rounded-r-full bg-black/20 hover:bg-black/40"
+                      />
+                    </div>
                   );
                 })}
               </div>

@@ -117,3 +117,33 @@ def test_rescheduled_survives_rebuild(client, tmp_data, isolated_ontologies, pro
     after = client.get(f"/api/items/{b['id']}").json()
     assert (after["start_date"], after["due_date"]) == (before["start_date"], before["due_date"])
     assert after["auto_scheduled"] in (1, True)
+
+
+def test_drag_move_semantics_and_audit(client, tmp_data, isolated_ontologies, project):
+    """M20-I63: the timeline's drag-to-reschedule PATCHes start+due through the
+    plain item endpoint — a manual move must land both dates and propagate to
+    auto-scheduled dependents exactly like a hand-typed API edit."""
+    pid = project["id"]
+    a = _mkitem(client, pid, "拖动条", start_date=_day(0), due_date=_day(4))
+    b = _mkitem(client, pid, "自动后继", start_date=_day(2), due_date=_day(6))
+    _depend_on(client, b["id"], a["id"])
+    assert client.patch(f"/api/items/{b['id']}", json={"auto_scheduled": True}).status_code == 200
+
+    # drag payload = one PATCH carrying both shifted dates (frontend sends exactly this)
+    new_start, new_due = _day(3), _day(7)  # +3 days
+    assert client.patch(f"/api/items/{a['id']}",
+                        json={"start_date": new_start, "due_date": new_due}).status_code == 200
+    a2 = client.get(f"/api/items/{a['id']}").json()
+    assert a2["start_date"] == new_start and a2["due_date"] == new_due
+
+    # the auto dependent shifted +3 with duration preserved and explicit audit
+    b2 = client.get(f"/api/items/{b['id']}").json()
+    assert b2["start_date"] == _day(5) and b2["due_date"] == _day(9)
+    evs = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
+    assert len(evs) == 1 and evs[0]["agg_id"] == b["id"]
+    assert evs[0]["payload"]["delta_days"] == 3
+
+    # resize (due only, start untouched) — the right-edge handle payload
+    assert client.patch(f"/api/items/{a['id']}", json={"due_date": _day(9)}).status_code == 200
+    a3 = client.get(f"/api/items/{a['id']}").json()
+    assert a3["start_date"] == new_start and a3["due_date"] == _day(9)
