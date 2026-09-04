@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 已完成（治理与效率三件套，审阅通过），下一步 M23 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M23 已定义（计划对照与总览三件套），下一步 I71 甘特基线）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -37,6 +37,7 @@
 - **M21 日程集成三件套（I65-I67，审阅通过 f27bb33）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
 - **M22 已定义（docs/01 §U + docs/10 §M22）**：治理与效率三件套——I68 全局搜索（FTS5 中文 bigram 复用 + `GET /search?q=` 可见性裁剪 + ⌘K 入口与结果页）/ I69 项目归档与克隆（projects.status + archived/reopened 事件 + 归档写 409 + clone 成员永不复制）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件、选择与分组解耦）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅，约 8 人日。
 - **M22 治理与效率三件套（I68-I70，审阅通过）**：全局搜索（`domains/search.py` FTS5 中文 bigram + `GET /search?q=` 可见性裁剪 + ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；索引 handler 注册在 items/comments 投影器之后——注册序即执行序）、项目归档与克隆（`add_emit_guard` pre-emit 守卫：归档项目写 409，白名单 reopened/cloned/access.denied；`/reopen` 专用事件；`/clone` 成员/指派永不复制、关系复制；列表 include_archived + 归档/恢复/克隆按钮）、批量编辑（`POST /projects/{id}/items/batch-patch` 逐项复用 patch_item——逐事件审计、逐项结果不回滚；列表 checkbox + 批量条，同概念才能改状态，选择与分组解耦）；docs/12 §19；冒烟 28。
+- **M23 已定义（docs/01 §V + docs/10 §M23）**：计划对照与总览三件套——I71 甘特基线（baselines 投影 + baseline.set/cleared 事件 + TimelinePage 幽灵条形偏差）/ I72 组合总览（`GET /portfolio/report` 纯投影聚合 + Dashboard 组合卡）/ I73 Markdown 工具栏（手写选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 于 I73 + 审阅，约 8 人日。
 - **当前验证基线：pytest 177 全绿；冒烟 28 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
@@ -45,9 +46,11 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M23 调研定义**（目标协议第 1 条，三路并行 WebSearch）——先 grep docs/01 防重查。候选池：甘特基线对比（计划 vs 实际）、同概念条形重叠避让（M21 审阅 C 级）、评论编辑器工具栏、跨项目聚合报表（Enterprise 层等价）、本体版本事件级归档、通知 digest（低优）、start/end 精确打卡（已否过，需新证据）。产出：docs/01 新节 + docs/10 §M23 + 看板行 + 附录 A + HANDOFF 收口 →「M23 调研定义」提交。
-2. 按 M23 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**；动 events/db 内核的迭代主动升级全量）→ M23 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。
-3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让浏览器断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
+1. **M23-I71 甘特基线**（docs/01 §V.1）：baselines 投影表（project_id 唯一 + snapshot JSON）+ `project.baseline_set/cleared` 事件（**drop_projections 同步**）+ `POST/DELETE /projects/{id}/baseline`（覆盖式）；TimelinePage 幽灵条形（半透明灰基线位 + 偏离描边）+「📌 设为基线/清除基线」按钮。**只跑相关验证。**
+2. **M23-I72 组合总览**（§V.2）：`GET /portfolio/report`（`_visible` 裁剪可见项目：五桶/Gate/超期滞留/工时合计/吞吐 + 总计行，复用 M12 报表口径）+ Dashboard「组合总览」卡（15s 轮询）+ api.ts PortfolioReport。
+3. **M23-I73 Markdown 工具栏 + 收尾**（§V.3）：CommentsModal 手写紧凑工具栏（B/I/code/link/列表/任务清单/引用——选区包裹插入、恢复焦点选区、无选区插占位符）；存储纯文本不变；docs/12 §20；**新增冒烟 29**（基线快照/组合聚合对账/工具栏纯文本往返 + rebuild 一致）。
+4. **M23 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 177+ / 冒烟 28+29 / vitest+build）+ I71/I72/I73 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M23 正式审阅通过」提交。之后 M24 调研定义（先 grep docs/01 防重查）。
+5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 

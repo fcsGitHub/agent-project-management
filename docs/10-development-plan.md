@@ -758,6 +758,36 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 28 GREEN；审阅全绿。
 - 演示路径：列表勾选 3 项 → 批量改状态 → 卡片徽标随刷新变化 → 审计页逐项 item.updated。
 
+**M22 审阅点**：冒烟 28 + 各迭代 DoD + 浏览器演示（⌘K 搜索直达结果页 + 归档写 409 读开放 + 列表勾选批量改优先级审计逐项）。（已通过：附录 B，5ff1b26）
+
+### M23 · 计划对照与总览三件套（吸收基线快照生态/OpenProject 组合形态/GitHub 工具栏，I71-I73，约 8 人日）
+
+> v1.9 新增（2026-09-05，M22 审阅通过后按目标协议调研）。调研结论见 docs/01 §V：基线=时点快照且不随后续改期漂移（Redmine 核心 #13419 长期缺位、Easy Redmine/Flux 插件售卖实证需求）→ AgentPM 做单活动基线 + 幽灵条形；OpenProject 组合管理 Enterprise 独占、Community 靠项目列表+聚合 widget 补位 → `/portfolio/report` 纯投影聚合；GitHub 工具栏官方路线 = 纯 textarea 加按钮（markdown-toolbar-element）→ 手写选区包裹工具栏零新依赖。验证纪律沿用：迭代期只跑相关测试，全量收敛至 M23 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I71 | 甘特基线（baselines 投影 + baseline.set/cleared 事件 + 幽灵条形偏差） | 01 §V.1 | M13 时间线/I63 拖拽 | 3d |
+| I72 | 组合总览（GET /portfolio/report + Dashboard 组合卡） | 01 §V.2 | M12 报表框架/M19 timelog 聚合 | 3d |
+| I73 | Markdown 工具栏（选区包裹插入）+ docs/12 §20 + 冒烟 29 + M23 审阅 | 01 §V.3 | I64 评论渲染 | 2d |
+
+#### I71 · 甘特基线（3d）
+
+- 任务：baselines 投影表（project_id 唯一 + snapshot JSON：{item_id: [start,due]} + 里程碑 {id: due}）+ `project.baseline_set/cleared` 事件（rebuild 存活，drop_projections 同步）；`POST /projects/{id}/baseline`（覆盖式——已有基线即重设）/ `DELETE /projects/{id}/baseline`；TimelinePage 叠加幽灵条形（半透明灰，位置=基线快照），当前起止偏离基线即条形描边提示；工具栏「📌 设为基线 / 清除基线」。
+- DoD：单测（快照内容/覆盖重设/清除/改期不影响基线/rebuild 存活）；build+vitest 绿。
+- 演示路径：设基线 → 拖动条形改期 → 幽灵条形留在原位显偏差。
+
+#### I72 · 组合总览（3d）
+
+- 任务：`GET /portfolio/report`（`_visible` 裁剪可见项目：每项目 items 五桶计数、挂起 Gate、超期滞留数、timelog 合计、近 14 天吞吐 + 总计行——纯投影聚合零 ETL）+ Dashboard 顶部「组合总览」卡（每项目一行迷你条 + 总计，15s 轮询）+ api.ts PortfolioReport。
+- DoD：单测（聚合口径/可见性裁剪/空项目/总计与分项对账）；build+vitest 绿。
+- 演示路径：Dashboard 一屏看到全部可见项目的漏斗/工时/滞留。
+
+#### I73 · Markdown 工具栏 + 收尾审阅（2d）
+
+- 任务：CommentsModal 编辑框上手写紧凑工具栏（B/I/code/link/列表/任务清单/引用——选区包裹插入、无选区插占位符、插入后恢复焦点与选区）；预览切换不变；存储纯文本不变；docs/12 §20；**新增冒烟 29**（基线快照与幽灵数据/组合聚合对账/工具栏语义的存储纯文本往返 + rebuild 一致）；相关验证 + M23 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 29 GREEN；审阅全绿。
+- 演示路径：选中文字点 B → 包裹 ** ** → 发送渲染加粗；设基线 → 拖改期 → 幽灵条形显偏差；Dashboard 组合卡数字与项目一致。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -917,6 +947,7 @@ agent-project-management/
 | **M20 体验补齐三件套（I62-I64）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §S + docs/10 §M20）：I62 个人工时日历（GET /my/timelog 聚合 + 周/月日历页 + 点日快捷记时，OpenProject 16.0 My time tracking 吸收）/ I63 时间线拖拽改期（条形拖拽移动+右缘缩放 → PATCH，补 M13 只读与 M14 自动排程之间的手动层）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览，存储保持纯文本）+ docs/12 §17 + 冒烟 26 + 审阅（截图 docs/m20-review-*.png ×6，见附录 B）；审阅即修任务清单 checkbox 渲染；start/end 打卡/依赖连线图内编辑/任务清单回写留 backlog |
 | **M21 日程集成三件套（I65-I67）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §T + docs/10 §M21）：I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款交互）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用，OpenProject 13.0 内建、Redmine #1077 缺位补位）/ I67 评论清单项转子任务（GitHub tasklist→sub-issue 提取语义 + extracted_tasks 投影 + 渲染链接）+ docs/12 §18 + 冒烟 27 + 审阅（截图 docs/m21-review-*.png ×3 + m21-i65-*.png ×2，见附录 B）；同概念条形重叠避让/start-end 打卡/checkbox 回写/甘特基线/digest 留 backlog |
 | **M22 治理与效率三件套（I68-I70）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §U + docs/10 §M22）：I68 全局搜索（FTS5 复用 + GET /search 可见性裁剪 + ⌘K 入口，OpenProject 全局搜索吸收）/ I69 项目归档与克隆（archived 只读可逆 + clone 创建时复制且成员永不复制，OpenProject/Redmine 吸收）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件，Plane 吸收 + #8683 解耦教训）+ docs/12 §19 + 冒烟 28 + 审阅（截图 docs/m22-review-*.png ×3，见附录 B）；digest/start-end 打卡/甘特基线/编辑器工具栏留 backlog |
+| **M23 计划对照与总览三件套（I71-I73）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 8 人日（docs/01 §V + docs/10 §M23）：I71 甘特基线（单活动基线快照 + 幽灵条形偏差，Redmine #13419 缺位插件补位实证）/ I72 组合总览（GET /portfolio/report 纯投影聚合 + Dashboard 组合卡，OpenProject Portfolios Enterprise 独占的 Community 等价）/ I73 Markdown 工具栏（GitHub markdown-toolbar-element 路线：纯 textarea 选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 于 I73 + 审阅；多基线历史/widget 拖装/WYSIWYG/digest/start-end 打卡留 backlog |
 | I68 全局搜索 | 已完成 | 2026-09-05 | 2026-09-05 | 新域 `domains/search.py`：FTS5 `items_search`/`comments_search` 虚表（**中文 bigram 同资产域方案**）；索引 handler 注册在 items/comments 投影器**之后**——同一事件先更新投影行、后读行建索引，live 与 rebuild 天然一致（注册序即执行序）；评论软删即出索引；item 索引 = title + custom_fields 值；`GET /search?q=&types=`（空 q/未知 types 422；结果按 `_visible` 可见项目裁剪——Atom/iCal 同款；条目带项目名/宿主工作项标题）；⌘K 面板输入即显「🔍 搜索 'xx'」首项回车直达 `#/search?q=` 结果页（类型 chips + 工作项跳 `?item=` 抽屉 + 评论跳宿主卡）；api.ts globalSearch；单测 test_search.py（中文 bigram/latin 命中、软删剔除、types 过滤、rebuild 一致、network 局外人空结果 vs admin 命中）；单测绿、build+vitest 绿 |
 | I69 项目归档与克隆 | 已完成 | 2026-09-05 | 2026-09-05 | events.py 增 **pre-emit 守卫挂点** `add_emit_guard`（区别于 post-emit hook：守卫异常中止写入；rebuild 直插不经 emit 天然豁免）；projects.py 注册归档守卫——归档项目任何写事件 **409 read-only**，白名单仅 `project.reopened/cloned` + `access.denied` 审计；`POST /projects/{id}/reopen`（**专用事件**恢复 active——归档后连 project.updated 也拒，全只读语义对齐 OpenProject）；`POST /projects/{id}/clone`（structure/items/milestones 复制选择，逐实体走既有 emit 链路保审计、depends_on 关系同步复制保 M14 排程、**成员/指派永不复制防越权授权扩散**、project.cloned 事件留源与计数）；`GET /projects?include_archived=` 过滤；前端 ProjectPicker「显示已归档」开关 + 行内归档/恢复/克隆；单测 test_archive_clone.py（门禁 409/读开放/rebuild 重放归档史/克隆计数/成员不复制/关系复制）；**全量回归 176 全绿**（emit 全局路径改动）、build+vitest 绿 |
 | I70 批量编辑+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | `POST /projects/{id}/items/batch-patch`（ids + ItemPatch——**逐项走 patch_item**：每项独立发 item.updated/status_changed/assigned 事件，审计与自动化等同 N 次手工编辑；单项失败逐项返回 ok/error 不整批回滚；越项目 id 记失败）；列表视图 checkbox 列（表头全选）+ 工具栏批量条扩展（改状态——**所选同概念才可用**、状态池按本体声明；改优先级；指派给人；立即生效）；选择与分组/过滤解耦（#8683 教训）；docs/12 §19；**新增冒烟 28**（搜索中文命中 → 归档 409/读开放 → 克隆成员不复制 → 批量逐事件审计含坏 id 隔离 → rebuild 搜索/列表/条目一致，连跑两次稳定）；冒烟基线 **28 条 GREEN**、build+vitest 绿 |
@@ -1051,6 +1082,8 @@ agent-project-management/
 | 2026-09-05 | I69 | 归档与克隆：守卫白名单设计——归档操作本身走 project.updated（守卫在归档前置检查 status=active 放行），归档后统一 409；reopen 用**专用事件**而非复用 project.updated，否则白名单开口会连带放开设置编辑；clone 通过 post_milestone/MilestoneIn 复用端点级校验（milestones 域无 create_ 函数，直接 emit 会绕过 ISO 日期校验）；发现 templates 实例化自带种子 feature（MVP）——克隆计数按源项目实际实体数对账。测试注记：software-dev 模板种子的 feature 会进克隆 counts（features=2）。全量回归 **176 全绿**（emit 全局路径改动触发，符合新纪律的「相关验证」扩大解释——改内核挂点必须全量）。 |
 
 | 2026-09-05 | I70 | 批量编辑：batch-patch 直接循环复用 `patch_item(item_id, body)`——自动继承状态守卫/日期校验/里程碑校验/change_status 归因/auto_scheduled 传播；守卫（I69）在归档项目上使批量整体 409；前端立即式批量条（select onChange 即应用 + 重置），同概念检查用「扁平列表∩选中」实时算；冒烟 28 首跑两处断言过严（搜索未排除克隆副本属**正确行为**、事件断言未按 project_id 过滤）——修正为包含式断言 + project 过滤并连跑两次验证稳定。 |
+
+| 2026-09-05 | M23 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：事件级归档 §K.3 已有导出/快照立场、digest/start-end 打卡维持既往结论）：①**甘特基线**——语义=时点快照不随改期漂移，Redmine 核心 #13419 长期缺位、Easy Redmine/Flux 插件售卖实证需求 → AgentPM 单活动基线（project.baseline_set/cleared + baselines 投影）+ TimelinePage 幽灵条形；②**组合总览**——OpenProject Portfolios Enterprise 独占、Community 用项目列表+全局表+首页 widget 补位 → `/portfolio/report` 纯投影聚合 + Dashboard 组合卡；③**Markdown 工具栏**——GitHub 官方路线 markdown-toolbar-element=纯 textarea 加按钮无 WYSIWYG（社区声明 #3864）→ 手写选区包裹工具栏零新依赖、存储仍纯文本。选定 **M23 = 计划对照与总览三件套**：I71 基线 / I72 组合 / I73 工具栏 + docs/12 §20 + 冒烟 29 于 I73 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +8 人日。结论入 docs/01 §V。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

@@ -580,3 +580,35 @@ M21 = **日程集成三件套**：I65 依赖连线图内编辑（端点圆圈拖
 **U.5 M22 取舍**
 
 M22 = **治理与效率三件套**：I68 全局搜索（FTS5 复用 + 可见性裁剪 + ⌘K 入口）/ I69 项目归档与克隆（只读可逆 + 创建时复制语义 + 成员不复制）/ I70 批量编辑（checkbox + 底部批量条 + 逐事件 batch-patch）+ docs/12 §19 + 冒烟 28 + M22 审阅，约 8 人日。digest、start/end 打卡、甘特基线、编辑器工具栏留 backlog。
+
+## V. M23 前置调研：计划对照与总览——甘特基线 / 组合聚合 / Markdown 工具栏（2026-09-05）
+
+> 目标协议触发：M22 审阅通过后开启。防重查先行：本体版本事件级归档 §K.3 已有立场（导出/快照而非删除）继续 backlog；digest、start/end 打卡维持既往结论。本轮三路（基线快照生态 / 组合总览的 Community 形态 / GitHub 工具栏实现），选定 **M23 = 计划对照与总览三件套**——「基线（计划钉住）+ 组合（跨项目看见）+ 工具栏（写得更顺）」。
+
+**V.1 甘特基线：时点快照，不随改期漂移**
+
+- Redmine 核心**无基线**：两条独立日期对（计划 start/due vs 实际）的诉求长期 open（[#13419](https://www.redmine.org/issues/13419)、[论坛讨论](https://www.redmine.org/boards/1/topics/35027)）；Easy Redmine（[Gantt 插件](https://www.easy8.com/redmine-gantt-plugin)）与 Redmineflux（「Set Baseline = 某时点计划快照」，[指南](https://redmineflux.com/)）以插件售卖验证了需求真实存在。
+- 通用语义（Monday/TeamGantt/Instagantt 一致）：基线 = **创建瞬间的日期快照**，后续排程变化不影响它，图上叠加对比展示偏差。
+- → AgentPM 取舍：每项目保留**单一活动基线**——`POST /projects/{id}/baseline`（快照全部已排期项的 start/due + 里程碑 due，写入 `project.baseline_set` 事件 payload，投影 baselines 表）/ 清除事件；TimelinePage 叠加**幽灵条形**（半透明灰）表达基线位置，当前条形偏离即着色提示；不做多基线历史链（backlog）。
+
+**V.2 组合总览：Community 用项目列表 + 聚合 widget 补位**
+
+- OpenProject **Portfolios 是 Enterprise 独占**（[Portfolios 文档](https://www.openproject.org/docs/user-guide/portfolios/)）；Community 的等价物 = 项目列表 + 全局工作包表 + 应用首页 widget（[FAQ](https://www.openproject.org/docs/user-guide/projects/projects-faq/)、[首页](https://www.openproject.org/docs/user-guide/home/)）。
+- → AgentPM 取舍：`GET /portfolio/report`（可见项目聚合：每项目 五桶分布/挂起 Gate/超期滞留/工时合计 + 总计行，纯投影聚合零 ETL）+ Dashboard 顶部「组合总览」卡（复用 M12 报表框架，15s 轮询同款）；不做自定义 widget 拖装（Enterprise 增强范畴）。
+
+**V.3 Markdown 工具栏：GitHub 官方路线 = 纯 textarea 加按钮**
+
+- GitHub 评论框本质是**纯文本 textarea + Markdown 工具栏**，无 WYSIWYG（[官方声明](https://github.com/orgs/community/discussions/3864)）；其开源实现 [github/markdown-toolbar-element](https://github.com/github/markdown-toolbar-element) 就是往 textarea 上加格式化按钮的 Web Component——选区包裹插入，焦点管理是关键细节。
+- 重型 WYSIWYG（TipTap/ProseMirror）能做 Notion 式体验但有长文性能与存储格式转换成本（[HN 讨论](https://news.ycombinator.com/comments?id=30299800)）——与「存储纯文本」原则冲突。
+- → AgentPM 取舍：CommentsModal 编辑框上加**手写紧凑工具栏**（加粗/斜体/行内代码/链接/列表/任务清单/引用——选区包裹插入，无选区插入占位符），零新依赖、textarea 不动、存储仍纯文本；预览切换保留。
+
+**V.4 M23 设计映射与验证纪律（沿用）**
+
+- I71 甘特基线：baselines 投影（project_id + snapshot JSON）+ baseline.set/cleared 事件 + TimelinePage 幽灵条形与偏差提示。
+- I72 组合总览：`/portfolio/report`（`_visible` 裁剪可见项目集合）+ Dashboard 组合卡。
+- I73 Markdown 工具栏：选区包裹插入 + docs/12 §20 + 冒烟 29 收尾。
+- 验证纪律：每迭代只跑相关测试（动 events 内核则升级全量）；全量收敛至 M23 审阅；HANDOFF 每轮修剪。
+
+**V.5 M23 取舍**
+
+M23 = **计划对照与总览三件套**：I71 甘特基线（单活动基线快照 + 幽灵条形偏差）/ I72 组合总览（portfolio/report 聚合 + Dashboard 卡）/ I73 Markdown 工具栏（GitHub 路线选区包裹）+ docs/12 §20 + 冒烟 29 + M23 审阅，约 8 人日。多基线历史、widget 拖装、WYSIWYG、digest、start/end 打卡留 backlog。
