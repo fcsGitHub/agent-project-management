@@ -14,6 +14,23 @@ from apm.domains.ontology import OntologyError, load_ontology, require_valid
 
 router = APIRouter(tags=["projects"])
 
+# Archived projects are read-only (M22-I69, OpenProject semantics): every live
+# emit targeting them is vetoed except the audit/reopen/clone bookkeeping
+# events. Historical events replay untouched (rebuild bypasses emit).
+_ARCHIVED_WRITABLE = {"project.reopened", "project.cloned", "access.denied"}
+
+
+def _archive_guard(event_type: str, project_id: str) -> None:
+    if not project_id or event_type in _ARCHIVED_WRITABLE:
+        return
+    row = db.get_conn().execute(
+        "SELECT status FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if row and row["status"] == "archived":
+        raise HTTPException(status_code=409, detail="project is archived (read-only)")
+
+
+events.add_emit_guard(_archive_guard)
+
 
 # ------------------------------------------------------------ projections
 @on("project.created")
@@ -71,6 +88,12 @@ def _proj_project_updated(conn, e):
         params.append(e.ts)
         params.append(e.agg_id)
         conn.execute(f"UPDATE projects SET {', '.join(sets)} WHERE id = ?", params)
+
+
+@on("project.reopened")
+def _proj_project_reopened(conn, e):
+    conn.execute("UPDATE projects SET status = 'active', updated_at = ? WHERE id = ?",
+                 (e.ts, e.agg_id))
 
 
 # ---------------------------------------------------------------- helpers
@@ -221,9 +244,14 @@ def post_project(body: ProjectIn) -> dict:
 
 
 @router.get("/projects")
-def list_projects() -> dict:
+def list_projects(include_archived: bool = False) -> dict:
     conn = db.get_conn()
-    rows = conn.execute("SELECT * FROM projects ORDER BY created_at").fetchall()
+    if include_archived:
+        rows = conn.execute("SELECT * FROM projects ORDER BY created_at").fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM projects WHERE status != 'archived' ORDER BY created_at"
+        ).fetchall()
     groups: dict[str, dict] = {}
     for r in conn.execute(
         "SELECT project_id, status_group, COUNT(*) c FROM items GROUP BY project_id, status_group"
@@ -289,6 +317,21 @@ def archive_project(project_id: str) -> dict:
         agg_id=project_id,
         project_id=project_id,
         payload={"status": "archived"},
+    )
+    return get_project(project_id)  # type: ignore[return-value]
+
+
+@router.post("/projects/{project_id}/reopen")
+def reopen_project(project_id: str) -> dict:
+    """Unarchive (M22-I69): back to active — the write guard whitelist allows
+    the dedicated project.reopened event even while still archived."""
+    require_project(project_id)
+    events.emit(
+        event_type="project.reopened",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        payload={},
     )
     return get_project(project_id)  # type: ignore[return-value]
 
@@ -394,3 +437,98 @@ def get_project_graph(project_id: str) -> dict:
             }
         )
     return {"project_id": project_id, "nodes": nodes, "edges": edges}
+
+
+# ------------------------------------------------------------------ clone (I69)
+class CloneIn(BaseModel):
+    name: str
+    structure: bool = True
+    items: bool = True
+    milestones: bool = True
+
+
+@router.post("/projects/{project_id}/clone")
+def clone_project(project_id: str, body: CloneIn) -> dict:
+    """Copy a project's skeleton into a new one (M22-I69, Redmine
+    copy-at-creation semantics). Members/assignees are deliberately NOT
+    copied — membership is a grant, cloning must not widen it. Every entity
+    is created through its normal emit path, so the clone is fully
+    event-sourced and the write guard's whitelist admits project.cloned."""
+    src = require_project(project_id)
+    new = post_project(ProjectIn(
+        name=body.name,
+        description=f"克隆自 {src['name']}",
+        ontology=src["ontology"],
+    ))
+    conn = db.get_conn()
+    counts = {"features": 0, "milestones": 0, "items": 0, "relations": 0}
+    feat_map: dict[str, str] = {}
+    ms_map: dict[str, str] = {}
+    item_map: dict[str, str] = {}
+
+    if body.structure:
+        from apm.domains.features import create_feature
+        for f in conn.execute(
+            "SELECT * FROM features WHERE project_id = ? AND status != 'archived'"
+            " ORDER BY sort_order, created_at", (project_id,),
+        ).fetchall():
+            nf = create_feature(project_id=new["id"], title=f["title"],
+                                brief=f["brief"], sort_order=f["sort_order"] or 0)
+            feat_map[f["id"]] = nf["id"]
+            counts["features"] += 1
+
+    if body.milestones:
+        from apm.domains.milestones import MilestoneIn, post_milestone
+        for m in conn.execute(
+            "SELECT * FROM milestones WHERE project_id = ? ORDER BY due_date, created_at",
+            (project_id,),
+        ).fetchall():
+            nm = post_milestone(new["id"], MilestoneIn(
+                title=m["title"], due_date=m["due_date"], description=m["description"]))
+            ms_map[m["id"]] = nm["id"]
+            counts["milestones"] += 1
+
+    if body.items:
+        from apm.domains.items import create_item
+        for it in conn.execute(
+            "SELECT * FROM items WHERE project_id = ? ORDER BY created_at", (project_id,),
+        ).fetchall():
+            ni = create_item(
+                project_id=new["id"],
+                concept_id=it["concept_id"] or "task",
+                title=it["title"],
+                status=it["status"],
+                priority=it["priority"],
+                estimate_hours=it["estimate_hours"],
+                start_date=it["start_date"],
+                due_date=it["due_date"],
+                custom_fields=json.loads(it["custom_fields"]) if it["custom_fields"] else None,
+                feature_id=feat_map.get(it["feature_id"]),
+                milestone_id=ms_map.get(it["milestone_id"]),
+            )
+            item_map[it["id"]] = ni["id"]
+            counts["items"] += 1
+        # relations between two copied items (depends_on keeps M14 scheduling usable)
+        for rel in conn.execute(
+            "SELECT * FROM item_relations WHERE project_id = ?", (project_id,),
+        ).fetchall():
+            if rel["from_item"] in item_map and rel["to_item"] in item_map:
+                events.emit(
+                    event_type="item.related",
+                    agg_type="item",
+                    agg_id=item_map[rel["from_item"]],
+                    project_id=new["id"],
+                    payload={"from_item": item_map[rel["from_item"]],
+                             "to_item": item_map[rel["to_item"]],
+                             "relation_type": rel["relation_type"]},
+                )
+                counts["relations"] += 1
+
+    events.emit(
+        event_type="project.cloned",
+        agg_type="project",
+        agg_id=new["id"],
+        project_id=new["id"],
+        payload={"source_project_id": project_id, "source_name": src["name"], "counts": counts},
+    )
+    return {"project": get_project(new["id"]), "counts": counts}

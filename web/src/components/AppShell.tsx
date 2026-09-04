@@ -34,7 +34,7 @@ export function AppShell() {
   const [params] = useSearchParams();
   const featureId = params.get("feature") ?? undefined;
 
-  const projects = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  const projects = useQuery({ queryKey: ["projects", false], queryFn: () => api.listProjects(false) });
   const features = useQuery({
     queryKey: ["features", pid],
     queryFn: () => api.listFeatures(pid!),

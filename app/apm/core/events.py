@@ -19,16 +19,28 @@ from apm import config
 
 Handler = Callable[[sqlite3.Connection, "Event"], None]
 PostEmitHook = Callable[["Event"], None]
+EmitGuard = Callable[[str, str], None]
 
 # Post-emit hooks (M9-I29): side-channel consumers that run after an event is
 # appended, folded and broadcast — the automation engine subscribes here instead
 # of polling. Hooks must never break the write path; failures are logged only.
 _post_emit_hooks: list[PostEmitHook] = []
 
+# Pre-emit guards (M22-I69): veto a write before it hits the log — the archived
+# project read-only gate lives here. Unlike post-emit hooks, a guard error
+# propagates so the endpoint returns an HTTP error. Guards never run during
+# rebuild (replay inserts directly, bypassing emit).
+_emit_guards: list[EmitGuard] = []
+
 
 def add_post_emit_hook(fn: PostEmitHook) -> None:
     if fn not in _post_emit_hooks:
         _post_emit_hooks.append(fn)
+
+
+def add_emit_guard(fn: EmitGuard) -> None:
+    if fn not in _emit_guards:
+        _emit_guards.append(fn)
 
 # Request-scoped actor (M8-I28): the auth middleware sets the logged-in user;
 # FastAPI endpoints run in threadpools that inherit this context, so every
@@ -111,6 +123,9 @@ def emit(
     from apm.core import projections
 
     actor_id = actor_id or effective_actor()  # 会话身份（M8-I28）> 本地默认（M5-I19）
+
+    for guard in _emit_guards:
+        guard(event_type, project_id)
 
     with db.tx() as conn:
         prev = conn.execute("SELECT id FROM events ORDER BY id DESC LIMIT 1").fetchone()

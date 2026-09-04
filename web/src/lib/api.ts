@@ -269,7 +269,14 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => req<{ status: string; version: string; provider_mode: string }>("/health"),
 
-  listProjects: () => req<{ projects: Project[] }>("/projects"),
+  listProjects: (includeArchived = false) =>
+    req<{ projects: Project[] }>(`/projects${includeArchived ? "?include_archived=true" : ""}`),
+  archiveProject: (pid: string) =>
+    req<Project>(`/projects/${pid}/archive`, { method: "POST" }),
+  reopenProject: (pid: string) =>
+    req<Project>(`/projects/${pid}/reopen`, { method: "POST" }),
+  cloneProject: (pid: string, body: { name: string; structure?: boolean; items?: boolean; milestones?: boolean }) =>
+    req<{ project: Project; counts: Record<string, number> }>(`/projects/${pid}/clone`, { method: "POST", body: JSON.stringify(body) }),
   createProject: (body: { name: string; ontology: string; requirement?: string; description?: string }) =>
     req<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   getProject: (id: string) => req<Project>(`/projects/${id}`),
