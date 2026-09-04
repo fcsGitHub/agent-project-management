@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M20 进行中：I62 已完成，下一步 I63 时间线拖拽改期）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M20 进行中：I62/I63 已完成，下一步 I64 评论 Markdown 渲染 + 收尾）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -42,8 +42,8 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M20 调研定义（e56b89e）~~ ✅ **M20-I62 个人工时日历已完成**（`7dc990f`+docs）：`GET /my/timelog?days=`（按日分组+日合计+窗口合计，days 钳 1-60）+「我的工时」页 `#/my/time`（周/月双视图+点日期格快捷记时，spent_on 预填，编辑仅时长/备注）+ 侧栏 CalendarClock 入口；timelog 单测 7 项绿。
-2. **M20-I63 时间线拖拽改期**（docs/01 §S.2）：TimelinePage 条形 pointer 拖拽移动/右缘缩放 → PATCH start_date/due_date（M14 rescheduled 审计与冲突重算自动生效）；拖拽中半透明+悬浮日期；Esc 取消；未设日期项与里程碑菱形不参与；test_items.py 补改期审计断言。**只跑相关验证。**
-3. **M20-I64 评论 Markdown 渲染 + 收尾**（§S.3）：CommentsModal GFM 只读渲染（marked+DOMPurify）+ mention chip + 编辑/预览切换，存储保持纯文本；docs/12 §17；**新增冒烟 26**（my/timelog 聚合 + 改期审计链 + 评论原文往返 + rebuild 一致）。
+2. ~~M20-I63 时间线拖拽改期~~ ✅ **已完成**（`ee4f522`+docs）：TimelinePage 条形拖拽移动/右缘缩放 → 单 PATCH start/due（M14 审计与冲突重算自动生效），半透明预览 + Esc 取消；scheduling 单测 5 项绿。
+3. **M20-I64 评论 Markdown 渲染 + 收尾**（docs/01 §S.3）：CommentsModal GFM 只读渲染（**marked+DOMPurify，需 `pnpm add marked dompurify` + @types/dompurify**）+ mention `@姓名` 高亮 chip（渲染层正则，口径同后端 `@`+姓名）+ 编辑框「编辑/预览」切换；**存储与 API 契约不变（纯文本往返）**；docs/12 §17；**新增冒烟 26**（my/timelog 聚合 + 改期审计链 + 评论原文往返 + rebuild 一致）。
 4. **M20 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 167+ / 冒烟 25+26 / vitest+build）+ I62/I63/I64 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M20 正式审阅通过」提交。之后开 M21 调研定义（先 grep docs/01 防重查）。
 5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听；中文文档用 Edit 工具；python 写文本必须 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
@@ -77,6 +77,7 @@
 - **TestClient 默认 follow_redirects=True**：302 到外部 IdP 后 404 极易误判为路由缺失——断言须 `follow_redirects=False`。
 - **后端重启窗口期前端 refetch 失败留陈旧缓存**（console 一串错误）：先 reload 再下结论。
 - **task 状态集无 todo**（software-dev task）：open/ready/in_progress/awaiting_review/done/cancelled，测试用 ready。
+- **源码/测试文件追加也必须用 Edit 工具**（I63 重申）：bash heredoc 即使引号形式无替换也是侥幸——不再用作任何文件写入手段。
 
 ## 6. 快速上手命令
 
