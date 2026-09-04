@@ -698,6 +698,36 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 26 GREEN；评论原文往返不变；审阅全绿。
 - 演示路径：发含表格/清单/@提及评论 → 渲染正确且原文入库。
 
+**M20 审阅点**：冒烟 26 + 各迭代 DoD + 浏览器演示（日历快捷记时 + 拖拽改期冲突标红 + Markdown 渲染与原文往返）。（已通过：附录 B，8005d36）
+
+### M21 · 日程集成三件套（吸收 frappe-gantt fork/GitHub tasklist/OpenProject ICS，I65-I67，约 8 人日）
+
+> v1.7 新增（2026-09-05，M20 审阅通过后按目标协议调研）。调研结论见 docs/01 §T：@workiom/frappe-gantt fork 专补「拖拽建依赖」即需求实证；GitHub 2025-02 tasklist→sub-issue 是**提取**语义（转换后从清单移除，与「评论非状态载体」自洽，转换入口须显式防 hover 误触 #4261）；OpenProject 13.0 内建 ICS 日历订阅、Redmine 核心缺位（#1077 open）——AgentPM 复用 M11 feed_key 基建边际成本低。主题=「依赖图内建（进）+ 日程订阅出去（出）+ 清单项提取成工作项（提取）」。验证纪律沿用 2026-09-05 更新：迭代期只跑相关测试、全量收敛至 M21 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I65 | 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations + 冲突重算） | 01 §T.1 | M13 TimelinePage/I63 坐标体系/M4 关系域 | 3d |
+| I66 | iCal 日历订阅（/my/calendar.ics + feed_key + VEVENT）+ 订阅链接 | 01 §T.3 | M11 feed_key/权限裁剪 | 2d |
+| I67 | 评论清单项转子任务（提取语义 + extracted_tasks + 渲染链接）+ docs/12 §18 + 冒烟 27 + M21 审阅 | 01 §T.2 | M18 评论域/I64 渲染层 | 3d |
+
+#### I65 · 依赖连线图内编辑（3d）
+
+- 任务：TimelinePage 条形 hover 显两端圆圈（@workiom fork 同款交互）→ 从拖动条端点拖到目标条形落点 → `POST /items/{拖动条}/relations {to_item: 目标, relation_type: depends_on}`；自依赖/成环 422 由既有校验返回 toast；落点后连线与冲突重算随 refetch 生效；Esc 取消拖拽；SVG 连线层复用 I63 既有体系。
+- DoD：后端无新端点（关系域已有）——build+vitest 绿；浏览器复演拖拽建依赖 + 冲突变红截图。
+- 演示路径：拖 A 条端点圆圈到 B 条 → 松手 → 依赖连线出现 → 改期触发冲突红条。
+
+#### I66 · iCal 日历订阅（2d）
+
+- 任务：`GET /my/calendar.ics?key=`（feed_key 校验同 M11 Atom——owner 可反复读、rotate 后旧 key 401；内容=分配给我的活跃项 VEVENT 全日事件（due 为主）+ 项目里程碑截止日；UID 确定性 `{item-id}@agentpm`、DTSTAMP 用事件 ts）；「我的工作」页「📅 订阅日历」区（链接显示/复制/换发，与 Atom feed 同位）；VEVENT 手写文本拼接（CRLF 行尾 + 转义，零新依赖）。
+- DoD：单测（key 认证与 401/own-data 裁剪/VEVENT 计数与确定性 UID/转义）新建 test_ical.py；相关验证。
+- 演示路径：curl 订阅 URL 得 ICS 文本 → 日历客户端可导入。
+
+#### I67 · 评论清单项转子任务 + 收尾审阅（3d）
+
+- 任务：`POST /comments/{id}/extract-task`（body=清单项文本；校验该项存在于评论任务清单 → 创建 task 概念工作项（标题=清单项文本，当前项目）+ extracted_tasks 记录（comment_id/item_id/源文本）投影表 + `comment.task_extracted` 事件（rebuild 存活，drop_projections 同步）；同评论同文本重复 409）；CommentsModal 渲染层把已提取清单项替换为工作项链接 + 「已提取」徽标 + 未提取项显式「转为子任务」按钮（防 #4261 hover 误触）；原文存储零改动；docs/12 §18；**新增冒烟 27**（依赖建立 → ICS 字段 → 提取往返 + rebuild 一致）；相关验证 + M21 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 27 GREEN；审阅全绿。
+- 演示路径：评论 `- [ ] 写部署文档` → 转为子任务 → 渲染变链接 → 新工作项上卡。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -855,6 +885,7 @@ agent-project-management/
 | I59 工时数据层 | 已完成 | 2026-09-04 | 2026-09-04 | 新域 `domains/timelog.py`：item_time_entries 投影表（软删 deleted_at，drop_projections 同步）+ time.logged/edited/deleted 事件（rebuild 存活）；CRUD（POST/GET /items/{id}/time_entries、GET/PATCH/DELETE /time_entries/{id}）；**校验 fail-closed**（minutes∈(0,1440]/spent_on ISO 日期/note 截 500/空更新 422）；item 详情与 get_items 附 **spent_minutes 汇总**（列表单 GROUP BY 查询合并，与 estimate_hours 计划/实际并列）；权限对齐 M8（改删限本人·admin）；记工时者进参与投影（source='time' 首次来源语义）；单测 4 项；pytest **165** 全绿 |
 | I60 工时前端 | 已完成 | 2026-09-04 | 2026-09-04 | 新组件 `TimeLogModal.tsx`（⏱ 抽屉：条目列表 人/时长徽标/日期/备注 + 记时表单 minutes/spent_on/note + **合计行**实时更新，`fmtMinutes` 时长格式化 1h30/45m）+ 看板卡片 **⏱ spent 徽标**（spent_minutes>0 才显示）与 ⏱ 按钮（与 💬 并列）；api.ts 增 TimeEntry 类型+4 方法+Item.spent_minutes；docs/12 §16 工时跟踪指南；**新增冒烟 25**（双身份记时→合计/详情/列表三处一致→校验门→软删缩合计→rebuild 条目与徽标复现）；浏览器隔离复演：李雷记 90m「⏱ 1h30」徽标上卡→切 QA 王见首条目再记 45m→**合计 2h15**（截图 docs/m19-i60-*.png ×4）；build+vitest 2 绿、pytest **166** 全绿、冒烟基线 **25 条 GREEN** |
 | **M20 体验补齐三件套（I62-I64）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §S + docs/10 §M20）：I62 个人工时日历（GET /my/timelog 聚合 + 周/月日历页 + 点日快捷记时，OpenProject 16.0 My time tracking 吸收）/ I63 时间线拖拽改期（条形拖拽移动+右缘缩放 → PATCH，补 M13 只读与 M14 自动排程之间的手动层）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览，存储保持纯文本）+ docs/12 §17 + 冒烟 26 + 审阅（截图 docs/m20-review-*.png ×6，见附录 B）；审阅即修任务清单 checkbox 渲染；start/end 打卡/依赖连线图内编辑/任务清单回写留 backlog |
+| **M21 日程集成三件套（I65-I67）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 8 人日（docs/01 §T + docs/10 §M21）：I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款交互）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用，OpenProject 13.0 内建、Redmine #1077 缺位补位）/ I67 评论清单项转子任务（GitHub tasklist→sub-issue 提取语义 + extracted_tasks 投影 + 渲染链接）+ docs/12 §18 + 冒烟 27 + 审阅；start/end 打卡/checkbox 回写/甘特基线/digest 留 backlog |
 | I62 个人工时日历 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /my/timelog?days=`（本人条目按日分组 + 日合计 + 窗口合计，days 钳 1-60，纯投影聚合 JOIN items/projects 取标题与项目名，own-data 语义对齐 my/work）；「我的工时」页 `#/my/time`（**周/月双视图** + 今日高亮 + 前后翻页 + 窗口合计 chip；**点日期格快捷记时**：条目列表点选编辑/✕ 删除 + 工作项下拉取「我的工作」指派项 + 分钟/备注表单**预填 spent_on**；编辑仅改时长备注——time.edited 语义，改日期走工作项 ⏱ 抽屉）；侧栏「我的工作」旁 CalendarClock 入口；api.ts MyTimelog/getMyTimelog；单测 test_my_timelog_calendar_feed（按日分组/仅本人/软删剔除+rebuild 存活/钳制）；timelog **7 项**绿、build+vitest 绿 |
 | I63 时间线拖拽改期 | 已完成 | 2026-09-05 | 2026-09-05 | TimelinePage 条形可拖拽（**OpenProject Gantt 内建拖拽吸收**，补 M13 只读与 M14 自动排程之间的手动层）：拖动条形整体移动（start/due 同步平移）、右缘把手缩放（仅改 due，**钳制不早于 start**）、pointer capture 跟手 + 拖拽中**半透明**（ANKO 借鉴）+ title 悬浮「改为 X ~ Y」实时预览、**Esc 取消**/pointercancel 回滚；落点即 PATCH start_date/due_date 走既有端点——M14 rescheduled 审计、依赖传播与冲突重算着色随 refetch 自动生效；单测 test_drag_move_semantics_and_audit（拖拽载荷=双日期单 PATCH→落点正确 + 自动后继 delta_days=3 传播 + item.rescheduled 审计 / 右缘=仅 due 改 start 不动）；scheduling **5 项**绿、build+vitest 绿 |
 | I64 评论 Markdown 渲染+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | `web/src/lib/md.ts`（marked 18 + DOMPurify 3.4，GFM `breaks` 语义；mentions 先令牌化过 markdown 再在消毒后 HTML 注入 chip（姓名 HTML 转义、最长优先同后端口径）；链接钩子 `target=_blank rel=noopener noreferrer nofollow`；FORBID style/form/input——XSS fail-closed）；CommentsModal 正文 GFM 只读渲染（表格/任务清单只读不回写/代码块/引用）+ 编辑框「👁 预览/✏️ 编辑」切换；**存储与 API 契约不变（纯文本字节级往返）**；docs/12 §17；**新增冒烟 26**（my/timelog 按身份聚合 + 拖拽语义双日期 PATCH→delta_days=3 传播审计 + 评论 Markdown 原文往返+mention 通知 + rebuild 三面一致）；冒烟基线 **26 条 GREEN** |
@@ -967,6 +998,8 @@ agent-project-management/
 | 2026-09-05 | I63 | 时间线拖拽改期：TimelinePage 条形 pointer 拖拽（setPointerCapture 跟手）——拖动条形=move（start/due 同步平移，start 缺省只移 due）、右缘 w-1.5 把手=resize（仅 due，Math.round 起点差钳制不早于 start）；拖拽中 opacity-50 + title「改为 X ~ Y」按 px/day 换算整日 delta 实时预览；**Esc 全局监听取消、pointercancel 回滚**；落点单 PATCH `{start_date?, due_date}` 走既有 `api.patchItem`——M14 propagate_reschedule（auto_scheduled 后继顺延 + item.rescheduled 审计）与依赖冲突重算着色随 `qc.invalidateQueries()` 全量 refetch 自动生效，前端零新事件零新端点；单测 `test_drag_move_semantics_and_audit` 固化拖拽前端载荷契约（双日期单 PATCH）与右缘语义（仅 due）+ delta_days=3 传播审计；scheduling 5 项绿、build+vitest 绿。**纪律重申：源码/测试追加一律 Edit 工具——本次误用 bash heredoc 追加 test_scheduling.py（引号形式无替换侥幸无损，已核 LF 与内容），后不再犯。** |
 
 | 2026-09-05 | I64 | 评论 Markdown 渲染 + 收尾：新 `web/src/lib/md.ts`——marked 18（GFM+breaks，GitHub 评论换行语义）+ DOMPurify 3.4（FORBID style/form/input，链接钩子加 target=_blank/rel=noopener noreferrer nofollow）；**mentions 令牌化**：渲染前按 users.name 最长优先把 `@姓名` 换成 `@@m:…@@` 令牌（过 markdown 不被表格/引用打散），消毒后注入 chip span（姓名 HTML 转义，Tailwind 类在源码字面量中保证 JIT 生成）；CommentsModal 正文 `dangerouslySetInnerHTML` GFM 只读渲染（任务清单只读不回写——状态载体是工作项字段）、编辑框「👁 预览/✏️ 编辑」切换、placeholder 注明支持语法；**存储零改动**（纯文本字节级往返，冒烟 26 断言）；docs/12 §17 三小节；**冒烟 26**（my/timelog 双身份按日聚合→拖拽语义双日期 PATCH +3 天→自动后继顺延+rescheduled 审计→Markdown 评论原文往返+mention 通知→rebuild 三面一致）。冒烟踩坑：**auto_scheduled 只认 PATCH 开关**（M14 语义——create 载荷传 True 不持久化），冒烟初版创建即带开关致后继不顺延（422 不报、静默手动模式），改创建后 PATCH 对齐单测。冒烟基线 **26 条 GREEN**、build 绿。**纪律违例自记：本轮两次用 bash heredoc 追加中文文档/测试文件（引号形式侥幸无损，均已逐行核验）——下轮起源码与文档追加一律 Edit/Write 工具。** |
+
+| 2026-09-05 | M21 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查先行：start/end 打卡 §S.1 已否、digest 两次留 backlog、frappe-gantt 无原生 baseline）：①**依赖连线图内编辑**——frappe-gantt 核心只有依赖渲染、拖拽创建靠 @workiom/frappe-gantt fork 专补（hover 端点圆圈拖拽连线）→ fork 存在即需求实证，AgentPM 在自研 TimelinePage 上实现同款；②**GitHub tasklist→sub-issue**（2025-02 changelog）——hover 复选框「Convert to sub-issue」、转换后从清单移除 = **提取语义非回写**（与「评论非状态载体」自洽）；#4261 hover 误触抱怨 → 转换入口须显式按钮；③**iCal 日历订阅**——OpenProject 13.0 内建 ICS 订阅、Redmine 核心 #1077 至今 open 靠插件补位 → AgentPM 复用 M11 feed_key 认证与权限裁剪，`/my/calendar.ics` 零新依赖手写 VEVENT。选定 **M21 = 日程集成三件套**：I65 依赖图内编辑（进）/ I66 iCal 订阅（出）/ I67 清单项转子任务（提取）+ docs/12 §18 + 冒烟 27 于 I67 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +8 人日。结论入 docs/01 §T。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

@@ -514,3 +514,36 @@ M19 = **工时跟踪与汇总报表**：I59 工时数据层（time.* 事件 + it
 **S.5 M20 取舍**
 
 M20 = **体验补齐三件套**：I62 个人工时日历（my/timelog 聚合 + 周/月日历页 + 快捷记时）/ I63 时间线拖拽改期（条形拖拽/缩放 → PATCH + 冲突重算）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览）+ docs/12 §17 + 冒烟 26 + M20 审阅，约 8 人日。start/end 精确打卡、依赖连线图内编辑、任务清单回写、编辑器工具栏留 backlog。
+
+## T. M21 前置调研：日程集成——依赖图内编辑 / 清单项转子任务 / iCal 订阅（2026-09-05）
+
+> 目标协议触发：M20 审阅通过后开启。防重查先行：start/end 打卡 §S.1 已明确不做（分钟粒度即够）、digest §J/§O.3 两次论证留 backlog、基线对比同类 Community 层普遍缺位（frappe-gantt 无原生 baseline）。本轮三路（图内依赖编辑生态 / GitHub tasklist→sub-issue 语义 / iCal 订阅面），选定 **M21 = 日程集成三件套**——「依赖图内建（进）+ 日程 iCal 订阅出去（出）+ 清单项提取成真工作项（提取）」互不依赖、全是 backlog 承诺项。
+
+**T.1 依赖连线图内编辑：社区 fork 专门补位即需求实证**
+
+- frappe-gantt 核心库：拖拽/缩放/进度/依赖**渲染**内建，但**拖拽创建依赖不支持**（[官方仓](https://github.com/frappe/gantt)、[Bryntum 评测](https://bryntum.com/blog/creating-a-gantt-chart-with-frappe-gantt/)）；[@workiom/frappe-gantt fork](https://www.npmjs.com/package/@workiom/frappe-gantt) 专门新增「hover 条形显端点圆圈 → 拖拽到另一条形建依赖」——fork 的存在本身就是高频需求的实证。
+- OpenProject 依赖在图内直建（§S.2）；Redmine 侧 Easy Gantt 免费层同样主打「拖拽建关系」（§S.2）。
+- → AgentPM 取舍：TimelinePage 自研渲染（无库）上实现同款交互——条形两端 hover 圆圈、拖到目标条形落点 → `POST relations depends_on`（复用 M4 关系域），冲突重算着色即时生效；反向依赖/自依赖 422 由后端既有校验承担。
+
+**T.2 清单项转子任务：GitHub 的「提取」语义而非「回写」**
+
+- GitHub 2025-02 起支持**把任务清单项转换为 sub-issue**：hover 复选框出「Convert to sub-issue」，转换后**该项从清单移除**——草稿项升格为真实可跟踪工作项（[官方 changelog](https://github.blog/changelog/2025-02-18-github-issues-projects-february-18th-update/)、[社区讨论 #151832](https://github.com/orgs/community/discussions/151832)、[tasklists 文档](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)）。
+- 用户对 hover 误触有抱怨（[#4261](https://github.com/orgs/community/discussions/4261)）——转换入口须显式而非 hover 悬浮。
+- → AgentPM 取舍：与「评论非状态载体」原则不冲突——这是**提取**（从纯文本清单项创建真工作项），不是回写清单状态。评论渲染中清单项 hover 显「转为子任务」按钮（显式点击）→ 创建 `task` 概念工作项（标题=清单项文本，depends_on 关系留表单）→ 渲染层把该项替换为工作项链接 + 已提取徽标（**不改原文**，提取映射走 `extracted_tasks` 记录——comment.created 事件与存储零改动）。任务清单 checkbox 回写仍不做。
+
+**T.3 iCal 日历订阅：OpenProject 内建 vs Redmine 插件补位**
+
+- OpenProject 13.0 内建**日历订阅**：任意日历以 ICS URL 订阅到外部日历客户端（[官方文档](https://www.openproject.org/docs/user-guide/calendar/)、[产品博客](https://www.openproject.org/blog/calendar-subscriptions/)）；Redmine 核心 ICS feed 至今 open（[#1077](https://www.redmine.org/issues/1077)），靠 redmine-tasks-ics-subscription 等插件补位（个人指派项只读 ICS，[插件页](https://www.redmine.org/plugins/redmine-tasks-ics-subscription)）。
+- ICS feed 无推送提醒——提醒由订阅方日历客户端负责（这是订阅协议的固有语义，不是缺陷）。
+- → AgentPM 取舍：`GET /my/calendar.ics?key=`（复用 M11 feed_key 认证与权限语义——只含本人可见面）——内容=分配给我的活跃项（VEVENT：start/due 全日事件 + 状态后缀）+ 项目里程碑（截止日全日事件）；手写 VEVENT 文本（零新依赖，saxutils 同款转义思路）；「我的工作/我的工时」页给出订阅链接（与 Atom feed 同位）。IETF RFC 5545 文本格式，冒烟断言 VEVENT 计数与字段。
+
+**T.4 M21 设计映射与验证纪律（沿用 2026-09-05 更新）**
+
+- I65 依赖图内编辑：TimelinePage 条形端点圆圈 + 拖拽连线 → POST relations + 冲突重算；连线绘制复用 I63 坐标体系（SVG 层已有）。
+- I66 iCal 订阅：`/my/calendar.ics?key=` + users.feed_key 复用 + 我的工作页订阅链接 + 冒烟 27 部分。
+- I67 清单项转子任务：`POST /comments/{id}/extract-task`（清单项索引 + 概念默认 task）+ extracted_tasks 记录 + 渲染层替换链接 + 显式按钮。
+- 验证纪律：每迭代只跑改动相关测试；全量回归收敛至 M21 正式审阅；HANDOFF 每轮修剪。
+
+**T.5 M21 取舍**
+
+M21 = **日程集成三件套**：I65 依赖连线图内编辑（端点圆圈拖拽 → depends_on + 冲突重算）/ I66 iCal 日历订阅（/my/calendar.ics + feed_key + VEVENT 全日事件）/ I67 评论清单项转子任务（提取语义 + extracted_tasks + 渲染链接）+ docs/12 §18 + 冒烟 27 + M21 审阅，约 8 人日。start/end 打卡、任务清单 checkbox 回写、甘特基线对比、digest 留 backlog。
