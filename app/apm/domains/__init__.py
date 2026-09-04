@@ -7,6 +7,7 @@ from apm.domains import (  # noqa: F401
     conversations,
     events_api,
     features,
+    ical,
     items,
     mailer,
     members,
