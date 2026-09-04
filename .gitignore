@@ -37,3 +37,4 @@ tools/smoke/reports/
 
 # M20 复演隔离环境
 .replay-m20/
+.replay-m21/

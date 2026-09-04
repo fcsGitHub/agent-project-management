@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M21 三迭代已完成，下一步 M21 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M21 已完成（日程集成三件套，审阅通过），下一步 M22 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -34,8 +34,8 @@
 - **M18 评论与参与通知（I56-I58，审阅通过）**：评论域（@mention 精确最长匹配→通知 + item_participants 参与投影）、评论前端（补全下拉/💬 徽标/`?item=` 直开/点击置已读）、订阅 watch + 参与者通知最小面；**审阅即修 change_status actor_id 硬编码 A 级缺陷**。
 - **M19 工时跟踪与报表（I59-I61，审阅通过）**：time.* 事件 + item_time_entries 投影 + CRUD（校验 fail-closed）、记时抽屉 + spent/estimate 徽标、项目工时报表按人/按日 + 本周工时（**补位 Plane GH #8045** 项目级聚合缺口，对账单测）。
 - **M20 体验补齐三件套（I62-I64，审阅通过 8005d36）**：个人工时日历（GET /my/timelog + `#/my/time` 周/月视图 + 点日快捷记时，own-data）、时间线拖拽改期（条形拖拽移动/右缘缩放 → 单 PATCH，M14 审计与冲突重算自动生效，半透明预览 + Esc 取消）、评论 Markdown 渲染（lib/md.ts：marked+DOMPurify，mentions 令牌化 chip，任务清单只读 checkbox，存储纯文本不变）；docs/12 §17；冒烟 26。审阅即修：任务清单 checkbox 被 DOMPurify FORBID input 剔除 → 钩子白名单放行。
-- **M21 已定义（docs/01 §T + docs/10 §M21）**：日程集成三件套——I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用 + VEVENT 手写）/ I67 评论清单项转子任务（GitHub 提取语义 + extracted_tasks 投影 + 显式按钮防误触）+ docs/12 §18 + 冒烟 27 于 I67 + 审阅，约 8 人日。
-- **当前验证基线：pytest 170 全绿；冒烟 26 GREEN；vitest 2/build 绿。**
+- **M21 日程集成三件套（I65-I67，审阅通过）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
+- **当前验证基线：pytest 173 全绿；冒烟 27 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -43,12 +43,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M21-I65 依赖连线图内编辑~~ ✅ **已完成**（`a1b6ecb`+docs）：条形 hover 端点圆圈 → 拖到目标条形 → POST relations depends_on（橡皮筋线复用 SVG 坐标系，Esc 取消，elementFromPoint 落点）；复演 toast+API 断言（截图 docs/m21-i65-*.png）。
-2. ~~M21-I66 iCal 日历订阅~~ ✅ **已完成**（`4dc825e`+docs）：`domains/ical.py` `/my/calendar.ics?key=`（feed_key 复用 + own-data/可见性裁剪 + RFC 5545 手写 VEVENT 零新依赖）+「我的工作」页订阅卡；test_ical.py 全绿。坑：f-string 嵌套同引号 <3.12 语法错误。
-3. ~~M21-I67 评论清单项转子任务 + 收尾~~ ✅ **已完成**（`397f668`+docs）：extract-task 端点（复用 create_item，409/422/404 矩阵，存储字节不变）+ extracted_tasks 投影 + md.ts 渲染链接/显式按钮；docs/12 §18；**冒烟 27 GREEN（基线 27）**。坑：rebuild 清运行态 feed_key（M11 语义）。
-4. **下一步：M21 正式审阅**——审阅时点 HEAD 重跑**全量**（pytest 171+ / 冒烟 27 / vitest+build）+ I65/I66/I67 DoD 逐项 + 浏览器隔离复演三件套（端点圆圈拖拽建依赖→冲突红条；订阅卡链接 curl ICS；评论清单项转子任务→链接徽标）+ 附录 B +「M21 正式审阅通过」提交。之后 M22 调研定义（先 grep docs/01 防重查；候选：甘特基线对比、digest、start/end 打卡、任务清单 checkbox 回写）。
-5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**双端都要查**——M20 审阅踩 4173 残留旧 preview 抢答）；中文文档/源码/测试一律 Edit/Write 工具（M20 两次 heredoc 侥幸无损，勿再犯）；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
-5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听；中文文档用 Edit 工具；python 写文本必须 newline="\n"；**HANDOFF 每轮收口时修剪**。
+1. **M22 调研定义**（目标协议第 1 条，三路并行 WebSearch）——先 grep docs/01 防重查。候选池：甘特基线对比（计划 vs 实际，Easy Redmine Pro 有、Community 普遍缺）、同概念条形重叠避让（M21 审阅 C 级）、通知 digest（低优）、start/end 精确打卡（已否过，需新证据）、任务清单 checkbox 回写（与提取语义并存设计）、评论编辑器工具栏。产出：docs/01 新节 + docs/10 §M22 + 看板行 + 附录 A + HANDOFF 收口 →「M22 调研定义」提交。
+2. 按 M22 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**）→ M22 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 
