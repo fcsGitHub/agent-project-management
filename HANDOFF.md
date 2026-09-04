@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17 正式审阅通过，下一步 M18 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M18 已定义（I56-I58 工作项评论与参与通知），下一步 I56）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -219,6 +219,7 @@
 - **M17 正式审阅通过（本提交，附录 A/B）**：
   - 审阅时点 HEAD `84c57cc` 重跑 pytest 154（0 失败）/冒烟 23/vitest 2 全绿；I53/I54/I55 DoD 逐项核对（零依赖 RS256 验签/JIT 四约束/env 关闭语义/门禁兼容/Keycloak 与桩环境/冒烟 23 全程）；
   - 浏览器隔离复演（network 模式 + tools/oidc_stub.py 真流程）：登录页 SSO → 桩 authorize → callback → 会话 → 顶栏 chip → 越权写 403 → OIDC 面板（docs/m17-i54-*.png ×3）；无新增 B/C 级意见。
+- **M18 已定义（本提交，docs/01 §Q + docs/10 §M18）**：三路调研——Plane/GitLab 评论+@mention 即通知（AgentPM 工作项无评论流，真实缺口）、OpenProject 工时跟踪 Community 核心（spent time，留下一轮首选候选）、GitLab 参与即通知层级（采「参与者+被提及」最小面）→ **M18 = 工作项评论与参与通知（I56 评论域：comment.* 事件 + @mention 解析 → 通知 + 参与投影 / I57 评论前端：评论区 + mention 补全 + 通知跳转 / I58 订阅 watch/subscriber + docs/12 §15 + 冒烟 24 + 审阅，约 9 人日）**；本提交顺带整理了 docs/10 附录结构（附录 A 后半段错位回位 + 补 I54/I55 附录 A 行 + 看板 M17 审阅行）。
 - **当前验证状态**：pytest **154 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -227,8 +228,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M18 调研定义**（模式同 M6-M17）：2-3 路并行 WebSearch 开源调研（候选：通知 digest、事件归档/冷备策略、报表导出 PDF、webhook 事件负载签名轮换——docs/01 backlog 择优）→ 结论写入 docs/01 新节 + docs/10 §M18（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M18 调研定义」提交。
-2. 按新计划开工 M18 迭代（预计 3 个迭代，约 9-10 人日）。
+1. **I56 评论域**（M18 第 1 迭代，docs/10 §M18）：新域 `domains/comments.py`——item_comments 投影表 + comment.created/deleted 事件（rebuild 存活，**drop_projections 清单同步**）；CRUD（项目成员可评、author/admin 可删）；**@mention 解析**（`@姓名` 匹配 users → mentions 入事件 + M10 通知投影 + M11 邮件联动）；**参与投影**（item_participants：author/assignee/mentioned 去重）；单测（CRUD+rebuild/mention 通知/参与去重/权限矩阵/删除隐藏）→ 「M18-I56」三段式提交。
+2. I57 评论前端（评论区 + mention 补全 + 通知跳转）→ I58 订阅（watch/subscriber）+ docs/12 §15 + 冒烟 24 + M18 正式审阅。
 
 ## 5. 有哪些坑不要再踩
 
