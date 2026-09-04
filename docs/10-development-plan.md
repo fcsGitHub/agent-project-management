@@ -640,6 +640,38 @@ agent-project-management/
 
 **M18 审阅点**：冒烟 24 + 各迭代 DoD + 浏览器演示（双身份评论提及通知闭环）。
 
+### M19 · 工时跟踪与汇总报表（吸收 OpenProject/Redmine 执行侧语义，I59-I61，约 9 人日）
+
+> v1.5 新增（2026-09-04，M18 审阅通过后按目标协议调研）。调研结论见 docs/01 §R：OpenProject time entry（时长/日期/备注/作者 + 个人日历）是 Community 免费核心；记时入口取 **Redmine 式显式「Log time」**（GitLab FOSS #27780 用户实测偏好，弃 GitLab 斜杠命令）；Plane worklog 仅工作项级、**项目级聚合是官方 open 缺口 #8045**——AgentPM 直接把项目工时报表纳入范围差异化补位。AgentPM 有 estimate_hours（计划侧）无 spent（实际侧），与 M14 自动排期互补。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I59 | 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐） | 01 §R.1/R.4 | M8 门禁/事件内核 | 3d |
+| I60 | 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25） | 01 §R.2/R.4 | 评论抽屉型/卡片徽标 | 3d |
+| I61 | 项目工时报表（按人/按日聚合）+ docs/11 备份核对 + 全量回归 + M19 审阅 | 01 §R.3/R.4 | M12 报表框架 | 3d |
+
+#### I59 · 工时数据层（3d）
+
+- 任务：`domains/timelog.py`——item_time_entries 投影表（id/item_id/project_id/user_id/minutes/spent_on/note/created_at/deleted_at）+ `time.logged/edited/deleted` 事件（rebuild 存活，drop_projections 同步）；CRUD（POST/GET/PATCH/DELETE `/items/{id}/time_entries`，记录人为 user_id=effective_actor；校验 fail-closed：minutes 正数、spent_on ISO 日期、note 长度）；item 详情/get_items 附 spent_minutes 汇总（SUM，与 estimate_hours 并列）；权限对齐 M8（local 放行/network 项目成员读写+非成员 403+删除限本人·admin）；参与投影接入（记工时者成为参与者，复用 item_participants source='time'——首次来源语义不覆盖已有行）。
+- DoD：单测（CRUD 往返 + rebuild 存活/校验矩阵/汇总正确/权限矩阵/参与者接入）；pytest 全绿。
+- 演示路径：API 记三笔工时 → item spent_minutes 汇总 → rebuild 一致。
+
+#### I60 · 工时前端（3d）
+
+- 任务：评论抽屉同型的「⏱ 工时」抽屉（条目列表：人/日/时长/备注 + 记时表单：时长+日期+备注）；看板卡片与列表视图 spent 徽标（`⏱ 2h30 / 预估 4h` 语义）；api.ts 类型与方法；docs/12 §16 工时跟踪指南；**新增冒烟 25**（记工时全程：CRUD→汇总→rebuild 一致）。
+- DoD：build + vitest 绿；冒烟 25 GREEN；浏览器隔离复演（记工时 → 徽标/汇总可见）截图。
+- 演示路径：双身份各记一笔 → 卡片 spent 汇总随刷新增长。
+
+#### I61 · 项目工时报表 + 收尾审阅（3d）
+
+- 任务：项目报表页增工时小部件（按人合计 + 按日趋势，纯投影聚合 SQL，复用 M12 报表框架与 rebuild 前后一致断言）；「我的工作」页增本周记时合计（个人最小面，个人日历视图留 backlog）；全量回归 + M19 审阅（DoD 逐项 + 附录 B + 浏览器隔离复演「记时→汇总→报表」）。
+- DoD（并入审阅）：报表数字与条目清单一致（SQL 对账单测）；pytest/冒烟全绿。
+- 演示路径：冒烟 25 + 双身份记时 → 报表按人/按日可见。
+
+**M19 审阅点**：冒烟 25 + 各迭代 DoD + 浏览器演示（记时→汇总→报表闭环 + rebuild 一致）。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -791,6 +823,7 @@ agent-project-management/
 | I55 收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | `tools/keycloak/` 演示环境（docker-compose + realm-agentpm.json：client agentpm/用户 zhang.demo·li.admin/组 agentpm-admins·users 三件套 import）与 `tools/oidc_stub.py` mini IdP 桩在位；docs/11 §2.1 OIDC env 表与流程注记（redirect_uri 同源语义/JIT 四约束摘要）；docs/12 §14 OIDC 单点登录指南（协议安全语义/JIT 四约束表/门禁兼容/Keycloak 与桩两种演示）；**新增冒烟 23**（特性关闭零破坏——404 与 local 回退不变/桩协议全路径/JIT 幂等单账号/M8 门禁保留）；pytest **154** 全绿、冒烟基线 **23 条 GREEN** |
 | **M17 里程碑审阅（正式）** | 已完成 | 2026-09-04 | 2026-09-04 | 冒烟 23 + I53/I54/I55 各迭代 DoD 逐项核对全过（审阅时点 HEAD `84c57cc` 重跑 pytest 154/冒烟 23/vitest 2）+ 浏览器隔离复演「登录页 SSO → 桩 authorize → callback → 会话 → 门禁 → OIDC 面板」（截图 docs/m17-i54-*.png ×3，见附录 B） |
 | **M18 工作项评论与参与通知（I56-I58）** | 已完成（审阅通过） | 2026-09-04 | 2026-09-04 | 3 迭代 / 约 9 人日（docs/01 §Q + docs/10 §M18）：I56 评论域（comment.* 事件 + @mention → 通知 + 参与投影）/ I57 评论前端（评论区 + mention 补全 + 通知跳转）/ I58 订阅（watch/subscriber）+ docs/12 §15 + 冒烟 24 + 审阅（截图 docs/m18-review-*.png ×6，见附录 B）；审阅即修 change_status actor 硬编码归因缺陷；工时跟踪留下一轮首选候选、通知层级细分/富文本留 backlog |
+| **M19 工时跟踪与汇总报表（I59-I61）** | 已定义 | 2026-09-04 | — | 3 迭代 / 约 9 人日（docs/01 §R + docs/10 §M19）：I59 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐）/ I60 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25）/ I61 项目工时报表（按人/按日聚合，补 Plane #8045 缺口）+ 冒烟 25 收尾 + 审阅；个人日历视图/成本费率/斜杠命令留 backlog |
 | I56 评论域 | 已完成 | 2026-09-04 | 2026-09-04 | 新域 `domains/comments.py`：item_comments 投影表（软删除 deleted_at）+ item_participants 参与投影（PRIMARY KEY 去重 INSERT OR IGNORE）+ comment.created/deleted 事件（drop_projections 清单同步）；**@mention 解析**——`@姓名` 对 users.name 精确最长匹配（多字姓名「QA 王」可用、作者自身排除），mentions 入事件；**mention 通知走 M10 notification.sent 通道**（kind=mention，站内铃+邮件自然联动）；参与面接入 item.assigned（human 指派即参与）；CRUD：POST/GET /items/{id}/comments、DELETE /comments/{id}（软删），权限 local 放行/network 成员读写+非成员 403+删除 author·admin；单测 4 项（CRUD+软删除+rebuild 一致/mention 解析与逐身份通知断言/指派参与者去重/network 权限矩阵）；pytest **158** 全绿、冒烟 23 GREEN。测试踩坑：/api/notifications 按当前身份过滤——逐身份断言须 /session/identity 切换被提及者 |
 | I57 评论前端 | 已完成 | 2026-09-04 | 2026-09-04 | `CommentsModal.tsx`（列表 author_name+@提及高亮/输入/**@补全下拉** lastIndexOf 后缀匹配/Ctrl+Enter/hover 删除）+ 看板卡片 💬 按钮与**评论数徽标** + **`?item=<id>` 直开**（useEffect 找 buckets 命中即开）+ 通知中心 mention 项**点击跳转**（get_notifications 以 ref_event_id→events.agg_id 解析 item_id）**且点击即置已读**；审阅即修 2：mention 摘要带工作项标题（非裸 id，测试补断言）、跳转后徽标清零；复演排障定案「铃 1 面板空」= 双后端进程双绑 8000（Windows 允许）——netstat 单监听后重建隔离环境复演全通（@补全→mentions=["qa"]→QA 王铃 1→带标题通知→跳转 Modal 开+高亮+清零，截图 docs/m18-i57-*.png ×4）；build+vitest 2 绿、pytest **158** 全绿 |
 | I58 订阅与收尾 | 已完成 | 2026-09-04 | 2026-09-04 | **工作项订阅**：item.subscribed/unsubscribed 事件 + 投影（watch 参与行；退订只删 watch 行——assignee/author/mentioned 为派生参与不随退订消失，rebuild 幂等）+ `POST/DELETE /items/{id}/subscription`（自订阅）+ 评论抽屉「🔕 订阅/🔔 已订阅」切换（participants+当前身份推导）；**通知面接入参与者**（最小面：新评论与状态变更）——plan_notifications 扩展 comment.created（参与者，排除作者与被提及——后者已有定向 mention 通知，防双发）与 item.status_changed（参与者，排除操作者），**NOTIFY_EVENTS 同步扩展故邮件通道自动一致**；踩坑 2：comment.created 的 agg_id 是评论 id，item 须取 payload（单测拦住）、task 合法状态集无 todo（open/ready/in_progress/awaiting_review/done/cancelled）；**语义决策**：软删除评论不撤回已发通知（通知 append-only，撤回需负向事件成本不成比例）；docs/12 §15 评论与参与通知指南；**新增冒烟 24**（CRUD 软删→mention 通知+深链→参与集合首次来源胜出→订阅→状态变更+新评论通知参与者→rebuild 三投影一致）；单测 +1（订阅+参与者通知+退订降噪+rebuild）；pytest **160** 全绿、冒烟基线 **24 条 GREEN**、build+vitest 2 绿 |
@@ -886,6 +919,7 @@ agent-project-management/
 | 2026-09-04 | I57 | 评论前端：新组件 `CommentsModal.tsx`（评论列表 author_name+**@提及高亮**、textarea 输入、**@补全下拉**——draft.lastIndexOf('@') 后缀匹配 users、Ctrl+Enter 发送、hover 作者可见删除 ✕）；看板卡片 💬 按钮+**评论数徽标**（有评论显示数字）+**`?item=<id>` 直开**（useEffect 在 buckets 找到即 setCommentsFor）；通知中心 mention 项**点击跳转** `#/p/{pid}/board?item=`（notifications.py get_notifications 由 ref_event_id→events.agg_id 解析出 item_id）+**点击即置已读**（markNotificationsRead 单条+invalidate，徽标随跳转清零）；api.ts 增 ItemComment 类型+3 方法。审阅即修 2：①mention 通知摘要带**工作项标题**（「T2 需求池…」而非裸 i_xxx id——_require_item 补 title 列，单测补断言）；②点击通知置已读。**复演排障**：上次「铃徽标 1 但面板空」疑云定案——双后端进程同时 LISTEN 8000（Windows 允许双绑，两次轮询打到不同数据目录实例，badge 与列表同源才显矛盾）——netstat 确认单监听后重建隔离环境（种子+预建 QA 王再发评论，避免评论先于用户落库 mention 为空）复演全通。浏览器双身份复演（生产构建+SW 清缓存）：李雷 @补全发评论→API 验证 mentions=["qa"]→切 QA 王铃徽标 1→面板 mention 通知（带标题+未读点）→点击跳转 Modal 自动开+@QA 王 蓝色高亮+徽标清零（截图 docs/m18-i57-*.png ×4）。build+vitest 2 绿、pytest **158** 全绿。 |
 | 2026-09-04 | I58 | 订阅与收尾：**item.subscribed/unsubscribed** 事件+投影（watch 参与行；退订只删 watch——assignee/author/mentioned 为派生参与不随退订消失，事件序重放=最终态）+ `POST/DELETE /items/{id}/subscription` + 评论抽屉「🔕 订阅/🔔 已订阅」切换按钮；**通知面接入参与者**（最小面：新评论+状态变更）——plan_notifications 扩展两事件（comment.created 排除作者与被提及防双发/item.status_changed 排除操作者），NOTIFY_EVENTS 同步扩展→邮件通道（mailer.enqueue 同函数收人）自动一致；**两个单测当场拦住的坑**：comment.created 的 agg_id 是评论 id 不是 item（参与者查询须取 payload.item_id，首跑空通知暴露）、software-dev task 状态集无 todo（open/ready/in_progress/awaiting_review/done/cancelled，422 提醒）；**语义决策入档**：软删除评论不撤回已发通知（append-only，撤回需负向事件不成比例）；docs/12 §15 评论与参与通知指南（bash 反引号吞字一次——中文文档段落一律 Edit 工具的教训再验）；**新增冒烟 24**（CRUD 软删→mention 通知+深链→参与集合首次来源胜出→订阅→状态变更+新评论通知参与者→退订降噪→rebuild 三投影一致）；pytest **160** 全绿、冒烟基线 **24 条 GREEN**、build+vitest 2 绿。 |
 | 2026-09-04 | M18 正式审阅 | DoD 逐项核对（审阅时点 HEAD `61b8afd` 重跑 pytest **161** 项 0 失败 + 冒烟 **24** 条 GREEN + vitest 2/build 绿）+ 浏览器隔离复演（隔离 data+ontologies + 生产构建 + 端口单监听确认）：李雷开抽屉→订阅切换→@补全评论→QA 王 mention 通知→点击跳转→QA 王改状态→李雷收参与者通知（截图 docs/m18-review-*.png ×6，详见附录 B）。**审阅即修 1 个 A 级缺陷**：`change_status` 签名默认 actor_id 硬编码 "u_admin"（M5-I19 全仓清 actor 硬编码的漏网之鱼）——PATCH 状态变更审计归因全错 + 参与者通知操作者排除失效（复演中 qa 改状态被记李雷名下当场暴露）→ `actor_id or events.effective_actor()` + 调用点显式传 + 回归单测。 |
+| 2026-09-04 | M19 定义 | 新一轮开源调研（目标协议第 1 条）三路并行：①**OpenProject 工时模型**——time entry（时长/日期/备注/作者）挂 work package、点 spent 数字进该包记时报表，16.0 个人「My time tracking」日历，模块停用即隐藏 spent（OP-925），Community 免费；②**GitLab/Redmine 记时入口**——GitLab `/estimate`+`/spend` 斜杠命令无独立 UI，Redmine 独立「Log time」按钮，GitLab FOSS #27780 用户实测偏好显式入口 → AgentPM 取 Redmine 式；③**Plane worklog**——仅工作项级「+ Log work」，项目级聚合是官方 open 缺口 GitHub #8045 → AgentPM 本轮直接纳入项目工时报表差异化补位。选定 **M19 = 工时跟踪与汇总报表**：I59 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐）/ I60 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25）/ I61 项目工时报表（按人/按日）+ 全量回归 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日；新增冒烟 25 于 I60。结论入 docs/01 §R。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

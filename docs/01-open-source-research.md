@@ -447,3 +447,36 @@ M17 = **OIDC 单点登录**：I53 OIDC client 基座（discovery + authorization
 **Q.4 M18 取舍**
 
 M18 = **工作项评论与参与通知**：I56 评论域（comment.* 事件 + CRUD + @mention → 通知 + 参与投影）/ I57 评论前端（功能页与卡片评论抽屉 + mention 补全 + 通知点击跳转工作项）/ I58 订阅与收尾（watch/subscriber + docs/12 §15 + 冒烟 24 + M18 审阅），约 9 人日。工时跟踪（下一轮首选候选）、通知层级细分、评论 Markdown 富文本留 backlog。
+
+---
+
+## R. M19 前置调研：工时跟踪（2026-09-04）
+
+> 目标协议触发：M18 审阅通过后开启。§Q.2 已初判「OpenProject Community 核心留下一轮首选候选」，本轮三路深化（OpenProject 工时模型 / GitLab·Redmine 记时语义 / Plane worklog 现状），选定 **M19 = 工时跟踪与汇总报表**——AgentPM 有 estimate_hours（计划侧）无 spent（实际侧），与 M14 自动排期互补的执行侧缺口。
+
+**R.1 OpenProject：time entry 模型 + 个人日历（Community 免费核心）**
+
+- work package 上点 spent time 数字 → 进入该包的 time tracking report（全部 time entry 列表）；entry = 时长/日期/备注/作者，可在项目/全局报表聚合（[官方文档](https://www.openproject.org/docs/user-guide/time-and-costs/time-tracking/)）。
+- 16.0 新增「My time tracking」模块：**个人日历视图**记时/复盘（[发布博客](https://www.openproject.org/blog/time-tracking-module/)）；移动端有 Log Time（[指南](https://www.openproject.org/docs/mobile-app-guide/core-features/time-tracking/)）。
+- 模块级开关：time tracking 模块停用时 spent time 不再显示（[OP-925](https://community.openproject.org/journals/22989/diff/description)）——功能可见性跟模块走，不是全局恒显。
+
+**R.2 GitLab / Redmine：记时入口的两种语义**
+
+- GitLab：评论里的 `/estimate` + `/spend 2h` **斜杠快捷命令**，无独立记时 UI；CE 免费层即有（[官方文档](https://docs.gitlab.com/user/project/time_tracking/)、[论坛讨论](https://forum.gitlab.com/t/does-gitlab-ce-come-with-time-tracking-for-projects/40881)）。
+- Redmine：独立「Log time」按钮 + timelog 条目；用户对比后**更偏好显式入口**（[GitLab FOSS #27780](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/27780)：「Redmine 的 Log time 链接比 /estimate /spend 更合口味」）；高级报表常靠插件（[Redmineflux 指南](https://www.redmineflux.com/redmine-time-tracking-guide/)）。
+- → AgentPM 取 **Redmine 式显式「记工时」入口**（与既有 💬 评论抽屉同型），不做斜杠命令解析。
+
+**R.3 Plane：worklog 仅工作项级，项目级聚合是官方 open 缺口**
+
+- work item 上「+ Log work」记 时:分 + 描述（[官方文档](https://docs.plane.so/core-concepts/issues/time-tracking)）；**项目级聚合分析不存在**，GitHub [#8045](https://github.com/makeplane/plane/issues/8045) 为 open feature request——AgentPM 本轮直接把**项目级工时报表**纳入范围，差异化补位。
+
+**R.4 M19 设计映射与取舍**
+
+- 数据模型：`time.logged/edited/deleted` 事件 + item_time_entries 投影表（item_id/user_id/minutes/spent_on/note，软删）；item 维度 spent 汇总 = SUM(entries)，与 estimate_hours 并列展示（计划 vs 实际）。
+- 记时入口：显式「＋ 记工时」（R.2 结论）；spent 徽标进卡片与列表。
+- 聚合报表：项目级 按人/按日 工时报表（R.3 差异化）；个人视角最小面并入「我的工作」（本周记时条数与合计），个人日历视图留 backlog。
+- 不做：成本/费率（OpenProject 的 cost 属 Enterprise 增强）、斜杠命令、计时器实时打卡（记时条目即可满足落地标准）。
+
+**R.5 M19 取舍**
+
+M19 = **工时跟踪与汇总报表**：I59 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐 + 单测）/ I60 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25）/ I61 项目工时报表 + 收尾审阅（按人/按日聚合 + 全量回归 + M19 审阅），约 9 人日。个人日历视图、成本费率、斜杠命令留 backlog。
