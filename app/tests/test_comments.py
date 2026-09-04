@@ -183,3 +183,38 @@ def test_status_change_attributes_real_actor(client, pid):
     ev = client.get("/api/events", params={"agg_id": item["id"]}).json()["events"]
     st = [e for e in ev if e["event_type"] == "item.status_changed"]
     assert st and st[-1]["actor_id"] == "u_mover"
+
+
+def test_task_list_extraction(client, pid):
+    """M21-I67: extract a task-list item of a comment into a real work item —
+    GitHub tasklist→sub-issue semantics. The stored body stays byte-identical;
+    the extraction mapping is event-sourced and rebuild-stable."""
+    item = _mk_item(client, pid, "提取宿主")
+    body = "- [x] 已完成调研\n- [ ] 写部署文档\n- [ ] 补冒烟用例\n\n普通段落不受影响"
+    c = _comment(client, pid, item["id"], body)
+
+    r = client.post(f"/api/comments/{c['id']}/extract-task", json={"text": "写部署文档"})
+    assert r.status_code == 200, r.text
+    created = r.json()["item"]
+    assert created["title"] == "写部署文档" and created["concept_id"] == "task"
+
+    lst = client.get(f"/api/items/{item['id']}/comments").json()
+    assert [x["text"] for x in lst["extracted"]] == ["写部署文档"]
+    assert lst["extracted"][0]["item_title"] == "写部署文档"
+    assert lst["comments"][0]["body"] == body  # storage untouched
+
+    # duplicate extraction 409; text that is not a task-list item 422; unknown 404
+    assert client.post(f"/api/comments/{c['id']}/extract-task",
+                       json={"text": "写部署文档"}).status_code == 409
+    assert client.post(f"/api/comments/{c['id']}/extract-task",
+                       json={"text": "普通段落不受影响"}).status_code == 422
+    assert client.post("/api/comments/c_nope/extract-task",
+                       json={"text": "x"}).status_code == 404
+
+    # the created work item is a real board member; mapping survives rebuild
+    listed = client.get(f"/api/projects/{pid}/items").json()["items"]
+    assert any(i["id"] == created["id"] for i in listed)
+    projections.rebuild()
+    lst = client.get(f"/api/items/{item['id']}/comments").json()
+    assert [x["text"] for x in lst["extracted"]] == ["写部署文档"]
+    assert lst["comments"][0]["body"] == body

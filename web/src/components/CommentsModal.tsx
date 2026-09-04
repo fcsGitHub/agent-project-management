@@ -3,7 +3,8 @@
  * M20-I64: bodies render as read-only GFM (marked + DOMPurify, docs/01 §S.3);
  * storage stays plain text, composer gains an edit/preview toggle. */
 import { useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { renderCommentMd } from "../lib/md";
@@ -15,6 +16,7 @@ export function CommentsModal({ itemId, title, onClose }: {
   itemId: string; title?: string; onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const { pid } = useParams();
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -24,6 +26,20 @@ export function CommentsModal({ itemId, title, onClose }: {
     queryFn: () => api.listItemComments(itemId),
   });
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+
+  // I67: delegated clicks on the per-comment「转为子任务」buttons
+  const extract = useMutation({
+    mutationFn: (v: { commentId: string; text: string }) => api.extractTask(v.commentId, { text: v.text }),
+    onSuccess: (r) => {
+      toast.success(`已转为子任务：${r.item.title}`);
+      qc.invalidateQueries();
+    },
+    onError: (e) => toast.error(`转换失败：${e instanceof Error ? e.message : e}`),
+  });
+  const onBodyClick = (commentId: string) => (e: React.MouseEvent<HTMLDivElement>) => {
+    const btn = (e.target as HTMLElement).closest("[data-extract]") as HTMLElement | null;
+    if (btn) extract.mutate({ commentId, text: btn.getAttribute("data-extract")! });
+  };
 
   // mention completion candidates: names not already typed after the last '@'
   const candidates = useMemo(() => {
@@ -89,7 +105,14 @@ export function CommentsModal({ itemId, title, onClose }: {
                   title="删除评论">✕</button>
               </div>
               <div className={MD_BODY}
-                dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name)) }} />
+                onClick={onBodyClick(c.id)}
+                dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name), {
+                  extracted: new Map((comments.data?.extracted ?? [])
+                    .filter((x) => x.comment_id === c.id)
+                    .map((x) => [x.text, x.item_id])),
+                  extractable: true,
+                  boardPath: pid ? `#/p/${pid}/board` : undefined,
+                }) }} />
             </div>
           ))}
           {!comments.data?.comments.length && (

@@ -298,10 +298,12 @@ export const api = {
     req<{ enabled: boolean; issuer: string | null; client_id: string | null; redirect_uri: string | null; allowed_groups: string[] }>("/auth/oidc/status"),
 
   listItemComments: (itemId: string) =>
-    req<{ comments: ItemComment[]; participants: { user_id: string; source: string }[] }>(`/items/${itemId}/comments`),
+    req<{ comments: ItemComment[]; participants: { user_id: string; source: string }[]; extracted?: { comment_id: string; text: string; item_id: string; item_title?: string | null }[] }>(`/items/${itemId}/comments`),
   createComment: (itemId: string, body: { body: string }) =>
     req<ItemComment>(`/items/${itemId}/comments`, { method: "POST", body: JSON.stringify(body) }),
   deleteComment: (id: string) => req<{ deleted: string }>(`/comments/${id}`, { method: "DELETE" }),
+  extractTask: (commentId: string, body: { text: string; concept_id?: string }) =>
+    req<{ extraction_id: string; text: string; item: { id: string; title: string } }>(`/comments/${commentId}/extract-task`, { method: "POST", body: JSON.stringify(body) }),
   subscribeItem: (itemId: string) =>
     req<{ item_id: string; subscribed: boolean }>(`/items/${itemId}/subscription`, { method: "POST" }),
   unsubscribeItem: (itemId: string) =>

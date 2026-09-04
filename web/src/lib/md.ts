@@ -29,7 +29,16 @@ const escapeHtml = (s: string) =>
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export function renderCommentMd(body: string, names: string[]): string {
+export type MdRenderOpts = {
+  /** task-list text → created work-item id (I67 extraction) */
+  extracted?: Map<string, string>;
+  /** render an explicit "转为子任务" button on un-extracted task items */
+  extractable?: boolean;
+  /** e.g. `#/p/{pid}/board` — extraction links point at `?item=` */
+  boardPath?: string;
+};
+
+export function renderCommentMd(body: string, names: string[], opts?: MdRenderOpts): string {
   installLinkHook();
   // tokenize mentions before markdown so chips survive tables/quotes as text;
   // names are escaped when re-injected post-sanitize (fixed markup, ours).
@@ -45,6 +54,31 @@ export function renderCommentMd(body: string, names: string[]): string {
     FORBID_TAGS: ["style", "form"],
     FORBID_ATTR: ["style"],
   });
-  return clean.replace(/@@m:(.*?)@@/g, (_m, name: string) =>
+  // I67: task-list items become extraction widgets — extracted texts link to
+  // their work item, un-extracted ones get an explicit (click, not hover)
+  // convert button. Buttons are fixed markup with escaped attr values; the
+  // click is handled via delegation in CommentsModal.
+  let out = clean;
+  if (opts?.extracted?.size || opts?.extractable) {
+    out = out.replace(/<li>\s*(<input[^>]*type="checkbox"[^>]*>)\s*([\s\S]*?)<\/li>/g,
+      (m, input: string, inner: string) => {
+        const text = inner.replace(/<[^>]+>/g, "").trim();
+        const itemId = opts?.extracted?.get(text);
+        if (itemId) {
+          const href = opts?.boardPath
+            ? `${opts.boardPath}?item=${encodeURIComponent(itemId)}`
+            : "#";
+          return `<li>${input} <a href="${href}" class="text-acc underline">🔗 ${escapeHtml(text)}</a>`
+            + ` <span class="rounded bg-accbg px-1 text-[10px] font-medium text-acc">已提取</span></li>`;
+        }
+        if (opts?.extractable) {
+          return `<li>${input} ${inner}`
+            + `<button type="button" data-extract="${escapeHtml(text)}"`
+            + ` class="ml-1 rounded border border-line px-1 text-[10px] text-mut hover:border-acc hover:text-acc">转为子任务</button></li>`;
+        }
+        return m;
+      });
+  }
+  return out.replace(/@@m:(.*?)@@/g, (_m, name: string) =>
     `<span class="rounded bg-accbg px-1 font-medium text-acc">@${escapeHtml(name)}</span>`);
 }

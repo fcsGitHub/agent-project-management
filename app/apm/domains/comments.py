@@ -8,6 +8,7 @@ matching (longest first), so multi-word names like "QA 王" work."""
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -67,6 +68,16 @@ def _proj_assignee_participant(conn, e):
     p = e.payload
     if p.get("assignee_type") == "human" and p.get("assignee_id"):
         _join_participants(conn, e.project_id, e.agg_id, [(p["assignee_id"], "assignee")])
+
+
+@on("comment.task_extracted")
+def _proj_task_extracted(conn, e):
+    p = e.payload
+    conn.execute(
+        "INSERT INTO extracted_tasks (id, comment_id, project_id, text, item_id, created_at)"
+        " VALUES (?,?,?,?,?,?)",
+        (e.agg_id, p["comment_id"], e.project_id, p["text"], p["item_id"], e.ts),
+    )
 
 
 def _join_participants(conn, project_id, item_id, pairs):
@@ -171,8 +182,15 @@ def list_comments(item_id: str) -> dict:
         "SELECT user_id, source FROM item_participants WHERE item_id = ? ORDER BY created_at",
         (item_id,),
     ).fetchall()
+    extracted = db.get_conn().execute(
+        "SELECT e.comment_id, e.text, e.item_id, i.title AS item_title"
+        " FROM extracted_tasks e JOIN items i ON i.id = e.item_id"
+        " WHERE e.comment_id IN (SELECT id FROM item_comments WHERE item_id = ?)",
+        (item_id,),
+    ).fetchall()
     return {"comments": [dict(r) for r in rows],
-            "participants": [dict(r) for r in participants]}
+            "participants": [dict(r) for r in participants],
+            "extracted": [dict(r) for r in extracted]}
 
 
 def get_comment(comment_id: str) -> dict:
@@ -235,3 +253,44 @@ def unsubscribe_item(item_id: str) -> dict:
         payload={"user_id": user_id},
     )
     return {"item_id": item_id, "user_id": user_id, "subscribed": False}
+
+
+# ------------------------------------------------------------ extraction (I67)
+_TASK_LINE = re.compile(r"^\s*[-*]\s+\[[ xX]\]\s+(.+?)\s*$")
+
+
+class ExtractIn(BaseModel):
+    text: str
+    concept_id: str = "task"
+
+
+@router.post("/comments/{comment_id}/extract-task")
+def extract_task(comment_id: str, body: ExtractIn) -> dict:
+    """Turn a task-list item of a comment into a real work item (M21-I67,
+    GitHub tasklist→sub-issue semantics: the text is *extracted*, the stored
+    comment body stays byte-identical — comments are not a status carrier)."""
+    c = get_comment(comment_id)
+    item = _require_item(c["item_id"])
+    _gate(item["project_id"])
+    text = body.text.strip()
+    task_texts = [m.group(1) for line in c["body"].splitlines()
+                  if (m := _TASK_LINE.match(line))]
+    if text not in task_texts:
+        raise HTTPException(status_code=422, detail="text is not a task-list item of this comment")
+    dup = db.get_conn().execute(
+        "SELECT 1 FROM extracted_tasks WHERE comment_id = ? AND text = ?",
+        (comment_id, text)).fetchone()
+    if dup:
+        raise HTTPException(status_code=409, detail="this task-list item was already extracted")
+
+    from apm.domains.items import create_item
+    created = create_item(project_id=item["project_id"], concept_id=body.concept_id, title=text)
+    extraction_id = new_id("et")
+    events.emit(
+        event_type="comment.task_extracted",
+        agg_type="comment_extraction",
+        agg_id=extraction_id,
+        project_id=item["project_id"],
+        payload={"comment_id": comment_id, "item_id": created["id"], "text": text},
+    )
+    return {"extraction_id": extraction_id, "item": created, "text": text}
