@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M23 已定义（计划对照与总览三件套），下一步 I71 甘特基线）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M23 进行中：I71 已完成，下一步 I72 组合总览）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -46,8 +46,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M23-I71 甘特基线**（docs/01 §V.1）：baselines 投影表（project_id 唯一 + snapshot JSON）+ `project.baseline_set/cleared` 事件（**drop_projections 同步**）+ `POST/DELETE /projects/{id}/baseline`（覆盖式）；TimelinePage 幽灵条形（半透明灰基线位 + 偏离描边）+「📌 设为基线/清除基线」按钮。**只跑相关验证。**
-2. **M23-I72 组合总览**（§V.2）：`GET /portfolio/report`（`_visible` 裁剪可见项目：五桶/Gate/超期滞留/工时合计/吞吐 + 总计行，复用 M12 报表口径）+ Dashboard「组合总览」卡（15s 轮询）+ api.ts PortfolioReport。
+1. ~~M23-I71 甘特基线~~ ✅ **已完成**（`26a5bf0`+docs）：baselines 投影（UNIQUE 单活动基线）+ baseline.set/cleared 事件（覆盖式重设）+ `/projects/{id}/baseline` 三端点 + TimelinePage 幽灵虚线条形（偏离 amber）+ 设为/清除按钮；test_baselines.py 全绿。
+2. **M23-I72 组合总览**（§V.2）：`GET /portfolio/report`（`_visible` 裁剪可见项目：五桶/Gate/超期滞留/工时合计/吞吐 + 总计行，复用 M12 报表口径）+ Dashboard「组合总览」卡（15s 轮询）+ api.ts PortfolioReport；单测（聚合口径/裁剪/总计对账）。**只跑相关验证。**
 3. **M23-I73 Markdown 工具栏 + 收尾**（§V.3）：CommentsModal 手写紧凑工具栏（B/I/code/link/列表/任务清单/引用——选区包裹插入、恢复焦点选区、无选区插占位符）；存储纯文本不变；docs/12 §20；**新增冒烟 29**（基线快照/组合聚合对账/工具栏纯文本往返 + rebuild 一致）。
 4. **M23 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 177+ / 冒烟 28+29 / vitest+build）+ I71/I72/I73 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M23 正式审阅通过」提交。之后 M24 调研定义（先 grep docs/01 防重查）。
 5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
