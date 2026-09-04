@@ -302,6 +302,27 @@ CREATE TABLE IF NOT EXISTS saved_views (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_saved_views_project ON saved_views(project_id);
+
+CREATE TABLE IF NOT EXISTS item_comments (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  mentions TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_item_comments_item ON item_comments(item_id);
+
+CREATE TABLE IF NOT EXISTS item_participants (
+  item_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  source TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (item_id, user_id)
+);
 """
 
 FTS_DDL = """
@@ -324,6 +345,8 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "automation_rules",
         "milestones",
         "saved_views",
+        "item_comments",
+        "item_participants",
         "project_members",
         "users",
         "ui_commands",

@@ -3,6 +3,7 @@ from apm.domains import (  # noqa: F401
     approvals,
     assets,
     automations,
+    comments,
     conversations,
     events_api,
     features,
