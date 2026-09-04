@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17-I55 完成，下一步 M17 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-04 更新 · M17 正式审阅通过，下一步 M18 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -216,6 +216,9 @@
   - 单测 5 项：本地 RSA JWT 桩（monkeypatch oidc.httpx）离线覆盖全协议路径 + 拒绝矩阵七例；**pytest 152/冒烟 22**；
   - **坑：TestClient 默认 follow_redirects=True**，302 到外部 IdP 后的 404 极易误判为路由缺失——OIDC 端点断言必须 `follow_redirects=False`。
 - **M17-I55 收尾（本提交）**：`tools/keycloak/`（docker-compose + realm import：client agentpm/用户 zhang.demo·li.admin/组 agentpm-admins·users）；docs/11 §2.1 OIDC env 表；docs/12 §14（协议安全语义/JIT 四约束表/门禁兼容/配置演示）；**新增冒烟 23**（特性关闭零破坏/桩协议全路径/JIT 幂等/M8 门禁）；pytest **154** 全绿、冒烟 **23** GREEN。
+- **M17 正式审阅通过（本提交，附录 A/B）**：
+  - 审阅时点 HEAD `84c57cc` 重跑 pytest 154（0 失败）/冒烟 23/vitest 2 全绿；I53/I54/I55 DoD 逐项核对（零依赖 RS256 验签/JIT 四约束/env 关闭语义/门禁兼容/Keycloak 与桩环境/冒烟 23 全程）；
+  - 浏览器隔离复演（network 模式 + tools/oidc_stub.py 真流程）：登录页 SSO → 桩 authorize → callback → 会话 → 顶栏 chip → 越权写 403 → OIDC 面板（docs/m17-i54-*.png ×3）；无新增 B/C 级意见。
 - **当前验证状态**：pytest **154 项全绿**；冒烟基线 **23 条全绿**；`pnpm vitest`/`pnpm build` 绿。
 
 ## 3. 现在卡在哪
@@ -224,8 +227,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. **M17 正式审阅**（模式同 M8-M16）：审阅时点 HEAD 重跑全量（pytest 154/冒烟 23/vitest 2）→ I53/I54/I55 DoD 逐项核对 → 浏览器隔离复演（tools/oidc_stub.py 真流程：登录页 SSO → 会话 → 门禁 → OIDC 面板，截图已有 docs/m17-i54-*.png ×3）→ 附录 B 记录 → 「M17 正式审阅通过」前缀提交。
-2. 审阅通过后：新一轮开源调研定 M18（候选：通知 digest、事件归档/冷备、报表导出 PDF——docs/01 backlog）。
+1. **M18 调研定义**（模式同 M6-M17）：2-3 路并行 WebSearch 开源调研（候选：通知 digest、事件归档/冷备策略、报表导出 PDF、webhook 事件负载签名轮换——docs/01 backlog 择优）→ 结论写入 docs/01 新节 + docs/10 §M18（迭代表+DoD+估时）+ 状态看板行 + 附录 A 日志 → 收口 HANDOFF → 「M18 调研定义」提交。
+2. 按新计划开工 M18 迭代（预计 3 个迭代，约 9-10 人日）。
 
 ## 5. 有哪些坑不要再踩
 
