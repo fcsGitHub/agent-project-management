@@ -480,3 +480,37 @@ M18 = **工作项评论与参与通知**：I56 评论域（comment.* 事件 + CR
 **R.5 M19 取舍**
 
 M19 = **工时跟踪与汇总报表**：I59 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐 + 单测）/ I60 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25）/ I61 项目工时报表 + 收尾审阅（按人/按日聚合 + 全量回归 + M19 审阅），约 9 人日。个人日历视图、成本费率、斜杠命令留 backlog。
+
+## S. M20 前置调研：体验补齐——个人工时日历 / 时间线拖拽改期 / 评论 Markdown（2026-09-05）
+
+> 目标协议触发：M19 审阅通过后开启。防重查先行：digest 已两次论证留 backlog（§J/§O.3）不再重查。本轮三路（OpenProject My time tracking 日历 / Gantt 拖拽交互生态 / 评论 Markdown 渲染风味），选定 **M20 = 体验补齐三件套**——M19 工时数据已落但缺日常记时入口面、M13 时间线只读与 M14 自动排程之间缺手动拖拽层、M18 评论为纯文本缺结构化渲染，三个「最后一块 UI 面」互不依赖、适合同里程碑三迭代并行推进。
+
+**S.1 OpenProject 16.0「My time tracking」：个人日历是复盘视图不是打卡器**
+
+- 16.0（2025-05 发布）新增 My time tracking 模块：**个人专属空间**（只看自己的条目），**日历视图（日/周/月）+ 列表视图**双形态，页面内快捷记时（[发布博客](https://www.openproject.org/blog/time-tracking-module/)、[用户指南](https://www.openproject.org/docs/user-guide/time-and-costs/my-time-tracking/)）。
+- 管理员启用「允许精确记时」后支持 start/end 时间且**日历成为模块默认视图**（[16.0 release notes](https://www.openproject.org/docs/release-notes/16/16-0-0/)）——精确打卡是可选项而非前提，分钟粒度条目配日历完全成立。
+- → AgentPM 取舍：记时条目保持 M19 的 分钟+spent_on 粒度（R.2 决策沿用），**不做 start/end 打卡**；日历做 周/月双视图 + 日合计 + 点日快捷记时（复用 I60 抽屉表单语义），个人视角与「我的工作」并列入侧栏。
+
+**S.2 Gantt 拖拽改期：OpenProject 内建 vs Redmine 插件生态**
+
+- OpenProject Gantt **内建**拖拽排程：条形拖拽改期、拖边改时长、图内调序；前置/后继依赖图内直建；15.4 起手动（默认）/自动双排程模式（[Gantt 文档](https://www.openproject.org/docs/user-guide/gantt-chart/)、[排程模式](https://www.openproject.org/docs/user-guide/gantt-chart/scheduling/)）——「自动化是可选项而非默认」哲学已在 §M 调研确认。
+- Redmine 核心 Gantt 缺拖拽/缩进等基本交互（[opensource.com 评测](https://opensource.com/article/21/3/open-source-project-management)），靠 Easy Gantt（免费层：拖拽移动任务/里程碑、拖拽建依赖）等插件补位（[easy-gantt](https://www.redmine.org/plugins/easy-gantt)）；开源 canvas 路线 redmine_canvas_gantt 拖拽中半透明、端点拖拽建依赖（[GitHub](https://github.com/tiohsa/redmine_canvas_gantt)）。
+- AgentPM 现状缺口：M13-I42 TimelinePage 为**只读** Gantt-lite（条形/里程碑菱形/依赖连线/冲突标红），M14 后端已有手动 PATCH 改期 + rescheduled 审计 + 自动顺延——**两端齐备，缺的恰是图上拖拽这层中间 UI 面**。
+- → 取舍：条形拖拽移动（改 start/due）+ 右缘缩放（改 due）+ 拖拽中半透明 + 落点 PATCH 复用既有审计与冲突重算着色；**依赖连线图内编辑不做**（关系编辑留既有表单，图内连线 backlog）。
+
+**S.3 评论 Markdown 渲染：风味差异是集成痛点，存储原文是底线**
+
+- GitLab GLFM：任务清单（`- [ ]`/`- [x]`）、表格、折叠块、代码高亮是评论结构化主力（[GLFM 文档](https://docs.gitlab.com/user/markdown/)）；GitHub GFM 任务清单语义同源（清单项以 `[ ]` 起头即渲染复选框，[释义](https://inventivehq.com/blog/what-are-task-lists-and-how-to-use-them-in-markdown)）。
+- 风味差异造成真实集成成本：Outline/Drupal 均要处理 GLFM vs GFM 分歧（[Outline #11903](https://github.com/outline/outline/discussions/11903)、[Drupal #3378201](https://www.drupal.org/project/markdown_easy/issues/3378201)）；任务清单复选框在 HTML 表格内状态不持久、嵌套清单样式是已知设计难点（[GitLab CSS Lab #40](https://gitlab.com/gitlab-org/csslab/-/issues/40)）——第三方渲染只取交集（GFM 基本面）最稳。
+- → 取舍：评论**存储仍是纯文本原文**（comment.created 事件与 API 契约不变），渲染层做 GFM 只读转换（marked + DOMPurify 消毒，XSS fail-closed）；任务清单只读不回写（评论非状态载体，状态走工作项字段）；mention 沿用既有 @解析、渲染高亮为 chip；编辑框加「预览」切换。编辑器工具栏不做。
+
+**S.4 M20 设计映射与验证纪律（新协议）**
+
+- I62 个人工时日历：`GET /my/timelog?days=`（按日条目+合计，纯投影聚合）+「我的工时」页（周/月视图 + 日合计 + 点日快捷记时）+ 侧栏入口。
+- I63 时间线拖拽改期：TimelinePage 条形 pointer 拖拽移动/右缘缩放 → PATCH start_date/due_date（复用 M14 审计与冲突重算）；仅对有日期项启用。
+- I64 评论 Markdown 渲染：marked+DOMPurify 只读渲染 + mention chip + 预览切换；冒烟 26 收尾。
+- **验证纪律（用户 2026-09-05 更新）**：每迭代只跑改动相关测试（对应 test_*.py + build），不再每轮全量；全量回归收敛到 M20 正式审阅（每里程碑一次 ≤ 每 5 轮一次）。HANDOFF.md 每轮收口时修剪防膨胀。
+
+**S.5 M20 取舍**
+
+M20 = **体验补齐三件套**：I62 个人工时日历（my/timelog 聚合 + 周/月日历页 + 快捷记时）/ I63 时间线拖拽改期（条形拖拽/缩放 → PATCH + 冲突重算）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览）+ docs/12 §17 + 冒烟 26 + M20 审阅，约 8 人日。start/end 精确打卡、依赖连线图内编辑、任务清单回写、编辑器工具栏留 backlog。

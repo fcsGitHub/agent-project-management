@@ -670,6 +670,34 @@ agent-project-management/
 
 **M19 审阅点**：冒烟 25 + 各迭代 DoD + 浏览器演示（记时→汇总→报表闭环 + rebuild 一致）。
 
+### M20 · 体验补齐三件套（吸收 OpenProject Gantt/My time tracking + GLFM，I62-I64，约 8 人日）
+
+> v1.6 新增（2026-09-05，M19 审阅通过后按目标协议调研）。调研结论见 docs/01 §S：OpenProject 16.0「My time tracking」个人日历（日/周/月 + 快捷记时）是分钟粒度条目的复盘面；OpenProject Gantt 内建拖拽排程 vs Redmine 靠插件补位——AgentPM M13 时间线只读 + M14 自动排程后端之间**缺手动拖拽层**；GLFM/GFM 任务清单与表格是评论结构化主力但风味分歧多，只取交集且**存储保持纯文本原文**、渲染层转换。验证纪律更新（用户 2026-09-05）：迭代期只跑相关测试，全量回归收敛至 M20 正式审阅；HANDOFF 每轮修剪。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I62 | 个人工时日历（GET /my/timelog 聚合 + 周/月日历页 + 点日快捷记时） | 01 §S.1 | M19 timelog 投影/TimeLogModal 表单语义 | 3d |
+| I63 | 时间线拖拽改期（条形拖拽移动 + 右缘缩放 → PATCH + 冲突重算） | 01 §S.2 | M13 TimelinePage / M14 rescheduled 审计 | 3d |
+| I64 | 评论 Markdown 渲染（GFM 只读 + mention chip + 预览）+ docs/12 §17 + 冒烟 26 + M20 审阅 | 01 §S.3/S.4 | M18 评论域 | 2d |
+
+#### I62 · 个人工时日历（3d）
+
+- 任务：`GET /my/timelog?days=`（近 N 日本人条目按日分组 + 每日合计 + 窗口合计，纯投影聚合，days 钳 1-60；network 门禁对齐 my/work）+「我的工时」页（周视图七列/月视图网格切换、日合计徽标、点空日/日头快捷记时——弹 TimeLogModal 同款表单语义但预填 spent_on、条目点击可改删）+ 侧栏「我的工作」旁入口；api.ts MyTimelog 类型与 getMyTimelog。
+- DoD：my/timelog 单测（按日分组/合计/软删剔除/越权门禁——扩展 test_timelog.py）；build+vitest 绿；相关验证只跑 test_timelog.py + build（新纪律）。
+- 演示路径：记两日工时 → 日历页对应日格子出现条目与合计。
+
+#### I63 · 时间线拖拽改期（3d）
+
+- 任务：TimelinePage 条形 pointer 拖拽（移动=改 start/due 同步平移；右缘缩放=改 due；拖拽中半透明 + 显示悬浮日期；落点 PATCH start_date/due_date 走既有端点——M14 rescheduled 审计与自动顺延/冲突重算自动生效）；落点后依赖连线与冲突着色随查询刷新；未设日期项与里程碑菱形不参与拖拽；Esc 取消拖拽。
+- DoD：改期后 events 出现 item.updated/rescheduled 审计（test_items.py 扩展一条断言）；build+vitest 绿；浏览器复演拖拽改期 + 冲突变红截图。
+- 演示路径：拖动依赖链后继条形 → 落点冲突标红 → 拖回变正常。
+
+#### I64 · 评论 Markdown 渲染 + 收尾审阅（2d）
+
+- 任务：CommentsModal 评论正文 GFM 只读渲染（marked + DOMPurify，表格/代码块/任务清单只读、链接 target=_blank rel=noopener）+ mention `@姓名` 高亮 chip（渲染层正则，复用后端解析口径）+ 编辑框「编辑/预览」切换；存储与 API 契约不变（纯文本往返单测）；docs/12 §17 评论 Markdown 指南；**新增冒烟 26**（my/timelog 聚合 + 时间线改期审计链 + 评论原文往返 + rebuild 一致）；相关验证 + M20 审阅（全量回归 pytest/冒烟/vitest + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 26 GREEN；评论原文往返不变；审阅全绿。
+- 演示路径：发含表格/清单/@提及评论 → 渲染正确且原文入库。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -826,6 +854,7 @@ agent-project-management/
 | **M19 工时跟踪与汇总报表（I59-I61）** | 已完成（审阅通过） | 2026-09-04 | 2026-09-04 | 3 迭代 / 约 9 人日（docs/01 §R + docs/10 §M19）：I59 工时数据层（time.* 事件 + item_time_entries 投影 + CRUD + spent 汇总 + 权限对齐）/ I60 工时前端（记工时抽屉 + spent/estimate 徽标 + docs/12 §16 + 冒烟 25）/ I61 项目工时报表（按人/按日聚合，补 Plane #8045 缺口）+ 冒烟 25 收尾 + 审阅（截图 docs/m19-i60-*.png ×4 + m19-i61-*.png ×3，见附录 B）；个人日历视图/成本费率/斜杠命令留 backlog |
 | I59 工时数据层 | 已完成 | 2026-09-04 | 2026-09-04 | 新域 `domains/timelog.py`：item_time_entries 投影表（软删 deleted_at，drop_projections 同步）+ time.logged/edited/deleted 事件（rebuild 存活）；CRUD（POST/GET /items/{id}/time_entries、GET/PATCH/DELETE /time_entries/{id}）；**校验 fail-closed**（minutes∈(0,1440]/spent_on ISO 日期/note 截 500/空更新 422）；item 详情与 get_items 附 **spent_minutes 汇总**（列表单 GROUP BY 查询合并，与 estimate_hours 计划/实际并列）；权限对齐 M8（改删限本人·admin）；记工时者进参与投影（source='time' 首次来源语义）；单测 4 项；pytest **165** 全绿 |
 | I60 工时前端 | 已完成 | 2026-09-04 | 2026-09-04 | 新组件 `TimeLogModal.tsx`（⏱ 抽屉：条目列表 人/时长徽标/日期/备注 + 记时表单 minutes/spent_on/note + **合计行**实时更新，`fmtMinutes` 时长格式化 1h30/45m）+ 看板卡片 **⏱ spent 徽标**（spent_minutes>0 才显示）与 ⏱ 按钮（与 💬 并列）；api.ts 增 TimeEntry 类型+4 方法+Item.spent_minutes；docs/12 §16 工时跟踪指南；**新增冒烟 25**（双身份记时→合计/详情/列表三处一致→校验门→软删缩合计→rebuild 条目与徽标复现）；浏览器隔离复演：李雷记 90m「⏱ 1h30」徽标上卡→切 QA 王见首条目再记 45m→**合计 2h15**（截图 docs/m19-i60-*.png ×4）；build+vitest 2 绿、pytest **166** 全绿、冒烟基线 **25 条 GREEN** |
+| **M20 体验补齐三件套（I62-I64）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 8 人日（docs/01 §S + docs/10 §M20）：I62 个人工时日历（GET /my/timelog 聚合 + 周/月日历页 + 点日快捷记时，OpenProject 16.0 My time tracking 吸收）/ I63 时间线拖拽改期（条形拖拽移动+右缘缩放 → PATCH，补 M13 只读与 M14 自动排程之间的手动层）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览，存储保持纯文本）+ docs/12 §17 + 冒烟 26 + 审阅；**验证纪律更新**：迭代期只跑相关测试、全量回归收敛至 M20 审阅（用户 2026-09-05）；start/end 打卡/依赖连线图内编辑/任务清单回写留 backlog |
 | I61 项目工时报表+收尾审阅 | 已完成 | 2026-09-04 | 2026-09-04 | `GET /projects/{id}/timelog_report`（按人合计 JOIN users + 按日趋势 + 窗口 1-90 天参数化，纯投影聚合零 ETL——**直接补位 Plane GH #8045 项目级工时分析缺口**）；my/work 增 week_minutes 本周合计（个人最小面）；ReportsPage 工时小部件（按人条形+按日趋势+合计）+ MyWorkPage 本周工时 chip；对账单测（报表聚合=条目清单逐项相等+软删剔除+404）；复演报表小部件合计 2h15=李雷1h30+QA王45m 与条目一致（截图 docs/m19-i61-*.png ×3）；build+vitest 2 绿、pytest **167** 全绿、冒烟 **25** GREEN |
 | I56 评论域 | 已完成 | 2026-09-04 | 2026-09-04 | 新域 `domains/comments.py`：item_comments 投影表（软删除 deleted_at）+ item_participants 参与投影（PRIMARY KEY 去重 INSERT OR IGNORE）+ comment.created/deleted 事件（drop_projections 清单同步）；**@mention 解析**——`@姓名` 对 users.name 精确最长匹配（多字姓名「QA 王」可用、作者自身排除），mentions 入事件；**mention 通知走 M10 notification.sent 通道**（kind=mention，站内铃+邮件自然联动）；参与面接入 item.assigned（human 指派即参与）；CRUD：POST/GET /items/{id}/comments、DELETE /comments/{id}（软删），权限 local 放行/network 成员读写+非成员 403+删除 author·admin；单测 4 项（CRUD+软删除+rebuild 一致/mention 解析与逐身份通知断言/指派参与者去重/network 权限矩阵）；pytest **158** 全绿、冒烟 23 GREEN。测试踩坑：/api/notifications 按当前身份过滤——逐身份断言须 /session/identity 切换被提及者 |
 | I57 评论前端 | 已完成 | 2026-09-04 | 2026-09-04 | `CommentsModal.tsx`（列表 author_name+@提及高亮/输入/**@补全下拉** lastIndexOf 后缀匹配/Ctrl+Enter/hover 删除）+ 看板卡片 💬 按钮与**评论数徽标** + **`?item=<id>` 直开**（useEffect 找 buckets 命中即开）+ 通知中心 mention 项**点击跳转**（get_notifications 以 ref_event_id→events.agg_id 解析 item_id）**且点击即置已读**；审阅即修 2：mention 摘要带工作项标题（非裸 id，测试补断言）、跳转后徽标清零；复演排障定案「铃 1 面板空」= 双后端进程双绑 8000（Windows 允许）——netstat 单监听后重建隔离环境复演全通（@补全→mentions=["qa"]→QA 王铃 1→带标题通知→跳转 Modal 开+高亮+清零，截图 docs/m18-i57-*.png ×4）；build+vitest 2 绿、pytest **158** 全绿 |
@@ -927,6 +956,8 @@ agent-project-management/
 | 2026-09-04 | I59 | 工时数据层：新域 `domains/timelog.py`——item_time_entries 投影表（软删 deleted_at）+ time.logged/edited/deleted 事件（drop_projections 清单同步，rebuild 存活）；CRUD：POST/GET /items/{id}/time_entries、GET/PATCH/DELETE /time_entries/{id}（列表返回 entries+total_minutes+participants）；**校验 fail-closed**：minutes 整数∈(0,1440]、spent_on 须 ISO 日期（date.fromisoformat）、note 截 500、空 PATCH 422；item 详情/get_items 附 **spent_minutes**（SUM 排除软删；列表一次 GROUP BY 合并避免逐行子查询），与 estimate_hours 构成「计划 vs 实际」并列展示面（I60 徽标用）；权限对齐 M8：local 放行/network 成员读写+非成员 403+改删限本人·admin；**参与投影接入**：time.logged 复用 comments._join_participants（source='time'，INSERT OR IGNORE 首次来源语义不覆盖）；单测 4 项（CRUD+软删+rebuild 一致/校验矩阵/参与接入首源胜出/network 权限矩阵）；pytest **165** 全绿、冒烟 24 GREEN。 |
 | 2026-09-04 | I60 | 工时前端：新组件 `TimeLogModal.tsx`——⏱ 工时抽屉（条目列表：人/时长徽标（`fmtMinutes` 1h30/45m）/spent_on/备注；记时表单：分钟 number 1-1440 + 日期 date 默认今天 + 备注 textarea；**合计行**随记录实时刷新，invalidate 时同步刷 board/list 的 spent_minutes）；看板卡片 **⏱ spent 徽标**（仅 spent_minutes>0 显示，title=实际投入工时）+ 卡片 ⏱ 按钮（与 💬 并列，浮层同型）；api.ts：TimeEntry 类型 + listTimeEntries/logTime/editTimeEntry/deleteTimeEntry + Item.spent_minutes 可选字段；docs/12 §16 工时跟踪指南（记时入口/展示位/语义与边界三层）；**新增冒烟 25**（双身份记时→条目/合计/详情/列表四处一致→minutes/日期校验门→软删缩合计→rebuild 条目与合计逐项复现）。TS 踩坑：Item 可选字段 spent_minutes 传入 fmtMinutes 须 `?? 0` 收窄。浏览器隔离复演（生产构建+SW 清缓存）：李雷 90m→卡片「⏱ 1h30」徽标上卡→切 QA 王 45m→**合计 2h15** 双条目同屏（截图 docs/m19-i60-*.png ×4）；build+vitest 2 绿、pytest **166** 全绿、冒烟基线 **25 条 GREEN**。 |
 | 2026-09-04 | I61 | 项目工时报表+收尾：`reports.py` 新增 `GET /projects/{id}/timelog_report`——by_user（SUM GROUP BY user_id JOIN users 取名）/by_day（近 N 日零填充序列，days 参数钳 1-90）/total_minutes，纯投影聚合（M12 原则：报表零 ETL 零新表）；`my/work` 增 week_minutes（spent_on >= 本周一，个人最小面，个人日历留 backlog）；前端：ReportsPage 尾部 `TimelogCard` 小部件（按人横向条形 + 按日迷你柱图 + 合计，15s 轮询与报表页一致）、MyWorkPage 头部「本周工时」chip（复用 fmtMinutes）；api.ts 增 TimelogReport 类型 + getTimelogReport(days)；**对账单测**：报表 total/by_user/by_day 与两条工作项条目清单逐项相等、软删后报表同步缩、未知项目 404（Plane GH #8045 的正面实现——项目级聚合与条目恒可对账）；复演：报表小部件合计 **2h15**=李雷 1h30+QA 王 45m 与抽屉条目一致、「本周工时 1h30」chip 可见（截图 docs/m19-i61-*.png ×3）；build+vitest 2 绿、pytest **167** 全绿、冒烟基线 **25 条 GREEN**。 |
+
+| 2026-09-05 | M20 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查先行：digest 已 §J/§O.3 两次论证留 backlog 不重查）：①**OpenProject 16.0「My time tracking」**——个人专属日历视图（日/周/月）+列表双形态+页面快捷记时，「允许精确记时」才引入 start/end 且日历成默认视图 → 分钟粒度条目配日历完全成立，AgentPM 不做打卡、日历做复盘视图；②**Gantt 拖拽生态**——OpenProject 内建条形拖拽改期/拖边改时长/手动默认+自动可选，Redmine 核心缺拖拽靠 Easy Gantt 等插件补位 → AgentPM M13 时间线只读 + M14 后端自动排程**两端齐备缺手动拖拽层**；③**评论 Markdown 渲染**——GLFM/GFM 任务清单与表格是结构化主力，但 Outline/Drupal 实证风味分歧集成成本、表格内复选框不持久 → 只取 GFM 交集、**存储保持纯文本原文**渲染层转换（marked+DOMPurify）。选定 **M20 = 体验补齐三件套**：I62 个人工时日历（GET /my/timelog + 周/月日历页 + 点日快捷记时）/ I63 时间线拖拽改期（条形拖拽移动+右缘缩放 → PATCH 复用 rescheduled 审计与冲突重算）/ I64 评论 Markdown 渲染（GFM 只读 + mention chip + 预览）+ docs/12 §17 + 冒烟 26 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +8 人日；新增冒烟 26 于 I64。**验证纪律更新（用户 2026-09-05）**：迭代期只跑改动相关测试、全量回归收敛至 M20 审阅；HANDOFF 每轮修剪。结论入 docs/01 §S。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
