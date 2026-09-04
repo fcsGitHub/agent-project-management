@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { CommentsModal } from "../components/CommentsModal";
+import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, cx } from "../components/ui";
 
 export function Board() {
@@ -24,6 +25,7 @@ export function Board() {
   const [newViewName, setNewViewName] = useState("");
   const [newViewPublic, setNewViewPublic] = useState(false);
   const [commentsFor, setCommentsFor] = useState<import("../lib/api").Item | null>(null);
+  const [timelogFor, setTimelogFor] = useState<import("../lib/api").Item | null>(null);
 
   const viewsQ = useQuery({
     queryKey: ["views", pid],
@@ -373,6 +375,15 @@ export function Board() {
                             {customFieldBadges(item, onto.data?.concepts).map((b) => (
                               <Badge key={b.label} tone="neutral">{b.label}: {b.text}</Badge>
                             ))}
+                            {(item.spent_minutes ?? 0) > 0 && (
+                              <Badge tone="neutral" title="实际投入工时">⏱ {fmtMinutes(item.spent_minutes ?? 0)}</Badge>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTimelogFor(item); }}
+                              className="ml-auto text-[10px] text-mut hover:text-acc" title="工时"
+                            >
+                              ⏱
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setCommentsFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="评论"
@@ -416,6 +427,10 @@ export function Board() {
       {commentsFor && (
         <CommentsModal itemId={commentsFor.id} title={commentsFor.title}
           onClose={() => { setCommentsFor(null); if (focusItem) setFilter("item", ""); }} />
+      )}
+      {timelogFor && (
+        <TimeLogModal itemId={timelogFor.id} title={timelogFor.title}
+          onClose={() => setTimelogFor(null)} />
       )}
     </div>
   );

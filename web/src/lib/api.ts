@@ -24,6 +24,7 @@ export type Item = {
   assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
   milestone_id?: string | null; auto_scheduled?: number | boolean;
   custom_fields?: Record<string, unknown> | null;
+  spent_minutes?: number;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string }[];
 };
@@ -42,6 +43,11 @@ export type ItemComment = {
   id: string; item_id: string; project_id: string; author_id: string;
   author_name?: string | null; body: string; mentions: string;
   created_at: string; deleted_at: string | null;
+};
+export type TimeEntry = {
+  id: string; item_id: string; project_id: string; user_id: string;
+  user_name?: string | null; minutes: number; spent_on: string;
+  note: string; created_at: string; deleted_at: string | null;
 };
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
@@ -280,6 +286,13 @@ export const api = {
     req<{ item_id: string; subscribed: boolean }>(`/items/${itemId}/subscription`, { method: "POST" }),
   unsubscribeItem: (itemId: string) =>
     req<{ item_id: string; subscribed: boolean }>(`/items/${itemId}/subscription`, { method: "DELETE" }),
+  listTimeEntries: (itemId: string) =>
+    req<{ entries: TimeEntry[]; total_minutes: number; participants: { user_id: string; source: string }[] }>(`/items/${itemId}/time_entries`),
+  logTime: (itemId: string, body: { minutes: number; spent_on: string; note?: string }) =>
+    req<TimeEntry>(`/items/${itemId}/time_entries`, { method: "POST", body: JSON.stringify(body) }),
+  editTimeEntry: (id: string, body: { minutes?: number; spent_on?: string; note?: string }) =>
+    req<TimeEntry>(`/time_entries/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteTimeEntry: (id: string) => req<{ deleted: string }>(`/time_entries/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
   patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>

@@ -317,6 +317,7 @@ def get_board(
     )
     if "cf" in view_def:
         items = [it for it in items if _cf_hit(it, view_def["cf"])]
+    _attach_spent(items)
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
         buckets.setdefault(item["status_group"], []).append(item)
@@ -596,6 +597,19 @@ def _cf_hit(it: dict, cf: str) -> bool:
                                and got == (expected == "true"))
 
 
+def _attach_spent(items: list[dict]) -> None:
+    """M19-I59: spent-time totals ride along (plan vs actual on cards/lists)."""
+    if not items:
+        return
+    ids = [it["id"] for it in items]
+    marks = ",".join("?" * len(ids))
+    spent = {r["item_id"]: r["total"] for r in db.get_conn().execute(
+        f"SELECT item_id, SUM(minutes) total FROM item_time_entries"
+        f" WHERE item_id IN ({marks}) AND deleted_at IS NULL GROUP BY item_id", ids)}
+    for it in items:
+        it["spent_minutes"] = spent.get(it["id"], 0)
+
+
 @router.get("/projects/{project_id}/items")
 def get_items(
     project_id: str,
@@ -632,14 +646,7 @@ def get_items(
     )
     if merged.get("cf"):
         items = [it for it in items if _cf_hit(it, merged["cf"])]
-    if items:  # M19-I59: spent-time totals ride along (plan vs actual on cards)
-        ids = [it["id"] for it in items]
-        marks = ",".join("?" * len(ids))
-        spent = {r["item_id"]: r["total"] for r in db.get_conn().execute(
-            f"SELECT item_id, SUM(minutes) total FROM item_time_entries"
-            f" WHERE item_id IN ({marks}) AND deleted_at IS NULL GROUP BY item_id", ids)}
-        for it in items:
-            it["spent_minutes"] = spent.get(it["id"], 0)
+    _attach_spent(items)
     return {"items": items}
 
 
