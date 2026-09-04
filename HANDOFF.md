@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 进行中：I68 已完成，下一步 I69 归档与克隆）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 进行中：I68/I69 已完成，下一步 I70 批量编辑 + 收尾）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M22-I68 全局搜索~~ ✅ **已完成**（`dd23aff`+docs）：`domains/search.py` FTS5 索引（handler 注册在 items/comments 投影器之后——注册序即执行序）+ `GET /search?q=&types=`（`_visible` 裁剪）+ ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；test_search.py 全绿。
-2. **M22-I69 项目归档与克隆**（docs/01 §U.2）：projects.status（CREATE+ALTER）+ `project.archived/reopened` 事件（既有 projects 投影上加列更新）；归档写路径 **409 统一守卫**（project_id 写端点）；列表「显示已归档」开关 + 设置页归档/恢复按钮（owner/admin）；`POST /projects/{id}/clone`（structure/items/milestones 复制选择，**成员永不复制**；逐实体 emit + `project.cloned` 事件）。**只跑相关验证。**
+2. ~~M22-I69 项目归档与克隆~~ ✅ **已完成**（`530b033`+docs）：`add_emit_guard` pre-emit 守卫（归档项目写 409，白名单 reopened/cloned/access.denied）+ `/reopen` 专用事件 + `/clone`（成员/指派永不复制、关系复制）+ 列表 include_archived 与归档/恢复/克隆按钮；单测 test_archive_clone.py + **全量 176 绿**（动内核挂点须全量）。坑：templates 实例化自带种子 feature，克隆计数按实际对账。
 3. **M22-I70 批量编辑 + 收尾**（§U.3）：列表 checkbox 多选 + 底部批量条（状态/指派/优先级/清里程碑）+ `POST /projects/{id}/items/batch-patch`（逐项 item.updated 审计保真、逐项结果不整批回滚、选择与分组解耦防 #8683）；docs/12 §19；**新增冒烟 28**（搜索/归档门禁/克隆 roundtrip/批量审计 + rebuild 一致）。
 4. **M22 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 173+ / 冒烟 27+28 / vitest+build）+ I68/I69/I70 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M22 正式审阅通过」提交。之后 M23 调研定义（先 grep docs/01 防重查）。
 5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
