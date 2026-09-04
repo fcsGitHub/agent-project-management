@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 三迭代已完成，下一步 M22 正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M22 已完成（治理与效率三件套，审阅通过），下一步 M23 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -36,7 +36,8 @@
 - **M20 体验补齐三件套（I62-I64，审阅通过 8005d36）**：个人工时日历（GET /my/timelog + `#/my/time` 周/月视图 + 点日快捷记时，own-data）、时间线拖拽改期（条形拖拽移动/右缘缩放 → 单 PATCH，M14 审计与冲突重算自动生效，半透明预览 + Esc 取消）、评论 Markdown 渲染（lib/md.ts：marked+DOMPurify，mentions 令牌化 chip，任务清单只读 checkbox，存储纯文本不变）；docs/12 §17；冒烟 26。审阅即修：任务清单 checkbox 被 DOMPurify FORBID input 剔除 → 钩子白名单放行。
 - **M21 日程集成三件套（I65-I67，审阅通过 f27bb33）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
 - **M22 已定义（docs/01 §U + docs/10 §M22）**：治理与效率三件套——I68 全局搜索（FTS5 中文 bigram 复用 + `GET /search?q=` 可见性裁剪 + ⌘K 入口与结果页）/ I69 项目归档与克隆（projects.status + archived/reopened 事件 + 归档写 409 + clone 成员永不复制）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件、选择与分组解耦）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅，约 8 人日。
-- **当前验证基线：pytest 173 全绿；冒烟 27 GREEN；vitest 2/build 绿。**
+- **M22 治理与效率三件套（I68-I70，审阅通过）**：全局搜索（`domains/search.py` FTS5 中文 bigram + `GET /search?q=` 可见性裁剪 + ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；索引 handler 注册在 items/comments 投影器之后——注册序即执行序）、项目归档与克隆（`add_emit_guard` pre-emit 守卫：归档项目写 409，白名单 reopened/cloned/access.denied；`/reopen` 专用事件；`/clone` 成员/指派永不复制、关系复制；列表 include_archived + 归档/恢复/克隆按钮）、批量编辑（`POST /projects/{id}/items/batch-patch` 逐项复用 patch_item——逐事件审计、逐项结果不回滚；列表 checkbox + 批量条，同概念才能改状态，选择与分组解耦）；docs/12 §19；冒烟 28。
+- **当前验证基线：pytest 177 全绿；冒烟 28 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -44,11 +45,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M22-I68 全局搜索~~ ✅ **已完成**（`dd23aff`+docs）：`domains/search.py` FTS5 索引（handler 注册在 items/comments 投影器之后——注册序即执行序）+ `GET /search?q=&types=`（`_visible` 裁剪）+ ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；test_search.py 全绿。
-2. ~~M22-I69 项目归档与克隆~~ ✅ **已完成**（`530b033`+docs）：`add_emit_guard` pre-emit 守卫（归档项目写 409，白名单 reopened/cloned/access.denied）+ `/reopen` 专用事件 + `/clone`（成员/指派永不复制、关系复制）+ 列表 include_archived 与归档/恢复/克隆按钮；单测 test_archive_clone.py + **全量 176 绿**（动内核挂点须全量）。坑：templates 实例化自带种子 feature，克隆计数按实际对账。
-3. ~~M22-I70 批量编辑 + 收尾~~ ✅ **已完成**（`0e52e01`）：batch-patch 逐项复用 patch_item（逐事件审计、逐项结果不回滚）+ 列表 checkbox/批量条（同概念才能改状态）+ docs/12 §19；**冒烟 28 GREEN（基线 28，连跑两次稳定）**。
-4. **下一步：M22 正式审阅**——审阅时点 HEAD 重跑**全量**（pytest 176+ / 冒烟 28 / vitest+build）+ I68/I69/I70 DoD 逐项 + 浏览器隔离复演三件套（⌘K 搜索中文→结果页直达；归档→写 409→恢复；列表勾选批量改优先级→审计逐项）+ 附录 B +「M22 正式审阅通过」提交。之后 M23 调研定义（先 grep docs/01 防重查）。
-5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**——repo 根无 package.json，M21 审阅两次踩）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
+1. **M23 调研定义**（目标协议第 1 条，三路并行 WebSearch）——先 grep docs/01 防重查。候选池：甘特基线对比（计划 vs 实际）、同概念条形重叠避让（M21 审阅 C 级）、评论编辑器工具栏、跨项目聚合报表（Enterprise 层等价）、本体版本事件级归档、通知 digest（低优）、start/end 精确打卡（已否过，需新证据）。产出：docs/01 新节 + docs/10 §M23 + 看板行 + 附录 A + HANDOFF 收口 →「M23 调研定义」提交。
+2. 按 M23 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**；动 events/db 内核的迭代主动升级全量）→ M23 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让浏览器断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具；python 写文本 newline="\n"；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 
