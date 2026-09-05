@@ -908,6 +908,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 33 GREEN；审阅全绿。
 - 演示路径：里程碑关联 5 项完成 3 → 燃尽卡剩余曲线 5→2 低于/高于理想线一目了然。
 
+### M28 · 落地闭环三件套（吸收 Redmine 工时审批插件/OpenProject resource planner/打印报表缺口，I86-I88，约 9 人日）
+
+> v2.4 新增（2026-09-05，M27 审阅通过后按目标协议调研）。调研结论见 docs/01 §AA：Redmine 计薪级工时审批靠插件（log→submit→lock→approve，Taiga 等原生缺失）——事件溯源适配 submit/approved 锁定语义；OpenProject 17.7 Resource planner + Team Planner 的成员跨项目负载是资源管理核心视角——AgentPM 组合总览只有项目维度；打印/PDF 是 OpenProject 最强（Gantt PDF/工作包报表）而 Redmine #6280 十余年未解、Taiga/Plane 缺失——print CSS 路线零新依赖即得「另存 PDF」。三件主题统一「落地闭环」：工时可信（审批冻结）、负载可见（成员横切）、成果可呈（打印）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I86 | 工时锁定与审批（timesheet submit/approve/reject 事件 + approved 冻结期间 409 + 我的工时/审批卡片） | 01 §AA.1 | M19 time.* 域/M8 角色 | 3.5d |
+| I87 | 成员负载横切（GET /portfolio/workload + 「👥 负载」页） | 01 §AA.2 | M23 组合聚合/_visible/M19 工时 | 2.5d |
+| I88 | 打印视图（print CSS + 打印按钮）+ docs/12 §25 + 冒烟 34 + M28 审阅 | 01 §AA.3 | M15 响应式基座 | 3d |
+
+#### I86 · 工时锁定与审批（3.5d）
+
+- 任务：`POST /me/timesheets/submit`（成员按期间提交：起止日期 + 关联工时快照校验）→ `timesheet.submitted` 事件 + timesheets 投影（id 确定性：`ts_{事件id}`）；`POST /timesheets/{id}/approve|reject`（仅项目 Owner，rejected 须 reason）→ approved 后该成员该期间记时/改/删 **409 "timesheet locked"**（timelog 域写入路径加守卫，rebuild 存活）；rejected 解冻可改再提交；「我的工时」页提交/状态徽标 + Owner 审批卡片（待审列表：成员/期间/合计/批准/驳回）；单测（提交校验/approve 冻结矩阵/reject 再改再提交/非 Owner 403/rebuild 投影一致）。
+- DoD：单测绿；相关 timelog 测试绿；build/vitest 绿。
+- 演示路径：成员记时 → 提交期间 → Owner 批准 → 成员再记时 409 toast「已锁定」。
+
+#### I87 · 成员负载横切（2.5d）
+
+- 任务：`GET /portfolio/workload`——`_visible` 项目横切按成员聚合（活跃项数/超期数/近 7 天工时分钟/进行中上限软信号），纯投影零新表（M23 report 同构）；前端「👥 负载」页（行=成员：项目分布 chips + 三项计数徽标 + 负载条）；Dashboard 组合卡入口 + 顶导航；单测（聚合对账/无成员项目空态/rebuild 一致）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：两个项目各指派同一成员 → 负载页一行显示跨项目活跃项与工时合计。
+
+#### I88 · 打印视图 + 收尾审阅（3d）
+
+- 任务：全局 print CSS（`@media print`：隐藏顶导航/侧栏/操作按钮/抽屉，看板列与列表/报表卡转黑白友好排版、条形转边框）+ 看板/列表/报表页「🖨 打印」按钮（window.print）；docs/12 §25；**新增冒烟 34**（submit→approve 冻结矩阵/负载聚合对账/打印按钮在位 + rebuild 一致）；相关验证 + M28 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 34 GREEN；审阅全绿。
+- 演示路径：报表页点「🖨 打印」→ 打印预览无导航噪声、卡片单栏可读。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1075,6 +1103,7 @@ agent-project-management/
 | I79 列表分页 + 冒烟 31 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/items?limit=&offset=`：**缺省全量兼容**（不传 limit 不切片），显式 limit 钳 1-200、offset ≥0；响应新增 `total`（过滤后全量计数，分页与否都有）驱动「加载更多」——切片点在 cf/parent/descendants 全部过滤之后（语义=对最终结果集分页）；看板列表视图渐进渲染（LIST_PAGE=20，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化重置回第一页；全选范围=当前已显示行，树形缩进/折叠/批量天然兼容）；api.ts listItems 带 limit/offset/total；**冒烟 31**（①偏差表对账：+3/-1 两行、未动项省略、include_same 全列、summary {count, max_due_delay}；②blocks 闭锁矩阵：未完结 422 "blocked by X"、cancelled 放行、blocker 完成后放行、lag=2 详情回读；③分页：缺省全量 total=7、limit=5 offset 0/5 拼接无缝隙无重叠、limit 999→7/limit 0 钳 1、offset 越界空；④rebuild 后偏差/lag/守卫/分页全部一致）；docs/12 §22（M25 三件套指南）；冒烟基线 **31 GREEN**、build/vitest 绿 |
 | **M26 流程纪律三件套（I80-I82）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Y + docs/10 §M26）：I80 看板 WIP 限制（本体 board_defaults.wip_limits + 列头计数徽标超限红，Kanboard **软约束**语义——不阻止多入口状态变更、计数=列内全部项）/ I81 评论编辑与修订史（PATCH /comments 仅作者 + comment.updated 事件 + comment_revisions 投影 + 「已编辑」徽标/历史抽屉——事件溯源近零成本补齐 Redmine 要插件/GitLab #3706 缺口）/ I82 状态流转白名单（本体概念 transitions 声明缺省全兼容 + change_status 校验与 blocks 闭锁同层全入口一致）+ docs/12 §23 + 冒烟 32 + 审阅（pytest 198/冒烟 32 全绿 + 复演三件套[WIP 徽标/修订历史/白名单 toast+合法链]）；transition 必填字段/评论删除/role 维度矩阵/WIP 硬拦截留 backlog |
 | **M27 排期深化三件套（I83-I85）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Z + docs/10 §M27）：I83 lag 排期联动（M14 传播引擎接入 lag_days——正 lag 间隔/负 lead 重叠，日历日口径[MS Project edays 语义]、时间线「+N 天」注记）/ I84 跨项目里程碑路线图（`GET /portfolio/roadmap` `_visible` 聚合 + 「📅 路线图」页——项目×里程碑时间线+进度+超期，纯投影补 GitLab epic #1105 跨项目缺口）/ I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** done 首达日累计 vs 理想线零新表 + 报表「🔥 燃尽」卡 + 速率注记）+ docs/12 §24 + 冒烟 33；审阅 pytest **205** 全绿 + 审阅即修 3 前端缺陷（附录 B）；工作日历/按人周历/独立速率卡/Cycles 留 backlog |
+| **M28 落地闭环三件套（I86-I88）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §AA + docs/10 §M28）：I86 工时锁定与审批（timesheet submitted/approved/rejected 事件 + approved 冻结期间 409——Redmine 插件 log→submit→lock→approve 语义原生内建，计薪/结算刚需）/ I87 成员负载横切（`GET /portfolio/workload` `_visible` 项目横切按成员聚合——补 OpenProject resource planner 视角缺口）/ I88 打印视图（print CSS + 打印按钮——OpenProject 报表呈现语义、零新依赖「另存 PDF」）+ docs/12 §25 + 冒烟 34 于 I88 + 审阅；按人拖拽周历/服务端报表 PDF/本体事件归档留 backlog |
 | I83 lag 排期联动 | 已完成 | 2026-09-05 | 2026-09-05 | post_relation 对 `depends_on` 关系的**显式非零 lag** 立即重对齐 auto_scheduled 后继：`start = 前置 due + 1 + lag`（lag=2 → +3 天等待；**负 lag = lead 重叠**[lag=-1 → 同日启动，OpenProject 语义]），工期 span 保持、发 `item.rescheduled` 事件（载荷带 lag_days，delta_days=None）并级联 propagate_reschedule；**None/0 不触碰手排日期**（opt-in 向后兼容——既有 depends_on 用法零变化）；后续前继改期走 M14 相对平移、lag 间隔天然保持（两段式设计：绝对对齐只在建关系时）；时间线连线「+N 天」注记（connectors 带 lag，线中点 text 标注 |N|≥1）；顺手修 import_items 重复 require_project 行（历史残留，无害）；test_scheduling +1（lag=2 对齐 start=+7/lag=-1 重叠同日/None 不动/前继 +3 后继们相对平移保间隔/rebuild 重放确定）；排期 6 项绿、build 绿 |
 | I84 跨项目里程碑路线图 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /portfolio/roadmap`：调用方可见项目（复用 reports._visible 同款三层——管理员/成员/local 隐式）全部里程碑按 due_date 排序聚合，**排除归档项目与无里程碑项目**（空态不产行）；每里程碑 overdue=逾期未达成（achieved/done 永不超期）+ progress 复用 milestone_progress（关联项 done 比，cancelled 不计）；**纯投影查询零新表**（GitLab Roadmap 限 group 级、跨项目 epic #1105 多年 open——`_visible` 聚合天然跨项目）；前端「📅 路线图」页（/roadmap，行=项目条=里程碑：进度填充+超期红字+今日虚线+双周刻度、min/max 自适应包裹全部里程碑 ±7 天、空态 Empty）+ Dashboard 组合总览卡「📅 路线图」入口 + AppShell 顶导航全局项（MapIcon）；api.ts portfolioRoadmap + RoadmapData 类型；test_roadmap 3 项（聚合可见项目含进度 0.5 对账/achieved 永不超期/组内 due_date 排序、归档与无里程碑排除、rebuild 存活）；roadmap+reports+milestones 13 项绿、vitest 2 绿、build 绿 |
 | I85 里程碑燃尽 + 冒烟 33 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /milestones/{id}/burndown`——**纯事件重放零新表**：扫 `item.status_changed`（agg_id ∈ 关联项）取各项目**首次进入 done 组**的事件日期（`status_group` 判定），`remaining(d) = total − 首达日 ≤ d 的完成数`；实际线从里程碑创建日画到 `min(today, due)`（过期定格），理想线全程 created→due 线性 total→0，`velocity` = 最近 7 天完成数；cancelled 不入 total 与曲线（与 milestone_progress 同口径）；rebuild 后响应逐字节相等（replay==live 事件溯源红利）。前端报表页「🔥 燃尽」卡（里程碑下拉 → SVG 双折线：实线实际剩余/虚线理想线/竖虚线今天 + 速率注记，日期归一化到 created→due 窗口共尺度）；api.ts getMilestoneBurndown。docs/12 §24（三件套语义指南）。**新增冒烟 33**（①lag 传播链：auto_scheduled 后继建 depends_on lag=2 → start=+7 span 保持、前继 +3 相对平移保间隔；②路线图对账：双项目聚合行/进度 5 项 3 done 与 /projects/{pid}/milestones 同值/achieved 过期不超期；③燃尽重放 vs 手算：total 5 remaining 2 velocity 3、ideal 首尾 5→0、**rebuild 后 bd2 == bd 逐字节相等**）；冒烟基线 **33 条 GREEN**、相关单测 21 项绿、build/vitest 绿 |
@@ -1249,6 +1278,8 @@ agent-project-management/
 | 2026-09-05 | M26 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：digest 三次论证留 backlog、事件归档两次论证导出形态、打印/PDF Enterprise 面价值低——均不查）：①**WIP 限制**——Kanboard 列级 Task Limit 软约束（超限列红警示不阻止、计数=全部 open 项）、Taiga 内建 → AgentPM 本体 board_defaults.wip_limits + 列头徽标超限红（多入口状态变更硬拦截会入口不一致，软约束天然全局一致）；②**评论编辑与审计**——Redmine 编辑史要插件、GitLab 完整评论史是多年 open request #3706 → AgentPM 事件溯源让「同类做不到」近零成本（comment.updated + comment_revisions + 已编辑徽标/历史抽屉）；③**流转约束**——OpenProject role×type 配置矩阵、YouTrack workflow 脚本 → 简化为本体概念级 transitions 白名单（缺省全兼容，role 维度与既有写门禁语义重复不引入）。选定 **M26 = 流程纪律三件套**：I80 WIP 限制 / I81 评论编辑与修订史 / I82 流转白名单 + docs/12 §23 + 冒烟 32 于 I82 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §Y。 |
 
 | 2026-09-05 | M27 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：评论删除 M18 已实现[软删除]、事件归档四次立场、digest 三次、Cycles §L.2 已论证不做——均不查）：①**lag 排期**——MS Project lead/lag（负=重叠正=推迟、edays 日历日 Trick）、OpenProject Relations lag 工作日+15.4 自动排期 → AgentPM I78 已存 lag_days、本轮接入 M14 传播引擎（后继 start=前置 due+1+lag，日历日口径、负 lag=lead）；②**跨项目路线图**——GitLab Roadmap 限 group 级且跨项目是多年 open request（epic #1105）、OpenProject Team Planner Enterprise 独占 → AgentPM `_visible` 投影聚合天然跨项目，`/portfolio/roadmap` 行=项目条=里程碑+进度+超期；③**燃尽**——Jira/Taiga/Plane 均绑 sprint/Cycles → AgentPM 无 Cycles 改绑**里程碑**，事件重放 done 首达日累计出剩余曲线 vs 理想线（纯重放零新表，事件溯源红利）。选定 **M27 = 排期深化三件套**：I83 lag 联动 / I84 跨项目路线图 / I85 里程碑燃尽 + docs/12 §24 + 冒烟 33 于 I85 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §Z。 |
+
+| 2026-09-05 | M28 定义 | 新一轮三路并行调研（防重查：本体事件归档 M8/M10/M11 三次论证留 backlog 不查；候选池六项筛三项）：①**工时审批流**——Redmine 原生无审批、log→submit→lock→approve 靠 Redmineflux/Easy8 插件，Tempo/ProWorkflow 确立「期间审批 + 锁定冻结」模式，Ones 对比文指 Taiga 等原生缺审批门（计薪/结算刚需）→ AgentPM M19 已有 time.* 域，补 `timesheet.submitted/approved/rejected` 事件 + approved 冻结期间 409（Owner 审批，事件流留痕 rebuild 一致）；②**成员负载横切**——OpenProject 17.7 新模块 Resource planner（四视图容量规划）+ Team Planner 负载总览，跨项目成员维度是资源管理核心 → AgentPM 组合总览只有项目维度、我的工作只有个人清单，补 `/portfolio/workload` `_visible` 横切聚合（纯投影零新表，与 roadmap 同构）；③**打印/PDF**——OpenProject 最强（14.1 Gantt PDF/工作包报表带封面目录），Redmine #6280 多 issue PDF 十余年未解，Taiga/Plane 仅数据导出 → print CSS 路线（`@media print` + window.print）零后端零新依赖，浏览器另存 PDF 即得报表；服务端 PDF 留 backlog。选定 **M28 = 落地闭环三件套**：I86 工时锁定审批 / I87 成员负载 / I88 打印视图 + docs/12 §25 + 冒烟 34 于 I88 + 审阅，估时 +9 人日。结论入 docs/01 §AA。 |
 
 | 2026-09-05 | I83 | lag 接入点选「**建关系时绝对对齐 + 改期时相对平移**」两段式而非每次传播都绝对重算——M14 传播是「保持间隔」语义，相对平移天然保持 lag 间隔，绝对公式只需在 lag 引入的那一刻对齐一次；且绝对重算会把手排的中间节点拖来拖去（级联里每个后继的 span 不同）。触发条件选「显式非零」而非「显式传入（含 0）」——lag=0 与不传等价于零行为变化，既有测试与用户习惯零破坏。**复演注意**：关系建立在 auto_scheduled 开启**之前**则不对齐（当时还不是自动项）——测试里先开 flag 再建关系。顺手修 import_items 重复 require_project（历史残留无害，双调用幂等）。 |
 

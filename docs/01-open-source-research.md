@@ -740,3 +740,33 @@ M26 = **流程纪律三件套**：I80 看板 WIP 限制（Kanboard 软约束语�
 **Z.5 M27 取舍**
 
 M27 = **排期深化三件套**：I83 lag 排期联动（lag/lead 接入 M14 传播）/ I84 跨项目里程碑路线图（`/portfolio/roadmap` 补 GitLab #1105 缺口）/ I85 里程碑燃尽（事件重放 + 报表卡）+ docs/12 §24 + 冒烟 33 + M27 审阅，约 9 人日。工作日历、按人周历（team planner 面）、独立速率卡、Cycles 留 backlog。
+
+## AA. M28 前置调研：落地闭环——工时锁定审批 / 成员负载横切 / 打印视图（2026-09-05）
+
+> 目标协议触发：M27 审阅通过后开启。防重查：评论删除（M18 已实现）、事件归档（M8/M10/M11 三次论证留 backlog）、digest（三次）、Cycles（§L.2）——均不查。
+
+**AA.1 工时锁定与审批（Redmine 插件生态 / Tempo 模式）**
+
+- Redmine 原生只有记时无审批；完整的 **log → submit → lock → approve** 流靠插件（[Redmineflux Timesheet](https://www.redmine.org/plugins/redmineflux-timesheet-plugin)、[Easy8 Timesheet](https://www.easy8.com/redmine-timesheet)——「完成后锁定并送经理审批，经理纵览下属工时」）。[ProWorkflow](https://help.proworkflow.com/en/articles/15999078-how-to-use-timesheet-approval) 把语义讲透：**锁定 = 冻结该期间的记时与修改**，未经审批不得再动；[Tempo](https://help.tempo.io/timesheets/latest/understanding-the-project-time-approval-workflow) 按期间审批（period approval）而非逐条。[Ones 对比文](https://ones.com/blog/top-6-open-source-time-tracking-project-management-platforms-compared/)指出 Taiga 等开源工具普遍缺审批门——**计薪/结算场景的刚需**。[OpenProject](https://www.openproject.org/docs/user-guide/time-and-costs/time-tracking/) 原生有「My time tracking」周历但审批/锁定未见开源版（Enterprise 时间锁定）。
+- 对本项目的映射：M19 已有 time.* 事件与 CRUD，缺「期间完整性治理」。事件溯源天然适配：`timesheet.submitted/approved/rejected` 事件 + **approved 即锁定该成员该期间**（409 拒绝再记/改/删，rejected 解冻可改），Owner 审批（复用成员角色），审批留痕走事件流（rebuild 一致）。
+
+**AA.2 成员负载横切（OpenProject Resource planner / Team Planner）**
+
+- [OpenProject 17.7](https://www.openproject.org/blog/resource-management-capacity-planning/) 新增 Resource management 模块：四视图容量规划、「理解负载 + 找到未分配工作」；[Team Planner](https://www.openproject.org/) 是周/双周日历拖拽分配 + **负载总览**。官方定位：[帮助组织计划容量、分配工作、跨团队均衡负载](https://www.openproject.org/docs/use-cases/resource-management/)——跨项目成员维度是资源管理的核心视角。
+- 对本项目的映射：M23 组合总览是**项目维度**（行=项目五桶），M12 我的工作是**个人待办清单**；中间缺「管理者视角的成员横切」。`GET /portfolio/workload`（`_visible` 项目横切按成员聚合：活跃项/超期/近 7 天工时）纯投影零新表，与 roadmap/report 同构；前端「👥 负载」页行=成员。拖拽式 Team Planner 周历（按人重排期）留 backlog——本轮做只读负载视图（信息价值/实现成本比最高）。
+
+**AA.3 打印视图（OpenProject PDF 报表 / Redmine #6280 缺口）**
+
+- [OpenProject 14.1](https://www.openproject.org/blog/openproject-14-1-release/) Gantt 图 PDF 导出（A4/Letter/Tabloid 纸型）+[工作包 PDF 报表](https://www.openproject.org/docs/user-guide/work-packages/exporting/)（封面+目录+描述）——面向「向管理层呈现时间线/月报」；Redmine 的 [多 issue PDF 导出 #6280](https://www.redmine.org/issues/6280) 十余年未实现（仅当前页）；Taiga/Plane 只有数据导出（JSON/CSV）[无打印视图](https://community.taiga.io/t/follow-multiple-projects-at-once-main-dashboard/672)。
+- 对本项目的映射：服务端 PDF 生成（Headless Chrome/报表库）成本高且引新依赖——**print CSS 路线**（`@media print` 隐藏导航/操作件 + 看板/列表/报表打印友好排版 + `window.print()` 按钮）零后端改动，浏览器「另存为 PDF」即得报表；这正对齐「最小可用 + 零新依赖」纪律。服务端报表 PDF 留 backlog。
+
+**AA.4 M28 设计映射与验证纪律（沿用）**
+
+- I86 工时锁定与审批：submit/approve/reject 事件 + approved 锁定期间（409）+ 审批页卡片。
+- I87 成员负载横切：`/portfolio/workload` 投影聚合 + 「👥 负载」页。
+- I88 打印视图：print CSS + 打印按钮（看板/列表/报表）；docs/12 §25 + 冒烟 34 于 I88 + 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M28 审阅。
+
+**AA.5 M28 取舍**
+
+M28 = **落地闭环三件套**：I86 工时锁定与审批（submit→approve 计薪冻结，Redmine 插件语义原生内建）/ I87 成员负载横切（`/portfolio/workload` 补 OpenProject resource 视角缺口）/ I88 打印视图（print CSS 对齐 OpenProject 报表呈现、零新依赖）+ docs/12 §25 + 冒烟 34 + M28 审阅，约 9 人日。按人拖拽周历（team planner 编辑面）、服务端报表 PDF、本体事件归档留 backlog。
