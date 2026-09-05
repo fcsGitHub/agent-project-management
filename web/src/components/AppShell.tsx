@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { connectStream } from "../lib/sse";
+import { isTypingTarget } from "../lib/shortcuts";
 import { Badge, Button, Modal, Input, Textarea, cx } from "./ui";
 import { CommandBar } from "./CommandBar";
+import { ShortcutsOverlay } from "./ShortcutsOverlay";
 import { toast } from "sonner";
 
 const RAIL = [
@@ -58,6 +60,7 @@ export function AppShell() {
 
   const [newFeature, setNewFeature] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
@@ -65,6 +68,12 @@ export function AppShell() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdOpen((v) => !v);
+        return;
+      }
+      // I95: "?" opens the searchable shortcuts overlay (never while typing)
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setHelpOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", h);
@@ -169,6 +178,7 @@ export function AppShell() {
       </div>
 
       <CommandBar open={cmdOpen} onClose={() => setCmdOpen(false)} />
+      {helpOpen && <ShortcutsOverlay onClose={() => setHelpOpen(false)} />}
 
       {/* mobile navigation drawer (I47): rail + features collapse into one slide-over <768px */}
       {navOpen && (

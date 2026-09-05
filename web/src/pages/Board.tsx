@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
+import { isTypingTarget } from "../lib/shortcuts";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
@@ -132,6 +133,44 @@ export function Board() {
   const [importOpen, setImportOpen] = useState(false);
   const [importCsv, setImportCsv] = useState("");
   const [importResult, setImportResult] = useState<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string }[] } | null>(null);
+  // I95: keyboard-first board — j/k moves the card cursor, Enter opens its
+  // comments, C opens quick create. The cursor is an index into `listed`.
+  const [kbIndex, setKbIndex] = useState(-1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const anyModalOpen = !!commentsFor || !!timelogFor || !!quickEditFor || createOpen || viewsOpen || !!scopeDesc || importOpen;
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      const key = e.key.toLowerCase();
+      if (key === "j" || key === "k") {
+        const n = listed.length;
+        if (!n) return;
+        e.preventDefault();
+        setKbIndex((i) => (i < 0 ? 0 : Math.max(0, Math.min(n - 1, key === "j" ? i + 1 : i - 1))));
+      } else if (e.key === "Enter") {
+        if (anyModalOpen || kbIndex < 0 || kbIndex >= listed.length) return;
+        e.preventDefault();
+        setCommentsFor(listed[kbIndex]);
+      } else if (key === "c") {
+        if (anyModalOpen || !pid) return;
+        e.preventDefault();
+        setCreateOpen(true);
+      } else if (e.key === "Escape") {
+        setKbIndex(-1);
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [listed, kbIndex, anyModalOpen, pid]);
+
+  // Keep the focused card visible when the j/k cursor moves
+  useEffect(() => {
+    const id = kbIndex >= 0 ? listed[kbIndex]?.id : undefined;
+    if (!id) return;
+    document.querySelector(`[data-kb="${id}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [kbIndex, listed]);
 
   const scopedListed = useMemo(() => {
     if (!scopeDesc) return listed;
@@ -546,10 +585,12 @@ export function Board() {
                   return (
                     <Card
                       key={item.id}
+                      data-kb={item.id}
                       onClick={() => toggle(item.id)}
                       className={cx(
                         "cursor-pointer p-2.5 text-xs transition-all",
                         selected.has(item.id) && "ring-2 ring-acc",
+                        listed[kbIndex]?.id === item.id && "ring-2 ring-amber-400",
                       )}
                     >
                       <div className="flex items-start gap-1.5">
@@ -638,6 +679,11 @@ export function Board() {
           onClose={() => setQuickEditFor(null)}
           onSaved={() => { setQuickEditFor(null); qc.invalidateQueries(); }} />
       )}
+      {createOpen && pid && (
+        <CreateTaskModal pid={pid}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { setCreateOpen(false); qc.invalidateQueries(); }} />
+      )}
       {importOpen && (
         <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
           <div className="space-y-3 text-xs">
@@ -691,6 +737,56 @@ export function Board() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** I95: C-key quick create (docs/01 §AD.1). Board-context sibling of the
+ *  SchedulePage range create — concept defaults to task, auto-assigns you. */
+function CreateTaskModal({ pid, onClose, onCreated }: {
+  pid: string; onClose: () => void; onCreated: () => void;
+}) {
+  const [conceptId, setConceptId] = useState("");
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const onto = useQuery({ queryKey: ["ontology", pid], queryFn: () => api.getOntology(pid, true) });
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const concepts = (onto.data?.concepts ?? []).filter((c) => c.id !== "milestone");
+  const concept = concepts.find((c) => c.id === conceptId) ?? concepts.find((c) => c.id === "task") ?? concepts[0];
+
+  const submit = async () => {
+    if (!concept || !title.trim()) { toast.error("填写任务标题"); return; }
+    setBusy(true);
+    try {
+      await api.createItem(pid, {
+        concept_id: concept.id, title: title.trim(),
+        assignee_type: "human", assignee_id: users.data?.current,
+      });
+      toast.success(`已创建并指派给你：${title.trim()}`);
+      onCreated();
+    } catch (e) {
+      toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title="🆕 新任务">
+      <div className="space-y-2 text-xs">
+        <select value={concept?.id ?? ""} onChange={(e) => setConceptId(e.target.value)}
+          className="w-full rounded-lg border border-line bg-bg px-2 py-1.5">
+          {concepts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="任务标题"
+          className="w-full rounded-lg border border-line bg-bg px-2 py-1.5" />
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[10px] text-mut">创建后自动指派给你 · Esc 关闭</span>
+          <Button size="sm" variant="primary" disabled={busy || !title.trim()} onClick={submit}>创建</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
