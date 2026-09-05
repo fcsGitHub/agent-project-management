@@ -55,6 +55,16 @@ concepts:
       - {id: fixed, name: 已修复, group: in_progress}
       - {id: verified, name: 已验证, group: done}
       - {id: wont_fix, name: 不予修复, group: cancelled}
+    # M26-I82: a bug must be fixed (and normally verified) before closing —
+    # no direct open→verified skip. Undeclared pairs stay illegal (whitelist).
+    transitions:
+      - {from: open, to: fixing}
+      - {from: open, to: wont_fix}
+      - {from: fixing, to: fixed}
+      - {from: fixing, to: open}
+      - {from: fixed, to: verified}
+      - {from: fixed, to: fixing}
+      - {from: fixed, to: wont_fix}
     fields:
       - {id: severity, name: 严重度, type: enum, values: [P0, P1, P2, P3]}
       - {id: regression, name: 回归风险, type: boolean}

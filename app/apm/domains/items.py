@@ -199,6 +199,9 @@ def change_status(item: dict, new_status: str, actor_type="human", actor_id: str
     onto = project_ontology(item["project_id"])
     try:
         group = onto.validate_item_status(item["concept_id"], new_status)
+        # M26-I82: optional concept-level transition whitelist (OpenProject
+        # status-flow semantics, declared in the ontology; undeclared = open).
+        onto.validate_transition(item["concept_id"], item["status"], new_status)
     except OntologyError as e:
         raise HTTPException(status_code=422, detail=str(e))
     # Blocked closure (M25-I78, Redmine blocked-by semantics): completing an item

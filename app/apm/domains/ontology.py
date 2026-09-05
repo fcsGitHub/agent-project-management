@@ -55,6 +55,9 @@ class Concept:
         self.fields: list[dict[str, Any]] = raw.get("fields", [])
         self.artifact_kinds: list[dict[str, Any]] = raw.get("artifact_kinds", [])
         self.agent_roles: list[str] = raw.get("agent_roles", [])
+        # M26-I82: optional allowed-transition whitelist ({from, to} pairs).
+        # Absent/empty means every transition is legal (backward compatible).
+        self.transitions: list[dict[str, Any]] = raw.get("transitions", [])
 
     def state_group(self, status: str) -> str | None:
         for s in self.states:
@@ -72,6 +75,7 @@ class Concept:
             "icon": self.icon,
             "default_phase": self.default_phase,
             "states": self.states,
+            "transitions": self.transitions,
             "fields": self.fields,
             "artifact_kinds": self.artifact_kinds,
             "agent_roles": self.agent_roles,
@@ -132,6 +136,22 @@ class Ontology:
                 f"status '{status}' not in concept '{concept_id}' lifecycle {valid}"
             )
         return group
+
+    def validate_transition(self, concept_id: str, from_status: str, to_status: str) -> None:
+        """M26-I82: enforce the concept's optional transition whitelist —
+        an undeclared/empty list keeps every transition legal (backward
+        compatible); a declared one is fail-closed (OpenProject status-flow
+        matrix, simplified to concept level)."""
+        c = self.concept(concept_id)
+        if not c.transitions:
+            return
+        allowed = {(t.get("from"), t.get("to")) for t in c.transitions}
+        if (from_status, to_status) not in allowed:
+            legal = [f"{f}→{t}" for f, t in sorted(allowed)]
+            raise OntologyError(
+                f"transition '{from_status}'→'{to_status}' not allowed for concept "
+                f"'{concept_id}' (declared: {legal})"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {

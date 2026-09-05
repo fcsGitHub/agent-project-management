@@ -99,6 +99,9 @@ def test_overdue_and_stale_caliber(client, tmp_data, isolated_ontologies, projec
     assert titles["过期"].startswith("超期")
 
     # done items never appear in overdue even when aged
+    # (I82 bug whitelist: open→fixing→fixed→verified, no direct skip)
+    assert client.patch(f"/api/items/{fresh['id']}", json={"status": "fixing"}).status_code == 200
+    assert client.patch(f"/api/items/{fresh['id']}", json={"status": "fixed"}).status_code == 200
     assert client.patch(f"/api/items/{fresh['id']}", json={"status": "verified"}).status_code == 200
     _age_created_at(fresh["id"], days=30)
     rep2 = client.get(f"/api/projects/{pid}/report").json()
