@@ -167,9 +167,12 @@ export function Board() {
 
   // M25-I79: list view renders progressively ("load more") so the visible tree
   // stays small on big projects; the data itself is already project-scoped.
-  // Reset whenever the filtered set changes (search/scope), not on collapse.
+  // Reset when the filtered set's *content* changes (search/scope/new items) —
+  // keyed by id signature, not array identity, so a refetch that returns the
+  // same rows (focus/polling) never collapses the expanded list.
   const [visibleCount, setVisibleCount] = useState(LIST_PAGE);
-  useEffect(() => { setVisibleCount(LIST_PAGE); }, [scopedListed]);
+  const listSignature = useMemo(() => scopedListed.map((i) => i.id).join(","), [scopedListed]);
+  useEffect(() => { setVisibleCount(LIST_PAGE); }, [listSignature]);
   const pagedRows = useMemo(() => listRows.slice(0, visibleCount), [listRows, visibleCount]);
 
   const addSubtask = async (parent: { id: string; concept_id: string; project_id: string }) => {
