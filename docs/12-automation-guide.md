@@ -469,3 +469,24 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 
 - **API**：`GET /api/projects/{id}/items?limit=&offset=`——**缺省全量**（兼容既有调用），显式 `limit` 才切片（钳 1-200），`offset` ≥ 0；响应新增 `total`（过滤后全量计数，分页与否都有），驱动「加载更多」。keyset 分页留 backlog（SQLite 单机规模 offset 足够）。
 - **前端**：看板列表视图按 LIST_PAGE=20 渐进渲染，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化时重置回第一页；全选范围=当前已显示行。
+
+## 23. 流程纪律三件套（M26-I80/I81/I82）
+
+### 23.1 看板 WIP 限制（I80）
+
+- **声明**：本体 `board_defaults.wip_limits`（status_group → 上限，如 `wip_limits: {in_progress: 5}`）；generic/software-dev 已内建示例。
+- **口径**：board resp 的 `wip` 计数是**全项目口径**——不看板过滤后的桶计数（Kanboard Changelog「计所有 open 任务而非过滤后」修复语义），feature/执行者过滤不影响警示数字。
+- **语义**：**软约束**（Kanboard）——超限列头显示「n/limit ⚠」红字 + title 提示，**不阻止**任何入口的状态变更（拖拽/批量/NL/Agent 一致）；无声明的本体不出现 wip 字段（向后兼容）。
+
+### 23.2 评论编辑与修订史（I81）
+
+- **编辑**：作者本人 `PATCH /api/comments/{id}`（403 非作者——严于删除的 admin 兜底：旧文进修订表可审计，admin 代改反而模糊归责）；空白 422。
+- **修订**：每次编辑把**编辑前旧文**存入 `comment_revisions`（行 id = `cr_{事件id}` 确定性导出，rebuild 后逐一相同）；`GET /api/comments/{id}/revisions` 倒序（最新在前）。
+- **降噪**：编辑引入的新 @提及把对方**加入参与图但不发通知**（通知只在 comment.created 发；Redmine 编辑同样不重发）。
+- **前端**：「✎ 已编辑」徽标点开行内修订历史；作者悬停行内「✎」就地编辑。
+
+### 23.3 状态流转白名单（I82）
+
+- **声明**：本体概念可选 `transitions: [{from, to}]` 白名单（software-dev 的 bug 已声明：open→fixing→fixed→verified 主链 + 回退/不予修复旁路）；**不声明 = 全部流转合法**（存量本体零破坏）。
+- **校验**：change_status 内置（与 M25-I78 blocks 闭锁同层）——声明后 from→to 不在白名单 422 `transition 'x'→'y' not allowed`；PATCH/批量/NL 命令/Agent 工具/自动化 set_status 全入口一致；rebuild 后约束原样生效。
+- **组合**：与 blocks 闭锁叠加时两个守卫都检查（先流转白名单后闭锁，均 422 但 detail 可区分）。
