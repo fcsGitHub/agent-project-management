@@ -418,6 +418,14 @@ CREATE TABLE IF NOT EXISTS intake_tokens (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_intake_tokens_project ON intake_tokens(project_id);
+
+-- I104: global non-working days (projection of calendar.holiday_* events —
+-- in drop_projections so rebuild reproduces them; date itself is the agg id).
+CREATE TABLE IF NOT EXISTS non_working_days (
+  date TEXT PRIMARY KEY,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
 """
 
 FTS_DDL = """
@@ -449,6 +457,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "item_time_entries",
         "timesheets",
         "intake_tokens",
+        "non_working_days",
         "extracted_tasks",
         "baselines",
         "project_members",

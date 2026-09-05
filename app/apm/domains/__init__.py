@@ -4,6 +4,7 @@ from apm.domains import (  # noqa: F401
     assets,
     automations,
     baselines,
+    calendar,
     comments,
     conversations,
     events_api,

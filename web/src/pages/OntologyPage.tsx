@@ -198,6 +198,8 @@ export function OntologyPage() {
 
       <IntakePanel pid={pid!} />
 
+      <CalendarPanel />
+
       <OidcPanel />
 
       <AutomationsPanel pid={pid!} concepts={o.concepts} />
@@ -471,6 +473,79 @@ function IntakePanel({ pid }: { pid: string }) {
       )}
       <div className="mt-1 text-[10px] text-mut">
         任何人用此链接无需账号即可提交工作项（标题必填、优先级可选），提交按「intake」身份归账；吊销或重发后旧链接立即失效。
+      </div>
+    </Card>
+  );
+}
+
+/** I104: working calendar (OpenProject 12.3 semantics) — admin maintains
+ *  global non-working days; auto-scheduled items skip them on landing. */
+function CalendarPanel() {
+  const qc = useQueryClient();
+  const days = useQuery({ queryKey: ["holidays"], queryFn: api.listHolidays });
+  const [day, setDay] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["holidays"] });
+
+  const add = async () => {
+    if (!day) return;
+    setBusy(true);
+    try {
+      await api.addHoliday(day, note);
+      toast.success(`已加入非工作日：${day}`);
+      setDay(""); setNote("");
+      await invalidate();
+    } catch (e) {
+      toast.error(`添加失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (d: string) => {
+    setBusy(true);
+    try {
+      await api.removeHoliday(d);
+      toast.info(`已移除非工作日：${d}`);
+      await invalidate();
+    } catch (e) {
+      toast.error(`移除失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const list = days.data?.holidays ?? [];
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">📅 工作日历</span>
+        <span className="text-xs text-mut">非工作日 · 自动排期落点顺延 · 手排期不受影响</span>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)}
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注（如：国庆节）"
+          className="w-40 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <Button size="sm" variant="outline" disabled={busy || !day} onClick={add}>加入非工作日</Button>
+      </div>
+      {list.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {list.map((h) => (
+            <span key={h.date}
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-bg px-2 py-0.5 text-[10px] text-ink">
+              {h.date}{h.note ? ` · ${h.note}` : ""}
+              <button disabled={busy} onClick={() => remove(h.date)}
+                className="text-mut hover:text-dan" title="移除">✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-1 text-[10px] text-mut">
+        仅管理员可维护；auto_scheduled 任务的 start/due 落在周末或非工作日时顺延至下一个工作日，手动排期的任务完全不受影响。
       </div>
     </Card>
   );

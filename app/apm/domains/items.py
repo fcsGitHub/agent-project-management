@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
+from apm.domains.calendar import advance_to_workday
 from apm.domains.ontology import KERNEL_RELATIONS, OntologyError, load_ontology
 from apm.domains.projects import disabled_fields
 
@@ -552,6 +553,16 @@ def propagate_reschedule(project_id: str, predecessor_id: str, old_due: str | No
         new_due = _shift_iso(dep["due_date"], delta)
         if new_due is None:
             continue  # undated dependent has nothing to shift
+        # M34-I104 (docs/01 §AG.1, OpenProject 12.3): auto-scheduled landing
+        # dates skip non-working days; span may shrink by the skipped days —
+        # the working-time span is what the shift preserves. Manual items
+        # never reach this branch.
+        start_d = advance_to_workday(date.fromisoformat(new_start)) if new_start else None
+        due_d = advance_to_workday(date.fromisoformat(new_due))
+        if start_d and start_d > due_d:
+            due_d = start_d
+        new_start = start_d.isoformat() if start_d else None
+        new_due = due_d.isoformat()
         events.emit(
             event_type="item.rescheduled",
             agg_type="item",
@@ -917,8 +928,13 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
             base = date.fromisoformat(target["due_date"]) + timedelta(days=1 + body.lag_days)
             span = (date.fromisoformat(succ["due_date"]) - date.fromisoformat(succ["start_date"])).days \
                 if succ["start_date"] else None
-            new_start = base.isoformat()
-            new_due = (base + timedelta(days=span)).isoformat() if span is not None else base.isoformat()
+            # M34-I104: landing dates skip non-working days (docs/01 §AG.1).
+            start_d = advance_to_workday(base)
+            due_d = advance_to_workday(base + timedelta(days=span)) if span is not None else start_d
+            if start_d > due_d:
+                due_d = start_d
+            new_start = start_d.isoformat()
+            new_due = due_d.isoformat()
             events.emit(
                 event_type="item.rescheduled",
                 agg_type="item",

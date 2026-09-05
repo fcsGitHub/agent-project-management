@@ -28,7 +28,13 @@ def project(client, tmp_data, isolated_ontologies):
 
 
 def _day(offset: int) -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=offset)).date().isoformat()
+    # M34-I104: auto-scheduled landings skip non-working days, so fixture
+    # dates anchor to a Monday grid — every offset's weekday stays deterministic
+    # and propagation landings stay on workdays unless a test says otherwise.
+    base = (datetime.now(timezone.utc) + timedelta(days=7)).date()
+    while base.weekday() != 0:
+        base -= timedelta(days=1)
+    return (base + timedelta(days=offset)).isoformat()
 
 
 def _mkitem(client, pid: str, title: str, **fields):
@@ -47,23 +53,23 @@ def _depend_on(client, dep_id: str, on_id: str, lag_days: int | None = None) -> 
 
 def test_single_level_propagation(client, tmp_data, isolated_ontologies, project):
     pid = project["id"]
-    a = _mkitem(client, pid, "前置", start_date=_day(0), due_date=_day(5))
-    b = _mkitem(client, pid, "后继", start_date=_day(3), due_date=_day(8))
+    a = _mkitem(client, pid, "前置", start_date=_day(0), due_date=_day(4))
+    b = _mkitem(client, pid, "后继", start_date=_day(3), due_date=_day(7))
     _depend_on(client, b["id"], a["id"])
     assert client.patch(f"/api/items/{b['id']}", json={"auto_scheduled": True}).status_code == 200
 
-    new_due = _day(10)  # +5 days
+    new_due = _day(8)  # +4 days
     assert client.patch(f"/api/items/{a['id']}", json={"due_date": new_due}).status_code == 200
 
     b2 = client.get(f"/api/items/{b['id']}").json()
-    assert b2["due_date"] == _day(13)          # shifted +5
-    assert b2["start_date"] == _day(8)         # duration preserved
+    assert b2["due_date"] == _day(11)          # shifted +4, lands on a workday
+    assert b2["start_date"] == _day(7)         # duration preserved
     a2 = client.get(f"/api/items/{a['id']}").json()
     assert a2["due_date"] == new_due and a2["start_date"] == _day(0)  # predecessor untouched
 
     evs = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
     assert len(evs) == 1
-    assert evs[0]["payload"]["follow_of"] == a["id"] and evs[0]["payload"]["delta_days"] == 5
+    assert evs[0]["payload"]["follow_of"] == a["id"] and evs[0]["payload"]["delta_days"] == 4
     assert evs[0]["agg_id"] == b["id"]
 
 
@@ -81,16 +87,16 @@ def test_manual_mode_not_shifted(client, tmp_data, isolated_ontologies, project)
 
 def test_multilevel_recursion_cycle_safe(client, tmp_data, isolated_ontologies, project):
     pid = project["id"]
-    a = _mkitem(client, pid, "A", start_date=_day(0), due_date=_day(5))
-    b = _mkitem(client, pid, "B", start_date=_day(5), due_date=_day(10))
-    c = _mkitem(client, pid, "C", start_date=_day(10), due_date=_day(15))
+    a = _mkitem(client, pid, "A", start_date=_day(0), due_date=_day(4))
+    b = _mkitem(client, pid, "B", start_date=_day(4), due_date=_day(8))
+    c = _mkitem(client, pid, "C", start_date=_day(8), due_date=_day(12))
     for dep, on in ((b, a), (c, b)):
         _depend_on(client, dep["id"], on["id"])
         assert client.patch(f"/api/items/{dep['id']}", json={"auto_scheduled": True}).status_code == 200
 
-    assert client.patch(f"/api/items/{a['id']}", json={"due_date": _day(9)}).status_code == 200  # +4
-    assert client.get(f"/api/items/{b['id']}").json()["due_date"] == _day(14)
-    assert client.get(f"/api/items/{c['id']}").json()["due_date"] == _day(19)
+    assert client.patch(f"/api/items/{a['id']}", json={"due_date": _day(7)}).status_code == 200  # +3
+    assert client.get(f"/api/items/{b['id']}").json()["due_date"] == _day(11)
+    assert client.get(f"/api/items/{c['id']}").json()["due_date"] == _day(15)
 
     # cycle: X↔Y both auto — must terminate, each shifted exactly once
     x = _mkitem(client, pid, "X", start_date=_day(0), due_date=_day(4))
@@ -139,8 +145,9 @@ def test_drag_move_semantics_and_audit(client, tmp_data, isolated_ontologies, pr
     assert a2["start_date"] == new_start and a2["due_date"] == new_due
 
     # the auto dependent shifted +3 with duration preserved and explicit audit
+    # (raw start lands on Saturday → skipped forward to Monday, M34-I104)
     b2 = client.get(f"/api/items/{b['id']}").json()
-    assert b2["start_date"] == _day(5) and b2["due_date"] == _day(9)
+    assert b2["start_date"] == _day(7) and b2["due_date"] == _day(9)
     evs = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
     assert len(evs) == 1 and evs[0]["agg_id"] == b["id"]
     assert evs[0]["payload"]["delta_days"] == 3

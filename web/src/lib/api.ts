@@ -588,6 +588,13 @@ export const api = {
     req<{ ok: boolean }>(`/projects/${pid}/intake-token`, { method: "DELETE" }),
   submitIntake: (token: string, body: { title: string; priority?: string }) =>
     req<{ ok: boolean; item_id: string; title: string }>(`/intake/${token}`, { method: "POST", body: JSON.stringify(body) }),
+  // I104: working calendar — global non-working days, auto-schedule skips them
+  listHolidays: () =>
+    req<{ holidays: { date: string; note: string | null; created_at: string }[] }>("/calendar/holidays"),
+  addHoliday: (date: string, note?: string) =>
+    req<{ date: string; note: string | null }>("/calendar/holidays", { method: "POST", body: JSON.stringify({ date, note: note || null }) }),
+  removeHoliday: (date: string) =>
+    req<{ removed: string }>(`/calendar/holidays/${date}`, { method: "DELETE" }),
   // I101: CPM critical chain (backward pass, float<=0 items in chain order)
   getCriticalPath: (pid: string) =>
     req<{ project_id: string; cycle: boolean; chain: string[]; float: Record<string, number> }>(
