@@ -490,3 +490,26 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **声明**：本体概念可选 `transitions: [{from, to}]` 白名单（software-dev 的 bug 已声明：open→fixing→fixed→verified 主链 + 回退/不予修复旁路）；**不声明 = 全部流转合法**（存量本体零破坏）。
 - **校验**：change_status 内置（与 M25-I78 blocks 闭锁同层）——声明后 from→to 不在白名单 422 `transition 'x'→'y' not allowed`；PATCH/批量/NL 命令/Agent 工具/自动化 set_status 全入口一致；rebuild 后约束原样生效。
 - **组合**：与 blocks 闭锁叠加时两个守卫都检查（先流转白名单后闭锁，均 422 但 detail 可区分）。
+
+## 24. 排期深化三件套（M27-I83/I84/I85）
+
+### 24.1 lag 排期联动（I83）
+
+- **语义**：`POST /relations`（depends_on）带**显式非零** `lag_days` 时立即绝对对齐 auto_scheduled 后继：`start = 前置 due + 1 + lag`——lag=2 → +3 天等待；**负 lag = lead 重叠**（lag=-1 → 同日启动，MS Project/OpenProject 语义）；工期 span 保持并级联传播。
+- **两段式**：绝对对齐只发生在建关系那一刻；后续前继改期走 M14 相对平移，lag 间隔**天然保持**（不做绝对重算——避免把手排中间节点拖来拖去）。
+- **兼容**：None/0 不触碰手排日期（opt-in——既有 depends_on 用法零变化）。注意：关系建立在 auto_scheduled 开启**之前**则不对齐（当时还不是自动项）。
+- **可视化**：时间线连线中点「+N 天」注记（|N|≥1 时）。
+
+### 24.2 跨项目里程碑路线图（I84）
+
+- **端点**：`GET /api/portfolio/roadmap`——调用方可见项目（复用 feed._visible 三层，与组合总览同口径）的全部里程碑按 due_date 排序；**归档项目与无里程碑项目不产行**。
+- **字段**：overdue = `due_date < today 且未达成`（achieved/done 永不超期）；progress 复用 milestone_progress（关联项 done 比，cancelled 不计）——与里程碑卡同一口径。
+- **前端**：`#/roadmap`（行=项目、条=里程碑：进度填充+超期红+今日线+双周刻度，窗口自适应包裹全部里程碑 ±7 天）；入口 = Dashboard 组合总览卡「📅 路线图」+ 顶导航。
+
+### 24.3 里程碑燃尽（I85）
+
+- **端点**：`GET /api/milestones/{id}/burndown`——**纯事件重放零新表**：扫 `item.status_changed`（agg_id ∈ 关联项）取各项目**首次进入 done 组**的事件日期，`remaining(d) = total − 首达日 ≤ d 的完成数`。
+- **窗口与曲线**：实际线从里程碑创建日画到 `min(today, due)`（过期定格）；理想线全程 created→due 线性 total→0；`velocity` = 最近 7 天完成数。
+- **口径**：cancelled 项不入 total 与曲线（与 milestone_progress 一致）；同日窗口（建里程碑当天就有完成）series 只有一个点、值为当日末剩余。
+- **一致性**：曲线完全由事件流导出——rebuild 后响应逐字节相同（测试断言 `bd2 == bd`）；replay==live 是事件溯源红利。
+- **前端**：报表页「🔥 燃尽」卡（里程碑下拉 → SVG 双折线：实线实际剩余/虚线理想线/竖虚线今天 + 速率注记）。
