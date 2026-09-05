@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M31 进行中：I95/I96 已完成，下一步 I97 响应性指标）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M31 三迭代完成，下一步 M31 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -44,8 +44,8 @@
 - **M28 落地闭环三件套（I86-I88，审阅通过 5e8be63，审阅即修 6fd42de）**：I86 工时锁定与审批 ✅（timesheet 域：submit 按期间聚合[空 422/重复 409/重叠已批 409/驳回复用同 id 重提交 OR REPLACE]、approve/reject 仅 Owner·admin、**approved 后 timelog 三写路径 409 锁定**——计薪事实整条冻结含备注；MyTimePage 🧾 审批面板；test_timesheet 3 项）、I87 成员负载横切 ✅（`GET /portfolio/workload` _visible 项目循环内按 assignee 聚合活跃/超期/项目分布 + 7 天工时**按项目隔离聚合防不可见项目泄漏** + 「👥 负载」页/Dashboard 入口/顶导航；test_workload 2 项）、I88 打印视图 ✅（`@media print` 隐藏 no-print/nav/aside + Card 统一挂 print-card[去阴影细边框 break-inside avoid] + PrintButton 接入看板/报表/Dashboard——window.print 另存 PDF 零服务端零新依赖）+ docs/12 §25 + **冒烟 34**（审批冻结矩阵/负载对账/rebuild 一致），约 9 人日。
 - **M29 效率与可观测三件套（I89-I91，审阅通过 5fd751c）**：I89 个人排期月历 ✅（`GET /my/schedule` own-data 口径全可见未归档项目有日期项；「📅 我的日程」页 /my/schedule：月网格 + 跨度逐日 chip + HTML5 DnD 拖卡片改期[span 保持 delta 平移→单 PATCH 复用 M14 审计] + 拖选空白格范围建任务[自动指派自己]；test_schedule 2 项）、I90 看板卡片快捷编辑 ✅（卡片/列表行「⚡」→ QuickEditModal 直改状态/优先级/执行者/截止日——**仅提交变化键走既有 patchItem**，白名单/闭锁/WIP/审计零成本继承，agent: 前缀保持 agent 指派）、I91 运行聚合报表 ✅（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数——**tokens 直接 SUM 既有列如实报零**；RunsPage「📊 运行报表」卡对账；test_runs_report 2 项）+ docs/12 §26 + **冒烟 35**（月历对账/快捷编辑守卫继承/报表对账/rebuild 一致），约 9 人日。
 - **M30 治理洞察三件套（I92-I94，审阅通过 11cc1b2，审阅即修 60a043c）**：I92 项目健康评分 ✅（`_health_factors`+`_health_score` 四因子加权[超期率 40/滞留率 20/吞吐动量 30 min 封顶/Gate 挂起 10，加法式各因子健康贡献满权重，无活跃 None]；`GET /portfolio/health` _visible 同口径评分升序；Dashboard 组合卡 ♥ 评分徽标绿/黄/红；test_health_score 3 项[公式级+集成手算 60/70+rebuild]）、I93 健康趋势 ✅（`GET /projects/{id}/health/history` 事件重放 item/approval 五类事件、每 5 天周界采样[末点=今天与 I92 同真相]、stale 用 last_touch 近似；报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项[尾点 70→超期 60 手算/rebuild 序列相等]——事件溯源红利第三例）、I94 评论引用回复 ✅（CommentsModal「❝」→「@作者 引用：」独立行 + 原文逐行 blockquote 预填聚焦，存储纯文本不变、渲染免费，零后端；**审阅即修 60a043c**：原「@作者 > 原文」同行内联 `>` 非引用语法不渲染 blockquote）+ docs/12 §27 + **冒烟 36**（评分手算/趋势末点对齐/引用 roundtrip/rebuild 一致），约 9 人日。
-- **当前验证基线：pytest 222（M30 审阅 HEAD 实跑全绿）；冒烟 36 GREEN；vitest 2/build 绿。**
-- **M31 响应力三件套（docs/01 §AD + docs/10 §M31；定义 7ce3327，I95/I96 已完成，I97+审阅进行中）**：I95 键盘优先操作面 ✅（`f10e863`+docs `8c0b90f`：lib/shortcuts.ts 单一真源注册表[SHORTCUTS 七条+isTypingTarget] + ShortcutsOverlay 可搜索 `?` 浮层 + 看板 j/k 游标[琥珀环/scrollIntoView/anyModalOpen 让路] + Enter 开评论 + `C` 快捷新建[自动指派自己]；纯前端零后端；vitest 6 项绿）、I96 通知偏好按事件类型细分 ✅（`f113aea`+docs `bcb1300`：notification_prefs 运行态表[不进 drop 清单、缺行=全开] + pref_allows 单一闸门[mention 恒真]双通道收口[站内 _notify/邮件 mailer.enqueue] + GET/PUT /me/notification-prefs 五类矩阵 + 铃面板矩阵 UI；test_notification_prefs 6 项——rebuild 按当前偏好重算=投递收口语义）、I97 响应性指标（`GET /projects/{id}/responsiveness` 审批响应[requested→granted/rejected 配对]/评论首响应[created→下一非作者响应]聚合 + 报表「⏱ 响应力」卡——CHAOSS Time to First Response，事件溯源红利第四例）+ docs/12 §28 + 冒烟 37 于 I97 + 审阅。
+- **当前验证基线：pytest 232（222 + I96 新增 6 + I97 新增 4，预估审阅实跑数）；冒烟 37 GREEN；vitest 6/build 绿。**
+- **M31 响应力三件套（docs/01 §AD + docs/10 §M31；定义 7ce3327，I95/I96/I97 已完成，待正式审阅）**：I95 键盘优先操作面 ✅（`f10e863`+docs `8c0b90f`：lib/shortcuts.ts 单一真源注册表[SHORTCUTS 七条+isTypingTarget] + ShortcutsOverlay 可搜索 `?` 浮层 + 看板 j/k 游标[琥珀环/scrollIntoView/anyModalOpen 让路] + Enter 开评论 + `C` 快捷新建[自动指派自己]；纯前端零后端；vitest 6 项绿）、I96 通知偏好按事件类型细分 ✅（`f113aea`+docs `bcb1300`：notification_prefs 运行态表[不进 drop 清单、缺行=全开] + pref_allows 单一闸门[mention 恒真]双通道收口[站内 _notify/邮件 mailer.enqueue] + GET/PUT /me/notification-prefs 五类矩阵 + 铃面板矩阵 UI；test_notification_prefs 6 项——rebuild 按当前偏好重算=投递收口语义）、I97 响应性指标 ✅（`0d37512`+docs `156d88f`：`GET /projects/{id}/responsiveness` 审批响应[投影直读 requested→decided]/评论首响应[事件重放、排作者自评] + 报表「⏱ 响应力」卡诚实空态——CHAOSS Time to First Response）+ docs/12 §28 + **冒烟 37**（审批配对/首响应/偏好闸门 roundtrip/rebuild 一致）+ 审阅。
 
 ## 3. 现在卡在哪
 
@@ -57,8 +57,8 @@
 2. ~~M31 调研定义~~ ✅ **已完成**（`7ce3327`，docs/01 §AD + docs/10 §M31）：防重查（候选池六项 grep：引用快捷键/通知细分/多基线趋势/CHAOSS 全维度无记录可查，依赖图独立视图维持不查、工时审批代理 I86 刚做不查）→ 三路调研（Linear+GitHub+Dynatrace 键盘优先 / GitLab Custom+GitHub Custom watch / CHAOSS Responsiveness）→ 选定**响应力三件套** I95-I97。
 3. ~~M31-I95 键盘优先操作面~~ ✅ **已完成**（`f10e863`+docs `8c0b90f`）：lib/shortcuts.ts 单一真源（SHORTCUTS 七条 + isTypingTarget）+ ShortcutsOverlay `?` 浮层 + 看板 j/k 游标/Enter 评论/`C` 新建（CreateTaskModal 自动指派自己）；纯前端；vitest 6 项绿 + build 绿。
 4. ~~M31-I96 通知偏好按事件类型细分~~ ✅ **已完成**（`f113aea`+docs `bcb1300`）：notification_prefs 运行态表 + pref_allows 闸门（mention 恒真）站内/邮件双通道收口 + 五类矩阵 API/UI；test_notification_prefs 6 项绿 + 通知/邮件回归零破坏。
-5. **M31-I97 响应性指标 + 收尾（下一步）**：`GET /projects/{id}/responsiveness`（approval.requested→granted/rejected 逐对配对审批响应 + comment.created→下一非作者 comment/状态变更首响应；均值/中位/超 48h 占比；诚实空态）+ 报表「⏱ 响应力」卡 + docs/12 §28 + **冒烟 37 GREEN（基线 37）**；三段式提交。
-6. **M31 正式审阅**：HEAD 重跑全量（pytest 228 / 冒烟 37 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（`?` 浮层与 j/k 导航 / 偏好开关后铃不响 mention 仍响 / 响应力卡与事件对账）+ 附录 B +「M31 正式审阅通过」提交。
+5. ~~M31-I97 响应性指标 + 收尾~~ ✅ **已完成**（`0d37512`+docs `156d88f`）：`GET /projects/{id}/responsiveness`（审批投影直读/首响应事件重放排作者/诚实空态）+ 报表「⏱ 响应力」卡 + docs/12 §28 + **冒烟 37 GREEN（基线 37）**。
+6. **M31 正式审阅（下一步）**：HEAD 重跑全量（pytest 232 预估 / 冒烟 37 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（`?` 浮层与 j/k 导航+C 新建 / 偏好开关后铃不响 mention 仍响 / 响应力卡与事件对账）+ 附录 B +「M31 正式审阅通过」提交。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）。
 
 ## 5. 有哪些坑不要再踩
@@ -101,8 +101,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 222 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 36 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 232 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 37 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
