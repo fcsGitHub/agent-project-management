@@ -336,12 +336,6 @@ export function TimelinePage() {
                 </select>
                 <button onClick={() => setVarianceOpen(true)}
                   className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📊 偏差表</button>
-                <button onClick={() => setShowCP((v) => !v)}
-                  title={cp.data?.cycle ? "依赖图中存在环，无法计算关键路径" : "CPM 正逆传递：float≤0 的任务链决定项目终点"}
-                  className={cx("rounded-lg border px-2 py-1 text-xs",
-                    showCP ? "border-red-500 bg-red-500/10 text-red-400" : "border-line text-mut hover:border-acc hover:text-acc")}>
-                  ⛔ 关键路径
-                </button>
               </>
             )}
             {blList.length > 0 ? (
@@ -351,6 +345,12 @@ export function TimelinePage() {
               <button onClick={async () => { await api.setBaseline(pid!); toast.success("已设为基线（当前日期快照）"); qc.invalidateQueries(); }}
                 className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📌 设为基线</button>
             )}
+            <button onClick={() => setShowCP((v) => !v)}
+              title={cp.data?.cycle ? "依赖图中存在环，无法计算关键路径" : "CPM 正逆传递：float≤0 的任务链决定项目终点"}
+              className={cx("rounded-lg border px-2 py-1 text-xs",
+                showCP ? "border-red-500 bg-red-500/10 text-red-400" : "border-line text-mut hover:border-acc hover:text-acc")}>
+              ⛔ 关键路径
+            </button>
           </div>
         </div>
 
