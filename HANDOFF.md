@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-06 更新 · M32 进行中：I98/I99 已完成，下一步 I100 列表分组聚合）
+# HANDOFF —— 写给下一个新会话（2026-09-06 更新 · M32 三迭代完成，下一步 M32 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,8 +45,8 @@
 - **M29 效率与可观测三件套（I89-I91，审阅通过 5fd751c）**：I89 个人排期月历 ✅（`GET /my/schedule` own-data 口径全可见未归档项目有日期项；「📅 我的日程」页 /my/schedule：月网格 + 跨度逐日 chip + HTML5 DnD 拖卡片改期[span 保持 delta 平移→单 PATCH 复用 M14 审计] + 拖选空白格范围建任务[自动指派自己]；test_schedule 2 项）、I90 看板卡片快捷编辑 ✅（卡片/列表行「⚡」→ QuickEditModal 直改状态/优先级/执行者/截止日——**仅提交变化键走既有 patchItem**，白名单/闭锁/WIP/审计零成本继承，agent: 前缀保持 agent 指派）、I91 运行聚合报表 ✅（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数——**tokens 直接 SUM 既有列如实报零**；RunsPage「📊 运行报表」卡对账；test_runs_report 2 项）+ docs/12 §26 + **冒烟 35**（月历对账/快捷编辑守卫继承/报表对账/rebuild 一致），约 9 人日。
 - **M30 治理洞察三件套（I92-I94，审阅通过 11cc1b2，审阅即修 60a043c）**：I92 项目健康评分 ✅（`_health_factors`+`_health_score` 四因子加权[超期率 40/滞留率 20/吞吐动量 30 min 封顶/Gate 挂起 10，加法式各因子健康贡献满权重，无活跃 None]；`GET /portfolio/health` _visible 同口径评分升序；Dashboard 组合卡 ♥ 评分徽标绿/黄/红；test_health_score 3 项[公式级+集成手算 60/70+rebuild]）、I93 健康趋势 ✅（`GET /projects/{id}/health/history` 事件重放 item/approval 五类事件、每 5 天周界采样[末点=今天与 I92 同真相]、stale 用 last_touch 近似；报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项[尾点 70→超期 60 手算/rebuild 序列相等]——事件溯源红利第三例）、I94 评论引用回复 ✅（CommentsModal「❝」→「@作者 引用：」独立行 + 原文逐行 blockquote 预填聚焦，存储纯文本不变、渲染免费，零后端；**审阅即修 60a043c**：原「@作者 > 原文」同行内联 `>` 非引用语法不渲染 blockquote）+ docs/12 §27 + **冒烟 36**（评分手算/趋势末点对齐/引用 roundtrip/rebuild 一致），约 9 人日。
 - **M31 响应力三件套（I95-I97，审阅通过 f859af5，审阅即修 7026c13）**：I95 键盘优先操作面 ✅（lib/shortcuts.ts 单一真源注册表[SHORTCUTS 七条+isTypingTarget] + ShortcutsOverlay 可搜索 `?` 浮层 + 看板 j/k 游标[琥珀环/scrollIntoView] + Enter 开评论 + `C` 快捷新建；纯前端零后端；vitest 6 项绿）、I96 通知偏好按事件类型细分 ✅（notification_prefs 运行态表[不进 drop 清单、缺行=全开] + pref_allows 单一闸门[mention 恒真]双通道收口[站内 _notify/邮件 mailer.enqueue] + GET/PUT /me/notification-prefs 五类矩阵 + 铃面板矩阵 UI；test_notification_prefs 6 项——rebuild 重放按当前偏好重算=投递收口语义）、I97 响应性指标 ✅（`GET /projects/{id}/responsiveness` 审批响应[投影直读 requested→decided]/评论首响应[事件重放、排作者自评] + 报表「⏱ 响应力」卡诚实空态——CHAOSS Time to First Response；test_responsiveness 4 项）+ docs/12 §28 + **冒烟 37**。审阅即修 7026c13：Modal 组件接入 Esc 关闭（SHORTCUTS 宣称「Esc 关闭弹窗」但 Modal 从不响应 Escape）+ 冒烟 37 补身份恢复夹具（smoke 首个切身份测试，泄漏致全量 3 例环境性失败）。
-- **当前验证基线：pytest 233（M31 审阅 HEAD 实跑全绿）；冒烟 37 GREEN；vitest 6/build 绿。**
-- **M32 引擎与入口三件套（docs/01 §AE + docs/10 §M32；定义 b7b49a8，I98/I99 已完成，I100+审阅进行中）**：I98 时间触发自动化 ✅（`e339824`+docs `54858a7`：trigger:schedule:daily[不进 TRIGGERS、dispatch 零感知] + run_daily_sweep[**派生字段 overdue** 注入走既有等值条件、条件引擎零改动] + automation.swept 心跳幂等[**零新表**、当日事件即跳过、force 强扫] + create_recurring[emit 真实 item.created 一等卡] + ticker 线程[邮件同款] + POST /automations/sweep + 规则面板触发器下拉/⟳手动扫描；test_scheduled_rules 3 项 + M9 回归 5 项绿）、I99 外部 intake 收件 ✅（`2286a5a`+docs `689375f`：intake.py 新域[intake_tokens **投影表**进 drop 清单+单活动令牌+明文存储] + POST /intake/{token} 公开端点[compare_digest/白名单/actor=intake/复用 create_item] + `/#/intake/:token` 公开表单页 + 设置页「📮 外部收件」卡 owner-only；test_intake 3 项）、I100 列表分组聚合（列表 group by 复用 M6 fieldOptions + 组头行[计数+spent 合计+折叠]——Airtable 组头统计语义）+ docs/12 §29 + 冒烟 38 于 I100 + 审阅。
+- **当前验证基线：pytest 239 预估（233 + I98 3 + I99 3）；冒烟 38 GREEN；vitest 6/build 绿。**
+- **M32 引擎与入口三件套（docs/01 §AE + docs/10 §M32；定义 b7b49a8，I98/I99/I100 已完成，待正式审阅）**：I98 时间触发自动化 ✅（`e339824`+docs `54858a7`：trigger:schedule:daily[不进 TRIGGERS、dispatch 零感知] + run_daily_sweep[**派生字段 overdue** 注入走既有等值条件、条件引擎零改动] + automation.swept 心跳幂等[**零新表**、当日事件即跳过、force 强扫] + create_recurring[emit 真实 item.created 一等卡] + ticker 线程[邮件同款] + POST /automations/sweep + 规则面板触发器下拉/⟳手动扫描；test_scheduled_rules 3 项 + M9 回归 5 项绿）、I99 外部 intake 收件 ✅（`2286a5a`+docs `689375f`：intake.py 新域[intake_tokens **投影表**进 drop 清单+单活动令牌+明文存储] + POST /intake/{token} 公开端点[compare_digest/白名单/actor=intake/复用 create_item] + `/#/intake/:token` 公开表单页 + 设置页「📮 外部收件」卡 owner-only；test_intake 3 项）、I100 列表分组聚合 ✅（`b864fe9`+docs `61b3077`：列表「按组聚合」下拉[概念/状态/优先级/执行者/自定义字段] + 组头行[n 项+⏱ spent 合计+点击折叠] + 分组作用于已显示行与 I79 兼容 + docs/12 §29 + **冒烟 38**）+ 审阅。
 
 ## 3. 现在卡在哪
 
@@ -58,8 +58,8 @@
 2. ~~M32 调研定义~~ ✅ **已完成**（`b7b49a8`，docs/01 §AE + docs/10 §M32）：防重查（候选池 grep：引用快捷键/多基线趋势/工作日顺延/工时审批代理无记录，依赖图独立视图维持不查）→ 三路调研（YouTrack On-schedule+Kanboard 插件+Kanban Tool 周期建卡 / Trello 板级邮箱+Jira mail handler / Airtable+NocoDB 组头统计）→ 选定**引擎与入口三件套** I98-I100。
 3. ~~M32-I98 时间触发自动化~~ ✅ **已完成**（`e339824`+docs `54858a7`）：schedule:daily 触发器 + 派生字段 overdue 走等值条件 + swept 心跳幂等（零新表）+ create_recurring + ticker 线程 + 手动扫描端点/按钮；test_scheduled_rules 3 项 + M9 回归绿。
 4. ~~M32-I99 外部 intake 收件~~ ✅ **已完成**（`2286a5a`+docs `689375f`）：intake.py 新域（intake_tokens 投影表+单活动令牌+明文存储）+ `POST /intake/{token}` 公开端点（compare_digest/白名单/actor=intake/create_item 全链）+ `/#/intake/:token` 公开表单页 + 设置页「📮 外部收件」卡；test_intake 3 项绿。
-5. **M32-I100 列表分组聚合 + 收尾（下一步）**：列表视图 group by（概念/状态/优先级/执行者/自定义字段，复用 M6 fieldOptions 与 `?group=` 语义）+ 组头行（组名 + n 项 + spent_minutes 合计 + 折叠）+ 与 I79 渐进渲染兼容（分组作用于已显示行）+ docs/12 §29 + **冒烟 38**（daily 扫描端到端/intake roundtrip/分组计数对账 + rebuild 一致）；三段式提交。
-6. **M32 正式审阅**：HEAD 重跑全量（pytest 239 预估 / 冒烟 38 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（daily 规则手动扫描→逾期升级 / 公开表单提交→看板 intake 卡 / 列表分组计数与看板列对账）+ 附录 B +「M32 正式审阅通过」提交。
+5. ~~M32-I100 列表分组聚合 + 收尾~~ ✅ **已完成**（`b864fe9`+docs `61b3077`）：列表「按组聚合」下拉 + 组头行（组名+n 项+⏱ spent 合计+点击折叠）+ 分组作用于已显示行与 I79 兼容 + docs/12 §29 + **冒烟 38 GREEN（基线 38）**。
+6. **M32 正式审阅（下一步）**：HEAD 重跑全量（pytest 239 预估 / 冒烟 38 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（daily 规则手动扫描→逾期升级 / 公开表单提交→看板 intake 卡 / 列表分组计数与看板列对账）+ 附录 B +「M32 正式审阅通过」提交。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**；**M31 审阅重跑 seed 前清库重启后端**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**；**M31 审阅第七次验证：构建后必须 SW 清理+reload 才见修复**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**（M31 三次同型失误——把原文行整行替换掉，均靠 git diff 纯新增校验兜住）；**冒烟/测试切身份后必须恢复 settings.user_id**（M31 审阅踩：smoke 首个切身份测试泄漏身份致字母序后续测试失败）；**测试切身份前先确认目标用户已注册**（I97 踩：未注册用户切换静默无效）。
 
 ## 5. 有哪些坑不要再踩
@@ -102,8 +102,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 233 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 37 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 239 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 38 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
