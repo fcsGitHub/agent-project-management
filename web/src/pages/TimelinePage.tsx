@@ -34,6 +34,12 @@ export function TimelinePage() {
   const baselinesQ = useQuery({ queryKey: ["baselines", pid], queryFn: () => api.listBaselines(pid!), enabled: !!pid });
   const [blFilter, setBlFilter] = useState<string>("all");
   const blList = baselinesQ.data?.baselines ?? [];
+  const [varianceOpen, setVarianceOpen] = useState(false);
+  const variance = useQuery({
+    queryKey: ["variance", pid, blFilter],
+    queryFn: () => api.baselineVariance(pid!, blFilter === "all" ? undefined : blFilter),
+    enabled: !!pid && varianceOpen && blList.length > 0,
+  });
 
   // I63 drag-to-reschedule state: delta is whole days since pointer-down.
   type Drag = {
@@ -270,13 +276,17 @@ export function TimelinePage() {
               {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止 / 悬停条形拖端点圆圈到另一条形建依赖（Esc 取消）
             </span>
             {blList.length > 0 && (
-              <select value={blFilter} onChange={(e) => setBlFilter(e.target.value)}
-                className="rounded-lg border border-line bg-surface px-2 py-1 text-xs">
-                {blList.map((b) => (
-                  <option key={b.id} value={b.id}>基线 {String(b.created_at ?? "").slice(5, 16).replace("T", " ")}</option>
-                ))}
-                {blList.length > 1 && <option value="all">全部基线</option>}
-              </select>
+              <>
+                <select value={blFilter} onChange={(e) => setBlFilter(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1 text-xs">
+                  {blList.map((b) => (
+                    <option key={b.id} value={b.id}>基线 {String(b.created_at ?? "").slice(5, 16).replace("T", " ")}</option>
+                  ))}
+                  {blList.length > 1 && <option value="all">全部基线</option>}
+                </select>
+                <button onClick={() => setVarianceOpen(true)}
+                  className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📊 偏差表</button>
+              </>
             )}
             {blList.length > 0 ? (
               <button onClick={async () => { await api.clearBaseline(pid!); toast.success("已清除全部基线"); qc.invalidateQueries(); }}
@@ -425,6 +435,57 @@ export function TimelinePage() {
           <Empty title="暂无排期数据" hint="给工作项设置起止日期（start_date/due_date）或创建里程碑后在此排布" />
         )}
       </Card>
+
+      {/* M25-I77: baseline variance drawer */}
+      {varianceOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-6" onClick={() => setVarianceOpen(false)}>
+          <Card className="mt-10 w-full max-w-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">📊 基线偏差表</span>
+              <button onClick={() => setVarianceOpen(false)} className="text-xs text-mut hover:text-ink">✕</button>
+            </div>
+            {!variance.data && <div className="py-6 text-center text-xs text-mut">加载中…</div>}
+            {variance.data && variance.data.variances.length === 0 && (
+              <div className="py-6 text-center text-xs text-mut">全部工作项与基线一致 ✓</div>
+            )}
+            {variance.data && variance.data.variances.length > 0 && (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-line text-mut">
+                    <th className="py-1.5">任务</th><th>基线起止</th><th>当前起止</th><th className="text-right">偏差（天）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variance.data.variances.map((v) => (
+                    <tr key={v.item_id} className="border-b border-line/60">
+                      <td className="py-1.5 font-medium">{v.title}</td>
+                      <td className="text-mut">{v.baseline_start ?? "—"} ~ {v.baseline_due ?? "—"}</td>
+                      <td>{v.current_start ?? "—"} ~ {v.current_due ?? "—"}</td>
+                      <td className="text-right">
+                        {v.start_deviation != null && v.start_deviation !== 0 && (
+                          <span className={v.start_deviation > 0 ? "text-red-500" : "text-green-600"}>
+                            开始 {v.start_deviation > 0 ? "+" : ""}{v.start_deviation}{" "}
+                          </span>
+                        )}
+                        {v.due_deviation != null && v.due_deviation !== 0 && (
+                          <span className={v.due_deviation > 0 ? "text-red-500" : "text-green-600"}>
+                            截止 {v.due_deviation > 0 ? "+" : ""}{v.due_deviation}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {variance.data && (
+              <div className="mt-2 text-[10px] text-mut">
+                共 {variance.data.summary.count} 项偏差 · 最大截止延迟 {variance.data.summary.max_due_delay} 天 · 正数=比基线晚
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

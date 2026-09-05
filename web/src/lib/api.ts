@@ -377,6 +377,8 @@ export const api = {
     req<{ project_id: string; baseline: { items: Record<string, [string | null, string | null]>; milestones: Record<string, string> } | null; created_at?: string; baseline_id?: string }>(`/projects/${pid}/baseline`),
   listBaselines: (pid: string) =>
     req<{ project_id: string; baselines: { id: string; created_at: string; snapshot: { items: Record<string, [string | null, string | null]>; milestones: Record<string, string> } }[] }>(`/projects/${pid}/baselines`),
+  baselineVariance: (pid: string, baselineId?: string, includeSame = false) =>
+    req<{ project_id: string; baseline_id: string; created_at: string; variances: { item_id: string; title: string; status: string; baseline_start: string | null; baseline_due: string | null; current_start: string | null; current_due: string | null; start_deviation: number | null; due_deviation: number | null }[]; summary: { count: number; max_due_delay: number } }>(`/projects/${pid}/baseline-variance?include_same=${includeSame}${baselineId ? `&baseline_id=${baselineId}` : ""}`),
   setBaseline: (pid: string) =>
     req<{ project_id: string; baseline: unknown }>(`/projects/${pid}/baseline`, { method: "POST" }),
   clearBaseline: (pid: string) =>
