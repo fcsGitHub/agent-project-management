@@ -644,3 +644,36 @@ M23 = **计划对照与总览三件套**：I71 甘特基线（单活动基线快
 **W.5 M24 取舍**
 
 M24 = **结构与数据管理三件套**：I74 子任务层级（parent 校验防环 + 缩进树 + descendants）/ I75 CSV 导入导出（列映射 + 逐行校验报告 + 模板）/ I76 泳道避让与多基线（区间染色子行 + 多基线历史与切换）+ docs/12 §21 + 冒烟 30 + M24 审阅，约 9 人日。widget 拖装、WYSIWYG、digest、start/end 打卡、打印 PDF 留 backlog。
+
+## X. M25 前置调研：计划治理深化——基线偏差报表 / blocks 闭锁 / 列表分页（2026-09-05）
+
+> 目标协议触发：M24 审阅通过后开启。防重查先行：关系受控枚举内核已有（blocks/blocked_by/relates/precedes，§A.4）；分页与偏差报表无既有调研。本轮三路（MS Project 偏差表与 OpenProject 基线对比 / OpenProject 关系功能语义 / GitLab 分页性能），选定 **M25 = 计划治理深化三件套**——基线已能存（M23/M24）、关系已能连（M4/M65），本轮补「读得出偏差 + 关系带后果 + 列表扛得住量」。
+
+**X.1 基线偏差报表：Variance 表的列语义**
+
+- MS Project 内建 **Variance 表**：同屏列出 scheduled 与 baseline 的 start/finish，偏差一目了然（[官方指南](https://support.microsoft.com/en-us/project/create-or-update-a-baseline-or-an-interim-plan-in-project-desktop)）；偏差五型 start/finish/duration/cost/work，公式 `X Variance = Current X − Baseline X`（[OnePager](https://www.onepager.com/community/blog/baselining-and-variance-analysis/)）。
+- OpenProject 的基线对比 = **工作包表在给定期间的 diff**（基于保存视图，[Baseline comparison](https://www.openproject.org/docs/user-guide/work-packages/baseline-comparison/)）——同为「表对比」形态。
+- → AgentPM 取舍：`GET /projects/{id}/baseline-variance?baseline_id=`（对比指定基线或最新：每已排期项 start/due 偏差天数 + 未变化项省略 + 汇总行，纯投影对比零 ETL）；TimelinePage「偏差表」抽屉 + 组合卡联动；只做日期偏差（cost/work 无此域）。
+
+**X.2 blocks 闭锁与关系可视化：关系要有后果**
+
+- OpenProject **blocks 有关闭闭锁**：A blocks B 时 B 在 A 关闭前**不能置为 closed/resolved**（[关系文档](https://www.openproject.org/docs/user-guide/work-packages/work-package-relations-hierarchies/)）；**precedes 支持 lag**（最小间隔工作日，在 Relations 页编辑，[排程文档](https://www.openproject.org/docs/user-guide/gantt-chart/scheduling/)）；关系在 Gantt 中渲染为箭头（[Gantt 模块](https://www.openproject.org/docs/user-guide/gantt-chart/)）。
+- AgentPM 现状：关系类型受控枚举（blocks/blocked_by/relates/precedes）建了枚举但**无任何功能语义**，时间线只画 depends_on 冲突。
+- → 取舍：①**blocks 闭锁**——change_status 时若有未完结的 blocks 关系指向本项且 blocker 非 done/cancelled → 422（`"blocked by X"`）；②时间线连线扩展（depends_on 之外的 blocks/precedes 以不同虚线样式绘制）；③precedes lag 字段（relation 行加 lag_days，M14 自动排期沿用 delta 计算的下一步接口，本轮只存储与展示）。**blocked_by 视为 blocks 的反向视图**（存储单向）。
+
+**X.3 列表分页：offset 起步，接口留 keyset 余地**
+
+- GitLab：offset 分页在深页码有性能瓶颈，推荐 **keyset（cursor）分页**且 API per_page 上限 100（[keyset 指南](https://docs.gitlab.com/development/database/keyset_pagination/)、[offset 优化](https://docs.gitlab.com/development/database/offset_pagination_optimization/)）；SQLite 单机 demo 规模下 offset 足够。
+- AgentPM 现状：get_items 返回全量——数据量增长后列表/网络传输无界。
+- → 取舍：`GET /items?limit=&offset=`（默认全量保持兼容，显式传参才分页；limit 钳 1-200）+ 响应 `total` 计数；列表前端「加载更多」；keyset 留 backlog（SQLite 规模不需要）。
+
+**X.4 M25 设计映射与验证纪律（沿用）**
+
+- I77 基线偏差表：baseline-variance 端点（对比基线快照 vs 当前行，偏差天数=当前−基线）+ TimelinePage 偏差抽屉。
+- I78 blocks 闭锁与关系可视化：change_status 闭锁守卫 + 时间线多关系连线样式 + precedes lag_days 存储展示。
+- I79 列表分页：limit/offset + total + 「加载更多」；docs/12 §22 + 冒烟 31 收尾。
+- 验证纪律：每迭代只跑相关测试（动 change_status 则升级全量）；全量收敛至 M25 审阅。
+
+**X.5 M25 取舍**
+
+M25 = **计划治理深化三件套**：I77 基线偏差表（variance 端点 + 抽屉）/ I78 blocks 闭锁与关系可视化（含 precedes lag 存储）/ I79 列表分页（limit/offset + total + 加载更多）+ docs/12 §22 + 冒烟 31 + M25 审阅，约 9 人日。keyset 分页、cost/work 偏差、lag 自动排期联动、widget 拖装留 backlog。

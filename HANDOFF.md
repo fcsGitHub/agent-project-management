@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M24 已完成（结构与数据管理三件套，审阅通过），下一步 M25 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M25 已定义（计划治理深化三件套），下一步 I77 基线偏差表）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -41,6 +41,7 @@
 - **M23 计划对照与总览三件套（I71-I73，审阅通过）**：甘特基线（baselines 投影 UNIQUE 单活动快照 + baseline.set/cleared 事件 + TimelinePage 幽灵虚线条形偏离 amber；改期永不触碰快照）、组合总览（`GET /portfolio/report` `_visible` 裁剪 + totals 对账 + Dashboard「🗺 组合总览」卡）、Markdown 工具栏（CommentsModal 手写选区包裹/行前缀、保焦点选区、存储纯文本）；docs/12 §20；冒烟 29。
 - **M24 已定义（docs/01 §W + docs/10 §M24）**：结构与数据管理三件套——I74 子任务层级（parent 校验防环 + 列表缩进树 + `?parent=`/`?descendants=` 过滤）/ I75 CSV 导入导出（固定表头 + 逐行校验报告 + 模板 + items.csv）/ I76 泳道避让（区间图染色贪心子行）与多基线（baselines 去 UNIQUE + 切换）+ docs/12 §21 + 冒烟 30 于 I76 + 审阅，约 9 人日。
 - **M24 结构与数据管理三件套（I74-I76，审阅通过，代码补交 9200f14）**：子任务层级（`_validate_parent` 防环 + ItemPatch re-parent + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标）、CSV 导入导出（固定表头 + parent_title 引用 + 逐行校验报告——**行级 try 需捕 ValueError/TypeError**，float() 数据错误曾逃逸致 500 + 模板 + items.csv 导出 + 导入弹窗）、泳道避让（时间线概念行内子行贪心分配，区间染色 O(n log n)——修 M21 重叠 C 级）与多基线（baselines 去 UNIQUE + **db.py 存量迁移重建表** + set 追加历史 + 列表/切换）；docs/12 §21；冒烟 30。
+- **M25 已定义（docs/01 §X + docs/10 §M25）**：计划治理深化三件套——I77 基线偏差表（`GET /baseline-variance?baseline_id=` 对比快照 vs 当前，偏差天数 + 汇总 + TimelinePage 偏差抽屉）/ I78 blocks 闭锁与关系可视化（change_status 守卫「被阻塞不能关」422 + 多关系连线样式 + precedes lag_days 列）/ I79 列表分页（limit 钳 1-200 + total + 加载更多）+ docs/12 §22 + 冒烟 31 于 I79 + 审阅，约 9 人日。
 - **当前验证基线：pytest 185 全绿；冒烟 30 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
@@ -53,9 +54,12 @@
 1b. ~~M24-I74 子任务层级~~ ✅ **已完成**（`5aad4c3`+docs）：`_validate_parent` 防环 + ItemPatch parent_id（re-parent）+ 投影器键表补 parent_id + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标；test_hierarchy.py 全绿。
 1c. ~~M24-I75 CSV 导入导出~~ ✅ **已完成**（`c3905a3`+docs）：import 端点（固定表头 + parent_title 引用 + 逐行校验报告，**日期校验补在导入循环内**——create_item 不含日期校验）+ 模板/items.csv 导出 +「⬆ 导入 CSV」弹窗；test_csv_import.py 全绿。
 2. ~~M24-I76 泳道避让与多基线 + 收尾~~ ✅ **已完成**（`978f673`）：时间线子行贪心分配（区间染色，行高自适应）+ baselines 多条化（去 UNIQUE 存量迁移 + 追加历史 + 列表/切换）+ docs/12 §21；**冒烟 30 GREEN（基线 30）**。坑：无日期项不入基线快照；CSV 行必须 8 列对位。
-3. ~~M24 正式审阅~~ ✅ **已通过**（附录 B；审阅即修 CSV 导入 ValueError 500（eb16d19）；I76 源码漏 stage 补交 9200f14）。**下一步：M25 调研定义**——先 grep docs/01 防重查。候选池：基线对比报表（基线 vs 当前偏差清单）、评论编辑器增强、跨项目聚合深化、本体版本事件级归档（§K.3 立场）、通知 digest（低优）、start/end 打卡（已否）、打印/PDF。产出：docs/01 新节 + docs/10 §M25 + 看板行 + 附录 A + HANDOFF 收口 →「M25 调研定义」提交。
-4. 按 M25 计划走 3 迭代（每个三段式提交，**只跑改动相关验证**；动 events/db 内核的迭代主动升级全量）→ M25 正式审阅（全量回归 + DoD 逐项 + 浏览器隔离复演 + 附录 B）。之后 M26 调研定义（循环）。
-5. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩：同名重复项目让断言假阴性）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 违例至 M23 仍在发生——彻底禁止**）；**commit message 含反引号/美元符必须单引号包裹**（M23-I72 踩：_visible 被 bash 吞）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 源码被审阅揪出）；**HANDOFF 每轮收口时修剪**。
+3. ~~M24 正式审阅~~ ✅ **已通过**（566967d，附录 B；审阅即修 CSV 导入 ValueError 500 eb16d19；I76 源码漏 stage 补交 9200f14）。~~M25 调研定义~~ ✅ **已完成**（docs/01 §X + docs/10 §M25）：选定**计划治理深化三件套**（MS Project Variance 表吸收 / OpenProject blocks 闭锁·lag 吸收 / GitLab 分页指南吸收）。
+4. **下一步：M25-I77 基线偏差表**（docs/01 §X.1）：`GET /projects/{id}/baseline-variance?baseline_id=`（缺省最新；逐已排期项 start/due 偏差天数（当前−基线）+ 仅列有偏差项（include_same=1 全列）+ 汇总行）+ TimelinePage「📊 偏差表」抽屉（正红负绿）。**只跑相关验证。**
+5. **M25-I78 blocks 闭锁与关系可视化**（§X.2）：change_status 守卫（存在未完结 blocks→本项 且 blocker 非 done/cancelled → 422 "blocked by X"）+ 时间线连线按类型分样式（blocks 橙实线/precedes 灰虚线/relates 点线）+ item_relations 加 lag_days 列（ALTER）+ POST relations 可带 lag；**动 change_status → 升级全量回归**。
+6. **M25-I79 列表分页 + 收尾**（§X.3）：`GET /items?limit=&offset=`（缺省全量兼容、limit 钳 1-200）+ 响应 total + 列表「加载更多」（与树形/选择/批量兼容）；docs/12 §22；**新增冒烟 31**（偏差表对账/blocks 闭锁矩阵/分页 total 语义 + rebuild 一致）。
+7. **M25 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 185+ / 冒烟 30+31 / vitest+build）+ I77/I78/I79 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M25 正式审阅通过」提交。之后 M26 调研定义（先 grep docs/01 防重查）。
+8. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 

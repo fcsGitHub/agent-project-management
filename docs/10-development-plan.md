@@ -818,6 +818,36 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 30 GREEN；审阅全绿。
 - 演示路径：同概念 3 条重叠条形自动分 2-3 子行不再叠；设两条基线切显隐；CSV 导入含层级引用。
 
+**M24 审阅点**：冒烟 30 + 各迭代 DoD + 浏览器演示（层级树形缩进/后代 chip + CSV 导入逐行报告 + 泳道子行与基线幽灵）。（已通过：附录 B，566967d；审阅即修 CSV ValueError 500；I76 源码漏 stage 补交 9200f14）
+
+### M25 · 计划治理深化三件套（吸收 MS Project Variance/OpenProject blocks·lag/GitLab 分页，I77-I79，约 9 人日）
+
+> v2.1 新增（2026-09-05，M24 审阅通过后按目标协议调研）。调研结论见 docs/01 §X：MS Project Variance 表（start/finish 偏差列，`X Variance = Current − Baseline`）与 OpenProject 基线对比同属「表对比」形态——AgentPM 多基线快照可直接做偏差端点；OpenProject **blocks 有关闭闭锁**（被阻塞项不能关）、**precedes 支持 lag 工作日**、关系在 Gantt 渲染箭头——AgentPM 枚举建了但零功能语义且只画 depends_on；GitLab offset 深分页瓶颈推荐 keyset、per_page 上限 100——AgentPM 列表无界，SQLite 规模 offset 起步留 keyset 余地。验证纪律沿用：迭代期只跑相关测试（动 change_status 升级全量），全量收敛至 M25 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I77 | 基线偏差表（GET /baseline-variance + TimelinePage 偏差抽屉） | 01 §X.1 | M23/M24 baselines | 3d |
+| I78 | blocks 闭锁与关系可视化（change_status 守卫 + 多关系连线 + precedes lag） | 01 §X.2 | M4 关系域/I65 连线 | 3d |
+| I79 | 列表分页（limit/offset + total + 加载更多）+ docs/12 §22 + 冒烟 31 + M25 审阅 | 01 §X.3 | get_items | 3d |
+
+#### I77 · 基线偏差表（3d）
+
+- 任务：`GET /projects/{id}/baseline-variance?baseline_id=`（缺省=最新基线；逐已排期项对比快照 vs 当前行：start_deviation/due_deviation 天数（当前−基线，ISO 差）+ 仅列有偏差项或 `include_same=1` 全列 + 汇总行（偏差项数/最大延迟）——纯投影对比零 ETL）；TimelinePage 工具栏「📊 偏差表」抽屉（表格：任务/基线起止/当前起止/偏差天数，正红负绿）。
+- DoD：单测（偏差天数正负/未变化项省略/无基线 404 语义/rebuild 一致）；build+vitest 绿。
+- 演示路径：设基线 → 拖两笔改期 → 偏差表列出两行 +3/+5 天。
+
+#### I78 · blocks 闭锁与关系可视化（3d）
+
+- 任务：change_status 前置守卫——存在 `blocks` 关系 X→本项且 X 状态非 done/cancelled → 422 `"blocked by <title>"`（cancelled 目标本项不拦；blocks 语义单向存储双向可查）；时间线连线样式按关系类型区分（depends_on=红虚线冲突保持、blocks=橙实线、precedes=灰虚线、relates=细灰点线）；`item_relations` 行加 lag_days 列（ALTER 迁移，POST relations 可带、precedes 展示「+N 天」）——自动排期联动留 backlog；关系创建端点放开类型白名单内全部类型（已有）。
+- DoD：单测（闭锁矩阵：blocker open→422、done→放行、cancelled 本项放行/lag 存取/rebuild 存活）；**动 change_status → 升级全量回归**。
+- 演示路径：A blocks B → B 拖 done → 422 toast → 关 A → B 可关。
+
+#### I79 · 列表分页 + 收尾审阅（3d）
+
+- 任务：`GET /projects/{id}/items?limit=&offset=`（缺省全量兼容；limit 钳 1-200）+ 响应带 `total`（过滤后计数）；前端列表「加载更多」（追加渲染，与树形缩进/选择/批量兼容——按已加载页集合构建树）；docs/12 §22；**新增冒烟 31**（偏差表对账/blocks 闭锁矩阵/分页 total 与 limit/offset 语义 + rebuild 一致）；相关验证 + M25 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 31 GREEN；审阅全绿。
+- 演示路径：13 个工作项 limit=5 → 加载更多三次取全；偏差表与时间线幽灵一致。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -978,7 +1008,8 @@ agent-project-management/
 | **M21 日程集成三件套（I65-I67）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §T + docs/10 §M21）：I65 依赖连线图内编辑（条形端点圆圈拖拽 → POST relations，@workiom/frappe-gantt fork 同款交互）/ I66 iCal 日历订阅（/my/calendar.ics + M11 feed_key 复用，OpenProject 13.0 内建、Redmine #1077 缺位补位）/ I67 评论清单项转子任务（GitHub tasklist→sub-issue 提取语义 + extracted_tasks 投影 + 渲染链接）+ docs/12 §18 + 冒烟 27 + 审阅（截图 docs/m21-review-*.png ×3 + m21-i65-*.png ×2，见附录 B）；同概念条形重叠避让/start-end 打卡/checkbox 回写/甘特基线/digest 留 backlog |
 | **M22 治理与效率三件套（I68-I70）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §U + docs/10 §M22）：I68 全局搜索（FTS5 复用 + GET /search 可见性裁剪 + ⌘K 入口，OpenProject 全局搜索吸收）/ I69 项目归档与克隆（archived 只读可逆 + clone 创建时复制且成员永不复制，OpenProject/Redmine 吸收）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件，Plane 吸收 + #8683 解耦教训）+ docs/12 §19 + 冒烟 28 + 审阅（截图 docs/m22-review-*.png ×3，见附录 B）；digest/start-end 打卡/甘特基线/编辑器工具栏留 backlog |
 | **M23 计划对照与总览三件套（I71-I73）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 8 人日（docs/01 §V + docs/10 §M23）：I71 甘特基线（单活动基线快照 + 幽灵条形偏差，Redmine #13419 缺位插件补位实证）/ I72 组合总览（GET /portfolio/report 纯投影聚合 + Dashboard 组合卡，OpenProject Portfolios Enterprise 独占的 Community 等价）/ I73 Markdown 工具栏（GitHub markdown-toolbar-element 路线：纯 textarea 选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 + 审阅（截图 docs/m23-review-*.png ×3，见附录 B）；多基线历史/widget 拖装/WYSIWYG/digest/start-end 打卡留 backlog |
-| **M24 结构与数据管理三件套（I74-I76）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §W + docs/10 §M24）：I74 子任务层级（parent 校验防环 + 列表缩进树 + descendants 过滤——parent_id 列自 MVP 闲置激活，OpenProject 缩进/后代过滤器吸收）/ I75 CSV 导入导出（固定表头映射 + 逐行校验报告 + 模板与 items.csv 导出，Redmine 内建导入吸收）/ I76 泳道避让与多基线（区间图染色贪心子行 + baselines 多条化切换，MS Project 分 Row 分色吸收）+ docs/12 §21 + 冒烟 30 于 I76 + 审阅；widget 拖装/WYSIWYG/digest/start-end 打卡/打印 PDF 留 backlog |
+| **M24 结构与数据管理三件套（I74-I76）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §W + docs/10 §M24）：I74 子任务层级（parent 校验防环 + 列表缩进树 + descendants 过滤——parent_id 列自 MVP 闲置激活，OpenProject 缩进/后代过滤器吸收）/ I75 CSV 导入导出（固定表头映射 + 逐行校验报告 + 模板与 items.csv 导出，Redmine 内建导入吸收）/ I76 泳道避让与多基线（区间图染色贪心子行 + baselines 多条化切换，MS Project 分 Row 分色吸收）+ docs/12 §21 + 冒烟 30 + 审阅（截图 docs/m24-review-*.png ×3，见附录 B）；审阅即修 CSV 导入 ValueError 500（eb16d19）；I76 源码漏 stage 补交（9200f14）；widget 拖装/WYSIWYG/digest/start-end 打卡/打印 PDF 留 backlog |
+| **M25 计划治理深化三件套（I77-I79）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §X + docs/10 §M25）：I77 基线偏差表（GET /baseline-variance + TimelinePage 偏差抽屉，MS Project Variance 表/OpenProject 基线对比吸收）/ I78 blocks 闭锁与关系可视化（change_status 守卫「被阻塞不能关」+ 多关系连线样式 + precedes lag_days 存储，OpenProject blocks·lag 吸收）/ I79 列表分页（limit/offset + total + 加载更多，GitLab 分页指南吸收、keyset 留 backlog）+ docs/12 §22 + 冒烟 31 于 I79 + 审阅；cost/work 偏差/lag 排期联动/widget 拖装留 backlog |
 | I74 子任务层级 | 已完成 | 2026-09-05 | 2026-09-05 | items.py `_validate_parent`（父存在/同项目/**沿父链上溯防环**——create 挂校验链、patch 传 self_id 查环；parent_id 入 ItemPatch 支持 re-parent，清除不支持）；item.updated 投影器键表补 parent_id；`GET /items?parent=`/`?descendants=`（BFS 递归）显式参数；Board 列表**树形缩进**（▸/▾ 折叠 + 行内「＋子」快捷创建预填父与概念 + 「后代」范围 chip）+ 看板卡片「↳ 父标题」徽标；api.ts createItem；单测 test_hierarchy.py（校验矩阵/合法 re-parent rebuild 存活/子代与后代范围）；层级单测绿、items 9 项绿、build+vitest 绿 |
 | I75 CSV 导入导出 | 已完成 | 2026-09-05 | 2026-09-05 | `POST /projects/{id}/items/import`（固定表头 title/concept_id/status/priority/start_date/due_date/estimate_hours/parent_title——**parent_title 引用已有项或同文件先导行**实现层级导入；逐行走 create_item 全量校验，**日期校验补在导入循环内**——create_item 不含日期校验是端点层分工；逐行 ok/行号/错误不整批回滚）；`GET /items/import-template`（表头+示例行）与 `GET /items.csv`（含 parent_title 层级列、UTF-8 BOM）；前端「⬆ 导入 CSV」弹窗（选择文件/粘贴 + 逐行结果表 + 模板/导出链接）；api.ts importItems；单测 test_csv_import.py（两成功一坏日期隔离/parent 引用已有项/同文件父链/模板表头/导出 roundtrip/坏表头 422）；CSV 单测绿、items 9 项绿、build 绿 |
 | I76 泳道避让与多基线+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | TimelinePage 概念行内**子行贪心分配**（区间图染色：按 start 排序 + min-heap 行末线 O(n log n)，行高=ROW_H×子行数自适应——**修 M21 同概念重叠 C 级观察**）；条形/幽灵定位改子行中心（pos 表行顶+子行中心，连接线 y 同步）；baselines 多条化：schema 去 UNIQUE + **存量库 db.py 迁移**（PRAGMA index_list 检测 UNIQUE → 重建表保留数据）+ set 追加历史 + `GET /baselines` 列表（旧→新）+ 前端基线下拉切换单条/全部（幽灵按序子行内错开）；docs/12 §21；**新增冒烟 30**（层级 roundtrip 防环 422/CSV 逐行隔离含 8 列对位/多基线历史旧快照不动/rebuild 层级+基线一致）；冒烟基线 **30 条 GREEN**、build+vitest 绿 |
@@ -1135,6 +1166,8 @@ agent-project-management/
 | 2026-09-05 | I75 | CSV 导入导出：解析用 csv.DictReader（首行即表头）；坏表头（无 title 列）422 而非逐行报错——结构性错误整批拒、行级错误逐行报的两层设计；日期校验发现不在 create_item 内（端点层职责）→ 导入循环补 `_validate_item_dates`（测试当场拦住坏日期行成功导入）；同名 title 多条时 parent_title 取先创建者（known.setdefault 语义）。前端导入弹窗含文件选择（FileReader utf-8）与粘贴双入口。 |
 
 | 2026-09-05 | I76 | 泳道避让与多基线：泳道=每概念行内贪心子行（view.memo 内 rowTops 前缀和 + pos 表 item→{行顶,子行}，连接线 y 全部经 pos 表推导）；多条化迁移用 PRAGMA index_list 检测 UNIQUE（SQLite 不能 DROP 约束 → 重建表搬数据）；冒烟 30 两处断言修正（无日期项不入基线快照是设计语义；CSV 行必须 8 列对位否则 DictReader 错位——列错位属数据错误而非程序错误）。 |
+
+| 2026-09-05 | M25 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：关系受控枚举内核已有 §A.4；分页/偏差无既有调研）：①**基线偏差**——MS Project Variance 表（start/finish 偏差列，X Variance = Current − Baseline）、OpenProject 基线对比=工作包表期间 diff → AgentPM 多基线快照直接做偏差端点（纯投影对比）；②**关系功能语义**——OpenProject blocks 有关闭闭锁（被阻塞项不能关）、precedes 支持 lag 工作日、Gantt 渲染关系箭头；AgentPM 枚举建了但零语义只画 depends_on → blocks 闭锁 + 多关系连线 + lag 存储；③**列表分页**——GitLab offset 深页瓶颈推荐 keyset、per_page 上限 100 → SQLite 规模 offset 起步（limit 钳 1-200）+ total + keyset 留 backlog。选定 **M25 = 计划治理深化三件套**：I77 基线偏差表 / I78 blocks 闭锁与关系可视化 / I79 列表分页 + docs/12 §22 + 冒烟 31 于 I79 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §X。**流程修正**：补登 M24 看板行状态（漏改「已完成（审阅通过）」——此前 Edit 失败后未重试）。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 
