@@ -861,4 +861,34 @@ M30 = **治理洞察三件套**：I92 项目健康评分（CHAOSS 多因子语�
 
 M31 = **响应力三件套**：I95 键盘优先（Linear 语义的操作发现性与导航面）/ I96 通知事件细分（GitLab Custom 的投递收口语义）/ I97 响应性指标（CHAOSS Responsiveness 落地）——主题统一「响应力」：**操作响应**（键盘）、**通道响应**（通知偏好）、**人对人响应**（指标）。+ docs/12 §28 + 冒烟 37 + M31 审阅，约 9 人日。引用键盘快捷键、多基线趋势、工作日顺延、CHAOSS 社区维度（贡献者成长类，AgentPM 无 contributor 演化语义）留 backlog。
 
+## AE. M32 前置调研：引擎与入口——时间触发自动化 / 外部 intake 收件 / 列表分组聚合（2026-09-06）
+
+> 目标协议触发：M31 审阅通过后开启。防重查：候选池 grep——引用快捷键/多基线趋势/工作日顺延/工时审批代理均无调研记录；依赖图独立视图维持不查。本轮三路新调研（时间触发规则 / 表格分组聚合 / 外部收件通道），选定 **M32 = 引擎与入口三件套**。
+
+**AE.1 时间触发自动化（YouTrack On-schedule / Kanboard 插件语义）**
+
+- AgentPM 规则引擎（M9）是**纯事件触发**（post-emit hook）——而同类工具的规则都有时间维度：YouTrack 的 **On-schedule** 规则按 cron 式调度扫描并升级逾期任务、通知负责人（[PVS-Studio 实践](https://pvs-studio.com/en/blog/posts/0853/)）；Kanboard 插件「列内停滞 N 天自动清 due」（[插件页](https://kanboard.org/plugins.html)）与「给无日期卡自动派日期」（[TaskAssignDateToUndated](https://github.com/dmorlitz/kanboard-TaskAssignDateToUndated)）；Kanban Tool 的 **Recurring Tasks** 按日/周/月定时自动建卡（[blog](https://kanbantool.com/blog/automating-cyclical-work-in-kanban-for-higher-efficiency/)）。
+- 对本项目的映射：规则引擎加 **schedule 触发器**（规则声明 `trigger: "daily"`；扫描器线程复用 mailer 的后台线程模式，逐项目评估既有条件谓词 → 命中即走既有动作执行器：升优先级/移列/notify/**周期建卡**）——动作产生的真实事件（item.updated/automation.fired）回流事件流，投影与审计零新增概念。防重靠「每次扫描一条 `automation.swept` 心跳事件」幂等去重。
+
+**AE.2 外部 intake 收件（Trello 板级邮箱 / Jira mail handler 的 HTTP 最小面）**
+
+- Jira 内建 mail handler（POP/IMAP 轮询把邮件变 issue，[官方](https://support.atlassian.com/jira-cloud-administration/docs/create-issues-and-comments-from-email/)）+ JSM 表单门户；Trello 每板唯一邮箱地址、表单工具发邮件即建卡（[社区](https://trello.com/) / [r/trello 实践](https://www.reddit.com/r/trello/comments/k4p0vi/forms_submission_to_trello/)）；开源侧 Google Forms→Trello 脚本同理（[submit-googleforms-to-trello](https://github.com/kylepinecroft/submit-googleforms-to-trello)）。共同语义：**给容器一个免登录的「入口地址」，外部提交进来就是一等卡片**。
+- 对本项目的映射：**intake 令牌 + 公开 JSON 端点**（Trello 邮箱语义的 HTTP 版，零 IMAP 基础设施）：Owner 生成/吊销项目级 intake token（投影表）；`POST /intake/{token}`（常量时间比较、字段白名单 title/desc/priority、actor=intake、复用 create_item 全校验）+ `/#/intake/{token}` 公开表单页（标题+说明两栏）。IMAP 邮件轮询留 backlog（重依赖且被 HTTP 端点覆盖 90% 场景）。
+
+**AE.3 列表分组聚合（Airtable/NocoDB 组头统计语义）**
+
+- 表格视图的分组+聚合是数据组织标配：Airtable group by 多级 + 组尾 count/sum 统计（社区公认效率标杆，[对比讨论](https://community.baserow.io/t/grouping-by-field-data/492?page=2)）；NocoDB 支持至多三级分组 + 组视图统计（[docs](https://nocodb.com/docs/product/tables/table-operations/group-by)、[社区](https://community.nocodb.com/t/summary-stats-not-showing-on-the-group-view/1458)）；Grist 用 summary table 表达聚合（[社区](https://community.getgrist.com/t/summary-tables-and-non-formula-columns/1156)）。
+- 对本项目的映射：列表视图加 **group by**（复用 M6 字段分组的 fieldOptions 与 `?group=` 语义）+ **组头行**（该组计数 + spent_minutes 合计 + 折叠）——纯前端，数据全在已返回的 items 里；与 I79 渐进渲染兼容（分组作用于已显示行）。
+
+**AE.4 M32 设计映射与验证纪律（沿用）**
+
+- I98 时间触发自动化：schedule 触发器 + 扫描线程 + 心跳幂等 + 规则 UI 加触发器选择；单测（扫描命中/心跳防重/动作事件回流）。
+- I99 外部 intake：intake token 投影 + 公开端点 + 公开表单页 + Owner 管理 UI；单测（token 鉴权/字段白名单/吊销 401/事件归账）。
+- I100 列表分组聚合：group by 选择器 + 组头统计 + 折叠；vitest 聚合口径；**新增冒烟 38**（时间触发端到端/intake roundtrip/分组对账）于 I100 + 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M32 审阅。
+
+**AE.5 M32 取舍**
+
+M32 = **引擎与入口三件套**：I98 时间触发自动化（规则引擎的时间维度——YouTrack/Kanboard 语义）/ I99 外部 intake 收件（免登录入口地址——Trello/Jira 语义的 HTTP 最小面）/ I100 列表分组聚合（Airtable 组头统计语义）——主题统一「引擎与入口」：**引擎补节拍**（时间）、**容器加入口**（intake）、**数据给组织**（分组聚合）。+ docs/12 §29 + 冒烟 38 + M32 审阅，约 9 人日。IMAP 邮件轮询、多级分组、按组聚合排序、引用快捷键、多基线趋势留 backlog。
+
 

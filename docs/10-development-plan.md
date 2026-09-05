@@ -1024,6 +1024,36 @@ agent-project-management/
 
 ---
 
+### M32 · 引擎与入口三件套（吸收 YouTrack On-schedule/Trello intake/Airtable 分组聚合，I98-I100，约 9 人日）
+
+> v2.8 新增（2026-09-06，M31 审阅通过后按目标协议调研）。调研结论见 docs/01 §AE：M9 规则引擎是纯事件触发，同类工具的规则都有时间维度（YouTrack On-schedule cron 式扫描升级逾期、Kanboard 停滞清 due 插件、Kanban Tool 周期建卡）；Trello 板级邮箱/Jira mail handler 给容器一个免登录入口地址——HTTP 版（intake token）零 IMAP 依赖；Airtable/NocoDB 的分组+组头统计是表格标配而 AgentPM 列表朴素。主题统一「引擎与入口」：引擎补节拍、容器加入口、数据给组织。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I98 | 时间触发自动化（规则 `trigger: daily` + 扫描线程[mailer 模式] + automation.swept 心跳幂等 + 动作走既有执行器[升优先级/移列/notify/周期建卡] + 规则 UI 触发器选择） | 01 §AE.1 | M9 规则引擎/mailer 线程模式 | 3d |
+| I99 | 外部 intake 收件（intake token 投影 + `POST /intake/{token}` 公开端点[常量时间比较/字段白名单/actor=intake] + `/#/intake/{token}` 公开表单页 + Owner 令牌管理 UI） | 01 §AE.2 | create_item 校验链/M8 权限 | 3d |
+| I100 | 列表分组聚合（列表视图 group by 复用 M6 fieldOptions + 组头行[计数+spent 合计+折叠]）+ docs/12 §29 + 冒烟 38 + M32 审阅 | 01 §AE.3 | M6 分组语义/I79 渐进渲染 | 3d |
+
+#### I98 · 时间触发自动化（3d）
+
+- 任务：automation_rules 支持 `trigger: "event" | "daily"`（缺省 event 全兼容）；扫描线程每日逐项目评估 daily 规则条件（复用 M9 条件谓词）→ 命中走既有动作执行器（priority 提升/状态移动/notify/周期建卡 `action: create_recurring`）+ 每次扫描 emit `automation.swept` 心跳事件（投影记录当日已扫，防重）；规则面板加触发器下拉；单测（扫描命中动作执行/心跳幂等同日不重跑/event 触发零回归/周期建卡）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：建 daily 规则「due 已过且未 done → 优先级升 high」→ 手动触发扫描 → 逾期任务徽标变高优。
+
+#### I99 · 外部 intake 收件（3d）
+
+- 任务：intake_tokens 投影表（项目级，owner 生成/吊销/重发）+ `POST /intake/{token}`（secrets.compare_digest、白名单 title/description/priority、actor_id="intake"、走 create_item 全校验——归档项目 409 继承）+ `/#/intake/{token}` 公开表单页（无需登录，标题+说明+优先级）+ 项目成员页「📮 收件」卡（token 显示/复制/吊销）；单测（有效 token 建任务/坏 token 401/吊销后 401/白名单外字段拒绝/事件 actor 归账/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：复制 token 开公开表单页 → 提交 → 看板出现 intake 卡。
+
+#### I100 · 列表分组聚合 + 收尾审阅（3d）
+
+- 任务：列表视图「分组」下拉（概念/状态/优先级/执行者/自定义字段，复用 fieldOptions）→ 组头行（组名 + n 项 + spent_minutes 合计 + 折叠 chevron，折叠态存 view.memo 或本地 state）+ 分组与 I79 渐进渲染兼容（分组作用于已显示行）；docs/12 §29；**新增冒烟 38**（daily 规则扫描端到端/intake token roundtrip/分组计数对账 + rebuild 一致）；相关验证 + M32 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 38 GREEN；审阅全绿。
+- 演示路径：列表按状态分组 → 组头计数与看板列数一致 → 折叠。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1193,6 +1223,7 @@ agent-project-management/
 | **M29 效率与可观测三件套（I89-I91）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AB + docs/10 §M29）：I89 个人排期月历（/my/work 扩展日期 + 「📅 我的日程」月历：卡片拖拽改期[左柄 start/右柄 due]、拖选范围建任务——OpenProject calendar 个人面）/ I90 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日——补 Kanboard #3142 内联缺口，全守卫继承）/ I91 运行聚合报表（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率·平均时长·Gate 挂起率·步骤数——Langfuse 可观测语义纯投影切片，token/cost 载荷留位不造假数）+ docs/12 §26 + 冒烟 35；审阅全量 **216** 绿 + 冒烟 35 GREEN（附录 B）；评论引用回复/多基线趋势/工作日顺延/真实 token 成本留 backlog |
 | **M30 治理洞察三件套（I92-I94）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AC + docs/10 §M30）：I92 项目健康评分（四因子加权[超期率 40/滞留率 20/吞吐动量 30/Gate 挂起 10]`GET /portfolio/health` + 组合总览评分徽标——CHAOSS 多因子语义落地）/ I93 健康趋势（事件重放周界评分序列 + 报表健康卡 SVG 迷你趋势线——事件溯源红利第三例）/ I94 评论引用回复（CommentsModal「❝」逐行 blockquote + @作者——GitHub quote reply 语义，零后端）+ docs/12 §27 + 冒烟 36；审阅全量 **222** 绿 + 冒烟 36 GREEN + 审阅即修 1 处（附录 B）；引用键盘快捷键/CHAOSS 全维度/依赖图独立视图留 backlog |
 | **M31 响应力三件套（I95-I97）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AD + docs/10 §M31）：I95 键盘优先操作面（`?` 快捷键帮助浮层 + 看板 j/k 选中导航 + `C` 新建——Linear/Dynatrace ⌘K·?·jk 行业组合）/ I96 通知偏好按事件类型细分（事件类型 × 站内/邮件双通道 + plan_notifications 投递收口——GitLab Custom 语义、#410008 教训）/ I97 响应性指标（审批响应/评论首响应配对聚合 + 报表「⏱ 响应力」卡——CHAOSS Time to First Response，事件溯源红利第四例）+ docs/12 §28 + 冒烟 37；审阅全量 **233** 绿 + 冒烟 37 GREEN + 审阅即修 1 处（Modal Esc 关闭补齐宣称语义；附录 B）；引用快捷键/多基线趋势/工作日顺延留 backlog |
+| **M32 引擎与入口三件套（I98-I100）** | 进行中（定义已出） | 2026-09-06 | — | 3 迭代 / 约 9 人日（docs/01 §AE + docs/10 §M32）：I98 时间触发自动化（规则 trigger:daily + 扫描线程 + automation.swept 心跳幂等 + 周期建卡——YouTrack On-schedule/Kanboard 插件语义）/ I99 外部 intake 收件（intake token + 公开 JSON 端点 + 公开表单页——Trello 板级邮箱/Jira mail handler 的 HTTP 最小面）/ I100 列表分组聚合（group by + 组头计数/spent 合计——Airtable/NocoDB 组头统计语义）+ docs/12 §29 + 冒烟 38；IMAP 轮询/多级分组/按组排序留 backlog |
 | I92 项目健康评分 | 已完成 | 2026-09-05 | 2026-09-05 | `_health_factors`（per 项目：active/overdue[活跃且 due 已过]/stale[活跃且 updated_at < today−STALE_DAYS]/done_7d[**近 7 天 done 首达事件重放**同 I85 燃尽口径]/gates[approvals pending]）+ `_health_score`（**加法式**：40×(1−overdue_rate) + 20×(1−stale_rate) + 30×momentum[min(done_7d/active,1)] + 10×(1−gate_rate)——各因子健康时贡献满权重；无活跃项 None）；`GET /portfolio/health` 复用 `_visible` 同口径 + **评分升序**（差的在前）；Dashboard 组合总览行内评分徽标（♥ 绿≥80/黄 60-79/红<60/无活跃灰「♥ —」）+ 行按评分升序排入；api.ts portfolioHealth；test_health_score 3 项（**公式级**：满血 100 分/momentum 封顶/全恶 0 分/None；**集成手算**：甲 3 活跃 1 超期 1 完成 → 60.0[done 项退出 active 分母]vs 乙全健康无吞吐 70.0 + worst-first 排序 + rebuild 相等；空项目 None）；health+workload 5 项绿、build/vitest 绿 |
 | I93 健康趋势 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/health/history?days=30`（7-90 钳制）——**事件重放采样**（燃尽第三例同构）：扫 item.created / item.updated[due_date 变化] / item.status_changed + approval.requested/granted/rejected 五类事件按 id 序应用，每 5 天周界（末点=今天）重算四因子套用 `_health_score`；stale 因子重放口径用 **last_touch**（created 或末次状态变更）近似 updated_at（事件粒度取舍，附录 A 有记）；Gate 挂起 = requested 累加 − granted/rejected 递减（下限 0）。报表页「💚 健康趋势」卡：SVG 迷你趋势线（null 分过滤后连线、末点圆点、ag 色系）+ 当前分徽标 + 因子权重注记；api.ts getHealthHistory；test_health_history 2 项（30 天窗口 ≥7 采样点、首点 None[项目未建]/尾点活跃 2 评分 70.0、超期一项后尾点 overdue 1 评分 **60.0** 手算、rebuild 后序列逐点相等；空项目全 None）；health_history 2 项绿、build/vitest 绿 |
 | I94 评论引用回复 + 冒烟 36 | 已完成 | 2026-09-05 | 2026-09-05 | CommentsModal 评论条目「❝ 引用」按钮 → 编辑框填入 `@作者 > 原文逐行`（每行加 blockquote 前缀）并聚焦（预览模式先切回编辑、编辑中先退出，cx 条件布局 ml-auto 兜底）；**存储仍是纯文本**（M20 契约不变），blockquote 渲染由既有 marked+DOMPurify 链免费获得，@解析走既有 mention 口径——GitHub quote reply 最小面**零后端**；docs/12 §27；**新增冒烟 36**（①健康四因子手算：3 活跃 1 超期 1 本周完成 → 60.0；②趋势末点评分 == I92 实时评分 + 前序采样点 None[项目今日建]；③引用文本 roundtrip 逐字节[纯文本契约]；④rebuild 后评分/历史/评论全一致）；冒烟基线 **36 条 GREEN**、build/vitest 绿 |
@@ -1462,6 +1493,7 @@ agent-project-management/
 | 2026-09-05 | M29 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 重跑全量 **pytest 216** 项 0 失败[9 分 42 秒；预估 215 实跑 216——基线只增不减满足] + 冒烟 **35** 条 GREEN + vitest 2/build 绿；验证纪律第十轮执行）：**I89** 月历（own-data 只见自己指派项/无日期排除/跨项目聚合/改期 PATCH 后 rebuild 一致/归档排除，test_schedule 2 项）✓；**I90** 快捷编辑（无新增后端面——复用 patch_item 矩阵；冒烟 35 断言白名单 422 与 blocks 闭锁在快捷路径生效）✓；**I91** 运行报表（事件 emit 造数聚合对账 by_role 成功率/rebuild 相等/空态全 None，test_runs_report 2 项）✓。浏览器隔离复演（`/tmp/apm-m29` 隔离 data+ontologies + netstat 单监听 + 生产构建 + SW 清理[首访 console 184 错误归零——坑 #90 第五次验证]）：①月历：9/8-9/10 三天逐日 chip（跨度渲染）→ playwright dispatchEvent 模拟 HTML5 DnD 拖 9/8 chip 至 9/10 格 → API 复核 **start 09-08→09-10、due 09-10→09-12[span 保持 +2]**（截图 m29-review-schedule.png）；②快捷编辑：bug 卡 ⚡ → 状态集来自本体 states[打开/修复中/已修复/已验证/不予修复] → 选「已验证」保存 → **console 422 硬证据**（白名单拦截 open→verified；toast 超时消失以 console 为准）→ 选合法链「修复中」保存 → API 复核 status=fixing；③运行报表：真实 POST /runs 启动 pm-agent run 至 Gate 挂起 → 报表卡「共 1 次 · 成功率 —[None 语义] · Gate 挂起率 100% · 平均步骤数 7[真实 replay spans] · tokens 0/0[title 注明 replay 记零]」+ 角色芯片 pm-agent × 1 与运行列表对账（截图 m29-review-runs-report.png）；console 唯一 error 即故意触发的 422（复演对象本身）。无新增 A/B 级缺陷。 | — | 里程碑通过 |
 
 | 2026-09-05 | M30 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 重跑全量 **pytest 222** 项 0 失败[9 分 52 秒；预估 221 实跑 222——基线只增不减满足] + 冒烟 **36** 条 GREEN + vitest 2/build 绿；验证纪律第十一轮执行）：**I92** 健康评分（公式级满血 100/momentum 封顶/全恶 0/None + 集成手算甲 60.0 乙 70.0 与 worst-first 排序 + rebuild 相等，test_health_score 3 项）✓；**I93** 趋势（30 天 ≥7 采样点/首点 None/尾点 70.0/超期后 60.0 手算/rebuild 序列逐点相等，test_health_history 2 项）✓；**I94** 引用回复（冒烟 36 引用文本 roundtrip 逐字节 + 评分/历史/评论 rebuild 全一致；「❝」按钮零后端）✓。浏览器隔离复演（`/tmp/apm-m30` 隔离 data+ontologies + netstat 单监听 + 生产构建 + SW 清理[首访 console 197 错误归零——坑 #90 第六次验证]；造数 2 活跃 1 超期 1 完成 → 评分 65.0 手算吻合）：①组合总览：行内「**♥ 65**」徽标（title 完整 CHAOSS 语义说明）+ 无超期灰「♥ —」语义在位；②健康趋势卡：「当前 ♥ 65」徽标 + 空态语义（新项目单采样点画不了线——诚实空态而非假线）；③引用回复：评论抽屉「❝」→ 编辑框预填 + 自动聚焦 → 发送 → **API 复核存储逐字节** `@李雷 > 接口定型会议结论：先做 A 方案`；**审阅即修 1 处**（`60a043c`）：首版预填 `@作者 > 原文` 同行——行内 `>` 非 blockquote 语法致单行引用渲染为普通段落，改为「@X 引用：」独立行 + 逐行行首 blockquote 后 **DOM 断言 blockquote 与 @李雷 mention chip 双双渲染**（截图 m30-review-quote-reply.png；趋势卡截图 m30-review-health-trend.png）。console 无意外错误。 | — | 里程碑通过 |
+| 2026-09-06 | M32 定义 | 新一轮三路并行调研（防重查：候选池 grep——引用快捷键/多基线趋势/工作日顺延/工时审批代理无记录可查，依赖图独立视图维持不查）：①**时间触发自动化**——YouTrack On-schedule 规则 cron 式扫描升级逾期（PVS-Studio 实践）+ Kanboard 插件「停滞清 due」「无日期派日期」+ Kanban Tool Recurring Tasks 周期建卡 → M9 规则引擎纯事件触发缺时间维度 → trigger:daily + 扫描线程[mailer 模式] + automation.swept 心跳幂等 + 动作走既有执行器回流事件流；②**外部 intake 收件**——Jira mail handler POP/IMAP 轮询变 issue + JSM 表单门户 + Trello 每板唯一邮箱（表单发邮件即建卡）→ 共同语义「给容器免登录入口地址」→ intake token + 公开 JSON 端点 + 公开表单页（HTTP 版零 IMAP 依赖，覆盖 90% 场景）；③**列表分组聚合**——Airtable 多级 group by + 组尾 count/sum（社区公认标杆）+ NocoDB 三级分组/组视图统计 + Grist summary table → AgentPM 列表朴素 → 复用 M6 分组语义加组头行[计数+spent 合计+折叠]，纯前端。选定 **M32 = 引擎与入口三件套**：I98 时间触发自动化 / I99 外部 intake / I100 列表分组聚合 + docs/12 §29 + 冒烟 38 于 I100 + 审阅，估时 +9 人日。结论入 docs/01 §AE。 |
 | 2026-09-06 | M31 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 重跑全量 **pytest 233** 项 0 失败[预估 232 实跑 233——基线只增不减满足；首轮全量揭出 3 例 timelog/users 环境性失败，根因=冒烟 37 是 smoke 目录首个切身份测试且无恢复夹具、settings.user_id 泄漏给字母序后续测试——补 _restore_identity 夹具后全量绿，即修 7026c13] + 冒烟 **37** 条 GREEN + vitest 6/build 绿；验证纪律第十二轮执行）：**I95** 键盘面（注册表无重复键位/typing 让路矩阵，vitest 4 项）✓；**I96** 通知偏好（默认全开/站内闸/mention 双层防御/邮件闸/rebuild 重放按当前偏好，test_notification_prefs 6 项 + 通知邮件回归 10 项零破坏）✓；**I97** 响应性（空态 None/审批配对排除 pending/首响应排作者/rebuild 逐字段相等，test_responsiveness 4 项）✓。浏览器隔离复演（`/tmp/apm-m31` 隔离 data+ontologies + netstat 单监听 + 生产构建 + SW 清理）：造数=真实 run 至 Gate 挂起+双身份评论对话；①键盘面：`?` 浮层渲染+搜「j」过滤剩 1 行（截图 m31-review-shortcuts-overlay.png）→ j/j/k 琥珀环依次落「接口定型→回归清单→接口定型」→ Enter 直开「💬 评论 · 接口定型」→ **审阅即修**（SHORTCUTS 宣称「Esc 关闭弹窗」但 Modal 不响应 Escape——ui.tsx Modal useEffect 接入 Escape 后 Esc 关抽屉 ✓）→ C 建任务「快捷键建的任务」API 复核 task/open/assignee=当前身份（截图 m31-review-board-kbd-create.png）；②通知偏好：QA 王铃面板五类×双通道矩阵渲染 → UI 关「参与项状态变更·站内」→ API 复核 inapp=false → 李雷改「回归清单」状态后 QA 王铃**无 item 类通知**（闸门生效）而 @QA 王 评论 **mention 照达**（unread 1→2 且仅 mention+assigned；截图 m31-review-notif-prefs.png）；③响应力卡：UI 审批中心批准挂起 Gate → 报表「⏱ 响应力」卡「Gate 审批响应 1 次·平均 0.1h·超 48h 占 0% / 评论首响应 2 次·待响应 1」与 /responsiveness API 逐字段对账（截图 m31-review-responsiveness.png）；console 全程 0 错误 0 警告。 | — | 里程碑通过 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
