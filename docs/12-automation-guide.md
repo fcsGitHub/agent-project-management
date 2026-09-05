@@ -577,3 +577,26 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **交互**：评论条目「❝ 引用」按钮 → 编辑框填入 `@作者 > 原文逐行`（每行加 blockquote 前缀）并聚焦；预览模式下先切回编辑。
 - **契约**：存储仍是**纯文本**（M20 契约不变）——blockquote 渲染由既有 marked+DOMPurify 链免费获得，mention 解析走既有 @ 口径。
 - **语义**：GitHub quote-reply 的最小面（无 `r` 快捷键、无选区引用——backlog）。
+
+## 28. 响应力三件套（M31-I95/I96/I97）
+
+### 28.1 键盘优先操作面（I95）
+
+- **快捷键清单**（`?` 浮层的真源=`web/src/lib/shortcuts.ts` SHORTCUTS 表——浮层渲染与键位实现共用一份，加新键先改表）：`⌘K/Ctrl K` 命令面板；`?` 本浮层（Shift+/，可搜索）；`Esc` 关弹窗/清游标；看板内 `J/K` 卡片游标（琥珀高亮环，与多选蓝环区分）、`Enter` 打开选中卡评论区、`C` 快捷新建（概念默认 task、自动指派当前用户——与月历拖选建任务同语义）。
+- **让路规则**：`isTypingTarget`（INPUT/TEXTAREA/SELECT/contentEditable）聚焦时所有单键快捷键不劫持；看板 modal 任一打开（anyModalOpen）时 Enter/C 让路。
+- **实现**：window 级单一 keydown listener（AppShell 管 `?`/⌘K，Board 管 j/k/Enter/C/Esc）；游标=扁平 listed 序列的 index，scrollIntoView(block:nearest) 跟随。
+
+### 28.2 通知偏好按事件类型细分（I96）
+
+- **API**：`GET /api/me/notification-prefs`（五类矩阵：assigned/approval/comment/item/mention × 站内/邮件，缺行=全开）；`PUT` 批量更新（mention 关闭与未知 kind 均 **422 fail-closed**）。
+- **闸门**：`pref_allows(conn, user, kind, channel)` 单一函数、双通道各调一次——站内闸在 `_notify`、邮件闸在 `mailer.enqueue`；**mention 恒真**（GitLab mention 档语义：任何级别都收提及，DB 直插关行也拦不住送达）。
+- **存储**：`notification_prefs` 运行态表（user_id×kind 主键）——**不进 drop_projections**：rebuild 后偏好保留（同 email_notify/feed_key 语义）；通知投影重放按**当前偏好**重算（闸门在投递路径，replay 即重新投递决策——live==replay 构造性成立）。
+- **UI**：铃面板「按事件类型」矩阵（mention 行勾死 disabled）。
+
+### 28.3 响应性指标（I97）
+
+- **端点**：`GET /api/projects/{id}/responsiveness?days=30`（7-90 钳制）。
+- **审批响应**：读 approvals 投影 `requested_at→decided_at`（status=approved/rejected；pending 不入样）——均值/中位/超 48h 占比。
+- **评论首响应**：事件流重放——每条评论找**同 item 下一非作者**的 comment.created 或 item.status_changed（作者自评不算；事件 append-only 序即时间序）；无响应评论计入 `comments_unanswered`。
+- **空态**：窗口内无样本的分片输出 `null`（诚实空态，不编 0）——前端报表「⏱ 响应力」卡显示语义文案。
+- **语义注记**：一条回复同时应答它之前的所有无响应评论（「首响应=该评论之后的首个他人事件」），故 count 可大于「被回复讨论数」。
