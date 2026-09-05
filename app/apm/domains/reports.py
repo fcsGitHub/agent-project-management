@@ -486,6 +486,79 @@ def health_history(project_id: str, days: int = 30) -> dict:
             "generated_at": _now().isoformat()}
 
 
+@router.get("/projects/{project_id}/baseline-curve")
+def baseline_curve(project_id: str, baseline_id: str | None = None) -> dict:
+    """Baseline S-curve (M34-I106, docs/01 §AG.3, EVM semantics): PV accrues
+    each baseline item's weight by its planned due (weight = estimate_hours,
+    falling back to 1.0 for pre-I106 snapshots), EV accrues by the replayed
+    first-arrival day of done — the event-sourcing dividend again, zero new
+    tables. SPI = EV/PV at the last sample; PV=0 is an honest None."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT id, snapshot, created_at FROM baselines"
+        " WHERE project_id = ? ORDER BY created_at, id", (project_id,)).fetchall()
+    if not rows:
+        raise HTTPException(status_code=404, detail="no baseline set for this project")
+    row = rows[-1] if not baseline_id else next(
+        (r for r in rows if r["id"] == baseline_id), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="unknown baseline")
+    snap = json.loads(row["snapshot"])["items"]
+    # weight = estimate_hours when the snapshot carries it, else 1.0 per item
+    weights: dict[str, float] = {}
+    planned_due: dict[str, str] = {}
+    for item_id, entry in snap.items():
+        weights[item_id] = float(entry[2]) if len(entry) > 2 and entry[2] else 1.0
+        if entry[1]:
+            planned_due[item_id] = entry[1]
+
+    # EV: first-arrival day of done per baseline item, replayed
+    first_done: dict[str, str] = {}
+    if snap:
+        for e in conn.execute(
+            "SELECT agg_id, payload, ts FROM events"
+            " WHERE project_id = ? AND event_type = 'item.status_changed' ORDER BY id",
+            (project_id,),
+        ).fetchall():
+            if e["agg_id"] not in weights or e["agg_id"] in first_done:
+                continue
+            if json.loads(e["payload"]).get("status_group") == "done":
+                first_done[e["agg_id"]] = e["ts"][:10]
+
+    total = sum(weights.values())
+    start = (row["created_at"] or "")[:10]
+    points = _now().date()
+    today = points.isoformat()
+    begin = date.fromisoformat(min([start, today])) if start else points
+    span = max((points - begin).days, 1)
+    sample_days = [begin + timedelta(days=i) for i in range(0, span, 5)]
+    if sample_days[-1] != points:
+        sample_days.append(points)
+
+    def pv_on(day_s: str) -> float:
+        return sum(w for iid, w in weights.items()
+                   if planned_due.get(iid, "9999") <= day_s)
+
+    def ev_on(day_s: str) -> float:
+        return sum(weights[iid] for iid, d in first_done.items() if d <= day_s)
+
+    samples = []
+    for pday in sample_days:
+        ds = pday.isoformat()
+        samples.append({"date": ds, "pv": round(pv_on(ds), 2),
+                        "ev": round(ev_on(ds), 2)})
+    pv_total, ev_last = samples[-1]["pv"], samples[-1]["ev"]
+    spi = round(ev_last / pv_total, 3) if pv_total > 0 else None
+    return {"project_id": project_id, "baseline_id": row["id"],
+            "created_at": row["created_at"], "total": round(total, 2),
+            "samples": samples, "pv_total": pv_total, "ev_last": ev_last,
+            "spi": spi,
+            "weights": "estimate_hours, fallback 1.0 for pre-I106 snapshots"}
+
+
 @router.get("/projects/{project_id}/critical-path")
 def critical_path(project_id: str) -> dict:
     """CPM (M33-I101, docs/01 §AF.1): a backward pass over the scheduled

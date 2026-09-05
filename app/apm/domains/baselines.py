@@ -35,8 +35,11 @@ def _proj_baseline_cleared(conn, e):
 
 def _snapshot(project_id: str) -> dict:
     conn = db.get_conn()
+    # I106: each entry carries [start, due, estimate_hours] — EVM weighting for
+    # the baseline S-curve; pre-I106 snapshots hold [start, due] and curve
+    # parsing falls back to weight 1.0 per item (count semantics).
     items = conn.execute(
-        "SELECT id, start_date, due_date FROM items"
+        "SELECT id, start_date, due_date, estimate_hours FROM items"
         " WHERE project_id = ? AND (start_date IS NOT NULL OR due_date IS NOT NULL)"
         " ORDER BY id", (project_id,),
     ).fetchall()
@@ -45,7 +48,8 @@ def _snapshot(project_id: str) -> dict:
         (project_id,),
     ).fetchall()
     return {
-        "items": {r["id"]: [r["start_date"], r["due_date"]] for r in items},
+        "items": {r["id"]: [r["start_date"], r["due_date"], r["estimate_hours"]]
+                  for r in items},
         "milestones": {r["id"]: r["due_date"] for r in milestones},
     }
 

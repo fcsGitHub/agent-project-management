@@ -141,6 +141,9 @@ export function ReportsPage() {
 
       {/* responsiveness (M31-I97): approval latency + comment first response */}
       <ResponsivenessCard pid={pid} />
+
+      {/* baseline S-curve (M34-I106): EVM PV/EV dual line + SPI */}
+      <SCurveCard pid={pid} />
     </div>
   );
 }
@@ -225,6 +228,84 @@ function ResponsivenessCard({ pid }: { pid: string }) {
       <div className="mt-2 text-[10px] text-mut">
         审批读投影 requested→decided；首响应 = 下一非作者评论或状态变更（事件流重放，作者自评不计）
       </div>
+    </Card>
+  );
+}
+
+/** I106 (docs/01 §AG.3, EVM semantics): baseline S-curve — PV accrues baseline
+ *  weights by planned due, EV by replayed done arrival; SPI at the last sample. */
+function SCurveCard({ pid }: { pid: string }) {
+  const bl = useQuery({
+    queryKey: ["baselines", pid],
+    queryFn: () => api.listBaselines(pid),
+    enabled: !!pid,
+  });
+  const [bid, setBid] = useState("");
+  const list = bl.data?.baselines ?? [];
+  const selected = bid || list[list.length - 1]?.id || "";
+  const curve = useQuery({
+    queryKey: ["baseline-curve", pid, selected],
+    queryFn: () => api.getBaselineCurve(pid, selected),
+    enabled: !!selected,
+  });
+
+  const d = curve.data;
+  const view = (() => {
+    if (!d || !d.samples.length || d.total <= 0) return null;
+    const t0 = d.samples[0].date;
+    const start = new Date(t0 + "T00:00:00Z").getTime();
+    const end = new Date(d.samples[d.samples.length - 1].date + "T00:00:00Z").getTime();
+    const window = Math.max(end - start, DAY_MS);
+    const x = (date: string) => ((new Date(date + "T00:00:00Z").getTime() - start) / window) * 100;
+    const y = (n: number) => 3 + (1 - n / d.total) * 37;
+    const pts = (key: "pv" | "ev") =>
+      d.samples.map((p) => `${x(p.date).toFixed(2)},${y(p[key]).toFixed(2)}`).join(" ");
+    return { pv: pts("pv"), ev: pts("ev") };
+  })();
+
+  return (
+    <Card className="p-4 md:col-span-2">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">📈 S 曲线</span>
+        <div className="flex items-center gap-2">
+          {d?.spi != null && (
+            <Badge tone={d.spi >= 1 ? "green" : "amber"}>SPI {d.spi}</Badge>
+          )}
+          <select value={selected} onChange={(e) => setBid(e.target.value)}
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+            {list.map((b) => (
+              <option key={b.id} value={b.id}>{b.created_at?.slice(0, 10) || b.id}</option>
+            ))}
+            {!list.length && <option value="">（无基线）</option>}
+          </select>
+        </div>
+      </div>
+      {d && view ? (
+        <>
+          <div className="text-xs text-mut">
+            计划值 PV {d.pv_total}h · 挣值 EV {d.ev_last}h · 总盘 {d.total}h
+            {d.spi == null && " · PV 为 0，SPI 不可算——诚实空态"}
+          </div>
+          <svg viewBox="0 0 100 43" className="mt-2 h-36 w-full" preserveAspectRatio="none">
+            <polyline points={view.pv} fill="none" stroke="currentColor"
+              className="text-mut/60" strokeWidth="0.8" strokeDasharray="2 2" />
+            <polyline points={view.ev} fill="none" stroke="currentColor"
+              className="text-acc" strokeWidth="1" />
+          </svg>
+          <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
+            <span><i className="mr-1 inline-block h-0.5 w-3 border-b border-dashed border-mut align-middle" />PV（基线计划累计）</span>
+            <span><i className="mr-1 inline-block h-0.5 w-3 bg-acc align-middle" />EV（实际完成累计）</span>
+          </div>
+          <div className="mt-1 text-center text-[10px] text-mut">
+            权重 = estimate_hours（旧基线缺省按项数 1.0）· EV 事件重放 done 首达日
+          </div>
+        </>
+      ) : (
+        <Empty
+          title={list.length ? "基线暂无可累计项" : "暂无基线"}
+          hint={list.length ? "基线快照里没有带日期的工作项" : "先在时间线设置基线，再做 S 曲线对比"}
+        />
+      )}
     </Card>
   );
 }
