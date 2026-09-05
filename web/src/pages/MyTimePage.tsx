@@ -1,12 +1,14 @@
 /** Personal time-tracking calendar (M20-I62, docs/01 §S.1, OpenProject 16.0
  * "My time tracking"): week/month grids of my own entries with daily totals;
  * click a day to quick-log (form semantics mirror TimeLogModal, spent_on
- * prefilled). Pure views over GET /my/timelog — no new events. */
+ * prefilled). Pure views over GET /my/timelog — no new events.
+ * M28-I86: timesheet submission/approval panel (period submit → owner decides
+ * → approved periods freeze writes). */
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
-import type { TimeEntry } from "../lib/api";
+import type { TimeEntry, Timesheet } from "../lib/api";
 import { Card, Empty } from "../components/ui";
 import { fmtMinutes } from "../components/TimeLogModal";
 import { cx } from "../components/ui";
@@ -129,7 +131,152 @@ export function MyTimePage() {
           onClose={() => setOpenDay(null)}
           onChanged={() => qc.invalidateQueries()} />
       )}
+      <TimesheetPanel />
     </div>
+  );
+}
+
+const TS_TONE: Record<Timesheet["status"], string> = {
+  submitted: "bg-amber-500/15 text-amber-600",
+  approved: "bg-emerald-500/15 text-emerald-600",
+  rejected: "bg-red-500/15 text-red-500",
+};
+const TS_LABEL: Record<Timesheet["status"], string> = {
+  submitted: "待审批",
+  approved: "已批准·已锁定",
+  rejected: "已驳回",
+};
+
+function TimesheetPanel() {
+  const qc = useQueryClient();
+  const [start, setStart] = useState(() => iso(weekStart(new Date())));
+  const [end, setEnd] = useState(() => iso(new Date()));
+  const [pid, setPid] = useState("");
+  const mine = useQuery({ queryKey: ["my-timesheets"], queryFn: api.myTimesheets, refetchInterval: 15_000 });
+  const feed = useQuery({ queryKey: ["my-timelog"], queryFn: () => api.getMyTimelog(60), refetchInterval: 15_000 });
+
+  // projects I have logged time in → submission candidates (shared cache with
+  // the calendar grid above: same query key, no extra round trip)
+  const projects = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of feed.data?.days ?? [])
+      for (const e of d.entries)
+        if (e.project_id) m.set(e.project_id, e.project_name ?? e.project_id);
+    return [...m.entries()].map(([id, name]) => ({ id, name }));
+  }, [feed.data]);
+
+  // pending approvals across projects where I can decide (owner/admin)
+  const approvals = useQuery({
+    queryKey: ["ts-approvals"],
+    queryFn: async () => {
+      const out: { row: Timesheet; can: boolean }[] = [];
+      const seen = new Set<string>();
+      for (const t of mine.data?.timesheets ?? []) {
+        if (seen.has(t.project_id)) continue;
+        seen.add(t.project_id);
+        try {
+          const r = await api.listTimesheets(t.project_id);
+          for (const row of r.timesheets) out.push({ row, can: r.can_approve });
+        } catch { /* viewer on a project — skip */ }
+      }
+      return out;
+    },
+    enabled: (mine.data?.timesheets.length ?? 0) > 0,
+  });
+  const pending = (approvals.data ?? []).filter((x) => x.row.status === "submitted");
+
+  const submit = async () => {
+    if (!pid) { toast.error("先选择项目"); return; }
+    if (start > end) { toast.error("期间起止颠倒"); return; }
+    try {
+      await api.submitTimesheet({ project_id: pid, period_start: start, period_end: end });
+      toast.success("已提交审批");
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`提交失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const decide = async (id: string, ok: boolean) => {
+    try {
+      if (ok) await api.approveTimesheet(id);
+      else {
+        const reason = window.prompt("驳回原因（会展示给提交人）") ?? "";
+        await api.rejectTimesheet(id, reason);
+      }
+      toast.success(ok ? "已批准，该期间工时已锁定" : "已驳回");
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  return (
+    <Card className="mx-4 mb-4 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">🧾 工时审批</span>
+        <span className="text-[10px] text-mut">Redmine 计薪语义：批准后期间锁定，记时/修改/删除被拒</span>
+      </div>
+      <div className="flex flex-wrap items-end gap-2 text-xs">
+        <label className="text-[10px] text-mut">
+          期间起
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        </label>
+        <label className="text-[10px] text-mut">
+          期间止
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        </label>
+        <label className="text-[10px] text-mut">
+          项目
+          <select value={pid} onChange={(e) => setPid(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+            <option value="">选择有记时的项目…</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <button onClick={submit}
+          className="rounded-lg bg-acc px-3 py-1.5 font-medium text-white hover:opacity-90">提交审批</button>
+      </div>
+      {!!mine.data?.timesheets.length && (
+        <div className="mt-3 space-y-1">
+          <div className="text-[10px] text-mut">我的提交</div>
+          {mine.data.timesheets.slice(0, 6).map((t) => (
+            <div key={t.id} className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs">
+              <span className="w-28 shrink-0 truncate">{t.project_name ?? t.project_id}</span>
+              <span className="text-mut">{t.period_start} ~ {t.period_end}</span>
+              <span className="rounded bg-accbg px-1 font-medium text-acc">{fmtMinutes(t.total_minutes)}</span>
+              <span className="text-mut">{t.entry_count} 笔</span>
+              <span className={cx("ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium", TS_TONE[t.status])}>
+                {TS_LABEL[t.status]}{t.status === "rejected" && t.reason ? ` · ${t.reason}` : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!!pending.length && (
+        <div className="mt-3 space-y-1">
+          <div className="text-[10px] text-mut">待我审批</div>
+          {pending.map(({ row, can }) => (
+            <div key={row.id} className="flex items-center gap-2 rounded-lg border border-amber-500/40 px-2.5 py-1.5 text-xs">
+              <span className="w-28 shrink-0 truncate">{row.user_name ?? row.user_id}</span>
+              <span className="w-28 shrink-0 truncate text-mut">{row.project_name ?? row.project_id}</span>
+              <span className="text-mut">{row.period_start} ~ {row.period_end}</span>
+              <span className="rounded bg-accbg px-1 font-medium text-acc">{fmtMinutes(row.total_minutes)}</span>
+              {can ? (
+                <span className="ml-auto flex gap-1.5">
+                  <button onClick={() => decide(row.id, true)}
+                    className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-medium text-white">✓ 批准</button>
+                  <button onClick={() => decide(row.id, false)}
+                    className="rounded-lg border border-line px-2 py-1 text-[10px] hover:border-red-400 hover:text-red-500">✕ 驳回</button>
+                </span>
+              ) : <span className="ml-auto text-[10px] text-mut">无审批权</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

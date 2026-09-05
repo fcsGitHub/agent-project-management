@@ -371,6 +371,27 @@ CREATE TABLE IF NOT EXISTS baselines (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_baselines_project ON baselines(project_id);
+
+-- M28-I86: per-period timesheet submissions; an approved row freezes the
+-- member's entries inside [period_start, period_end] (Redmine plugin semantics,
+-- docs/01 §AA.1). status ∈ submitted/approved/rejected.
+CREATE TABLE IF NOT EXISTS timesheets (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  period_start TEXT NOT NULL,
+  period_end TEXT NOT NULL,
+  total_minutes INTEGER NOT NULL,
+  entry_count INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  decided_by TEXT,
+  decided_at TEXT,
+  reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_timesheets_project ON timesheets(project_id);
+CREATE INDEX IF NOT EXISTS idx_timesheets_user ON timesheets(user_id);
 """
 
 FTS_DDL = """
@@ -400,6 +421,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "comment_revisions",
         "item_participants",
         "item_time_entries",
+        "timesheets",
         "extracted_tasks",
         "baselines",
         "project_members",

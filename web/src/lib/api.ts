@@ -127,6 +127,15 @@ export type TimelogReport = {
   by_day: { date: string; minutes: number }[];
   window_days: number;
 };
+export type Timesheet = {
+  id: string; project_id: string; user_id: string; user_name?: string | null;
+  project_name?: string | null;
+  period_start: string; period_end: string;
+  total_minutes: number; entry_count: number;
+  status: "submitted" | "approved" | "rejected";
+  decided_by?: string | null; decided_at?: string | null; reason?: string | null;
+  created_at: string; updated_at: string;
+};
 export type BoardData = {
   project_id: string; feature_id?: string; applied_view_id?: string; group_by: string;
   buckets: { id: string; name: string; items: Item[] }[];
@@ -315,6 +324,16 @@ export const api = {
     req<{ milestone_id: string; title: string; due_date: string; total: number; remaining: number;
           series: { date: string; remaining: number }[]; ideal: { date: string; remaining: number }[];
           velocity: { days: number; done: number } }>(`/milestones/${mid}/burndown`),
+  submitTimesheet: (body: { project_id: string; period_start: string; period_end: string }) =>
+    req<Timesheet>("/me/timesheets/submit", { method: "POST", body: JSON.stringify(body) }),
+  myTimesheets: () =>
+    req<{ timesheets: Timesheet[] }>("/me/timesheets"),
+  listTimesheets: (pid: string) =>
+    req<{ timesheets: Timesheet[]; can_approve: boolean }>(`/projects/${pid}/timesheets`),
+  approveTimesheet: (id: string) =>
+    req<Timesheet>(`/timesheets/${id}/approve`, { method: "POST" }),
+  rejectTimesheet: (id: string, reason: string) =>
+    req<Timesheet>(`/timesheets/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
   createMilestone: (pid: string, body: { title: string; due_date: string; description?: string }) =>
     req<Milestone>(`/projects/${pid}/milestones`, { method: "POST", body: JSON.stringify(body) }),
   patchMilestone: (id: string, body: Partial<Pick<Milestone, "title" | "description" | "due_date" | "status">>) =>

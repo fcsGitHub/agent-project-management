@@ -28,6 +28,7 @@ from apm.domains import (  # noqa: F401
     system,
     template_packs,
     timelog,
+    timesheet,
     users,
     views,
     webhooks,

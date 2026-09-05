@@ -18,6 +18,13 @@ router = APIRouter(tags=["timelog"])
 MAX_NOTE = 500
 
 
+def _assert_unlockable(project_id: str, user_id: str, *days: str | None) -> None:
+    """M28-I86: an approved timesheet freezes the member's dates it covers.
+    Imported lazily to avoid a timelog↔timesheet import cycle."""
+    from apm.domains.timesheet import _assert_dates_unlockable
+    _assert_dates_unlockable(project_id, user_id, *days)
+
+
 # ------------------------------------------------------------ projections
 @on("time.logged")
 def _proj_time_logged(conn, e):
@@ -128,6 +135,7 @@ def log_time(item_id: str, body: TimeLogIn) -> dict:
     user_id = events.effective_actor()
     _validate_minutes(body.minutes)
     _validate_spent_on(body.spent_on)
+    _assert_unlockable(item["project_id"], user_id, body.spent_on)
     entry_id = new_id("te")
     events.emit(
         event_type="time.logged",
@@ -195,6 +203,9 @@ def edit_time_entry(entry_id: str, body: TimeEditIn) -> dict:
         _validate_minutes(changes["minutes"])
     if "spent_on" in changes:
         _validate_spent_on(changes["spent_on"])
+    # lock covers both where the entry sits today and where it would move to
+    _assert_unlockable(entry["project_id"], entry["user_id"],
+                       entry["spent_on"], changes.get("spent_on"))
     events.emit(
         event_type="time.edited",
         agg_type="time_entry",
@@ -215,6 +226,7 @@ def delete_time_entry(entry_id: str) -> dict:
     if config.settings.auth_mode != "local" and actor != entry["user_id"] \
             and not is_instance_admin(actor):
         raise HTTPException(status_code=403, detail="only the author or an admin can delete")
+    _assert_unlockable(entry["project_id"], entry["user_id"], entry["spent_on"])
     events.emit(
         event_type="time.deleted",
         agg_type="time_entry",
