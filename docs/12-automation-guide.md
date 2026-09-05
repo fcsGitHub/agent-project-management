@@ -655,3 +655,10 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **API**：`GET /api/calendar/holidays`（任何登录者可读）、`POST /api/calendar/holidays`（admin only；重复 409、坏日期 422）、`DELETE /api/calendar/holidays/{date}`（不存在 404）。
 - **UI**：设置页「📅 工作日历」卡（日期+备注添加、chip 列表、✕ 移除）。
 - **测试**：test_calendar 3 项（admin roundtrip/传播跳假日与跨跳/手排期不动 + rebuild 存活）；test_scheduling 造数改锚定周一网格（M34 语义演进：传播落点不再落周末，三处落点数字重排、断言强度不变）。
+
+### 31.2 到期邻近提醒（I105）
+
+- **语义**（Plane automations / Linear due-date 提醒；Taiga 至今无此能力被长年 feature request）：每日 sweep 对「due ∈ [today, today+N] 且未完成未归档且有 human 指派」的工作项 emit `item.due_soon_notified` 专用事件——**事件是事实，投递是收口**：站内投影器与邮件通道（NOTIFY_EVENTS + plan_notifications 共享决策）都按 kind="due_soon" 走 I96 pref_allows 闸门（默认开、可关）。
+- **幂等**：零新表——`_notify_due_soon` 发事件前查事件流「该 agg_id 当日是否已有 due_soon_notified」，同日 force 重扫永不重复；`automation.swept` 心跳 payload 增加 `notified` 计数。
+- **窗口**：`config.settings.due_soon_days`（默认 3，env `APM_DUE_SOON_DAYS` 可调，含当天）。
+- **测试**：test_due_soon 3 项（窗口边界 today/+3 内、+4 外、无指派/done 不发 + 每日幂等 / 偏好闸挡投递不挡事件 + pref_allows 双通道函数级 / rebuild 确定性 id 重放 + 幂等保持）；test_notification_prefs kinds 断言演进含 due_soon。
