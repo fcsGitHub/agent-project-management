@@ -35,6 +35,7 @@ export function Dashboard() {
           <span className="text-sm font-semibold">🗺 组合总览</span>
           <span className="flex items-center gap-3">
             <Link to="/roadmap" className="text-xs text-acc hover:underline">📅 路线图</Link>
+            <Link to="/workload" className="text-xs text-acc hover:underline">👥 负载</Link>
             <span className="text-xs text-mut">
             {portfolio.data?.projects.length ?? 0} 个可见项目 · 合计 活跃 {portfolio.data?.totals.items_active ?? 0} ·
             超期 {portfolio.data?.totals.overdue ?? 0} · 待审 Gate {portfolio.data?.totals.gates_pending ?? 0} ·

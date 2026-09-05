@@ -76,6 +76,12 @@ export type RoadmapData = {
   today: string;
   generated_at: string;
 };
+export type MemberWorkload = {
+  user_id: string; user_name: string;
+  active: number; overdue: number; minutes_7d: number;
+  projects: Record<string, number>;
+};
+export type WorkloadData = { members: MemberWorkload[]; today: string; generated_at: string };
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -304,6 +310,8 @@ export const api = {
     req<PortfolioReport>("/portfolio/report"),
   portfolioRoadmap: () =>
     req<RoadmapData>("/portfolio/roadmap"),
+  portfolioWorkload: () =>
+    req<WorkloadData>("/portfolio/workload"),
   archiveProject: (pid: string) =>
     req<Project>(`/projects/${pid}/archive`, { method: "POST" }),
   reopenProject: (pid: string) =>

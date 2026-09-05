@@ -276,6 +276,63 @@ def portfolio_roadmap() -> dict:
     return {"projects": rows, "today": today, "generated_at": _now().isoformat()}
 
 
+@router.get("/portfolio/workload")
+def portfolio_workload() -> dict:
+    """Cross-project member workload (M28-I87, docs/01 §AA.2): for every
+    caller-visible project, aggregate per assignee — active items, overdue,
+    and time logged in the last 7 days. OpenProject's resource planner views
+    are member-centric; the portfolio report is project-centric, this is the
+    member slice over the same _visible scope (pure projection, zero tables)."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    from apm.domains.feed import _visible
+    today = _now().date()
+    week_ago = (today - timedelta(days=6)).isoformat()
+    today_s = today.isoformat()
+    people: dict[str, dict] = {}
+    if user is not None:
+        for p in conn.execute(
+            "SELECT id, name FROM projects WHERE status != 'archived' ORDER BY created_at"
+        ).fetchall():
+            if not _visible(p["id"], user):
+                continue
+            rows = conn.execute(
+                "SELECT i.assignee_id AS uid, u.name AS uname,"
+                " SUM(CASE WHEN i.status_group NOT IN ('done','cancelled') THEN 1 ELSE 0 END) AS active,"
+                " SUM(CASE WHEN i.status_group NOT IN ('done','cancelled')"
+                "   AND i.due_date IS NOT NULL AND i.due_date < ? THEN 1 ELSE 0 END) AS overdue"
+                " FROM items i LEFT JOIN users u ON u.id = i.assignee_id"
+                " WHERE i.project_id = ? AND i.assignee_type = 'human' AND i.assignee_id IS NOT NULL"
+                " GROUP BY i.assignee_id",
+                (today_s, p["id"]),
+            ).fetchall()
+            for r in rows:
+                person = people.setdefault(r["uid"], {
+                    "user_id": r["uid"], "user_name": r["uname"] or r["uid"],
+                    "active": 0, "overdue": 0, "minutes_7d": 0,
+                    "projects": {},
+                })
+                person["active"] += r["active"] or 0
+                person["overdue"] += r["overdue"] or 0
+                person["projects"][p["name"]] = person["projects"].get(p["name"], 0) + (r["active"] or 0)
+            # 7-day logged time within THIS project only — time in projects the
+            # caller cannot see must never leak into the workload numbers
+            for r in conn.execute(
+                "SELECT user_id AS uid, SUM(minutes) AS mins FROM item_time_entries"
+                " WHERE project_id = ? AND deleted_at IS NULL AND spent_on >= ?"
+                " GROUP BY user_id",
+                (p["id"], week_ago),
+            ).fetchall():
+                person = people.get(r["uid"])
+                if person is not None and r["mins"]:
+                    person["minutes_7d"] += r["mins"]
+    # members with neither active work nor recent logged time are not "load"
+    rows = sorted((p for p in people.values() if p["active"] or p["minutes_7d"]),
+                  key=lambda x: (-x["active"], -x["minutes_7d"], x["user_name"]))
+    return {"members": rows, "today": today_s, "generated_at": _now().isoformat()}
+
+
 @router.get("/projects/{project_id}/timelog_report")
 def timelog_report(project_id: str, days: int = 14) -> dict:
     """M19-I61: project time report — per-user totals + per-day trend, read
