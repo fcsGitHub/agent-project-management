@@ -25,6 +25,10 @@ def tmp_data(tmp_path, monkeypatch):
     data_dir = tmp_path / "data"
     monkeypatch.setattr(config.settings, "data_dir", data_dir)
     monkeypatch.setattr(config.settings, "provider_mode", "replay")
+    # I98: the daily-sweep ticker must not run under pytest — a background sweep
+    # would emit the automation.swept heartbeat mid-test and silently skip the
+    # explicit sweep a test is trying to observe.
+    monkeypatch.setattr(config.settings, "scheduler_enabled", False)
     db.reset_for_tests(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "fixtures").mkdir(parents=True, exist_ok=True)

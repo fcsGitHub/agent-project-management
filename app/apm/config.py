@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     ontology_dir_override: Path | None = None
     # Tests redirect agents/ here (ontology pack import writes role files).
     agents_dir_override: Path | None = None
+    # I98 daily-sweep ticker: enabled in production by default; the test suite
+    # turns it off (conftest) so background sweeps can't race explicit ones.
+    scheduler_enabled: bool = True
 
     model_config = {"env_prefix": "APM_", "env_file": ".env", "extra": "ignore"}
 
