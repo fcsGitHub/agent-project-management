@@ -18,6 +18,7 @@ export function Dashboard() {
   const events = useQuery({ queryKey: ["events", pid], queryFn: () => api.listEvents({ project_id: pid, limit: 25 }), enabled: !!pid });
   const convs = useQuery({ queryKey: ["conversations", pid], queryFn: () => api.listConversations(pid!), enabled: !!pid });
   const portfolio = useQuery({ queryKey: ["portfolio"], queryFn: api.getPortfolioReport, refetchInterval: 15_000 });
+  const health = useQuery({ queryKey: ["portfolio-health"], queryFn: api.portfolioHealth, refetchInterval: 15_000 });
 
   if (!pid) return null;
   const counts = project.data?.item_counts ?? {};
@@ -26,6 +27,7 @@ export function Dashboard() {
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   const convCount = new Set(runs.data?.runs.map((r) => r.conversation_id)).size;
+  const healthMap = new Map((health.data?.projects ?? []).map((h) => [h.project_id, h.score]));
 
   return (
     <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
@@ -45,10 +47,23 @@ export function Dashboard() {
           </span>
         </div>
         <div className="space-y-1">
-          {(portfolio.data?.projects ?? []).map((p) => (
+          {[...(portfolio.data?.projects ?? [])]
+            .sort((x, y) => (healthMap.get(x.project_id) ?? 999) - (healthMap.get(y.project_id) ?? 999))
+            .map((p) => {
+            const score = healthMap.get(p.project_id);
+            return (
             <Link key={p.project_id} to={`/p/${p.project_id}`}
               className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs hover:border-acc">
               <span className="w-32 shrink-0 truncate font-medium">{p.name}</span>
+              <span title="项目健康评分（CHAOSS 多因子语义：超期/滞留/吞吐/Gate 四因子加权）">
+                {score != null ? (
+                  <Badge tone={score >= 80 ? "green" : score >= 60 ? "amber" : "red"}>
+                    {score >= 80 ? "♥" : score >= 60 ? "♥" : "♥"} {score}
+                  </Badge>
+                ) : (
+                  <Badge tone="neutral">♥ —</Badge>
+                )}
+              </span>
               <div className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-full bg-bg">
                 {(["backlog", "todo", "in_progress", "done", "cancelled"] as const).map((k) => (
                   <div key={k} title={`${k}: ${p.funnel[k] ?? 0}`}
@@ -61,7 +76,8 @@ export function Dashboard() {
               {p.overdue > 0 && <Badge tone="red">超期 {p.overdue}</Badge>}
               {p.gates_pending > 0 && <Badge tone="amber">◆ {p.gates_pending}</Badge>}
             </Link>
-          ))}
+            );
+          })}
           {!portfolio.data?.projects.length && <div className="py-2 text-center text-xs text-mut">没有可见项目</div>}
         </div>
       </Card>

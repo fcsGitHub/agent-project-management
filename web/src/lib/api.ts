@@ -317,6 +317,10 @@ export const api = {
     req<RoadmapData>("/portfolio/roadmap"),
   portfolioWorkload: () =>
     req<WorkloadData>("/portfolio/workload"),
+  portfolioHealth: () =>
+    req<{ projects: { project_id: string; name: string; score: number | null;
+          factors: { active: number; overdue: number; stale: number; done_7d: number; gates: number } }[] }>(
+      "/portfolio/health"),
   archiveProject: (pid: string) =>
     req<Project>(`/projects/${pid}/archive`, { method: "POST" }),
   reopenProject: (pid: string) =>

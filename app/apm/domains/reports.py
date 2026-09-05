@@ -333,6 +333,84 @@ def portfolio_workload() -> dict:
     return {"members": rows, "today": today_s, "generated_at": _now().isoformat()}
 
 
+def _health_factors(project_id: str, conn) -> dict:
+    """Raw factor values for one project — active/overdue/stale item counts,
+    done-first-arrival count inside the last 7 days (replayed from the event
+    stream, same caliber as the milestone burndown) and pending approvals."""
+    today = _now().date()
+    stale_cutoff = (today - timedelta(days=STALE_DAYS)).isoformat()
+    week_ago = (today - timedelta(days=6)).isoformat()
+    row = conn.execute(
+        "SELECT COUNT(*) AS active,"
+        " SUM(CASE WHEN due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END) AS overdue,"
+        " SUM(CASE WHEN updated_at < ? THEN 1 ELSE 0 END) AS stale"
+        " FROM items WHERE project_id = ? AND status_group NOT IN ('done','cancelled')",
+        (today.isoformat(), stale_cutoff, project_id),
+    ).fetchone()
+    done_7d = 0
+    first_done: dict[str, str] = {}
+    for e in conn.execute(
+        "SELECT agg_id, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type = 'item.status_changed' ORDER BY id",
+        (project_id,),
+    ).fetchall():
+        if e["agg_id"] in first_done:
+            continue
+        if json.loads(e["payload"]).get("status_group") == "done":
+            first_done[e["agg_id"]] = e["ts"][:10]
+            if week_ago <= e["ts"][:10] <= today.isoformat():
+                done_7d += 1
+    gates = conn.execute(
+        "SELECT COUNT(*) c FROM approvals WHERE project_id = ? AND status = 'pending'",
+        (project_id,),
+    ).fetchone()["c"]
+    return {"active": row["active"], "overdue": row["overdue"] or 0,
+            "stale": row["stale"] or 0, "done_7d": done_7d, "gates": gates}
+
+
+def _health_score(f: dict) -> float | None:
+    """0-100 composite (docs/01 §AC.1): each factor contributes its full weight
+    when healthy — 40 overdue, 20 stale, 30 throughput momentum (capped at 1),
+    10 gate-pending. Projects with no active work score None (nothing to be
+    healthy about yet)."""
+    active = f["active"]
+    if not active:
+        return None
+    overdue_rate = f["overdue"] / active
+    stale_rate = f["stale"] / active
+    momentum = min(f["done_7d"] / active, 1)
+    gate_rate = min(f["gates"] / active, 1)
+    score = (40 * (1 - overdue_rate) + 20 * (1 - stale_rate)
+             + 30 * momentum + 10 * (1 - gate_rate))
+    return round(max(score, 0), 1)
+
+
+@router.get("/portfolio/health")
+def portfolio_health() -> dict:
+    """Cross-project health scores (M30-I92, docs/01 §AC.1): one 0-100 number
+    per caller-visible project so managers see which project needs attention
+    without adding up raw counters themselves. Same _visible scope, pure
+    projection, sorted worst-first."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    from apm.domains.feed import _visible
+    rows = []
+    if user is not None:
+        for p in conn.execute(
+            "SELECT id, name FROM projects WHERE status != 'archived' ORDER BY created_at"
+        ).fetchall():
+            if not _visible(p["id"], user):
+                continue
+            f = _health_factors(p["id"], conn)
+            rows.append({
+                "project_id": p["id"], "name": p["name"],
+                "score": _health_score(f), "factors": f,
+            })
+    rows.sort(key=lambda r: (r["score"] is None, r["score"] if r["score"] is not None else 0))
+    return {"projects": rows, "generated_at": _now().isoformat()}
+
+
 @router.get("/projects/{project_id}/timelog_report")
 def timelog_report(project_id: str, days: int = 14) -> dict:
     """M19-I61: project time report — per-user totals + per-day trend, read
