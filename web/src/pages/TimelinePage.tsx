@@ -20,8 +20,11 @@ const DAY = 86_400_000;
 const ROW_H = 40;
 
 // I78 edge styles per relation type; dash undefined → solid.
+// depends_on_ok (M27 审阅即修): an aligned (non-conflicting) depends_on edge —
+// drawn muted so the lag gap is visible without crying wolf; conflicts stay red.
 const EDGE_STYLE: Record<string, { stroke: string; dash?: string }> = {
   depends_on: { stroke: "rgb(239 68 68)", dash: "4 3" },
+  depends_on_ok: { stroke: "rgb(148 163 184)", dash: "4 3" },
   blocks: { stroke: "rgb(251 146 60)" },
   precedes: { stroke: "rgb(148 163 184)", dash: "4 3" },
   relates: { stroke: "rgb(148 163 184)", dash: "2 4" },
@@ -267,6 +270,16 @@ export function TimelinePage() {
                 x1: pct(d.start), y1: yOf(d.item.id, sameRow),
                 x2: pct(depDue), y2: yOf(rel.to_item, sameRow),
                 key: `${d.item.id}->${rel.to_item}`, kind: "depends_on",
+              });
+            } else {
+              // aligned edge (M27 审阅即修): draw muted + lag annotation, so an
+              // I83 lag gap is visible instead of the edge silently disappearing
+              const sameRow = pos.get(d.item.id)!.top === pos.get(rel.to_item)?.top;
+              connectors.push({
+                x1: pct(depDue), y1: yOf(rel.to_item, sameRow),
+                x2: pct(d.start), y2: yOf(d.item.id, sameRow),
+                key: `ok:${d.item.id}->${rel.to_item}`, kind: "depends_on_ok",
+                lag: rel.lag_days ?? null,
               });
             }
             continue;

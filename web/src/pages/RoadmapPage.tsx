@@ -51,7 +51,7 @@ export function RoadmapPage() {
       {projects.map((p) => (
         <Card key={p.project_id} className="p-4">
           <div className="mb-2 flex items-center justify-between">
-            <Link to={`#/p/${p.project_id}`} className="text-sm font-medium hover:text-acc">{p.name}</Link>
+            <Link to={`/p/${p.project_id}`} className="text-sm font-medium hover:text-acc">{p.name}</Link>
             <span className="text-[10px] text-mut">{p.milestones.length} 个里程碑</span>
           </div>
           <div className="relative space-y-1.5">
@@ -75,7 +75,7 @@ export function RoadmapPage() {
                   </div>
                   <span className={`absolute top-1 ml-2 whitespace-nowrap text-[10px] leading-4 ${m.overdue ? "font-medium text-red-500" : "text-mut"}`}
                     style={{ left: `${Math.max(left, 0)}%` }}>
-                    ◆ {m.title} {m.overdue ? "· 超期" : ""} {m.progress.done_ratio != null ? `· ${m.progress.done_ratio}%` : ""}
+                    ◆ {m.title} {m.overdue ? "· 超期" : ""} {m.progress.done_ratio != null ? `· ${Math.round(m.progress.done_ratio * 100)}%` : ""}
                   </span>
                 </div>
               );
