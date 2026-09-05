@@ -24,12 +24,14 @@ import { SearchPage } from "./pages/SearchPage";
 import { RoadmapPage } from "./pages/RoadmapPage";
 import { WorkloadPage } from "./pages/WorkloadPage";
 import { SchedulePage } from "./pages/SchedulePage";
+import { IntakePage } from "./pages/IntakePage";
 
 export default function App() {
   return (
     <HashRouter>
       <Routes>
         <Route path="/" element={<ProjectPicker />} />
+        <Route path="/intake/:token" element={<IntakePage />} />
         <Route path="/p/:pid" element={<AppShell />}>
           <Route index element={<Dashboard />} />
           <Route path="board" element={<Board />} />

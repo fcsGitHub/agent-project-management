@@ -196,6 +196,8 @@ export function OntologyPage() {
 
       <MembersPanel pid={pid!} />
 
+      <IntakePanel pid={pid!} />
+
       <OidcPanel />
 
       <AutomationsPanel pid={pid!} concepts={o.concepts} />
@@ -401,6 +403,79 @@ function OidcPanel() {
 }
 
 /** Project members & roles (M8-I27): owner / contributor / viewer management. */
+/** I99: external intake (Trello board-email semantics) — owner mints one
+ *  token per project; the public form lands first-class items via it. */
+function IntakePanel({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const tok = useQuery({ queryKey: ["intake-token", pid], queryFn: () => api.getIntakeToken(pid) });
+  const [busy, setBusy] = useState(false);
+  const [justCopied, setJustCopied] = useState(false);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["intake-token", pid] });
+
+  const issue = async () => {
+    setBusy(true);
+    try {
+      await api.issueIntakeToken(pid);
+      await invalidate();
+      toast.success("收件令牌已生成");
+    } catch (e) {
+      toast.error(`生成失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revoke = async () => {
+    setBusy(true);
+    try {
+      await api.revokeIntakeToken(pid);
+      await invalidate();
+      toast.info("收件令牌已吊销——旧链接立即失效");
+    } catch (e) {
+      toast.error(`吊销失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const link = tok.data?.issued && tok.data.token
+    ? `${location.origin}/#/intake/${tok.data.token}` : null;
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">📮 外部收件</span>
+        <span className="text-xs text-mut">免登录表单直达看板 · 令牌即凭证</span>
+        <span className="ml-auto flex items-center gap-1">
+          {tok.data?.issued && (
+            <>
+              <button onClick={async () => {
+                if (link) { await navigator.clipboard.writeText(link); setJustCopied(true); setTimeout(() => setJustCopied(false), 1500); }
+              }} className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-ink">
+                {justCopied ? "已复制 ✓" : "复制链接"}
+              </button>
+              <button disabled={busy} onClick={revoke}
+                className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-mut hover:text-dan">吊销</button>
+            </>
+          )}
+          <Button size="sm" variant="outline" disabled={busy} onClick={issue}>
+            {tok.data?.issued ? "重发令牌" : "生成令牌"}
+          </Button>
+        </span>
+      </div>
+      {tok.data?.issued && link && (
+        <div className="mt-2 truncate rounded-lg border border-line bg-bg px-2.5 py-1.5 font-mono text-[11px] text-ink" title={link}>
+          {link}
+        </div>
+      )}
+      <div className="mt-1 text-[10px] text-mut">
+        任何人用此链接无需账号即可提交工作项（标题必填、优先级可选），提交按「intake」身份归账；吊销或重发后旧链接立即失效。
+      </div>
+    </Card>
+  );
+}
+
 function MembersPanel({ pid }: { pid: string }) {
   const qc = useQueryClient();
   const [addId, setAddId] = useState("");

@@ -404,6 +404,19 @@ CREATE TABLE IF NOT EXISTS timesheets (
 );
 CREATE INDEX IF NOT EXISTS idx_timesheets_project ON timesheets(project_id);
 CREATE INDEX IF NOT EXISTS idx_timesheets_user ON timesheets(user_id);
+
+-- I99: external intake tokens (projection of intake.token_* events — in
+-- drop_projections so rebuild reproduces them; value plaintext like feed_key).
+CREATE TABLE IF NOT EXISTS intake_tokens (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  concept_id TEXT,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intake_tokens_project ON intake_tokens(project_id);
 """
 
 FTS_DDL = """
@@ -434,6 +447,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "item_participants",
         "item_time_entries",
         "timesheets",
+        "intake_tokens",
         "extracted_tasks",
         "baselines",
         "project_members",

@@ -579,6 +579,15 @@ export const api = {
   sweepAutomations: () =>
     req<{ swept: boolean; date: string; fired: number; created: number }>(
       "/automations/sweep", { method: "POST", body: JSON.stringify({}) }),
+  // I99: external intake — owner token management + public no-login submission
+  getIntakeToken: (pid: string) =>
+    req<{ issued: boolean; token?: string; concept_id?: string }>(`/projects/${pid}/intake-token`),
+  issueIntakeToken: (pid: string) =>
+    req<{ token: string; concept_id?: string }>(`/projects/${pid}/intake-token`, { method: "POST", body: JSON.stringify({}) }),
+  revokeIntakeToken: (pid: string) =>
+    req<{ ok: boolean }>(`/projects/${pid}/intake-token`, { method: "DELETE" }),
+  submitIntake: (token: string, body: { title: string; priority?: string }) =>
+    req<{ ok: boolean; item_id: string; title: string }>(`/intake/${token}`, { method: "POST", body: JSON.stringify(body) }),
 
   // Outbound webhooks (M10-I32/I33): signed event push with delivery records.
   listWebhooks: (pid: string) =>
