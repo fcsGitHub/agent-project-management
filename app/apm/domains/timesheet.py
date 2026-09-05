@@ -221,8 +221,9 @@ def list_timesheets(project_id: str) -> dict:
 
     _gate(project_id)
     rows = db.get_conn().execute(
-        "SELECT t.*, u.name AS user_name FROM timesheets t"
+        "SELECT t.*, u.name AS user_name, p.name AS project_name FROM timesheets t"
         " LEFT JOIN users u ON u.id = t.user_id"
+        " LEFT JOIN projects p ON p.id = t.project_id"
         " WHERE t.project_id = ? ORDER BY t.created_at DESC",
         (project_id,),
     ).fetchall()
