@@ -450,3 +450,22 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 
 - **泳道避让**：时间线同一概念行内条形重叠时自动拆分子行（区间图染色贪心：按 start 排序 + min-heap 行末线，O(n log n)），行高随子行数自适应——同概念多条形不再叠在同一水平线。
 - **多基线**：每次「📌 设为基线」追加一条快照历史（旧快照永不改写）；基线下拉可切换显示某一条或「全部基线」（多条幽灵线在子行内上下错开）；偏离基线的幽灵线呈 amber 虚线。「清除基线」清空该项目全部基线历史。
+
+## 22. 计划治理深化三件套（M25-I77/I78/I79）
+
+### 22.1 基线偏差表（I77）
+
+- **入口**：时间线工具栏「📊 偏差表」抽屉；`GET /api/projects/{id}/baseline-variance?baseline_id=`（缺省=最新基线）。
+- **口径**：逐已排期项对比基线快照 vs 当前行，**偏差天数 = 当前 − 基线**（start/due 各自算，正=推迟红、负=提前绿）；未变化项默认省略，`include_same=1` 全列；基线之后新增的项无快照、不参与对比。汇总行给出偏差项数与最大截止延迟——纯投影对比，零 ETL。
+
+### 22.2 blocks 闭锁与关系可视化（I78）
+
+- **blocks 闭锁**：存在未完结的 `blocks` 关系指向本项（blocker 状态组非 done/cancelled）时，本项**不能置为完成**——422 `"blocked by <title>"`；取消本项不受限（放弃≠完成）。守卫在 change_status 内部，PATCH/批量/NL 命令/Agent 工具全入口一致。
+- **关系类型**：内核关系含 `contains / depends_on / produces / consumes / blocks / precedes / relates`；`blocked_by` **不作为存储类型**——它是 blocks 的反向视图，单向存储双向可查。
+- **lag_days**：关系行可带 `lag_days`（POST relations 传 `lag_days`），precedes 的最小间隔语义（OpenProject），本轮只存储与展示，自动排期联动留 backlog。
+- **时间线连线**：按关系类型分样式——depends_on 红虚线（仅冲突时画）/ blocks 橙实线 / precedes 灰虚线 / relates 灰点线；blocks/precedes 线从 blocker 的 due 边指向 dependent 的 start。
+
+### 22.3 列表分页（I79）
+
+- **API**：`GET /api/projects/{id}/items?limit=&offset=`——**缺省全量**（兼容既有调用），显式 `limit` 才切片（钳 1-200），`offset` ≥ 0；响应新增 `total`（过滤后全量计数，分页与否都有），驱动「加载更多」。keyset 分页留 backlog（SQLite 单机规模 offset 足够）。
+- **前端**：看板列表视图按 LIST_PAGE=20 渐进渲染，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化时重置回第一页；全选范围=当前已显示行。
