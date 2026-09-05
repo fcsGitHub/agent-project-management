@@ -26,7 +26,7 @@ export type Item = {
   custom_fields?: Record<string, unknown> | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
-  relations?: { id: string; from_item: string; to_item: string; relation_type: string }[];
+  relations?: { id: string; from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[];
 };
 export type Milestone = {
   id: string; project_id: string; title: string; description?: string | null;
@@ -369,7 +369,7 @@ export const api = {
   getItem: (iid: string) => req<Item>(`/items/${iid}`),
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
-  addRelation: (iid: string, body: { to_item: string; relation_type: string }) =>
+  addRelation: (iid: string, body: { to_item: string; relation_type: string; lag_days?: number }) =>
     req<{ id: string }>(`/items/${iid}/relations`, { method: "POST", body: JSON.stringify(body) }),
   globalSearch: (q: string, types = "items,comments") =>
     req<{ q: string; items: { id: string; title: string; status: string; status_group: string; concept_id: string; project_id: string; project_name: string }[]; comments: { id: string; body: string; item_id: string; project_id: string; item_title?: string | null; project_name?: string | null }[] }>(`/search?q=${encodeURIComponent(q)}&types=${types}`),

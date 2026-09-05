@@ -31,12 +31,14 @@ def test_learn_detects_all_four_rules(client, tmp_data, isolated_ontologies, pro
     _create_item(client, pid, "bug", "上传失败", priority="P2")
 
     # L2: a legacy relation type that the ontology never registered.
+    # (I78 promoted blocks/precedes/relates into the kernel, so the unregistered
+    # probe is now blocked_by — deliberately absent, stored one-way as blocks.)
     items = client.get(f"/api/projects/{pid}/items").json()["items"]
     bug_id = [i for i in items if i["concept_id"] == "bug"][0]["id"]
     task_id = _create_item(client, pid, "task", "修复登录崩溃")["id"]
     events.emit(event_type="item.related", agg_type="relation", agg_id="rel_legacy1",
                 project_id=pid,
-                payload={"from_item": bug_id, "to_item": task_id, "relation_type": "blocks"})
+                payload={"from_item": bug_id, "to_item": task_id, "relation_type": "blocked_by"})
 
     # L3: published asset of kind test-suite linked to artifact kind `code`
     # (task declares `code` without deposits_to).
@@ -65,8 +67,8 @@ def test_learn_detects_all_four_rules(client, tmp_data, isolated_ontologies, pro
     by_id = {c["id"]: c for c in scan["candidates"]}
     assert "add-field:bug:priority" in by_id
     assert by_id["add-field:bug:priority"]["provenance"]["support"] == 2
-    assert "register-relation:blocks" in by_id
-    assert by_id["register-relation:blocks"]["patch"]["relation"]["domain"] == "bug"
+    assert "register-relation:blocked_by" in by_id
+    assert by_id["register-relation:blocked_by"]["patch"]["relation"]["domain"] == "bug"
     assert "wire-deposit:task:code:test-suite" in by_id
     assert "add-role:task:release-agent" in by_id
     for c in scan["candidates"]:
@@ -81,15 +83,16 @@ def test_apply_bumps_version_and_unlocks_relation(client, tmp_data, isolated_ont
     _create_item(client, pid, "bug", "接口超时", priority="P0")
     item = client.get(f"/api/projects/{pid}/items").json()["items"][0]
 
-    # The unregistered relation type is rejected before the ontology learns it.
+    # The unregistered relation type is rejected before the ontology learns it
+    # (blocks joined the kernel in I78; blocked_by stays unregistered by design).
     r = client.post(f"/api/items/{item['id']}/relations",
-                    json={"to_item": item["id"], "relation_type": "blocks"})
+                    json={"to_item": item["id"], "relation_type": "blocked_by"})
     assert r.status_code == 422
 
     events.emit(event_type="item.related", agg_type="relation", agg_id="rel_legacy2",
                 project_id=pid,
                 payload={"from_item": item["id"], "to_item": item["id"],
-                         "relation_type": "blocks"})
+                         "relation_type": "blocked_by"})
     scan = client.post("/api/ontologies/software-dev/learn").json()
     ids = [c["id"] for c in scan["candidates"]]
 
@@ -108,7 +111,7 @@ def test_apply_bumps_version_and_unlocks_relation(client, tmp_data, isolated_ont
 
     # The newly registered relation type now passes validation (data unlocked).
     r = client.post(f"/api/items/{item['id']}/relations",
-                    json={"to_item": item["id"], "relation_type": "blocks"})
+                    json={"to_item": item["id"], "relation_type": "blocked_by"})
     assert r.status_code == 200, r.text
 
     # Idempotence: re-learn no longer proposes applied candidates.

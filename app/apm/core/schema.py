@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS item_relations (
   from_item TEXT NOT NULL,
   to_item TEXT NOT NULL,
   relation_type TEXT NOT NULL,
+  lag_days INTEGER,
   created_at TEXT NOT NULL
 );
 

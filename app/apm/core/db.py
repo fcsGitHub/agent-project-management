@@ -96,6 +96,12 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 users.email_notify（M11-I37）。
         if "email_notify" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN email_notify INTEGER NOT NULL DEFAULT 1")
+        # Lightweight migration: 存量库补 item_relations.lag_days（M25-I78）。
+        if any(r[0] == "item_relations" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            rcols = {r["name"] for r in conn.execute("PRAGMA table_info(item_relations)").fetchall()}
+            if "lag_days" not in rcols:
+                conn.execute("ALTER TABLE item_relations ADD COLUMN lag_days INTEGER")
         # M24-I76: baselines 多条化——存量表带 project_id UNIQUE 约束则重建去约束。
         if any(r[0] == "baselines" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

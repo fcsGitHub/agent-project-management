@@ -24,13 +24,15 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     bug_id = items[0]["id"]
 
     # Signal L2: a legacy relation type that the ontology never registered.
+    # (I78 promoted blocks/precedes/relates into the kernel; the probe is now
+    # blocked_by — deliberately absent, stored one-way as blocks.)
     events.emit(event_type="item.related", agg_type="relation", agg_id="rel_smoke8",
                 project_id=pid,
-                payload={"from_item": bug_id, "to_item": bug_id, "relation_type": "blocks"})
+                payload={"from_item": bug_id, "to_item": bug_id, "relation_type": "blocked_by"})
 
     # Before learning, creating such a relation is rejected (fail-closed).
     r = client.post(f"/api/items/{bug_id}/relations",
-                    json={"to_item": bug_id, "relation_type": "blocks"})
+                    json={"to_item": bug_id, "relation_type": "blocked_by"})
     assert r.status_code == 422
 
     # Scan: both rules fire with provenance attached.
@@ -39,7 +41,7 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
     by_id = {c["id"]: c for c in scan["candidates"]}
     assert "add-field:bug:priority" in by_id
     assert by_id["add-field:bug:priority"]["provenance"]["support"] == 2
-    assert "register-relation:blocks" in by_id
+    assert "register-relation:blocked_by" in by_id
 
     # Observations list concepts with zero usage (requirement/milestone unused here).
     assert "requirement" in scan["observations"]["unused_concepts"]
@@ -60,7 +62,7 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
 
     # The learned relation type now passes item validation (data unlocked).
     r = client.post(f"/api/items/{bug_id}/relations",
-                    json={"to_item": bug_id, "relation_type": "blocks"})
+                    json={"to_item": bug_id, "relation_type": "blocked_by"})
     assert r.status_code == 200, r.text
 
     # Idempotence: applied candidates never re-proposed.
@@ -89,7 +91,7 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
 
     d = client.get("/api/ontologies/software-dev/diff",
                    params={"from_version": 1, "to_version": 3}).json()
-    assert "blocks" in [x["id"] for x in d["diff"]["relations"]["added"]]
+    assert "blocked_by" in [x["id"] for x in d["diff"]["relations"]["added"]]
     by_cid = {c["id"]: c for c in d["diff"]["concepts"]["modified"]}
     assert "field-added:priority" in [f"{c['type']}:{c['detail']}" for c in by_cid["task"]["changes"]]
     assert not d["impact"]["blocking"] and d["to_validation_errors"] == []
@@ -110,17 +112,17 @@ def test_smoke_08_ontology_learn_apply(client, tmp_data, isolated_ontologies):
         c["id"] for c in out_llm2["candidates"]}
 
     # Impact analysis on a hand-edit: drop the in-use bug concept and the
-    # `blocks` relation directly on disk, then diff snapshot v3 → current.
+    # `blocked_by` relation directly on disk, then diff snapshot v3 → current.
     import yaml as _yaml
     onto_file = isolated_ontologies / "software-dev.yaml"
     raw = _yaml.safe_load(onto_file.read_text(encoding="utf-8"))
     raw["concepts"] = [c for c in raw["concepts"] if c["id"] not in ("bug", "milestone")]
-    raw["relations"] = [x for x in raw["relations"] if x["id"] not in ("verifies", "blocks")]
+    raw["relations"] = [x for x in raw["relations"] if x["id"] not in ("verifies", "blocked_by")]
     onto_file.write_text(_yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
     d2 = client.get("/api/ontologies/software-dev/diff", params={"from_version": 3}).json()
     blocking = {(b["kind"], b.get("concept") or b.get("relation")) for b in d2["impact"]["blocking"]}
     assert ("concept-removed-in-use", "bug") in blocking
-    assert ("relation-removed-in-use", "blocks") in blocking
+    assert ("relation-removed-in-use", "blocked_by") in blocking
     assert any(w["kind"] == "concept-removed-unused" and w["concept"] == "milestone"
                for w in d2["impact"]["warnings"])
     assert d2["to_validation_errors"] == []

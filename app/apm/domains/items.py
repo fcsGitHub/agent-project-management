@@ -108,9 +108,10 @@ def _proj_item_rescheduled(conn, e):
 def _proj_item_related(conn, e):
     p = e.payload
     conn.execute(
-        "INSERT INTO item_relations (id, project_id, from_item, to_item, relation_type, created_at)"
-        " VALUES (?,?,?,?,?,?)",
-        (new_id("rel"), e.project_id, p["from_item"], p["to_item"], p["relation_type"], e.ts),
+        "INSERT INTO item_relations (id, project_id, from_item, to_item, relation_type, lag_days, created_at)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (new_id("rel"), e.project_id, p["from_item"], p["to_item"], p["relation_type"],
+         p.get("lag_days"), e.ts),
     )
 
 
@@ -200,6 +201,19 @@ def change_status(item: dict, new_status: str, actor_type="human", actor_id: str
         group = onto.validate_item_status(item["concept_id"], new_status)
     except OntologyError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    # Blocked closure (M25-I78, Redmine blocked-by semantics): completing an item
+    # that still has an unfinished blocker is refused — guards live inside
+    # change_status so PATCH, batch-patch, NL commands and Agent tools all inherit
+    # it. Cancelling the blocked item itself stays allowed (giving up ≠ finishing).
+    if group == "done":
+        blocker = db.get_conn().execute(
+            "SELECT i.title FROM item_relations r JOIN items i ON i.id = r.from_item"
+            " WHERE r.to_item = ? AND r.relation_type = 'blocks'"
+            " AND i.status_group NOT IN ('done','cancelled')",
+            (item["id"],),
+        ).fetchone()
+        if blocker is not None:
+            raise HTTPException(status_code=422, detail=f"blocked by {blocker['title']}")
     events.emit(
         event_type="item.status_changed",
         agg_type="item",
@@ -590,6 +604,7 @@ class ItemPatch(BaseModel):
 class RelationIn(BaseModel):
     to_item: str
     relation_type: str
+    lag_days: int | None = None
 
 
 @router.post("/projects/{project_id}/items")
@@ -804,7 +819,8 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
         agg_type="item",
         agg_id=item_id,
         project_id=item["project_id"],
-        payload={"from_item": item_id, "to_item": body.to_item, "relation_type": body.relation_type},
+        payload={"from_item": item_id, "to_item": body.to_item, "relation_type": body.relation_type,
+                 "lag_days": body.lag_days},
     )
     return get_item_detail(item_id)
 

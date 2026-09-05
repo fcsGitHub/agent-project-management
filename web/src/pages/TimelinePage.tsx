@@ -4,7 +4,10 @@
  * ends) are flagged red; there is no automatic rescheduling (docs/01 §L.1).
  * M20-I63 (docs/01 §S.2): bars are draggable — move shifts start/due together,
  * the right edge resizes due only — PATCHing through the existing endpoint so
- * M14 rescheduled audit and conflict recomputation apply; Esc cancels. */
+ * M14 rescheduled audit and conflict recomputation apply; Esc cancels.
+ * M25-I78 (docs/01 §X.2): edges per relation type — depends_on stays a red
+ * dashed conflict line, blocks gets an orange solid line, precedes a grey
+ * dashed one and relates a dotted one. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +18,14 @@ import { Card, Empty } from "../components/ui";
 
 const DAY = 86_400_000;
 const ROW_H = 40;
+
+// I78 edge styles per relation type; dash undefined → solid.
+const EDGE_STYLE: Record<string, { stroke: string; dash?: string }> = {
+  depends_on: { stroke: "rgb(239 68 68)", dash: "4 3" },
+  blocks: { stroke: "rgb(251 146 60)" },
+  precedes: { stroke: "rgb(148 163 184)", dash: "4 3" },
+  relates: { stroke: "rgb(148 163 184)", dash: "2 4" },
+};
 
 type Dated = { item: Item; start: Date; due: Date; conflict: boolean };
 
@@ -221,8 +232,10 @@ export function TimelinePage() {
     let acc = msCount * ROW_H;
     for (const r of rows) { rowTops.push(acc); acc += r.height; }
 
-    // dependency conflicts: "from depends_on to" → from must not start before to ends
-    const connectors: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
+    // dependency conflicts: "from depends_on to" → from must not start before to ends.
+    // I78: other typed edges (blocks/precedes/relates) draw from the blocker's
+    // due edge to the dependent's start; depends_on keeps its conflict-only rule.
+    const connectors: { x1: number; y1: number; x2: number; y2: number; key: string; kind: string }[] = [];
     const detailsMap = details.data ?? {};
     const pos = new Map<string, { top: number; lane: number }>();
     rows.forEach((r, i) => {
@@ -239,21 +252,36 @@ export function TimelinePage() {
       for (const d of row.list) {
         const rels = detailsMap[d.item.id]?.relations ?? [];
         for (const rel of rels) {
-          if (rel.relation_type !== "depends_on" || rel.to_item === d.item.id) continue;
+          if (rel.to_item === d.item.id) continue; // draw each edge once, from its source
+          if (rel.relation_type === "depends_on") {
+            const dep = detailsMap[rel.to_item];
+            if (!dep) continue;
+            const depStart = parseDay(dep.start_date) ?? parseDay(dep.due_date);
+            const depDue = parseDay(dep.due_date) ?? depStart;
+            if (!depStart || !depDue) continue;
+            if (d.start.getTime() < depDue.getTime()) {
+              d.conflict = true;
+              const sameRow = pos.get(d.item.id)!.top === pos.get(rel.to_item)?.top;
+              connectors.push({
+                x1: pct(d.start), y1: yOf(d.item.id, sameRow),
+                x2: pct(depDue), y2: yOf(rel.to_item, sameRow),
+                key: `${d.item.id}->${rel.to_item}`, kind: "depends_on",
+              });
+            }
+            continue;
+          }
+          const style = EDGE_STYLE[rel.relation_type];
+          if (!style) continue;
           const dep = detailsMap[rel.to_item];
           if (!dep) continue;
           const depStart = parseDay(dep.start_date) ?? parseDay(dep.due_date);
-          const depDue = parseDay(dep.due_date) ?? depStart;
-          if (!depStart || !depDue) continue;
-          if (d.start.getTime() < depDue.getTime()) {
-            d.conflict = true;
-            const sameRow = pos.get(d.item.id)!.top === pos.get(rel.to_item)?.top;
-            connectors.push({
-              x1: pct(d.start), y1: yOf(d.item.id, sameRow),
-              x2: pct(depDue), y2: yOf(rel.to_item, sameRow),
-              key: `${d.item.id}->${rel.to_item}`,
-            });
-          }
+          if (!depStart) continue;
+          const sameRow = pos.get(d.item.id)!.top === pos.get(rel.to_item)?.top;
+          connectors.push({
+            x1: pct(d.due), y1: yOf(d.item.id, sameRow),
+            x2: pct(depStart), y2: yOf(rel.to_item, sameRow),
+            key: `${rel.relation_type}:${d.item.id}->${rel.to_item}`, kind: rel.relation_type,
+          });
         }
       }
     }
@@ -417,13 +445,17 @@ export function TimelinePage() {
             </div>
           ))}
 
-          {/* dependency connectors (only conflict edges are drawn, per docs/01 §L.1)
+          {/* typed relation connectors (I78: style per EDGE_STYLE — depends_on
+              conflict lines, blocks solid orange, precedes dashed, relates dotted)
               + I65 rubber-band line while dragging a new dependency */}
           <svg ref={svgRef} className="pointer-events-none absolute inset-0 ml-32 h-full w-[calc(100%-8.5rem)]" aria-hidden>
-            {view.connectors.map((c) => (
-              <line key={c.key} x1={`${c.x1}%`} y1={c.y1} x2={`${c.x2}%`} y2={c.y2}
-                    stroke="rgb(239 68 68)" strokeDasharray="4 3" strokeWidth="1.5" />
-            ))}
+            {view.connectors.map((c) => {
+              const s = EDGE_STYLE[c.kind] ?? EDGE_STYLE.depends_on;
+              return (
+                <line key={c.key} x1={`${c.x1}%`} y1={c.y1} x2={`${c.x2}%`} y2={c.y2}
+                      stroke={s.stroke} strokeDasharray={s.dash} strokeWidth="1.5" />
+              );
+            })}
             {linkLine && (
               <line x1={`${linkLine.x1}%`} y1={linkLine.y1} x2={`${linkLine.x2}%`} y2={linkLine.y2}
                     stroke="rgb(99 102 241)" strokeWidth="2" strokeDasharray="6 4" />

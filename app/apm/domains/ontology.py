@@ -19,7 +19,11 @@ from apm.core import events
 
 router = APIRouter(tags=["ontology"])
 
-KERNEL_RELATIONS = ("contains", "depends_on", "produces", "consumes")
+# I78 (docs/01 §X.2): blocks/precedes/relates join the kernel — OpenProject
+# relation semantics. blocked_by is deliberately absent: stored one-way as
+# blocks (the reverse view), never a separate type.
+KERNEL_RELATIONS = ("contains", "depends_on", "produces", "consumes",
+                    "blocks", "precedes", "relates")
 BUCKETS = ("backlog", "todo", "in_progress", "done", "cancelled")
 # CQ support surfaces (docs/08 §8.1, I16): projections/event types that can answer a CQ.
 CQ_SOURCES = ("items", "relations", "approvals", "assets", "runs", "events", "artifacts")
