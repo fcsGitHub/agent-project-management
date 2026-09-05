@@ -38,9 +38,11 @@ def _mkitem(client, pid: str, title: str, **fields):
     return r.json()
 
 
-def _depend_on(client, dep_id: str, on_id: str) -> None:
-    assert client.post(f"/api/items/{dep_id}/relations",
-                       json={"to_item": on_id, "relation_type": "depends_on"}).status_code == 200
+def _depend_on(client, dep_id: str, on_id: str, lag_days: int | None = None) -> None:
+    body = {"to_item": on_id, "relation_type": "depends_on"}
+    if lag_days is not None:
+        body["lag_days"] = lag_days
+    assert client.post(f"/api/items/{dep_id}/relations", json=body).status_code == 200
 
 
 def test_single_level_propagation(client, tmp_data, isolated_ontologies, project):
@@ -147,3 +149,51 @@ def test_drag_move_semantics_and_audit(client, tmp_data, isolated_ontologies, pr
     assert client.patch(f"/api/items/{a['id']}", json={"due_date": _day(9)}).status_code == 200
     a3 = client.get(f"/api/items/{a['id']}").json()
     assert a3["start_date"] == new_start and a3["due_date"] == _day(9)
+
+
+def test_lag_alignment_positive_negative_and_none(client, tmp_data, isolated_ontologies, project):
+    """M27-I83: an explicit non-zero lag realigns an auto-scheduled dependent
+    at relation time (successor start = predecessor due + 1 + lag; negative =
+    lead overlap). None and 0 leave hand-set dates alone. Later shifts
+    propagate relatively, preserving the lag gap."""
+    pid = project["id"]
+
+    # positive lag: start = pred due + 1 + 2
+    pred = _mkitem(client, pid, "前序", start_date=_day(0), due_date=_day(4))
+    succ = _mkitem(client, pid, "后继", start_date=_day(1), due_date=_day(5))
+    _depend_on(client, succ["id"], pred["id"], lag_days=2)
+    assert client.patch(f"/api/items/{succ['id']}", json={"auto_scheduled": True}).status_code == 200
+    # relation created BEFORE the auto flag was on → no realignment yet;
+    # realignment happens when the relation is created on an already-auto item
+    auto = _mkitem(client, pid, "自动后继", start_date=_day(1), due_date=_day(5))
+    assert client.patch(f"/api/items/{auto['id']}", json={"auto_scheduled": True}).status_code == 200
+    _depend_on(client, auto["id"], pred["id"], lag_days=2)
+    a = client.get(f"/api/items/{auto['id']}").json()
+    assert a["start_date"] == _day(7) and a["due_date"] == _day(11)  # 4 + 1 + 2, span 4 kept
+
+    # negative lag (lead): start = pred due (same day, overlap)
+    lead = _mkitem(client, pid, "提前后继", start_date=_day(2), due_date=_day(5))
+    assert client.patch(f"/api/items/{lead['id']}", json={"auto_scheduled": True}).status_code == 200
+    _depend_on(client, lead["id"], pred["id"], lag_days=-1)
+    l = client.get(f"/api/items/{lead['id']}").json()
+    assert l["start_date"] == _day(4) and l["due_date"] == _day(7)  # 4 + 1 - 1
+
+    # lag=None / 0 keep hand-set dates (opt-in semantics)
+    keep = _mkitem(client, pid, "手排不动", start_date=_day(1), due_date=_day(2))
+    assert client.patch(f"/api/items/{keep['id']}", json={"auto_scheduled": True}).status_code == 200
+    _depend_on(client, keep["id"], pred["id"])
+    k = client.get(f"/api/items/{keep['id']}").json()
+    assert k["start_date"] == _day(1) and k["due_date"] == _day(2)
+
+    # later relative shifts preserve the lag gap: pred +3 → both dependents +3
+    assert client.patch(f"/api/items/{pred['id']}", json={"due_date": _day(7)}).status_code == 200
+    a2 = client.get(f"/api/items/{auto['id']}").json()
+    assert a2["start_date"] == _day(10) and a2["due_date"] == _day(14)  # +3, gap kept
+    evs = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
+    follow_evs = [e for e in evs if e["payload"].get("delta_days") == 3]
+    assert {e["agg_id"] for e in follow_evs} >= {auto["id"], lead["id"], succ["id"]} | {auto["id"]}
+
+    # rebuild replays the lag realignment deterministically
+    projections.rebuild()
+    a3 = client.get(f"/api/items/{auto['id']}").json()
+    assert a3["start_date"] == _day(10) and a3["due_date"] == _day(14)

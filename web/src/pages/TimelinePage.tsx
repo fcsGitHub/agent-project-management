@@ -235,7 +235,8 @@ export function TimelinePage() {
     // dependency conflicts: "from depends_on to" → from must not start before to ends.
     // I78: other typed edges (blocks/precedes/relates) draw from the blocker's
     // due edge to the dependent's start; depends_on keeps its conflict-only rule.
-    const connectors: { x1: number; y1: number; x2: number; y2: number; key: string; kind: string }[] = [];
+    // I83: edges carry the relation lag for the "+N 天" annotation.
+    const connectors: { x1: number; y1: number; x2: number; y2: number; key: string; kind: string; lag?: number | null }[] = [];
     const detailsMap = details.data ?? {};
     const pos = new Map<string, { top: number; lane: number }>();
     rows.forEach((r, i) => {
@@ -281,6 +282,7 @@ export function TimelinePage() {
             x1: pct(d.due), y1: yOf(d.item.id, sameRow),
             x2: pct(depStart), y2: yOf(rel.to_item, sameRow),
             key: `${rel.relation_type}:${d.item.id}->${rel.to_item}`, kind: rel.relation_type,
+            lag: rel.lag_days ?? null,
           });
         }
       }
@@ -452,8 +454,16 @@ export function TimelinePage() {
             {view.connectors.map((c) => {
               const s = EDGE_STYLE[c.kind] ?? EDGE_STYLE.depends_on;
               return (
-                <line key={c.key} x1={`${c.x1}%`} y1={c.y1} x2={`${c.x2}%`} y2={c.y2}
-                      stroke={s.stroke} strokeDasharray={s.dash} strokeWidth="1.5" />
+                <g key={c.key}>
+                  <line x1={`${c.x1}%`} y1={c.y1} x2={`${c.x2}%`} y2={c.y2}
+                        stroke={s.stroke} strokeDasharray={s.dash} strokeWidth="1.5" />
+                  {c.lag != null && c.lag !== 0 && (
+                    <text x={`${(c.x1 + c.x2) / 2}%`} y={Math.min(c.y1, c.y2) - 4}
+                          textAnchor="middle" fontSize="9" fill={s.stroke}>
+                      {c.lag > 0 ? `+${c.lag}天` : `${c.lag}天`}
+                    </text>
+                  )}
+                </g>
               );
             })}
             {linkLine && (

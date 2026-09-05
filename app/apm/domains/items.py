@@ -846,6 +846,32 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
         payload={"from_item": item_id, "to_item": body.to_item, "relation_type": body.relation_type,
                  "lag_days": body.lag_days},
     )
+    # M27-I83 (docs/01 §Z.1, OpenProject 15.4 semantics): an explicit non-zero
+    # lag on a depends_on relation immediately realigns an auto-scheduled
+    # dependent — successor start = predecessor due + 1 + lag (negative lag =
+    # lead overlap). None/0 keep the item's hand-set dates (opt-in, backward
+    # compatible); later shifts propagate relatively, preserving the lag gap.
+    if body.relation_type == "depends_on" and body.lag_days:
+        succ = db.get_conn().execute(
+            "SELECT auto_scheduled, start_date, due_date FROM items WHERE id = ?", (item_id,)
+        ).fetchone()
+        if succ["auto_scheduled"] and target["due_date"] and succ["due_date"]:
+            base = date.fromisoformat(target["due_date"]) + timedelta(days=1 + body.lag_days)
+            span = (date.fromisoformat(succ["due_date"]) - date.fromisoformat(succ["start_date"])).days \
+                if succ["start_date"] else None
+            new_start = base.isoformat()
+            new_due = (base + timedelta(days=span)).isoformat() if span is not None else base.isoformat()
+            events.emit(
+                event_type="item.rescheduled",
+                agg_type="item",
+                agg_id=item_id,
+                project_id=item["project_id"],
+                payload={"follow_of": target["id"], "delta_days": None,
+                         "start_date": new_start, "due_date": new_due,
+                         "lag_days": body.lag_days, "depth": 1},
+            )
+            propagate_reschedule(item["project_id"], item_id, succ["due_date"], new_due,
+                                 depth=1, visited={target["id"], item_id})
     return get_item_detail(item_id)
 
 
@@ -866,7 +892,6 @@ def import_items(project_id: str, body: CsvImportIn) -> dict:
     existing item or an earlier row of the same file. Failures are reported
     per line; valid lines still import (no batch rollback)."""
     from apm.domains.projects import require_project
-    require_project(project_id)
     require_project(project_id)
     reader = csv.DictReader(io.StringIO(body.csv))
     if not reader.fieldnames or "title" not in reader.fieldnames:
