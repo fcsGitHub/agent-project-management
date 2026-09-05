@@ -341,6 +341,43 @@ def _execute_recurring(rule: dict) -> dict:
     return {"type": "create_recurring", "ok": True, "detail": f"已创建「{act['title']}」"}
 
 
+def _notify_due_soon(conn, today: str) -> int:
+    """I105 (docs/01 §AG.2, Plane/Linear semantics): the sweep's built-in
+    due-date reminder — the scheduling engine's first-class citizen app. One
+    `item.due_soon_notified` per item per day (idempotent via the event
+    stream itself, so force re-sweeps never duplicate); recipients resolve
+    and both channels gate it downstream as kind "due_soon"."""
+    from datetime import date as _date, timedelta as _timedelta
+
+    from apm import config
+    window = max(0, config.settings.due_soon_days)
+    horizon = (_date.fromisoformat(today) + _timedelta(days=window)).isoformat()
+    rows = conn.execute(
+        "SELECT i.id, i.title, i.due_date, i.assignee_id, i.project_id"
+        " FROM items i JOIN projects p ON p.id = i.project_id"
+        " WHERE i.due_date IS NOT NULL AND i.due_date >= ? AND i.due_date <= ?"
+        "   AND i.status_group NOT IN ('done', 'cancelled') AND i.archived_at IS NULL"
+        "   AND i.assignee_type = 'human' AND i.assignee_id IS NOT NULL"
+        "   AND COALESCE(p.status, '') != 'archived'",
+        (today, horizon)).fetchall()
+    notified = 0
+    for r in rows:
+        already = conn.execute(
+            "SELECT 1 FROM events WHERE event_type = 'item.due_soon_notified'"
+            " AND agg_id = ? AND substr(ts, 1, 10) = ? LIMIT 1",
+            (r["id"], today)).fetchone()
+        if already:
+            continue
+        events.emit(
+            event_type="item.due_soon_notified", agg_type="item", agg_id=r["id"],
+            project_id=r["project_id"], actor_type="automation", actor_id="scheduler",
+            payload={"title": r["title"], "due_date": r["due_date"],
+                     "assignee_id": r["assignee_id"], "sweep_date": today},
+        )
+        notified += 1
+    return notified
+
+
 def run_daily_sweep(force: bool = False) -> dict:
     """I98 (docs/01 §AE.1, YouTrack On-schedule semantics): evaluate every
     enabled `schedule:daily` rule once per day. Idempotency is a fact of the
@@ -353,9 +390,9 @@ def run_daily_sweep(force: bool = False) -> dict:
             "SELECT 1 FROM events WHERE event_type = 'automation.swept'"
             " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
         if seen:
-            return {"swept": False, "date": today, "fired": 0, "created": 0}
+            return {"swept": False, "date": today, "fired": 0, "created": 0, "notified": 0}
 
-    fired = created = 0
+    fired = created = notified = 0
     rules = conn.execute(
         "SELECT * FROM automation_rules WHERE trigger_event = ? AND enabled = 1",
         (SCHEDULE_TRIGGER,)).fetchall()
@@ -385,12 +422,14 @@ def run_daily_sweep(force: bool = False) -> dict:
             payload={"rule_name": rule["name"], "trigger_event": SCHEDULE_TRIGGER,
                      "sweep_date": today, "result": result},
         )
+    notified += _notify_due_soon(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
-        payload={"date": today, "fired": fired, "created": created},
+        payload={"date": today, "fired": fired, "created": created, "notified": notified},
     )
-    return {"swept": True, "date": today, "fired": fired, "created": created}
+    return {"swept": True, "date": today, "fired": fired, "created": created,
+            "notified": notified}
 
 
 def _scheduler_loop() -> None:

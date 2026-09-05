@@ -23,7 +23,7 @@ router = APIRouter(tags=["notifications"])
 # ---------------------------------------------------------------- projectors
 NOTIFY_EVENTS = (
     "item.assigned", "approval.requested", "notification.sent",
-    "comment.created", "item.status_changed",
+    "comment.created", "item.status_changed", "item.due_soon_notified",
 )
 
 # I96 (docs/01 §AD.2, GitLab Custom level): per-kind delivery gates. mention is
@@ -34,6 +34,7 @@ NOTIFY_KINDS: dict[str, str] = {
     "comment": "参与项新评论",
     "item": "参与项状态变更",
     "mention": "@提及",
+    "due_soon": "临近截止提醒",
 }
 
 
@@ -99,6 +100,14 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
             if r["user_id"] != e.actor_id:
                 out.append((r["user_id"], "item",
                             f"参与的工作项「{title}」状态变更为 {e.payload.get('status', '?')}"))
+    elif e.event_type == "item.due_soon_notified":
+        # I105: the daily sweep's built-in due-date reminder — recipient is
+        # the human assignee recorded in the payload (Plane automations
+        # semantics); both channels gate it as kind "due_soon".
+        p = e.payload
+        if p.get("assignee_id"):
+            out.append((p["assignee_id"], "due_soon",
+                        f"工作项「{p.get('title', '')}」将于 {p.get('due_date', '?')} 到期"))
     return out
 
 
@@ -143,6 +152,12 @@ def _proj_notify_comment(conn, e):
 
 @on("item.status_changed")
 def _proj_notify_status(conn, e):
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
+
+
+@on("item.due_soon_notified")
+def _proj_notify_due_soon(conn, e):
     for user_id, kind, summary in plan_notifications(conn, e):
         _notify(conn, e, user_id, kind, summary)
 

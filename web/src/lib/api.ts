@@ -577,7 +577,7 @@ export const api = {
     req<{ runs: AutomationRun[]; total: number }>(`/projects/${pid}/automations/${ruleId}/runs`),
   // I98: manual trigger of the daily sweep (heartbeat makes it idempotent)
   sweepAutomations: () =>
-    req<{ swept: boolean; date: string; fired: number; created: number }>(
+    req<{ swept: boolean; date: string; fired: number; created: number; notified: number }>(
       "/automations/sweep", { method: "POST", body: JSON.stringify({}) }),
   // I99: external intake — owner token management + public no-login submission
   getIntakeToken: (pid: string) =>

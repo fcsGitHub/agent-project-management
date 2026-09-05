@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     # I98 daily-sweep ticker: enabled in production by default; the test suite
     # turns it off (conftest) so background sweeps can't race explicit ones.
     scheduler_enabled: bool = True
+    # I105 due-date reminder window (days ahead, inclusive of today).
+    due_soon_days: int = 3
 
     model_config = {"env_prefix": "APM_", "env_file": ".env", "extra": "ignore"}
 
