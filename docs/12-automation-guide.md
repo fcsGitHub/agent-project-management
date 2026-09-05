@@ -535,3 +535,24 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **机制**：纯浏览器路线（OpenProject 报表呈现语义、零服务端零新依赖）——`index.css` 的 `@media print`：隐藏 `.no-print`（顶栏/导航/侧栏/按钮）与 nav/aside、白底黑字、`main` 解除滚动裁剪；`.print-card`（Card 组件统一挂载）去阴影、细边框、`break-inside: avoid` 保持卡片完整。
 - **入口**：看板页工具条、报表页漏斗卡、Dashboard 组合总览卡的「🖨 打印」按钮（`window.print()`，浏览器「另存为 PDF」即得报表）。
 - **复演要点**：打印预览无导航噪声、卡片单栏可读；打印按钮自身带 no-print（打印件上不出现）。
+
+## 26. 效率与可观测三件套（M29-I89/I90/I91）
+
+### 26.1 个人排期月历（I89）
+
+- **数据源**：`GET /api/my/schedule`——own-data 口径（assignee=我）跨全可见**未归档**项目的有日期项（start/due 任一存在），带项目名与状态组，按 COALESCE(due,start) 排序。
+- **月历**：`#/my/schedule` 月网格——多日期项**按跨度逐日渲染 chip**（项目色点 + done 划线）；拖卡片改期 = **span 保持的 delta 平移**（`due += 落点−start`，与 M14 相对平移同构）→ 单 PATCH start/due（审计/冲突重算/传播全继承）；仅 due 项拖=改 due。
+- **拖选建任务**：空白格按下→滑过→松开 = 高亮日期区间 → 弹创建窗（项目/概念/标题，起止预填、**自动指派自己**）。
+- **口径**：HTML5 原生 DnD（格子落点语义）；拖选仅限空白格（chip 与拖选不抢事件）。
+
+### 26.2 看板卡片快捷编辑（I90）
+
+- **入口**：看板卡片 badge 行与列表标题行的「⚡」→ QuickEditModal：状态（**本体 concept.states** 取集）/优先级（low/medium/high）/执行者（users 下拉 + 取消指派 + `agent:` 前缀保持 agent 指派）/截止日。
+- **铁律**：**仅提交有变化的键**、全部走既有 `PATCH /api/items/{id}`——流转白名单（I82）、blocks 闭锁（I78）、WIP（I80）、审计归因（M18）零成本继承；422 toast 全文透出。
+- **反模式**：另开「快捷路径」端点 = 把四层守卫抄一遍且必然漂移。
+
+### 26.3 运行聚合报表（I91）
+
+- **端点**：`GET /api/projects/{id}/runs/report`——纯投影聚合：运行总数、按状态计数、成功率（succeeded/(succeeded+failed)）、平均时长（started→ended 均存在者）、Gate 挂起率（interrupted/total）、每运行步骤数（spans 计数/run 数）、按角色分组成功率；tokens（input/output/estimated_cost_usd）直接 SUM 既有列——**replay provider 记零就如实报零**，接真实 provider 后自然有数（不造假数）。
+- **前端**：RunsPage 顶部「📊 运行报表」卡（五组数字 + 状态分布条形 + 角色成功率 chips），与运行列表逐条对账。
+- **一致性**：聚合全部来自 runs/spans 投影，rebuild 后响应相等。
