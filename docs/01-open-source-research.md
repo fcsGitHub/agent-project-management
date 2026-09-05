@@ -922,3 +922,35 @@ M32 = **引擎与入口三件套**：I98 时间触发自动化（规则引擎的
 M33 = **纵深三件套**：I101 关键路径高亮（时间纵深——排程科学补最后一块）/ I102 子任务进度汇总（层级纵深——GitHub sub-issue progress 语义）/ I103 工作项归档与回收站（数据纵深——软删除+可恢复，补「统一考量」backlog）+ docs/12 §30 + 冒烟 39 + M33 审阅，约 9 人日。硬删除（真删+保留期清理作业）、多级 rollup（孙任务向爷任务）、CPM 资源平衡、IMAP 轮询、引用快捷键、多基线趋势留 backlog。
 
 
+## AG. M34 前置调研：时间关怀——工作日历跳休 / 到期邻近提醒 / 基线 S 曲线对比（2026-09-06）
+
+> 目标协议触发：M33 审阅通过后开启。防重查：候选池 grep——引用快捷键（§AC/§AD/§AF 三轮留 backlog 无调研记录）、多基线趋势（§AB/§AF 留 backlog，M24 快照已有、时序对比无调研记录）、工作日顺延（M27 论证「无工作日历域」backlog，无调研记录）、工时审批代理（I86 刚做不查）、IMAP 轮询（§AE 留 backlog）均无调研记录。
+
+**AG.1 工作日历与非工作日落点顺延（OpenProject 12.3 语义）**
+
+- OpenProject 12.3「高级排期」：管理员在 Administration → Calendars and dates 全局定义**工作周 + 非工作日**（法定/本地节假日），**自动排期模式**的工作包计算 start/finish 时**跳过非工作日**，手排期（manual）完全不受影响（[系统管理文档](https://www.openproject.org/docs/system-admin-guide/calendars-and-dates/)、[12.3 发布博客](https://www.openproject.org/blog/openproject-12-3-release/)）；保存日期时**自动顺延到下一个工作日**（[admin guide](https://www.openproject.org/docs/system-admin-guide/calendars-and-dates/)）；用户级 Availability（个人休假+公司假日）是另一层（[账号设置](https://www.openproject.org/docs/user-guide/account-settings/schedule-and-availability/)），个人层留 backlog。
+- 对本项目的映射：M14 自动排期（auto_scheduled）按**日历日**直算——M27 论证过「无工作日历域」backlog 本轮转正：`calendar.holiday_added`/`calendar.holiday_removed` 显式事件 + non_working_days 投影表（进 drop 清单）+ 设置页「📅 工作日历」管理卡（owner 加/删日期）；M14 传播的**落点顺延**辅助函数——后继 start = 前置 due+1+lag 与各项 due 若落在非工作日则顺延至下一工作日；手排期项零感知（OpenProject manual 语义）；工期保持日历日跨度不重算（比 OpenProject 工作日工期轻量、聚焦「截止日落在周六日」核心痛点）。
+
+**AG.2 到期邻近提醒（Plane/Linear 语义——sweep 引擎的第一公民应用）**
+
+- Linear：Issue Reminders（`H` 键任意时刻设「4pm」「next Tuesday」到点进 Inbox，[changelog](https://linear.app/changelog/2023-01-31-issue-reminders)）+ 到期邻近/逾期通知（[due dates 文档](https://linear.app/docs/due-dates)）+ email digest（[notifications](https://linear.app/docs/notifications)）；Plane：automations 对 assignee/subscriber 发「due date approaching」站内+邮件（[automations 文档](https://docs.plane.so/automations/overview)），社区仍在要更强的邮件提醒（[#7340](https://github.com/makeplane/plane/issues/7340)）；Taiga 至今**没有**到期通知、长年 feature request（[#27](https://github.com/kaleidos-ventures/taiga-front/issues/27)、[社区帖](https://community.taiga.io/t/no-email-notification-on-due-date-of-story/3481)）。共同语义：**到期提醒是调度引擎的第一公民应用**——Plane 直接做在 automations 里而非独立模块。
+- 对本项目的映射：I98 已有每日 sweep ticker（run_daily_sweep + automation.swept 心跳幂等）+ I96 通知偏好闸门（pref_allows 双通道）——**内建到期提醒只是 sweep 的新增动作**：run_daily_sweep 对「due ∈ [today, today+N] 且未完成未归档且有 assignee」的项 emit `item.due_soon_notified`（投影器走 _notify(kind="due_soon")——NOTIFY_KINDS 五类扩六类、默认开）+ 邮件通道同闸门；**幂等天然成立**：sweep 每日至多一次 + 同一 sweep 内先查当日已通知集合；N 天窗口全局设置（默认 3）。零新引擎零新表（事件即审计、心跳保证节拍）。
+
+**AG.3 基线 S 曲线对比（EVM PV/EV 双线 + SPI——事件溯源红利第六例）**
+
+- EVM 标准语义：**PV**（计划值，按基线计划累计）、**EV**（挣值，按实际完成累计的计划工时）、**AC**（实际成本）；**S 曲线** = PV/EV 双线随时间累计图（形状缓 S），**SPI = EV/PV**（<1 落后 =1 持平 >1 超前），SV = EV−PV（[BVOP](https://bvop.org/define/earnedvaluemanagement.html)、[PMI](https://www.pmi.org/learning/library/earned-value-management-systems-analysis-8026)、[Xurrent——基线本质是快照](https://learning.xurrent.com/project_manager12)）；MS Project/ProjectManager 的 **Actual vs Baseline S-curves** 是基线对比的标准渲染（[ProjectManager](https://www.projectmanager.com/blog/s-curve-project-management)）；开源侧 OpenProject EVA 列表显示 work vs spent 与 progress（[功能页](https://www.openproject.org/collaboration-software-features/project-management-process/)），完整 S 曲线多靠外接 BI。
+- 对本项目的映射：M24 baselines 快照已有（snapshot JSON 含每项 start/due/estimate_hours）+ I93 事件重放周界采样成熟——`GET /projects/{id}/baseline-curve?baseline_id=`：**PV 曲线**按周界采样累计基线项 estimate（按 due 时间分布：due≤采样日的项计入），**EV 曲线**事件重放 `item.status`→done 时点累计该基线内项的 estimate；双线 SVG 迷你图 + **SPI 手算卡**（末点 EV/PV，PV=0 诚实 None）+ 报表页「📈 S 曲线」卡（基线下拉选择）。零新表、纯投影+重放（**事件溯源红利第六例**——EV 即任意时点重放）。AC 第三线（spent 重放）与多基线并列对比留 backlog。
+
+**AG.4 M34 设计映射与验证纪律（沿用）**
+
+- I104 工作日历：calendar.holiday_added/removed 事件 + non_working_days 投影表 + M14 落点顺延辅助函数 + 设置页「📅 工作日历」卡；单测（周末顺延手算/节假日跨跳/删除恢复/手排期不动/rebuild 一致）。
+- I105 到期提醒：sweep 动作 + item.due_soon_notified 事件 + NOTIFY_KINDS 第六类 due_soon + pref_allows 闸门 + 邮件通道；单测（N 天窗口边界/每日幂等/站内与邮件双闸/无 assignee 不发/rebuild）。
+- I106 S 曲线：`GET /projects/{id}/baseline-curve` 端点 + 报表 SVG 双线 + SPI 手算；单测（PV 周界手算/EV 重放手算/SPI 空态/rebuild 一致）+ **冒烟 40**（跳休 roundtrip/提醒 roundtrip/S 曲线手算对账 + rebuild 一致）并入 I106 + M34 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M34 审阅。
+
+**AG.5 M34 取舍**
+
+M34 = **时间关怀三件套**：I104 工作日历跳休（排期关怀——M27 backlog 转正，OpenProject 落点顺延语义）/ I105 到期邻近提醒（人的关怀——Plane/Linear 语义，sweep 第一公民应用）/ I106 基线 S 曲线（趋势关怀——EVM PV/EV 语义，M24+I93 红利第六例）+ docs/12 §31 + 冒烟 40 + M34 审阅，约 9 人日。个人 Availability（休假层）、AC 第三线、多基线并列对比、IMAP 轮询、引用快捷键留 backlog。
+
+
+
