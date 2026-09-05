@@ -96,6 +96,25 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 users.email_notify（M11-I37）。
         if "email_notify" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN email_notify INTEGER NOT NULL DEFAULT 1")
+        # M24-I76: baselines 多条化——存量表带 project_id UNIQUE 约束则重建去约束。
+        if any(r[0] == "baselines" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            unique_on_project = any(
+                i["unique"] and [c["name"] for c in conn.execute(
+                    f"PRAGMA index_info({i['name']})").fetchall()] == ["project_id"]
+                for i in conn.execute("PRAGMA index_list(baselines)").fetchall()
+            )
+            if unique_on_project:
+                conn.execute(
+                    "CREATE TABLE baselines_new (id TEXT PRIMARY KEY, project_id TEXT NOT NULL,"
+                    " snapshot TEXT NOT NULL, created_at TEXT NOT NULL)")
+                conn.execute(
+                    "INSERT INTO baselines_new (id, project_id, snapshot, created_at)"
+                    " SELECT id, project_id, snapshot, created_at FROM baselines")
+                conn.execute("DROP TABLE baselines")
+                conn.execute("ALTER TABLE baselines_new RENAME TO baselines")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_baselines_project ON baselines(project_id)")
         conn.commit()
 
 

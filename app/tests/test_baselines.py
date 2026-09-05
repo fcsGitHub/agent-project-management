@@ -58,3 +58,30 @@ def test_baseline_snapshot_drift_and_rebuild(client, pid):
 
     # unknown project 404
     assert client.post("/api/projects/p_nope/baseline").status_code == 404
+
+
+def test_multiple_baselines_history(client, pid):
+    """M24-I76: setting a baseline appends to history — both snapshots stay
+    queryable and the newest is the /baseline read."""
+    a = _mk_item(client, pid, "任务甲", start_date="2026-09-01", due_date="2026-09-05")
+    assert client.post(f"/api/projects/{pid}/baseline").status_code == 200
+    assert client.patch(f"/api/items/{a['id']}", json={"due_date": "2026-09-08"}).status_code == 200
+    assert client.post(f"/api/projects/{pid}/baseline").status_code == 200
+
+    lst = client.get(f"/api/projects/{pid}/baselines").json()["baselines"]
+    assert len(lst) == 2
+    snaps = [b["snapshot"]["items"][a["id"]][1] for b in lst]
+    assert snaps == ["2026-09-05", "2026-09-08"]  # ordered old → new
+    assert client.get(f"/api/projects/{pid}/baseline").json()["baseline_id"] == lst[-1]["id"]
+
+    # rebuild replays both snapshots in order
+    projections.rebuild()
+    lst2 = client.get(f"/api/projects/{pid}/baselines").json()["baselines"]
+    assert [b["snapshot"]["items"][a["id"]][1] for b in lst2] == ["2026-09-05", "2026-09-08"]
+
+    # clear wipes the whole history
+    assert client.delete(f"/api/projects/{pid}/baseline").status_code == 200
+    assert client.get(f"/api/projects/{pid}/baselines").json()["baselines"] == []
+
+    # unknown project 404
+    assert client.post("/api/projects/p_nope/baseline").status_code == 404

@@ -351,10 +351,11 @@ CREATE INDEX IF NOT EXISTS idx_extracted_tasks_project ON extracted_tasks(projec
 
 CREATE TABLE IF NOT EXISTS baselines (
   id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL UNIQUE,
+  project_id TEXT NOT NULL,
   snapshot TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_baselines_project ON baselines(project_id);
 """
 
 FTS_DDL = """

@@ -30,8 +30,10 @@ export function TimelinePage() {
   const items = useQuery({ queryKey: ["items", pid], queryFn: () => api.listItems(pid!), enabled: !!pid });
   const milestones = useQuery({ queryKey: ["milestones", pid], queryFn: () => api.listMilestones(pid!), enabled: !!pid });
   const ontology = useQuery({ queryKey: ["ontology", pid], queryFn: () => api.getOntology(pid!, true), enabled: !!pid });
-  // I71: the active baseline snapshot (ghost bars + drift indication)
-  const baseline = useQuery({ queryKey: ["baseline", pid], queryFn: () => api.getBaseline(pid!), enabled: !!pid });
+  // I71/I76: baseline history — ghosts for one selected baseline or all of them
+  const baselinesQ = useQuery({ queryKey: ["baselines", pid], queryFn: () => api.listBaselines(pid!), enabled: !!pid });
+  const [blFilter, setBlFilter] = useState<string>("all");
+  const blList = baselinesQ.data?.baselines ?? [];
 
   // I63 drag-to-reschedule state: delta is whole days since pointer-down.
   type Drag = {
@@ -192,18 +194,40 @@ export function TimelinePage() {
         { item: it, start, due, conflict: false },
       ]);
     }
-    const rows = [...byConcept.entries()].map(([cid, list]) => ({ cid, list }));
+
+    // M24-I76: lane packing per concept row (interval-graph greedy, CLRS) —
+    // sort by start, drop each bar into the first sub-lane whose last bar ends
+    // at/before it, else open a new lane. Fixes same-concept bar overlap.
+    const rows = [...byConcept.entries()].map(([cid, list]) => {
+      const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime() || a.item.id.localeCompare(b.item.id));
+      const laneEnds: number[] = [];
+      const laneOf = new Map<string, number>();
+      for (const d of sorted) {
+        let lane = laneEnds.findIndex((end) => end <= d.start.getTime());
+        if (lane === -1) { lane = laneEnds.length; laneEnds.push(d.due.getTime()); }
+        laneEnds[lane] = Math.max(laneEnds[lane], d.due.getTime());
+        laneOf.set(d.item.id, lane);
+      }
+      const laneCount = Math.max(laneEnds.length, 1);
+      return { cid, list: sorted, laneOf, laneCount, height: ROW_H * laneCount };
+    });
+    const rowTops: number[] = [];
+    let acc = msCount * ROW_H;
+    for (const r of rows) { rowTops.push(acc); acc += r.height; }
 
     // dependency conflicts: "from depends_on to" → from must not start before to ends
     const connectors: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
     const detailsMap = details.data ?? {};
-    const rowIdx = (itemId: string) =>
-      rows.findIndex((r) => r.list.some((d) => d.item.id === itemId));
-    // row centers host the bars; same-row conflicts route along the row's
-    // bottom edge so the dashed line stays visible under the bars.
+    const pos = new Map<string, { top: number; lane: number }>();
+    rows.forEach((r, i) => {
+      for (const d of r.list) pos.set(d.item.id, { top: rowTops[i], lane: r.laneOf.get(d.item.id) ?? 0 });
+    });
+    // bar centers host the bars; same-row conflicts route along the bar's
+    // sub-lane bottom edge so the dashed line stays visible under the bars.
     const yOf = (itemId: string, edge = false) => {
-      const idx = rowIdx(itemId);
-      return edge ? (msCount + idx + 1) * ROW_H - 4 : (msCount + idx + 0.5) * ROW_H;
+      const p = pos.get(itemId);
+      if (!p) return 0;
+      return edge ? p.top + (p.lane + 1) * ROW_H - 4 : p.top + (p.lane + 0.5) * ROW_H;
     };
     for (const row of rows) {
       for (const d of row.list) {
@@ -217,7 +241,7 @@ export function TimelinePage() {
           if (!depStart || !depDue) continue;
           if (d.start.getTime() < depDue.getTime()) {
             d.conflict = true;
-            const sameRow = rowIdx(d.item.id) === rowIdx(rel.to_item);
+            const sameRow = pos.get(d.item.id)!.top === pos.get(rel.to_item)?.top;
             connectors.push({
               x1: pct(d.start), y1: yOf(d.item.id, sameRow),
               x2: pct(depDue), y2: yOf(rel.to_item, sameRow),
@@ -231,7 +255,7 @@ export function TimelinePage() {
     for (let i = 0; i <= days; i += 7) {
       ticks.push({ pct: (i / days) * 100, label: new Date(min + i * DAY).toISOString().slice(5, 10) });
     }
-    return { days, pct, rows, connectors, ticks, todayPct: pct(today) };
+    return { days, pct, rows, rowInfos: rows, connectors, ticks, todayPct: pct(today) };
   }, [dated, msRow, details.data, msCount]);
 
   const hasData = view.rows.length > 0 || msCount > 0;
@@ -245,8 +269,17 @@ export function TimelinePage() {
             <span className="text-xs text-mut">
               {dated.length} 个排期项 · {msCount} 个里程碑 · 红条/虚线 = 依赖冲突 · 拖动条形改期 / 拖右缘改截止 / 悬停条形拖端点圆圈到另一条形建依赖（Esc 取消）
             </span>
-            {baseline.data?.baseline ? (
-              <button onClick={async () => { await api.clearBaseline(pid!); toast.success("已清除基线"); qc.invalidateQueries(); }}
+            {blList.length > 0 && (
+              <select value={blFilter} onChange={(e) => setBlFilter(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-xs">
+                {blList.map((b) => (
+                  <option key={b.id} value={b.id}>基线 {String(b.created_at ?? "").slice(5, 16).replace("T", " ")}</option>
+                ))}
+                {blList.length > 1 && <option value="all">全部基线</option>}
+              </select>
+            )}
+            {blList.length > 0 ? (
+              <button onClick={async () => { await api.clearBaseline(pid!); toast.success("已清除全部基线"); qc.invalidateQueries(); }}
                 className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">清除基线</button>
             ) : (
               <button onClick={async () => { await api.setBaseline(pid!); toast.success("已设为基线（当前日期快照）"); qc.invalidateQueries(); }}
@@ -293,25 +326,34 @@ export function TimelinePage() {
             </div>
           )}
 
-          {/* concept rows */}
-          {view.rows.map((row) => (
-            <div key={row.cid} className="flex items-center border-t border-line/60" style={{ height: ROW_H }}>
-              <div className="w-32 shrink-0 truncate pr-2 text-right text-xs text-mut" title={row.cid}>
+          {/* concept rows — sub-lane packed (M24-I76), height adapts to lanes */}
+          {view.rowInfos.map((row) => (
+            <div key={row.cid} className="flex items-start border-t border-line/60" style={{ height: row.height }}>
+              <div className="w-32 shrink-0 truncate pr-2 text-right text-xs text-mut" style={{ paddingTop: row.height / 2 - 8 }} title={row.cid}>
                 {conceptName(row.cid)}
               </div>
               <div className="relative h-full flex-1 mr-2">
                 {row.list.map((d) => {
-                  // I71: ghost bar at the baseline position (drift → amber)
-                  const bEntry = baseline.data?.baseline?.items?.[d.item.id];
-                  const ghost = (() => {
-                    if (!bEntry) return null;
-                    const bs = parseDay(bEntry[0]) ?? parseDay(bEntry[1]);
-                    const bd = parseDay(bEntry[1]) ?? parseDay(bEntry[0]);
-                    if (!bs || !bd) return null;
-                    const gl = view.pct(bs);
-                    const drifted = bEntry[0] !== d.item.start_date || bEntry[1] !== d.item.due_date;
-                    return { gl, gw: Math.max(view.pct(bd) - gl, 0.8), drifted, label: `${bEntry[0]} ~ ${bEntry[1]}` };
-                  })();
+                  // I71/I76: ghost bars at baseline positions (drift → amber);
+                  // multiple baselines stack with a small vertical offset
+                  const shown = blFilter === "all" ? blList : blList.filter((b) => b.id === blFilter);
+                  const ghostList = shown
+                    .map((b, bi) => ({ b, bi }))
+                    .filter(({ b }) => b.snapshot?.items?.[d.item.id])
+                    .map(({ b, bi }) => {
+                      const s = b.snapshot.items[d.item.id];
+                      const bs = parseDay(s[0]) ?? parseDay(s[1]);
+                      const bd = parseDay(s[1]) ?? parseDay(s[0]);
+                      if (!bs || !bd) return null;
+                      const drifted = s[0] !== d.item.start_date || s[1] !== d.item.due_date;
+                      return {
+                        gl: view.pct(bs), gw: Math.max(view.pct(bd) - view.pct(bs), 0.8),
+                        drifted, label: `${s[0]} ~ ${s[1]}`, bi,
+                      };
+                    })
+                    .filter((g): g is NonNullable<typeof g> => g !== null);
+                  const lane = row.laneOf.get(d.item.id) ?? 0;
+                  const laneTop = lane * ROW_H;
                   // live preview while this bar is dragged (half-transparent, ANKO-style)
                   const dragging = drag?.id === d.item.id && drag.delta !== 0;
                   const start = dragging && drag!.mode === "move"
@@ -328,35 +370,35 @@ export function TimelinePage() {
                   const fmt = (x: Date) => x.toISOString().slice(0, 10);
                   return (
                     <div key={d.item.id}>
-                      {ghost && (
-                        <div
-                          title={`📌 基线 ${ghost.label}${ghost.drifted ? "（已偏离基线）" : ""}`}
-                          className={`pointer-events-none absolute top-1/2 h-4 -translate-y-1/2 rounded-full border border-dashed ${ghost.drifted ? "border-amber-500" : "border-line"}`}
-                          style={{ left: `${ghost.gl}%`, width: `${ghost.gw}%` }}
-                        />
-                      )}
-                      <div
-                        data-item-id={d.item.id}
-                      title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}${dragging && drag ? ` → 改为 ${fmt(start)} ~ ${fmt(due)}` : ""}`}
-                      onPointerDown={(e) => beginDrag(e, d, "move")}
-                      onPointerMove={onDragMove}
-                      onPointerUp={() => endDrag(false)}
-                      onPointerCancel={() => endDrag(true)}
-                      className={`group absolute top-1/2 h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
-                      style={{ left: `${left}%`, width: `${width}%` }}
-                    >
-                      <div
-                        onPointerDown={(e) => beginDrag(e, d, "resize")}
-                        title="拖动右缘改截止日"
-                        className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize rounded-r-full bg-black/20 hover:bg-black/40"
-                      />
-                      {(["left", "right"] as const).map((pt) => (
-                        <span key={pt}
-                          onPointerDown={(e) => beginLinkDrag(e, d)}
-                          title="拖到目标条形建立依赖（本任务 depends_on 目标）"
-                          className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white bg-indigo-500 opacity-0 shadow transition-opacity group-hover:opacity-100 cursor-crosshair ${pt === "left" ? "-left-1.5" : "-right-1.5"}`}
+                      {ghostList.map((g, i) => (
+                        <div key={i}
+                          title={`📌 基线 ${g.label}${g.drifted ? "（已偏离基线）" : ""}`}
+                          className={`pointer-events-none absolute h-4 -translate-y-1/2 rounded-full border border-dashed ${g.drifted ? "border-amber-500" : "border-line"}`}
+                          style={{ left: `${g.gl}%`, width: `${g.gw}%`, top: laneTop + ROW_H / 2 - 8 + i * 5 }}
                         />
                       ))}
+                      <div
+                        data-item-id={d.item.id}
+                        title={`${d.item.title} · ${d.item.status}${d.item.auto_scheduled ? " · ⏱ 自动排期" : ""}${d.conflict ? " · 依赖冲突：开始早于前置项完成" : ""}${dragging && drag ? ` → 改为 ${fmt(start)} ~ ${fmt(due)}` : ""}`}
+                        onPointerDown={(e) => beginDrag(e, d, "move")}
+                        onPointerMove={onDragMove}
+                        onPointerUp={() => endDrag(false)}
+                        onPointerCancel={() => endDrag(true)}
+                        className={`group absolute h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
+                        style={{ left: `${left}%`, width: `${width}%`, top: laneTop + ROW_H / 2 }}
+                      >
+                        <div
+                          onPointerDown={(e) => beginDrag(e, d, "resize")}
+                          title="拖动右缘改截止日"
+                          className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize rounded-r-full bg-black/20 hover:bg-black/40"
+                        />
+                        {(["left", "right"] as const).map((pt) => (
+                          <span key={pt}
+                            onPointerDown={(e) => beginLinkDrag(e, d)}
+                            title="拖到目标条形建立依赖（本任务 depends_on 目标）"
+                            className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white bg-indigo-500 opacity-0 shadow transition-opacity group-hover:opacity-100 cursor-crosshair ${pt === "left" ? "-left-1.5" : "-right-1.5"}`}
+                          />
+                        ))}
                       </div>
                     </div>
                   );

@@ -1,9 +1,9 @@
-"""Gantt baselines (M23-I71, docs/01 §V.1): one active baseline per project —
-a snapshot of every scheduled item's start/due (plus milestone deadlines) at
-the moment of capture. Later rescheduling never touches the snapshot, so the
-timeline can overlay ghost bars and show drift (Redmine #13419 semantics,
-sold as plugins elsewhere; here it is core and event-sourced: setting a new
-baseline replaces the old one, both visible in history)."""
+"""Gantt baselines (M23-I71 → M24-I76 multi-baseline, docs/01 §V.1/§W.3): each
+"set baseline" appends a snapshot of every scheduled item's start/due (plus
+milestone deadlines); later rescheduling never touches past snapshots, so the
+timeline can overlay ghost bars from any or all baselines and show drift
+(Redmine #13419 semantics, sold as plugins elsewhere). Clearing wipes the
+project's baseline history."""
 from __future__ import annotations
 
 import json
@@ -21,7 +21,6 @@ router = APIRouter(tags=["baselines"])
 @on("project.baseline_set")
 def _proj_baseline_set(conn, e):
     p = e.payload
-    conn.execute("DELETE FROM baselines WHERE project_id = ?", (e.project_id,))
     conn.execute(
         "INSERT INTO baselines (id, project_id, snapshot, created_at) VALUES (?,?,?,?)",
         (e.agg_id, e.project_id, json.dumps(p["snapshot"], ensure_ascii=False), e.ts),
@@ -57,6 +56,9 @@ def _require_item_project(project_id: str) -> None:
 
 @router.post("/projects/{project_id}/baseline")
 def set_baseline(project_id: str) -> dict:
+    """Append a new snapshot to the baseline history (M24-I76 multi-baseline;
+    older baselines are kept for comparison — MS Project multi-baseline
+    semantics). The newest one is what GET /baseline returns."""
     _require_item_project(project_id)
     snapshot = _snapshot(project_id)
     events.emit(
@@ -84,12 +86,25 @@ def clear_baseline(project_id: str) -> dict:
 
 @router.get("/projects/{project_id}/baseline")
 def get_baseline(project_id: str) -> dict:
-    _require_item_project(project_id)
-    row = db.get_conn().execute(
-        "SELECT snapshot, created_at FROM baselines WHERE project_id = ?",
-        (project_id,),
-    ).fetchone()
-    if row is None:
+    """The newest baseline (backward-compatible single-baseline read)."""
+    rows = _list_rows(project_id)
+    if not rows:
         return {"project_id": project_id, "baseline": None}
-    return {"project_id": project_id, "baseline": json.loads(row["snapshot"]),
-            "created_at": row["created_at"]}
+    return {"project_id": project_id, "baseline": json.loads(rows[-1]["snapshot"]),
+            "created_at": rows[-1]["created_at"], "baseline_id": rows[-1]["id"]}
+
+
+@router.get("/projects/{project_id}/baselines")
+def list_baselines(project_id: str) -> dict:
+    rows = _list_rows(project_id)
+    return {"project_id": project_id, "baselines": [
+        {"id": r["id"], "created_at": r["created_at"], "snapshot": json.loads(r["snapshot"])}
+        for r in rows
+    ]}
+
+
+def _list_rows(project_id: str) -> list:
+    return db.get_conn().execute(
+        "SELECT id, snapshot, created_at FROM baselines WHERE project_id = ?"
+        " ORDER BY created_at, id", (project_id,),
+    ).fetchall()
