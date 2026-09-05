@@ -7,7 +7,8 @@ Item linkage uses the long-idle items.milestone_id column; the timeline view
 (I42) renders these anchors as diamonds on the date axis."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+import json
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -201,3 +202,68 @@ def delete_milestone(milestone_id: str) -> dict:
         payload={"title": m["title"]},
     )
     return {"deleted": milestone_id}
+
+
+@router.get("/milestones/{milestone_id}/burndown")
+def milestone_burndown(milestone_id: str) -> dict:
+    """M27-I85 (docs/01 §Z.3): event-replayed burndown — remaining linked items
+    per day vs an ideal line from total to zero across created→due. Jira/Taiga
+    bind burndown to time-boxed sprints; we have no cycles, so the milestone is
+    the anchor and the series is a pure replay of item.status_changed events
+    (append-only ⇒ replay equals live, zero new tables)."""
+    m = require_milestone(milestone_id)
+    project_id = m["project_id"]
+    conn = db.get_conn()
+    items = conn.execute(
+        "SELECT id FROM items WHERE milestone_id = ? AND status_group != 'cancelled'",
+        (milestone_id,),
+    ).fetchall()
+    total = len(items)
+    item_ids = {r["id"] for r in items}
+
+    # first-arrival day of done per item, replayed from the event stream
+    first_done: dict[str, str] = {}
+    if item_ids:
+        for e in conn.execute(
+            "SELECT agg_id, payload, ts FROM events"
+            " WHERE project_id = ? AND event_type = 'item.status_changed' ORDER BY id",
+            (project_id,),
+        ).fetchall():
+            if e["agg_id"] not in item_ids or e["agg_id"] in first_done:
+                continue
+            if json.loads(e["payload"]).get("status_group") == "done":
+                first_done[e["agg_id"]] = e["ts"][:10]
+
+    start = (m["created_at"] or "")[:10]
+    due = m["due_date"]
+    today = _today().isoformat()
+    window_days = max((date.fromisoformat(due) - date.fromisoformat(start)).days, 1) \
+        if start and start < due else 1
+
+    def remaining_on(day: str) -> int:
+        return total - sum(1 for d in first_done.values() if d <= day)
+
+    # actual line: start → min(today, due) — frozen at due once the window closes
+    actual_end = min(today, due) if start and today > start else start
+    series = []
+    if total:
+        step = max((date.fromisoformat(actual_end) - date.fromisoformat(start)).days, 0)
+        for i in range(step + 1):
+            day = date.fromisoformat(start) + timedelta(days=i)
+            series.append({"date": day.isoformat(), "remaining": remaining_on(day.isoformat())})
+
+    # ideal line: total → 0 across the whole window
+    ideal = [
+        {"date": (date.fromisoformat(start) + timedelta(days=i)).isoformat(),
+         "remaining": round(total * (1 - i / window_days))}
+        for i in range(window_days + 1)
+    ] if total else []
+
+    week = [(date.fromisoformat(today) - timedelta(days=k)).isoformat() for k in range(7)]
+    velocity_done = sum(1 for d in first_done.values() if d in week)
+    return {
+        "milestone_id": m["id"], "title": m["title"], "due_date": due,
+        "total": total, "remaining": total - len(first_done),
+        "series": series, "ideal": ideal,
+        "velocity": {"days": 7, "done": velocity_done},
+    }

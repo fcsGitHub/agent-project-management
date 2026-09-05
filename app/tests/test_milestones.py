@@ -136,3 +136,47 @@ def test_link_milestone_at_creation(client, tmp_data, isolated_ontologies, proje
                              "milestone_id": "ms_missing"}).status_code == 422
     detail = client.get(f"/api/milestones/{m['id']}").json()
     assert [i["title"] for i in detail["items"]] == ["直接关联"]
+
+
+def test_burndown_event_replay(client, tmp_data, isolated_ontologies, project):
+    """M27-I85: remaining curve is a pure replay of item.status_changed —
+    hand-computed totals, ideal line total→0, weekly velocity, rebuild equality."""
+    pid = project["id"]
+    future = (datetime.now(timezone.utc) + timedelta(days=10)).date().isoformat()
+    m = client.post(f"/api/projects/{pid}/milestones",
+                    json={"title": "燃尽对照", "due_date": future}).json()
+
+    # 3 linked items: 2 done today (both transitions today), 1 open
+    for i, status in enumerate(("done", "done", "in_progress")):
+        it = client.post(f"/api/projects/{pid}/items",
+                         json={"concept_id": "task", "title": f"项{i}", "milestone_id": m["id"]}).json()
+        if status == "done":
+            assert client.patch(f"/api/items/{it['id']}", json={"status": "done"}).status_code == 200
+
+    bd = client.get(f"/api/milestones/{m['id']}/burndown").json()
+    assert bd["total"] == 3 and bd["remaining"] == 1
+    # same-day window: milestone created today, 2 done today → one point at
+    # today's end-of-day remaining (first-arrival day == window start)
+    assert len(bd["series"]) == 1
+    assert bd["series"][0]["remaining"] == 1
+    assert bd["ideal"][0]["remaining"] == 3 and bd["ideal"][-1]["remaining"] == 0
+    assert bd["velocity"]["days"] == 7 and bd["velocity"]["done"] == 2
+
+    # replay equals live: the series is derived from events, not runtime state
+    projections.rebuild()
+    assert client.get(f"/api/milestones/{m['id']}/burndown").json() == bd
+
+
+def test_burndown_empty_and_cancelled(client, tmp_data, isolated_ontologies, project):
+    pid = project["id"]
+    m = client.post(f"/api/projects/{pid}/milestones",
+                    json={"title": "空燃尽", "due_date": "2026-12-01"}).json()
+    empty = client.get(f"/api/milestones/{m['id']}/burndown").json()
+    assert empty["total"] == 0 and empty["series"] == [] and empty["ideal"] == []
+
+    # a cancelled item never enters total or the curve
+    it = client.post(f"/api/projects/{pid}/items",
+                     json={"concept_id": "task", "title": "取消项", "milestone_id": m["id"]}).json()
+    assert client.patch(f"/api/items/{it['id']}", json={"status": "cancelled"}).status_code == 200
+    bd = client.get(f"/api/milestones/{m['id']}/burndown").json()
+    assert bd["total"] == 0 and bd["series"] == []

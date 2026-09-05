@@ -1,6 +1,7 @@
 /** Reports page (M12-I39): funnel, pending gates, overdue/stale list and
  * throughput sparkline — read-only widgets over the pure projection report
  * API (docs/01 §K.1: OpenProject-style widget dashboards, zero ETL). */
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
@@ -122,7 +123,88 @@ export function ReportsPage() {
 
       {/* timelog (M19-I61): per-user totals + per-day trend */}
       <TimelogCard pid={pid} />
+
+      {/* burndown (M27-I85): event-replayed remaining curve vs ideal line */}
+      <BurndownCard pid={pid} />
     </div>
+  );
+}
+
+const DAY_MS = 86_400_000;
+
+function BurndownCard({ pid }: { pid: string }) {
+  const ms = useQuery({
+    queryKey: ["milestones", pid],
+    queryFn: () => api.listMilestones(pid),
+    enabled: !!pid,
+  });
+  const [mid, setMid] = useState("");
+  const list = ms.data?.milestones ?? [];
+  const selected = mid || list[0]?.id || "";
+  const bd = useQuery({
+    queryKey: ["burndown", selected],
+    queryFn: () => api.getMilestoneBurndown(selected),
+    enabled: !!selected,
+  });
+
+  const d = bd.data;
+  // x normalizes every date onto the created→due window so actual and ideal
+  // lines share one scale; y maps remaining onto the 40-unit SVG height
+  const view = (() => {
+    if (!d || !d.total) return null;
+    const t0 = d.series[0]?.date ?? d.ideal[0]?.date;
+    if (!t0) return null;
+    const start = new Date(t0 + "T00:00:00Z").getTime();
+    const end = new Date(d.due_date + "T00:00:00Z").getTime();
+    const window = Math.max(end - start, DAY_MS);
+    const x = (date: string) => ((new Date(date + "T00:00:00Z").getTime() - start) / window) * 100;
+    const y = (n: number) => 3 + (1 - n / d.total) * 37;
+    const pts = (arr: { date: string; remaining: number }[]) =>
+      arr.map((p) => `${x(p.date).toFixed(2)},${y(p.remaining).toFixed(2)}`).join(" ");
+    const today = new Date().toISOString().slice(0, 10);
+    return { x, y, actual: pts(d.series), ideal: pts(d.ideal), todayPct: x(today) };
+  })();
+
+  return (
+    <Card className="p-4 md:col-span-2">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">🔥 燃尽</span>
+        <select value={selected} onChange={(e) => setMid(e.target.value)}
+          className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+          {list.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+          {!list.length && <option value="">（无里程碑）</option>}
+        </select>
+      </div>
+      {d && view ? (
+        <>
+          <div className="text-xs text-mut">
+            关联 {d.total} 项 · 剩余 <span className="font-medium text-acc">{d.remaining}</span> ·
+            近 {d.velocity.days} 天完成 {d.velocity.done} 项 ·
+            {d.remaining <= 0 ? " 已清零 ✓" : ` 截止 ${d.due_date}`}
+          </div>
+          <svg viewBox="0 0 100 43" className="mt-2 h-36 w-full" preserveAspectRatio="none">
+            {view.todayPct >= 0 && view.todayPct <= 100 && (
+              <line x1={view.todayPct} y1="0" x2={view.todayPct} y2="42"
+                stroke="currentColor" className="text-acc/50" strokeWidth="0.4" strokeDasharray="2 1.5" />
+            )}
+            <polyline points={view.ideal} fill="none" stroke="currentColor"
+              className="text-mut/60" strokeWidth="0.6" strokeDasharray="2 2" />
+            <polyline points={view.actual} fill="none" stroke="currentColor"
+              className="text-acc" strokeWidth="1" />
+          </svg>
+          <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
+            <span><i className="mr-1 inline-block h-0.5 w-3 bg-acc align-middle" />实际剩余</span>
+            <span><i className="mr-1 inline-block h-0.5 w-3 border-b border-dashed border-mut align-middle" />理想线（建→截止）</span>
+            <span><i className="mr-1 inline-block h-2 w-0 border-l border-dashed border-acc align-middle" />今天</span>
+          </div>
+        </>
+      ) : (
+        <Empty
+          title={list.length ? "暂无关联项" : "暂无里程碑"}
+          hint={list.length ? "给里程碑关联任务后，这里按事件重放出剩余曲线" : "先在项目里创建里程碑"}
+        />
+      )}
+    </Card>
   );
 }
 

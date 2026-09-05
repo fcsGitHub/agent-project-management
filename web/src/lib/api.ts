@@ -311,6 +311,10 @@ export const api = {
   getMyTimelog: (days = 60) => req<MyTimelog>(`/my/timelog?days=${days}`),
 
   listMilestones: (pid: string) => req<{ milestones: Milestone[] }>(`/projects/${pid}/milestones`),
+  getMilestoneBurndown: (mid: string) =>
+    req<{ milestone_id: string; title: string; due_date: string; total: number; remaining: number;
+          series: { date: string; remaining: number }[]; ideal: { date: string; remaining: number }[];
+          velocity: { days: number; done: number } }>(`/milestones/${mid}/burndown`),
   createMilestone: (pid: string, body: { title: string; due_date: string; description?: string }) =>
     req<Milestone>(`/projects/${pid}/milestones`, { method: "POST", body: JSON.stringify(body) }),
   patchMilestone: (id: string, body: Partial<Pick<Milestone, "title" | "description" | "due_date" | "status">>) =>
