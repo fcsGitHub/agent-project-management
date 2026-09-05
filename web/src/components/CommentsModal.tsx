@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { renderCommentMd } from "../lib/md";
-import { Button, Modal } from "./ui";
+import { Button, Modal, cx } from "./ui";
 
 const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_input]:mr-1 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
 
@@ -136,6 +136,16 @@ export function CommentsModal({ itemId, title, onClose }: {
     }
   };
 
+  // M30-I94 (docs/01 §AC.3, GitHub quote-reply semantics): blockquote the
+  // comment body into the draft — storage stays plain text, rendering is free
+  const quote = (c: { author_name?: string | null; author_id: string; body: string }) => {
+    const quoted = c.body.split("\n").map((l) => `> ${l}`).join("\n");
+    setDraft(`@${c.author_name ?? c.author_id} ${quoted}\n\n`);
+    setPreview(false);
+    setEditingId(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
   // M18-I58: manual watch — subscribers hear about status changes and new comments
   const me = users.data?.current;
   const subscribed = !!(comments.data?.participants ?? []).some(
@@ -166,10 +176,15 @@ export function CommentsModal({ itemId, title, onClose }: {
                     ✎ 已编辑
                   </button>
                 )}
+                <button
+                  onClick={() => quote(c)}
+                  className="ml-auto text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
+                  title="引用回复">❝</button>
                 {c.author_id === me && editingId !== c.id && (
                   <button
                     onClick={() => { setEditingId(c.id); setEditDraft(c.body); setHistoryId(null); }}
-                    className="ml-auto text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
+                    className={cx("text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100",
+                      c.author_id !== me && "ml-auto")}
                     title="编辑评论（仅作者）">✎</button>
                 )}
                 <button onClick={() => remove(c.id)}
