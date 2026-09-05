@@ -880,6 +880,36 @@ agent-project-management/
 
 ---
 
+### M27 · 排期深化三件套（吸收 MS Project lag·lead/GitLab roadmap 缺口/Jira·Taiga 燃尽，I83-I85，约 9 人日）
+
+> v2.3 新增（2026-09-05，M26 审阅通过后按目标协议调研）。调研结论见 docs/01 §Z：MS Project lead/lag（负=重叠正=推迟）与 OpenProject Relations lag 驱动自动排期——AgentPM I78 已存 lag_days 但 M14 传播引擎未消费；GitLab Roadmap 跨项目视图是多年 open request（epic #1105）、OpenProject Team Planner Enterprise 独占——AgentPM `_visible` 聚合天然跨项目；Jira/Taiga/Plane 燃尽绑 sprint——AgentPM 无 Cycles，改绑里程碑用**事件重放**出剩余曲线（零新表）。三件主题统一「计划的时间维度深化」：传播带间隔（天级）、跨项目看趋势前先看见（路线图）、看见后量趋势（燃尽）。验证纪律沿用：迭代期只跑相关测试，全量收敛至 M27 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I83 | lag 排期联动（M14 传播接入 lag_days 正 lag/负 lead + 时间线「+N 天」注记） | 01 §Z.1 | M14 排期引擎/I78 lag_days | 3d |
+| I84 | 跨项目里程碑路线图（GET /portfolio/roadmap + 「📅 路线图」页） | 01 §Z.2 | M23 组合聚合/_visible | 3d |
+| I85 | 里程碑燃尽（GET /milestones/{id}/burndown 事件重放 + 报表燃尽卡）+ docs/12 §24 + 冒烟 33 + M27 审阅 | 01 §Z.3 | M12 里程碑/M5 事件重放 | 3d |
+
+#### I83 · lag 排期联动（3d）
+
+- 任务：M14 依赖传播引擎接入 `lag_days`——后继 start = 前置 due + 1 + lag 天（正 lag=间隔等待；**负 lag=lead 重叠**），delta 传播保持日历日口径（MS Project「edays」语义，工作日历留 backlog）；仅 auto_scheduled 项传播（手排不动的 M14 语义不变）；时间线 blocks/precedes 连线注记「+N 天」（|N|≥1）；单测（lag=0 与无 lag 等价/+2 顺移/-1 提前重叠/传播链累积/rebuild 一致）。
+- DoD：单测绿；build 绿。
+- 演示路径：前序改期 +3 → 后继随 lag=2 顺移（连线注记「+2 天」）。
+
+#### I84 · 跨项目里程碑路线图（3d）
+
+- 任务：`GET /portfolio/roadmap`——调用方可见项目（`_visible` 三层，与组合总览同口径）的全部里程碑按 due_date 排布（行=项目、条=里程碑：进度 done_ratio + 超期徽标 + 今日线）；前端「📅 路线图」页（Dashboard 组合卡入口 + 顶导航）；api.ts；单测（可见性裁剪/跨项目聚合/无里程碑空态/rebuild 一致）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：两个项目各设里程碑 → 路线图页两行条形 + 进度与超期一眼可见。
+
+#### I85 · 里程碑燃尽 + 收尾审阅（3d）
+
+- 任务：`GET /milestones/{id}/burndown`——事件重放 `item.status_changed`（首次进入 done 组的日期计数）得关联项剩余曲线 vs 理想线（created→due 线性），**纯事件重放零新表**；周完成数作为速率注记；报表页「🔥 燃尽」卡（选里程碑 → SVG 折线 + 今日竖线）；docs/12 §24；**新增冒烟 33**（lag 传播链/路线图聚合对账/燃尽重放 vs 手算 + rebuild 一致）；相关验证 + M27 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 33 GREEN；审阅全绿。
+- 演示路径：里程碑关联 5 项完成 3 → 燃尽卡剩余曲线 5→2 低于/高于理想线一目了然。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1044,6 +1074,7 @@ agent-project-management/
 | I78 blocks 闭锁与关系可视化 | 已完成 | 2026-09-05 | 2026-09-05 | KERNEL_RELATIONS 增 **blocks/precedes/relates**（blocked_by 存储单向不入内核——视为 blocks 反向视图，test_projects_items 422 断言保持）；change_status 前置守卫：存在未完结 `blocks`→本项（blocker status_group 非 done/cancelled）→ 422 `"blocked by <title>"`，cancelled 目标本项不拦（放弃≠完成）；守卫在 change_status 内部——PATCH/batch-patch/NL 命令/Agent 工具全入口零改动继承；item_relations.**lag_days** 列（schema DDL + init_db ALTER 迁移）+ RelationIn/emit 载荷/投影 INSERT 7 列透传；时间线连线按类型分样式 EDGE_STYLE（depends_on 红虚冲突线保持/blocks 橙实线/precedes 灰虚线/relates 点线；blocks/precedes 线从 blocker due→dependent start，每边只画 from 方向防重复）；单测 test_relations 3 项（闭锁矩阵 422+放行/lag 存取与 NULL 语义/rebuild 存活+守卫仍生效）；**blocks 入内核使 5 个旧测试的 learn 触发器前提失效**——test_ontology_learn/test_ontology_versions/smoke_08 改用仍未注册的 blocked_by 作触发器（learn/unlock/diff 语义不变）；动 change_status 升级**全量回归 189 绿** + build/vitest 绿 |
 | I79 列表分页 + 冒烟 31 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/items?limit=&offset=`：**缺省全量兼容**（不传 limit 不切片），显式 limit 钳 1-200、offset ≥0；响应新增 `total`（过滤后全量计数，分页与否都有）驱动「加载更多」——切片点在 cf/parent/descendants 全部过滤之后（语义=对最终结果集分页）；看板列表视图渐进渲染（LIST_PAGE=20，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化重置回第一页；全选范围=当前已显示行，树形缩进/折叠/批量天然兼容）；api.ts listItems 带 limit/offset/total；**冒烟 31**（①偏差表对账：+3/-1 两行、未动项省略、include_same 全列、summary {count, max_due_delay}；②blocks 闭锁矩阵：未完结 422 "blocked by X"、cancelled 放行、blocker 完成后放行、lag=2 详情回读；③分页：缺省全量 total=7、limit=5 offset 0/5 拼接无缝隙无重叠、limit 999→7/limit 0 钳 1、offset 越界空；④rebuild 后偏差/lag/守卫/分页全部一致）；docs/12 §22（M25 三件套指南）；冒烟基线 **31 GREEN**、build/vitest 绿 |
 | **M26 流程纪律三件套（I80-I82）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Y + docs/10 §M26）：I80 看板 WIP 限制（本体 board_defaults.wip_limits + 列头计数徽标超限红，Kanboard **软约束**语义——不阻止多入口状态变更、计数=列内全部项）/ I81 评论编辑与修订史（PATCH /comments 仅作者 + comment.updated 事件 + comment_revisions 投影 + 「已编辑」徽标/历史抽屉——事件溯源近零成本补齐 Redmine 要插件/GitLab #3706 缺口）/ I82 状态流转白名单（本体概念 transitions 声明缺省全兼容 + change_status 校验与 blocks 闭锁同层全入口一致）+ docs/12 §23 + 冒烟 32 + 审阅（pytest 198/冒烟 32 全绿 + 复演三件套[WIP 徽标/修订历史/白名单 toast+合法链]）；transition 必填字段/评论删除/role 维度矩阵/WIP 硬拦截留 backlog |
+| **M27 排期深化三件套（I83-I85）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §Z + docs/10 §M27）：I83 lag 排期联动（M14 传播引擎接入 lag_days——正 lag 间隔/负 lead 重叠，日历日口径[MS Project edays 语义]、时间线「+N 天」注记）/ I84 跨项目里程碑路线图（`GET /portfolio/roadmap` `_visible` 聚合 + 「📅 路线图」页——项目×里程碑时间线+进度+超期，纯投影补 GitLab epic #1105 跨项目缺口）/ I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** done 首达日累计 vs 理想线零新表 + 报表「🔥 燃尽」卡 + 速率注记）+ docs/12 §24 + 冒烟 33 于 I85 + 审阅；工作日历/按人周历/独立速率卡/Cycles 留 backlog |
 | I82 状态流转白名单 + 冒烟 32 | 已完成 | 2026-09-05 | 2026-09-05 | Concept 加 `transitions` 可选声明（`{from,to}` 对列表；to_dict 透出给前端/学习器）；`Ontology.validate_transition` fail-closed——**未声明/空 = 全部流转合法（存量本体零破坏）**，声明后 from→to 不在白名单 422 `transition 'x'→'y' not allowed (declared: ...)`；校验接入 change_status 内（与 M25-I78 blocks 闭锁同层）——PATCH/批量[逐项报告不回滚]/NL/Agent/自动化 set_status 全入口一致；software-dev **bug 概念声明白名单**：open→fixing→fixed→verified 主链 + fixing→open 回退 + fixed→wont_fix 旁路——open 直跳 verified 被拒；docs/12 §23（三件套指南：WIP 口径/评论降噪/白名单组合语义）；**冒烟 32**（①WIP：software-dev 声明 5、造 6 项 in_progress 全部放行[软语义]而 wip 计数 6 超限；②评论：非作者 403→作者两连编→修订倒序[第二版,第一版]→终版+edited_at→新提及零 mention 通知；③白名单：open→verified 422→fixing 200→fixing→verified 422→fixed 200→verified 200；④rebuild：wip/修订 id/约束全部一致）；**动 change_status 升级全量回归 198 绿** + 冒烟 32 GREEN + build/vitest 绿；旧触发器迁移：test_reports「新鲜」bug 改走 fixing→fixed→verified 合法链（open 直跳恰为新纪律拦截对象，断言语义不变） |
 | I80 看板 WIP 限制 | 已完成 | 2026-09-05 | 2026-09-05 | 本体 `board_defaults.wip_limits`（status_group→limit；generic in_progress:4 / software-dev in_progress:5 示例声明，注释写明 Kanboard 软约束语义与计数口径）；board resp 增 `wip`（**全项目口径**计数——Kanboard Changelog「计所有 open 任务而非过滤后」修复语义：feature 过滤的看板视图 items 为空但 wip 仍计整列）与 `wip_limits` 透传（无声明本体零破坏——无键即无 wip）；看板列头（仅 lifecycle 桶列）「n/limit」徽标：超限列 Badge 变红 + 「6/5 ⚠」+ title「超出在制品上限——建议先完成再取新任务」，未超限灰字 n/limit，无限制列保持原计数；软约束**不阻止**任何入口的状态变更；api.ts BoardData 增 wip/wip_limits；单测 test_wip_limits 4 项（声明透出/6 vs 5 超限/过滤不受影响/无声明兼容/rebuild 存活）；test_wip_limits 4 项绿 + 相关测试 21 项绿、build 绿 |
 | I81 评论编辑与修订史 | 已完成 | 2026-09-05 | 2026-09-05 | `PATCH /comments/{id}`：**仅作者本人**（403 非作者——严于删除的 admin 兜底，作者唯一可编辑语义）、空白 body 422；`comment.updated` 事件 + 投影器：旧 body 入 `comment_revisions`（**id=cr_{事件id} 确定性导出**——投影实体 id 禁随机坑）+ 新 body/mentions/`edited_at`（DDL + init_db ALTER 迁移）+ 新提及者入参与图**零通知**（编辑降噪，notification 只在 comment.created 发）；`GET /comments/{id}/revisions` 倒序（**rowid 排序**——事件 id 整数自增，`cr_9`/`cr_10` 字符串序会错排）；comment_revisions 进 drop_projections 清单；前端「✎ 已编辑」徽标（点开行内修订历史：谁/何时/编辑前旧文）+ 作者行内「✎」编辑（textarea/取消/保存，403 toast）；api.ts editComment/listCommentRevisions + ItemComment.edited_at；test_comments +1（403/修订链最新在前/降噪零 mention/空白 422/rebuild 后修订 id 逐一对上）；评论相关 8 项 + rebuild/冒烟相关 12 项绿、build 绿 |
@@ -1213,6 +1244,8 @@ agent-project-management/
 | 2026-09-05 | I79 | 分页切片点选在 get_items 出口（cf/parent/descendants 全部过滤后）而非 list_items SQL——saved view/cf/hierarchy 过滤都在 Python 层，SQL 层切页会把过滤语义切碎；total 在两种模式都返回（不分页也带），前端与第三方消费统一。前端「加载更多」做渲染层渐进（数据仍全量拉取）——Board 列表数据源是看板 buckets 平铺，真分页需 useInfiniteQuery 独立取数+树补全，超出本轮边界，如实记之（API 分页能力已就绪）。**流程违例自记：docs/12 §22 误用 heredoc 追加**（引号形式侥幸无损已核验，内容全对——但纪律是彻底禁止，第 4 次违例；根因=写长 Markdown 段落时顺手 bash；后续一律 Edit/Write）。 |
 
 | 2026-09-05 | M26 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：digest 三次论证留 backlog、事件归档两次论证导出形态、打印/PDF Enterprise 面价值低——均不查）：①**WIP 限制**——Kanboard 列级 Task Limit 软约束（超限列红警示不阻止、计数=全部 open 项）、Taiga 内建 → AgentPM 本体 board_defaults.wip_limits + 列头徽标超限红（多入口状态变更硬拦截会入口不一致，软约束天然全局一致）；②**评论编辑与审计**——Redmine 编辑史要插件、GitLab 完整评论史是多年 open request #3706 → AgentPM 事件溯源让「同类做不到」近零成本（comment.updated + comment_revisions + 已编辑徽标/历史抽屉）；③**流转约束**——OpenProject role×type 配置矩阵、YouTrack workflow 脚本 → 简化为本体概念级 transitions 白名单（缺省全兼容，role 维度与既有写门禁语义重复不引入）。选定 **M26 = 流程纪律三件套**：I80 WIP 限制 / I81 评论编辑与修订史 / I82 流转白名单 + docs/12 §23 + 冒烟 32 于 I82 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §Y。 |
+
+| 2026-09-05 | M27 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：评论删除 M18 已实现[软删除]、事件归档四次立场、digest 三次、Cycles §L.2 已论证不做——均不查）：①**lag 排期**——MS Project lead/lag（负=重叠正=推迟、edays 日历日 Trick）、OpenProject Relations lag 工作日+15.4 自动排期 → AgentPM I78 已存 lag_days、本轮接入 M14 传播引擎（后继 start=前置 due+1+lag，日历日口径、负 lag=lead）；②**跨项目路线图**——GitLab Roadmap 限 group 级且跨项目是多年 open request（epic #1105）、OpenProject Team Planner Enterprise 独占 → AgentPM `_visible` 投影聚合天然跨项目，`/portfolio/roadmap` 行=项目条=里程碑+进度+超期；③**燃尽**——Jira/Taiga/Plane 均绑 sprint/Cycles → AgentPM 无 Cycles 改绑**里程碑**，事件重放 done 首达日累计出剩余曲线 vs 理想线（纯重放零新表，事件溯源红利）。选定 **M27 = 排期深化三件套**：I83 lag 联动 / I84 跨项目路线图 / I85 里程碑燃尽 + docs/12 §24 + 冒烟 33 于 I85 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §Z。 |
 
 | 2026-09-05 | I80 | WIP 计数放 board resp 由后端算而非前端从 buckets 数——**口径决定论**：Kanboard 专门修过「limit 计所有 open 任务而非过滤后任务」的 bug，若前端用过滤后的桶计数，feature/执行者过滤会让 WIP 徽标静默失真；后端独立全项目计数 + 过滤后的 buckets 展示，两者职责分离。徽标只在 lifecycle 桶列渲染（field 分组的列不是状态列，WIP 语义不适用）。内置本体加 wip_limits 声明属本体内容变更——test_projects_items 等断言 buckets/columns 的测试零影响（键只增不减），跑相关 21 项确认。 |
 

@@ -708,3 +708,35 @@ M25 = **计划治理深化三件套**：I77 基线偏差表（variance 端点 + 
 **Y.5 M26 取舍**
 
 M26 = **流程纪律三件套**：I80 看板 WIP 限制（Kanboard 软约束语义）/ I81 评论编辑与修订史（事件溯源补 GitLab #3706 缺口）/ I82 状态流转白名单（OpenProject 矩阵的声明式简化）+ docs/12 §23 + 冒烟 32 + M26 审阅，约 9 人日。transition 必填字段、评论删除、role 维度矩阵、WIP 硬拦截留 backlog。
+
+## Z. M27 前置调研：排期深化——lag 排期联动 / 跨项目里程碑路线图 / 里程碑燃尽（2026-09-05）
+
+> 目标协议触发：M26 审阅通过后开启。防重查先行：评论删除 M18 已实现（软删除 deleted_at）；事件级归档四次记录立场（导出形态）不查；digest 三次论证不查；Cycles §L.2 已论证不做（时间盒用里程碑承载）。本轮三路（MS Project/OpenProject lag 语义与自动排期 / GitLab roadmap 跨项目缺口与 OpenProject team planner / Jira·Taiga·Plane 燃尽与速率），选定 **M27 = 排期深化三件套**——M14 排期引擎缺 lag 输入（I78 已备存储）、跨项目只见卡片不见时间线（M23 组合卡）、进度只见当前快照不见趋势（M12 done_ratio）。
+
+**Z.1 lag 排期联动：MS Project lead/lag 与 OpenProject 关系 lag**
+
+- MS Project：**lead（负 lag）使后继与前继重叠，lag 推迟后继开始**（[官方文档](https://support.microsoft.com/en-us/project/add-lead-or-lag-time-to-a-task)）；默认按**工作日**计，要按日历日用「edays」（[Reddit 实践](https://www.reddit.com/r/microsoftproject/comments/1amx02m/microsoft_project_lag_times_follow_a_different/)）。
+- OpenProject：Relations 页 lag 值按**工作日**（lag=2 → 后继在前继完成后第 3 个工作日启动；**lag=-1 → 后继与前继同日启动**，[排程文档](https://www.openproject.org/docs/user-guide/gantt-chart/scheduling/)）；15.4 起 Relations 驱动**自动排期**。
+- → AgentPM 取舍：I78 的 `lag_days` 接入 **M14 依赖传播引擎**——后继 start = 前置 due + 1 + lag（正=间隔等待，负=lead 重叠）；口径用**日历日**（MS Project「edays」语义——AgentPM 无工作日历域，引入工作日历是独立 backlog）；时间线连线注记「+N 天」（|N|≥1 时）；auto_scheduled 项受影响，手排期项不传播（M14 语义不变）。
+
+**Z.2 跨项目里程碑路线图：同类 Community 层普遍缺位**
+
+- GitLab Roadmap 只在 group 级渲染 epics+milestones 时间线，**跨项目视图是多年 open request**（[epic #1105](https://gitlab.com/groups/gitlab-org/-/epics/1105)）；保存 roadmap 视图也是 open issue（[#231522](https://gitlab.com/gitlab-org/gitlab/-/issues/231522)）。
+- OpenProject **Team Planner（按人周历拖拽排期）是 Enterprise 独占**（[文档](https://www.openproject.org/docs/user-guide/team-planner/)），社区版建议用 Gantt 替代（[12.1 发布博客](https://www.openproject.org/blog/openproject-12-1-release/)）。
+- → AgentPM 取舍：`GET /portfolio/roadmap`——调用方可见项目（`_visible` 三层，与组合总览同口径）的全部里程碑按 due_date 排布：行=项目、条=里程碑（进度条 done_ratio + 超期红 + 当日竖线），前端「📅 路线图」页（Dashboard 组合卡入口）——**跨项目时间线对 AgentPM 是纯投影聚合**（GitLab 的 epic #1105 缺口在事件溯源+成员可见性模型下不存在）。按人周历（team planner 面）仍留 backlog（Enterprise 价值面 + 无工时日历域）。
+
+**Z.3 里程碑燃尽：不绑 sprint 的时间盒进度趋势**
+
+- Jira 内建 sprint burndown/velocity（[官方教程](https://www.atlassian.com/agile/tutorials/burndown-charts)）；Taiga 是开源 Scrum 报表最全（burndown 内建，[评测](https://spryn.io/blog/agile-sprint-management/best-self-hosted-sprint-management-tools-in-2026)）；Plane Cycles 也有 burndown + velocity 仪表（[文档](https://docs.plane.so/core-concepts/cycles)）。
+- → AgentPM 取舍：AgentPM 无 Cycles（§L.2），燃尽绑**里程碑**（due_date 即时间盒终点）：`GET /milestones/{id}/burndown`——**事件重放** item.status_changed 按 done 事件日累计关联项完成数 → 剩余曲线 vs 理想线（created→due 线性），**纯事件重放零新表**（事件溯源红利，同 Z.2）；报表页「🔥 燃尽」卡选里程碑渲染 SVG 折线 + 今日竖线；速率（周完成数）作为燃尽卡注记，不单独成卡。done 重放口径=首次进入 done 组的日期（from 非 done→to done）。
+
+**Z.4 M27 设计映射与验证纪律（沿用）**
+
+- I83 lag 排期联动：M14 传播引擎接入 lag_days（正 lag/负 lead）+ 时间线连线「+N 天」注记。
+- I84 跨项目里程碑路线图：`/portfolio/roadmap` 投影聚合 + 「📅 路线图」页。
+- I85 里程碑燃尽：`/milestones/{id}/burndown` 事件重放 + 报表燃尽卡；docs/12 §24 + 冒烟 33 于 I85 + 审阅。
+- 验证纪律：每迭代只跑相关测试（动 scheduling/传播引擎则升级相关面）；全量收敛至 M27 审阅。
+
+**Z.5 M27 取舍**
+
+M27 = **排期深化三件套**：I83 lag 排期联动（lag/lead 接入 M14 传播）/ I84 跨项目里程碑路线图（`/portfolio/roadmap` 补 GitLab #1105 缺口）/ I85 里程碑燃尽（事件重放 + 报表卡）+ docs/12 §24 + 冒烟 33 + M27 审阅，约 9 人日。工作日历、按人周历（team planner 面）、独立速率卡、Cycles 留 backlog。
