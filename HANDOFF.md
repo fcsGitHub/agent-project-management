@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M31 定义已出（响应力三件套），下一步 I95 键盘优先）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M31 进行中：I95 已完成，下一步 I96 通知偏好细分）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 - **M29 效率与可观测三件套（I89-I91，审阅通过 5fd751c）**：I89 个人排期月历 ✅（`GET /my/schedule` own-data 口径全可见未归档项目有日期项；「📅 我的日程」页 /my/schedule：月网格 + 跨度逐日 chip + HTML5 DnD 拖卡片改期[span 保持 delta 平移→单 PATCH 复用 M14 审计] + 拖选空白格范围建任务[自动指派自己]；test_schedule 2 项）、I90 看板卡片快捷编辑 ✅（卡片/列表行「⚡」→ QuickEditModal 直改状态/优先级/执行者/截止日——**仅提交变化键走既有 patchItem**，白名单/闭锁/WIP/审计零成本继承，agent: 前缀保持 agent 指派）、I91 运行聚合报表 ✅（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数——**tokens 直接 SUM 既有列如实报零**；RunsPage「📊 运行报表」卡对账；test_runs_report 2 项）+ docs/12 §26 + **冒烟 35**（月历对账/快捷编辑守卫继承/报表对账/rebuild 一致），约 9 人日。
 - **M30 治理洞察三件套（I92-I94，审阅通过 11cc1b2，审阅即修 60a043c）**：I92 项目健康评分 ✅（`_health_factors`+`_health_score` 四因子加权[超期率 40/滞留率 20/吞吐动量 30 min 封顶/Gate 挂起 10，加法式各因子健康贡献满权重，无活跃 None]；`GET /portfolio/health` _visible 同口径评分升序；Dashboard 组合卡 ♥ 评分徽标绿/黄/红；test_health_score 3 项[公式级+集成手算 60/70+rebuild]）、I93 健康趋势 ✅（`GET /projects/{id}/health/history` 事件重放 item/approval 五类事件、每 5 天周界采样[末点=今天与 I92 同真相]、stale 用 last_touch 近似；报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项[尾点 70→超期 60 手算/rebuild 序列相等]——事件溯源红利第三例）、I94 评论引用回复 ✅（CommentsModal「❝」→「@作者 引用：」独立行 + 原文逐行 blockquote 预填聚焦，存储纯文本不变、渲染免费，零后端；**审阅即修 60a043c**：原「@作者 > 原文」同行内联 `>` 非引用语法不渲染 blockquote）+ docs/12 §27 + **冒烟 36**（评分手算/趋势末点对齐/引用 roundtrip/rebuild 一致），约 9 人日。
 - **当前验证基线：pytest 222（M30 审阅 HEAD 实跑全绿）；冒烟 36 GREEN；vitest 2/build 绿。**
-- **M31 响应力三件套（docs/01 §AD + docs/10 §M31；定义 7ce3327，I95-I97 待做）**：I95 键盘优先操作面（`?` 快捷键帮助浮层[可搜索] + 看板 j/k 选中导航 Enter 打开 + `C` 新建——Linear/Dynatrace ⌘K·?·jk 行业组合；纯前端）、I96 通知偏好按事件类型细分（事件类型 × 站内/邮件双通道开关 + plan_notifications 投递收口 + mention 永远可达——GitLab Custom 语义、#410008 投递收口教训）、I97 响应性指标（`GET /projects/{id}/responsiveness` 审批响应[requested→granted/rejected 配对]/评论首响应[created→下一非作者响应]聚合 + 报表「⏱ 响应力」卡——CHAOSS Time to First Response，事件溯源红利第四例）+ docs/12 §28 + 冒烟 37 于 I97 + 审阅。
+- **M31 响应力三件套（docs/01 §AD + docs/10 §M31；定义 7ce3327，I95 已完成，I96/I97+审阅进行中）**：I95 键盘优先操作面 ✅（`f10e863`+docs `8c0b90f`：lib/shortcuts.ts 单一真源注册表[SHORTCUTS 七条+isTypingTarget] + ShortcutsOverlay 可搜索 `?` 浮层 + 看板 j/k 游标[琥珀环/scrollIntoView/anyModalOpen 让路] + Enter 开评论 + `C` 快捷新建[自动指派自己]；纯前端零后端；vitest 6 项绿）、I96 通知偏好按事件类型细分（事件类型 × 站内/邮件双通道开关 + plan_notifications 投递收口 + mention 永远可达——GitLab Custom 语义、#410008 投递收口教训）、I97 响应性指标（`GET /projects/{id}/responsiveness` 审批响应[requested→granted/rejected 配对]/评论首响应[created→下一非作者响应]聚合 + 报表「⏱ 响应力」卡——CHAOSS Time to First Response，事件溯源红利第四例）+ docs/12 §28 + 冒烟 37 于 I97 + 审阅。
 
 ## 3. 现在卡在哪
 
@@ -55,8 +55,8 @@
 
 1. ~~M24~M30 全闭环~~ ✅（每轮：调研定义 → 3 迭代[三段式提交] → 正式审阅[全量回归+DoD 逐项+浏览器隔离复演]；审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63/5fd751c/**11cc1b2**；单迭代详情真源=docs/10 §7 看板行与附录 A/B——本节不再保留单迭代条目）。
 2. ~~M31 调研定义~~ ✅ **已完成**（`7ce3327`，docs/01 §AD + docs/10 §M31）：防重查（候选池六项 grep：引用快捷键/通知细分/多基线趋势/CHAOSS 全维度无记录可查，依赖图独立视图维持不查、工时审批代理 I86 刚做不查）→ 三路调研（Linear+GitHub+Dynatrace 键盘优先 / GitLab Custom+GitHub Custom watch / CHAOSS Responsiveness）→ 选定**响应力三件套** I95-I97。
-3. **M31-I95 键盘优先操作面（下一步）**：全局 `?` 快捷键帮助浮层（可搜索、穷举生效快捷键）+ 看板 j/k 选中卡片 Enter 打开评论抽屉（输入框聚焦时让路）+ `C` 打开 CreateModal；纯前端零后端；vitest 键位分发测试 + build + 按键冲突回归；三段式提交（代码→docs→HANDOFF）。
-4. M31-I96 通知偏好按事件类型细分：notification_prefs 投影扩展（默认全开、事件类型 × email/inapp 布尔）+ `GET/PUT /me/notification-prefs` + plan_notifications 投递统一收口（mention 不可关）+「通知设置」UI；单测闸门矩阵。
+3. ~~M31-I95 键盘优先操作面~~ ✅ **已完成**（`f10e863`+docs `8c0b90f`）：lib/shortcuts.ts 单一真源（SHORTCUTS 七条 + isTypingTarget）+ ShortcutsOverlay `?` 浮层 + 看板 j/k 游标/Enter 评论/`C` 新建（CreateTaskModal 自动指派自己）；纯前端；vitest 6 项绿 + build 绿。
+4. **M31-I96 通知偏好按事件类型细分（下一步）**：notification_prefs 投影扩展（默认全开、事件类型 × email/inapp 布尔）+ `GET/PUT /me/notification-prefs` + plan_notifications 投递统一收口（mention 不可关）+「通知设置」UI（铃面板扩展）；单测闸门矩阵；三段式提交。
 5. M31-I97 响应性指标 + 收尾：`GET /projects/{id}/responsiveness`（审批配对/评论首响应聚合，诚实空态）+ 报表「⏱ 响应力」卡 + docs/12 §28 + **冒烟 37 GREEN（基线 37）**。
 6. **M31 正式审阅**：HEAD 重跑全量（pytest 222+ / 冒烟 37 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（`?` 浮层与 j/k 导航 / 偏好开关后铃不响 mention 仍响 / 响应力卡与事件对账）+ 附录 B +「M31 正式审阅通过」提交。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）。
