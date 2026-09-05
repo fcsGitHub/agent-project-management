@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M25 进行中：I77 已完成，下一步 I78 blocks 闭锁与关系可视化）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M25 进行中：I77/I78 已完成，下一步 I79 列表分页+冒烟 31+M25 审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -35,14 +35,11 @@
 - **M19 工时跟踪与报表（I59-I61，审阅通过）**：time.* 事件 + item_time_entries 投影 + CRUD（校验 fail-closed）、记时抽屉 + spent/estimate 徽标、项目工时报表按人/按日 + 本周工时（**补位 Plane GH #8045** 项目级聚合缺口，对账单测）。
 - **M20 体验补齐三件套（I62-I64，审阅通过 8005d36）**：个人工时日历（GET /my/timelog + `#/my/time` 周/月视图 + 点日快捷记时，own-data）、时间线拖拽改期（条形拖拽移动/右缘缩放 → 单 PATCH，M14 审计与冲突重算自动生效，半透明预览 + Esc 取消）、评论 Markdown 渲染（lib/md.ts：marked+DOMPurify，mentions 令牌化 chip，任务清单只读 checkbox，存储纯文本不变）；docs/12 §17；冒烟 26。审阅即修：任务清单 checkbox 被 DOMPurify FORBID input 剔除 → 钩子白名单放行。
 - **M21 日程集成三件套（I65-I67，审阅通过 f27bb33）**：依赖连线图内编辑（条形端点圆圈拖拽 → POST relations depends_on，橡皮筋线，Esc 取消；落点 elementFromPoint，重叠条形命最上层→自依赖守卫静默取消）、iCal 订阅（`/my/calendar.ics?key=` 复用 feed_key，own-data+可见性裁剪，RFC 5545 手写 VEVENT 零新依赖，rebuild 清运行态 key 属既有语义）、评论清单项转子任务（extract-task 端点复用 create_item，409/422/404；存储字节不变；渲染层 🔗链接+已提取徽标+显式「转为子任务」按钮防 #4261 误触）；docs/12 §18；冒烟 27。
-- **M22 已定义（docs/01 §U + docs/10 §M22）**：治理与效率三件套——I68 全局搜索（FTS5 中文 bigram 复用 + `GET /search?q=` 可见性裁剪 + ⌘K 入口与结果页）/ I69 项目归档与克隆（projects.status + archived/reopened 事件 + 归档写 409 + clone 成员永不复制）/ I70 批量编辑（列表 checkbox + 底部批量条 + batch-patch 逐事件、选择与分组解耦）+ docs/12 §19 + 冒烟 28 于 I70 + 审阅，约 8 人日。
 - **M22 治理与效率三件套（I68-I70，审阅通过）**：全局搜索（`domains/search.py` FTS5 中文 bigram + `GET /search?q=` 可见性裁剪 + ⌘K「搜索 'xx'」入口与 `#/search?q=` 结果页；索引 handler 注册在 items/comments 投影器之后——注册序即执行序）、项目归档与克隆（`add_emit_guard` pre-emit 守卫：归档项目写 409，白名单 reopened/cloned/access.denied；`/reopen` 专用事件；`/clone` 成员/指派永不复制、关系复制；列表 include_archived + 归档/恢复/克隆按钮）、批量编辑（`POST /projects/{id}/items/batch-patch` 逐项复用 patch_item——逐事件审计、逐项结果不回滚；列表 checkbox + 批量条，同概念才能改状态，选择与分组解耦）；docs/12 §19；冒烟 28。
-- **M23 已定义（docs/01 §V + docs/10 §M23）**：计划对照与总览三件套——I71 甘特基线（baselines 投影 + baseline.set/cleared 事件 + TimelinePage 幽灵条形偏差）/ I72 组合总览（`GET /portfolio/report` 纯投影聚合 + Dashboard 组合卡）/ I73 Markdown 工具栏（手写选区包裹零新依赖）+ docs/12 §20 + 冒烟 29 于 I73 + 审阅，约 8 人日。
 - **M23 计划对照与总览三件套（I71-I73，审阅通过）**：甘特基线（baselines 投影 UNIQUE 单活动快照 + baseline.set/cleared 事件 + TimelinePage 幽灵虚线条形偏离 amber；改期永不触碰快照）、组合总览（`GET /portfolio/report` `_visible` 裁剪 + totals 对账 + Dashboard「🗺 组合总览」卡）、Markdown 工具栏（CommentsModal 手写选区包裹/行前缀、保焦点选区、存储纯文本）；docs/12 §20；冒烟 29。
-- **M24 已定义（docs/01 §W + docs/10 §M24）**：结构与数据管理三件套——I74 子任务层级（parent 校验防环 + 列表缩进树 + `?parent=`/`?descendants=` 过滤）/ I75 CSV 导入导出（固定表头 + 逐行校验报告 + 模板 + items.csv）/ I76 泳道避让（区间图染色贪心子行）与多基线（baselines 去 UNIQUE + 切换）+ docs/12 §21 + 冒烟 30 于 I76 + 审阅，约 9 人日。
 - **M24 结构与数据管理三件套（I74-I76，审阅通过，代码补交 9200f14）**：子任务层级（`_validate_parent` 防环 + ItemPatch re-parent + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标）、CSV 导入导出（固定表头 + parent_title 引用 + 逐行校验报告——**行级 try 需捕 ValueError/TypeError**，float() 数据错误曾逃逸致 500 + 模板 + items.csv 导出 + 导入弹窗）、泳道避让（时间线概念行内子行贪心分配，区间染色 O(n log n)——修 M21 重叠 C 级）与多基线（baselines 去 UNIQUE + **db.py 存量迁移重建表** + set 追加历史 + 列表/切换）；docs/12 §21；冒烟 30。
-- **M25 已定义（docs/01 §X + docs/10 §M25）**：计划治理深化三件套——I77 基线偏差表（`GET /baseline-variance?baseline_id=` 对比快照 vs 当前，偏差天数 + 汇总 + TimelinePage 偏差抽屉）/ I78 blocks 闭锁与关系可视化（change_status 守卫「被阻塞不能关」422 + 多关系连线样式 + precedes lag_days 列）/ I79 列表分页（limit 钳 1-200 + total + 加载更多）+ docs/12 §22 + 冒烟 31 于 I79 + 审阅，约 9 人日。
-- **当前验证基线：pytest 185 全绿；冒烟 30 GREEN；vitest 2/build 绿。**
+- **M25 计划治理深化三件套（docs/01 §X + docs/10 §M25；I77/I78 已完成，I79+审阅进行中）**：I77 基线偏差表（`GET /baseline-variance?baseline_id=&include_same=` 当前−基线天数偏差 + 汇总 + TimelinePage 偏差抽屉正红负绿）、I78 blocks 闭锁与关系可视化（**KERNEL_RELATIONS 增 blocks/precedes/relates**[blocked_by 存储单向不入内核] + change_status 前置守卫 422 "blocked by X" 全入口继承 + item_relations.lag_days 列/ALTER 迁移/载荷透传 + 时间线连线 EDGE_STYLE 分类型[depends_on 红虚/blocks 橙实/precedes 灰虚/relates 点线]）；I79 列表分页（limit 钳 1-200 + total + 加载更多）+ docs/12 §22 + 冒烟 31 于 I79 + 审阅，约 9 人日。
+- **当前验证基线：pytest 189 全绿；冒烟 30 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -56,9 +53,9 @@
 2. ~~M24-I76 泳道避让与多基线 + 收尾~~ ✅ **已完成**（`978f673`）：时间线子行贪心分配（区间染色，行高自适应）+ baselines 多条化（去 UNIQUE 存量迁移 + 追加历史 + 列表/切换）+ docs/12 §21；**冒烟 30 GREEN（基线 30）**。坑：无日期项不入基线快照；CSV 行必须 8 列对位。
 3. ~~M24 正式审阅~~ ✅ **已通过**（566967d，附录 B；审阅即修 CSV 导入 ValueError 500 eb16d19；I76 源码漏 stage 补交 9200f14）。~~M25 调研定义~~ ✅ **已完成**（docs/01 §X + docs/10 §M25）：选定**计划治理深化三件套**（MS Project Variance 表吸收 / OpenProject blocks 闭锁·lag 吸收 / GitLab 分页指南吸收）。
 4. ~~M25-I77 基线偏差表~~ ✅ **已完成**（`5772f52`+docs）：`GET /baseline-variance?baseline_id=&include_same=`（当前−基线天数偏差、未变化省略、汇总行）+ TimelinePage「📊 偏差表」抽屉（正红负绿）；test_baselines 3 项绿。注意 §4 计划表行与 §7 看板行锚点区分（本次误替换已恢复）。
-5. **M25-I78 blocks 闭锁与关系可视化**（§X.2）：change_status 守卫（存在未完结 blocks→本项 且 blocker 非 done/cancelled → 422 "blocked by X"）+ 时间线连线按类型分样式（blocks 橙实线/precedes 灰虚线/relates 点线）+ item_relations 加 lag_days 列（ALTER）+ POST relations 可带 lag；**动 change_status → 升级全量回归**。
+5. ~~M25-I78 blocks 闭锁与关系可视化~~ ✅ **已完成**（`c9af080`+docs `766bddb`）：KERNEL_RELATIONS 增 blocks/precedes/relates（blocked_by 单向不入内核）+ change_status 前置守卫 422 "blocked by X"（全入口继承）+ lag_days 列/ALTER/载荷透传 + 时间线 EDGE_STYLE 分类型连线；test_relations 3 项绿；**blocks 入内核使 5 个旧 learn 测试前提失效 → 触发器改 blocked_by**（附录 A 有记）；全量回归 **189 绿**。
 6. **M25-I79 列表分页 + 收尾**（§X.3）：`GET /items?limit=&offset=`（缺省全量兼容、limit 钳 1-200）+ 响应 total + 列表「加载更多」（与树形/选择/批量兼容）；docs/12 §22；**新增冒烟 31**（偏差表对账/blocks 闭锁矩阵/分页 total 语义 + rebuild 一致）。
-7. **M25 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 185+ / 冒烟 30+31 / vitest+build）+ I77/I78/I79 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M25 正式审阅通过」提交。之后 M26 调研定义（先 grep docs/01 防重查）。
+7. **M25 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 189+ / 冒烟 30+31 / vitest+build）+ I77/I78/I79 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M25 正式审阅通过」提交。之后 M26 调研定义（先 grep docs/01 防重查；候选池：基线对比报表深化、评论编辑器增强、跨项目聚合深化、本体版本事件级归档、通知 digest 低优、打印/PDF）。
 8. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
@@ -96,12 +93,13 @@
 - **pnpm 命令注意 cwd**：后台起 preview 前确认在 web/ 目录（repo 根无 package.json，且残留旧 preview 实例会抢答端口）。
 - **task 状态集无 todo**（software-dev task）：open/ready/in_progress/awaiting_review/done/cancelled，测试用 ready。
 - **源码/测试文件追加也必须用 Edit 工具**（I63 重申）：bash heredoc 即使引号形式无替换也是侥幸——不再用作任何文件写入手段。
+- **功能提升使旧测试前提失效属正常演进**（I78）：blocks 入内核后 5 个以「blocks 未注册被拒」为前提的 learn 测试失败——处理方式是换仍未注册的 blocked_by 作触发器（保持 learn/unlock/diff 断言强度），不是放宽断言。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 167 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 25 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 189 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 30 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
