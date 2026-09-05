@@ -28,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Response
 from apm.core import db, events
 from apm.domains.items import BUCKET_NAMES
 from apm.domains.members import is_instance_admin, member_role
+from apm.domains.milestones import milestone_progress
 
 router = APIRouter(tags=["reports"])
 
@@ -232,6 +233,47 @@ def portfolio_report() -> dict:
         totals["overdue"] += row["overdue"]
         totals["timelog_minutes"] += row["timelog_minutes"]
     return {"projects": projects, "totals": totals, "generated_at": _now().isoformat()}
+
+
+@router.get("/portfolio/roadmap")
+def portfolio_roadmap() -> dict:
+    """Cross-project milestone roadmap (M27-I84, docs/01 §Z.2): milestones of
+    every project visible to the caller, ordered by due date — one row per
+    project, one bar per milestone with done progress and an overdue flag.
+    GitLab restricts its roadmap to group scope and cross-project views are a
+    years-open request (epic #1105); here the same _visible three-layer check
+    as /portfolio/report makes it a pure projection query."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    from apm.domains.feed import _visible
+    today = _now().date().isoformat()
+    rows = []
+    if user is not None:
+        for p in conn.execute(
+            "SELECT id, name FROM projects WHERE status != 'archived' ORDER BY created_at"
+        ).fetchall():
+            if not _visible(p["id"], user):
+                continue
+            ms = conn.execute(
+                "SELECT id, title, due_date, status FROM milestones"
+                " WHERE project_id = ? ORDER BY due_date",
+                (p["id"],),
+            ).fetchall()
+            if not ms:
+                continue
+            milestones = []
+            for m in ms:
+                prog = milestone_progress(dict(m))
+                finished = m["status"] in ("done", "achieved")
+                milestones.append({
+                    "id": m["id"], "title": m["title"], "due_date": m["due_date"],
+                    "status": m["status"],
+                    "overdue": bool(m["due_date"] < today and not finished),
+                    "progress": prog,
+                })
+            rows.append({"project_id": p["id"], "name": p["name"], "milestones": milestones})
+    return {"projects": rows, "today": today, "generated_at": _now().isoformat()}
 
 
 @router.get("/projects/{project_id}/timelog_report")

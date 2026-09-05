@@ -67,6 +67,15 @@ export type PortfolioReport = {
   projects: PortfolioRow[]; totals: PortfolioRow;
   generated_at: string;
 };
+export type RoadmapMilestone = {
+  id: string; title: string; due_date: string; status: string; overdue: boolean;
+  progress: { items_total: number; items_done: number; done_ratio: number | null };
+};
+export type RoadmapData = {
+  projects: { project_id: string; name: string; milestones: RoadmapMilestone[] }[];
+  today: string;
+  generated_at: string;
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -284,6 +293,8 @@ export const api = {
     req<{ projects: Project[] }>(`/projects${includeArchived ? "?include_archived=true" : ""}`),
   getPortfolioReport: () =>
     req<PortfolioReport>("/portfolio/report"),
+  portfolioRoadmap: () =>
+    req<RoadmapData>("/portfolio/roadmap"),
   archiveProject: (pid: string) =>
     req<Project>(`/projects/${pid}/archive`, { method: "POST" }),
   reopenProject: (pid: string) =>
