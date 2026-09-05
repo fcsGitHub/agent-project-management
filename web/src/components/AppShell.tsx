@@ -135,7 +135,7 @@ export function AppShell() {
 
       {/* main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line bg-surface px-3 sm:gap-3 sm:px-4">
+        <header className="no-print flex h-12 shrink-0 items-center gap-1.5 border-b border-line bg-surface px-3 sm:gap-3 sm:px-4">
           <button
             onClick={() => setNavOpen(true)}
             className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:bg-white/5 hover:text-ink md:hidden"

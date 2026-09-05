@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Badge, Card, Empty } from "../components/ui";
+import { Badge, Card, Empty, PrintButton } from "../components/ui";
 
 const BUCKET_LABEL: Record<string, string> = {
   backlog: "待办池", todo: "就绪", in_progress: "进行中", done: "已完成", cancelled: "已取消",
@@ -31,7 +31,10 @@ export function ReportsPage() {
       <Card className="p-4 md:col-span-2">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">阶段漏斗</span>
-          <span className="text-xs text-mut">按五桶状态机计数 · 实时投影</span>
+          <span className="flex items-center gap-2">
+            <PrintButton />
+            <span className="text-xs text-mut">按五桶状态机计数 · 实时投影</span>
+          </span>
         </div>
         <div className="space-y-2">
           {BUCKET_ORDER.map((b) => {

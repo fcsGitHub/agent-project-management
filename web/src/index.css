@@ -47,3 +47,31 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* M28-I88 print view (docs/01 §AA.3): chrome-free, ink-friendly pages —
+ * browser "Save as PDF" produces a report with zero server-side rendering.
+ * .no-print hides interactive shell elements; .print-card keeps cards whole
+ * and prints them as thin-bordered blocks instead of shadowed surfaces. */
+@media print {
+  .no-print,
+  nav,
+  aside {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #d4d4d8 !important;
+    break-inside: avoid;
+  }
+  .print-card * {
+    color: #111 !important;
+  }
+}

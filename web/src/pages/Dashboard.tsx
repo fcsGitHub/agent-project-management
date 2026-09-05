@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { fmtMinutes } from "../components/TimeLogModal";
-import { Badge, Card, Empty, Button, cx } from "../components/ui";
+import { Badge, Card, Empty, Button, PrintButton, cx } from "../components/ui";
 
 const ICON: Record<string, string> = { human: "👤", agent: "🤖", system: "⚙️", ui_agent: "⌨️" };
 
@@ -36,6 +36,7 @@ export function Dashboard() {
           <span className="flex items-center gap-3">
             <Link to="/roadmap" className="text-xs text-acc hover:underline">📅 路线图</Link>
             <Link to="/workload" className="text-xs text-acc hover:underline">👥 负载</Link>
+            <PrintButton />
             <span className="text-xs text-mut">
             {portfolio.data?.projects.length ?? 0} 个可见项目 · 合计 活跃 {portfolio.data?.totals.items_active ?? 0} ·
             超期 {portfolio.data?.totals.overdue ?? 0} · 待审 Gate {portfolio.data?.totals.gates_pending ?? 0} ·

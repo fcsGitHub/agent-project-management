@@ -30,7 +30,7 @@ export function Button({
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx("rounded-[12px] border border-line bg-surface shadow-sm", className)}
+      className={cx("print-card rounded-[12px] border border-line bg-surface shadow-sm", className)}
       {...props}
     />
   );
@@ -162,6 +162,17 @@ export function Empty({ icon, title, hint, action }: {
       {hint && <div className="max-w-sm text-xs text-mut">{hint}</div>}
       {action && <div className="mt-2">{action}</div>}
     </div>
+  );
+}
+
+/** M28-I88: browser print dialog (Save-as-PDF) — the @media print rules in
+ * index.css strip the shell chrome, so this button is all it takes. */
+export function PrintButton({ label = "🖨 打印" }: { label?: string }) {
+  return (
+    <button onClick={() => window.print()} title="打印 / 另存为 PDF"
+      className="no-print rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">
+      {label}
+    </button>
   );
 }
 

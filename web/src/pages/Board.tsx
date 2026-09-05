@@ -9,7 +9,7 @@ import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
-import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, cx } from "../components/ui";
+import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
 
 const LIST_PAGE = 20;
 
@@ -271,7 +271,7 @@ export function Board() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
+      <div className="no-print flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
         <span className="text-sm font-semibold">看板</span>
         <div className="flex overflow-hidden rounded-lg border border-line">
           {(["board", "list"] as const).map((v) => (
@@ -281,6 +281,7 @@ export function Board() {
             </button>
           ))}
         </div>
+        <PrintButton />
         {featureId && <Badge tone="indigo">功能切片</Badge>}
         <div className="relative">
           <button
