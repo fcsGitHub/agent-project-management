@@ -513,3 +513,25 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **口径**：cancelled 项不入 total 与曲线（与 milestone_progress 一致）；同日窗口（建里程碑当天就有完成）series 只有一个点、值为当日末剩余。
 - **一致性**：曲线完全由事件流导出——rebuild 后响应逐字节相同（测试断言 `bd2 == bd`）；replay==live 是事件溯源红利。
 - **前端**：报表页「🔥 燃尽」卡（里程碑下拉 → SVG 双折线：实线实际剩余/虚线理想线/竖虚线今天 + 速率注记）。
+
+## 25. 落地闭环三件套（M28-I86/I87/I88）
+
+### 25.1 工时锁定与审批（I86）
+
+- **提交**：`POST /api/me/timesheets/submit`（body：`project_id + period_start + period_end`）——后端按期间聚合该成员已记工时（total/笔数随提交快照入事件）；空期间 422、同期间重复提交 409、期间与已批准期间重叠 409。
+- **决策**：`POST /api/timesheets/{id}/approve|reject`——**仅项目 Owner 或实例 admin**（local 单用户放行）；非 submitted 状态决策 409；rejected 须 reason（展示给提交人）。
+- **重提交**：驳回后同期间再提交**复用同一 timesheet id**（投影 INSERT OR REPLACE 重置回干净 submitted 态）——期间唯一性防重复行，完整审计在事件流。
+- **锁定**（Redmine 插件 log→submit→lock→approve 语义）：**approved 后该成员该期间内的工时事实冻结**——log 落在期间内日期、edit 期间内条目（含仅改备注）、delete 期间内条目一律 409 `timesheet locked`；要改账只有驳回+重提交一条路。
+- **前端**：「我的工时」页「🧾 工时审批」面板——期间起止 + 项目下拉（候选=记时过的项目）+ 提交；我的提交状态徽标（待审 amber/已批准·已锁定 green/已驳回 red+原因）；可审批项目的待审行 ✓批准/✕驳回。
+
+### 25.2 成员负载横切（I87）
+
+- **端点**：`GET /api/portfolio/workload`——`_visible` 可见项目循环内按 assignee（human）聚合：活跃项数（非 done/cancelled）、超期数（活跃且 due 已过）、项目分布；**7 天工时在项目循环内按项目聚合再累加**——不可见项目的工时永不汇入（聚合粒度与可见性裁剪同构，防从数字反推隐藏项目）。
+- **口径**：无负载成员（active=0 且无工时）不出行；active 降序排序。
+- **前端**：`#/workload`「👥 负载」页——行=成员：负载条（有超期转红）+ 活跃 n + ⏱ x/7d + 超期红徽标 + 项目分布 chips；入口 = Dashboard 组合卡 + 顶导航。
+
+### 25.3 打印视图（I88）
+
+- **机制**：纯浏览器路线（OpenProject 报表呈现语义、零服务端零新依赖）——`index.css` 的 `@media print`：隐藏 `.no-print`（顶栏/导航/侧栏/按钮）与 nav/aside、白底黑字、`main` 解除滚动裁剪；`.print-card`（Card 组件统一挂载）去阴影、细边框、`break-inside: avoid` 保持卡片完整。
+- **入口**：看板页工具条、报表页漏斗卡、Dashboard 组合总览卡的「🖨 打印」按钮（`window.print()`，浏览器「另存为 PDF」即得报表）。
+- **复演要点**：打印预览无导航噪声、卡片单栏可读；打印按钮自身带 no-print（打印件上不出现）。
