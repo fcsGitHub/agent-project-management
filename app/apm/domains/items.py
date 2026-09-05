@@ -868,6 +868,9 @@ def import_items(project_id: str, body: CsvImportIn) -> dict:
             results.append({"line": line, "title": title, "ok": True, "item_id": item["id"]})
         except HTTPException as e:
             results.append({"line": line, "title": title, "ok": False, "error": str(e.detail)})
+        except (ValueError, TypeError) as e:
+            # e.g. estimate_hours not numeric — a data error, still per-line
+            results.append({"line": line, "title": title, "ok": False, "error": str(e) or "invalid value"})
     return {"created": created, "failed": len(results) - created, "results": results}
 
 

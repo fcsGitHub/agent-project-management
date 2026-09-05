@@ -22,14 +22,16 @@ def test_csv_import_export_roundtrip(client, pid):
         "导入一,task,,high,2026-09-10,2026-09-12,3,\n"
         "导入二子,task,,,,,,已有父任务\n"
         "坏日期,task,,x,09/2026/30,,,\n"
+        "坏数字,task,,,,,不是数字\n"
     )
     r = client.post(f"/api/projects/{pid}/items/import", json={"csv": csv_text})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["created"] == 2 and body["failed"] == 1
+    assert body["created"] == 2 and body["failed"] == 2
     rows = body["results"]
     assert rows[0]["ok"] and rows[1]["ok"]
     assert not rows[2]["ok"] and "ISO date" in rows[2]["error"]
+    assert not rows[3]["ok"] and "不是数字" in rows[3]["error"]  # ValueError → per-line, not 500
 
     # imported hierarchy: 导入二子 is a child of the EXISTING item
     child = next(i for i in client.get(f"/api/projects/{pid}/items").json()["items"]
