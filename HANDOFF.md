@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M26 进行中：I80/I81 已完成，下一步 I82 流转白名单+冒烟 32）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M26 进行中：I80/I81/I82 已完成，下一步 M26 正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -39,8 +39,8 @@
 - **M23 计划对照与总览三件套（I71-I73，审阅通过）**：甘特基线（baselines 投影 UNIQUE 单活动快照 + baseline.set/cleared 事件 + TimelinePage 幽灵虚线条形偏离 amber；改期永不触碰快照）、组合总览（`GET /portfolio/report` `_visible` 裁剪 + totals 对账 + Dashboard「🗺 组合总览」卡）、Markdown 工具栏（CommentsModal 手写选区包裹/行前缀、保焦点选区、存储纯文本）；docs/12 §20；冒烟 29。
 - **M24 结构与数据管理三件套（I74-I76，审阅通过，代码补交 9200f14）**：子任务层级（`_validate_parent` 防环 + ItemPatch re-parent + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标）、CSV 导入导出（固定表头 + parent_title 引用 + 逐行校验报告——**行级 try 需捕 ValueError/TypeError**，float() 数据错误曾逃逸致 500 + 模板 + items.csv 导出 + 导入弹窗）、泳道避让（时间线概念行内子行贪心分配，区间染色 O(n log n)——修 M21 重叠 C 级）与多基线（baselines 去 UNIQUE + **db.py 存量迁移重建表** + set 追加历史 + 列表/切换）；docs/12 §21；冒烟 30。
 - **M25 计划治理深化三件套（I77-I79，审阅通过 2fca11f）**：I77 基线偏差表（`GET /baseline-variance?baseline_id=&include_same=` 当前−基线天数偏差 + 汇总 + TimelinePage 偏差抽屉正红负绿）、I78 blocks 闭锁与关系可视化（**KERNEL_RELATIONS 增 blocks/precedes/relates**[blocked_by 存储单向不入内核] + change_status 前置守卫 422 "blocked by X" 全入口继承 + item_relations.lag_days 列/ALTER 迁移/载荷透传 + 时间线连线 EDGE_STYLE 分类型[depends_on 红虚/blocks 橙实/precedes 灰虚/relates 点线]）、I79 列表分页（`?limit=&offset=` 缺省全量兼容 + total 过滤后计数 + limit 钳 1-200 + 列表渐进渲染「加载更多」——重置按 **id 签名**防 refetch 误重置，审阅即修 d68ff25）+ docs/12 §22；冒烟 31。
-- **M26 流程纪律三件套（docs/01 §Y + docs/10 §M26；I80/I81 已完成，I82+审阅进行中）**：I80 看板 WIP 限制 ✅（本体 `board_defaults.wip_limits`[generic=4/software-dev=5] + board resp `wip` **全项目口径**计数[Kanboard「计全部 open 非过滤后」修复语义] + 列头「n/limit」徽标超限红 ⚠ 软约束不拦截；test_wip_limits 4 项）、I81 评论编辑与修订史 ✅（`PATCH /comments/{id}` 仅作者 + comment.updated 事件 + comment_revisions 投影[id=cr_{事件id} 确定性、rowid 倒序] + edited_at 列/迁移/drop 清单 + 「✎ 已编辑」徽标行内历史/作者行内编辑 + 新提及入图零通知；test_comments 8 项）、I82 状态流转白名单（本体概念可选 `transitions: [{from,to}]` 声明、缺省全兼容 + change_status 校验与 blocks 闭锁同层全入口一致）+ docs/12 §23 + 冒烟 32 于 I82 + 审阅，约 9 人日。
-- **当前验证基线：pytest 190 基线 + I80 新增 4 项 + I81 新增 1 项（本轮相关验证全绿，全量收敛至 M26 审阅应 195）；冒烟 31 GREEN；vitest 2/build 绿。**
+- **M26 流程纪律三件套（docs/01 §Y + docs/10 §M26；I80/I81/I82 已完成，待正式审阅）**：I80 看板 WIP 限制 ✅（本体 `board_defaults.wip_limits`[generic=4/software-dev=5] + board resp `wip` **全项目口径**计数[Kanboard「计全部 open 非过滤后」修复语义] + 列头「n/limit」徽标超限红 ⚠ 软约束不拦截；test_wip_limits 4 项）、I81 评论编辑与修订史 ✅（`PATCH /comments/{id}` 仅作者 + comment.updated 事件 + comment_revisions 投影[id=cr_{事件id} 确定性、rowid 倒序] + edited_at 列/迁移/drop 清单 + 「✎ 已编辑」徽标行内历史/作者行内编辑 + 新提及入图零通知；test_comments 8 项）、I82 状态流转白名单 ✅（Concept.transitions 可选声明**缺省全兼容** + validate_transition fail-closed 接入 change_status 与 blocks 同层全入口一致 + software-dev bug 白名单[open 不能直跳 verified]；test_transitions 2 项；test_reports 触发器迁移走合法链）+ docs/12 §23 + 冒烟 32（WIP 超限/评论修订链/白名单矩阵/rebuild 一致）。
+- **当前验证基线：pytest 198 全绿（I82 动 change_status 已升级全量）；冒烟 32 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -60,8 +60,8 @@
 8. ~~M26 调研定义~~ ✅ **已完成**（`2cbe86c`，docs/01 §Y + docs/10 §M26）：防重查（digest 三次/归档两次论证不再查）→ 三路调研（Kanboard WIP 软约束 / Redmine·GitLab 评论史缺口 / OpenProject 流转矩阵）→ 选定**流程纪律三件套** I80-I82（WIP 限制/评论编辑修订史/流转白名单）。
 9. ~~M26-I80 看板 WIP 限制~~ ✅ **已完成**（`30b25e3`+docs `796f7f2`）：board_defaults.wip_limits（generic=4/software-dev=5）+ board resp `wip` 全项目口径计数（**Kanboard 口径修复语义：feature 过滤的看板 wip 仍计整列**——后端独立计数与过滤 buckets 职责分离）+ 列头「n/limit」徽标超限红 ⚠ 软约束；test_wip_limits 4 项绿 + 相关 21 项绿 + build 绿。
 10. ~~M26-I81 评论编辑与修订史~~ ✅ **已完成**（`ce89168`+docs `5b1bdd8`）：仅作者 403、comment.updated + comment_revisions（cr_{事件id} 确定性、rowid 倒序防 cr_9/cr_10 错排）、edited_at 列+迁移+drop 清单、新提及入图零通知；前端「✎ 已编辑」徽标/行内历史/作者行内编辑；test_comments 8 项绿。
-11. **M26-I82 流转白名单 + 收尾（下一步）**（§Y.3）：本体 states 可选 transitions 白名单（缺省全兼容）+ change_status 校验（**动 change_status → 升级全量回归**）；docs/12 §23；冒烟 32（WIP 超限/评论修订链/白名单矩阵 + rebuild 一致）。
-12. **M26 正式审阅**：HEAD 重跑全量（pytest 195+ / 冒烟 31+32 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M26 正式审阅通过」提交。
+11. ~~M26-I82 流转白名单 + 收尾~~ ✅ **已完成**（`8602264`+docs `0b8a955`）：transitions 声明（缺省全兼容）+ change_status 同层守卫 + bug 白名单示例 + docs/12 §23 + 冒烟 32 GREEN；全量回归 **198 绿**（test_reports 触发器迁移：新鲜 bug 走 fixing→fixed→verified 合法链）。
+12. **M26 正式审阅（下一步）**：审阅时点 HEAD 重跑**全量**（pytest 198 / 冒烟 32 / vitest+build）+ I80/I81/I82 DoD 逐项 + 浏览器隔离复演三件套（WIP 超限徽标红/评论已编辑徽标+修订历史/bug 直跳 422 toast+合法链）+ 附录 B +「M26 正式审阅通过」提交。之后 M27 调研定义（先 grep docs/01 防重查；候选池：lag 自动排期联动[I78 接口已备]、评论删除/软删除、transition 必填字段、跨项目工时聚合深化、本体版本事件级归档[导出形态]、digest[已三次论证不查]、打印/PDF[Enterprise 面价值低不查]）。
 13. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩）；**复演假阴性先核对输入（ID/造数）再怀疑系统**（M25 审阅踩：ID 笔误）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
