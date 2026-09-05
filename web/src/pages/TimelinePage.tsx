@@ -14,7 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { Item } from "../lib/api";
-import { Card, Empty } from "../components/ui";
+import { Card, Empty, cx } from "../components/ui";
 
 const DAY = 86_400_000;
 const ROW_H = 40;
@@ -49,6 +49,10 @@ export function TimelinePage() {
   const [blFilter, setBlFilter] = useState<string>("all");
   const blList = baselinesQ.data?.baselines ?? [];
   const [varianceOpen, setVarianceOpen] = useState(false);
+  // I101: CPM critical chain toggle + red-frame highlight
+  const cp = useQuery({ queryKey: ["critical-path", pid], queryFn: () => api.getCriticalPath(pid!), enabled: !!pid });
+  const [showCP, setShowCP] = useState(false);
+  const criticalIds = useMemo(() => new Set(showCP && !cp.data?.cycle ? cp.data?.chain ?? [] : []), [showCP, cp.data]);
   const variance = useQuery({
     queryKey: ["variance", pid, blFilter],
     queryFn: () => api.baselineVariance(pid!, blFilter === "all" ? undefined : blFilter),
@@ -329,6 +333,12 @@ export function TimelinePage() {
                 </select>
                 <button onClick={() => setVarianceOpen(true)}
                   className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📊 偏差表</button>
+                <button onClick={() => setShowCP((v) => !v)}
+                  title={cp.data?.cycle ? "依赖图中存在环，无法计算关键路径" : "CPM 正逆传递：float≤0 的任务链决定项目终点"}
+                  className={cx("rounded-lg border px-2 py-1 text-xs",
+                    showCP ? "border-red-500 bg-red-500/10 text-red-400" : "border-line text-mut hover:border-acc hover:text-acc")}>
+                  ⛔ 关键路径
+                </button>
               </>
             )}
             {blList.length > 0 ? (
@@ -437,7 +447,7 @@ export function TimelinePage() {
                         onPointerMove={onDragMove}
                         onPointerUp={() => endDrag(false)}
                         onPointerCancel={() => endDrag(true)}
-                        className={`group absolute h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""}`}
+                        className={`group absolute h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""} ${criticalIds.has(d.item.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-transparent" : ""}`}
                         style={{ left: `${left}%`, width: `${width}%`, top: laneTop + ROW_H / 2 }}
                       >
                         <div

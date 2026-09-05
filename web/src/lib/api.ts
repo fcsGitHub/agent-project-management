@@ -588,6 +588,10 @@ export const api = {
     req<{ ok: boolean }>(`/projects/${pid}/intake-token`, { method: "DELETE" }),
   submitIntake: (token: string, body: { title: string; priority?: string }) =>
     req<{ ok: boolean; item_id: string; title: string }>(`/intake/${token}`, { method: "POST", body: JSON.stringify(body) }),
+  // I101: CPM critical chain (backward pass, float<=0 items in chain order)
+  getCriticalPath: (pid: string) =>
+    req<{ project_id: string; cycle: boolean; chain: string[]; float: Record<string, number> }>(
+      `/projects/${pid}/critical-path`),
 
   // Outbound webhooks (M10-I32/I33): signed event push with delivery records.
   listWebhooks: (pid: string) =>

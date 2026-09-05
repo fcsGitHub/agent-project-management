@@ -21,6 +21,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections import deque
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Response
@@ -483,6 +484,76 @@ def health_history(project_id: str, days: int = 30) -> dict:
                        "active": active, "overdue": overdue, "gates": pending_gates})
     return {"project_id": project_id, "days": days, "series": series,
             "generated_at": _now().isoformat()}
+
+
+@router.get("/projects/{project_id}/critical-path")
+def critical_path(project_id: str) -> dict:
+    """CPM (M33-I101, docs/01 §AF.1): a backward pass over the scheduled
+    dependency DAG computes each item's latest finish; zero-float items form
+    the critical chain. Done/cancelled items and their edges are out of scope
+    (the chain is about future risk); a dependency cycle yields an honest
+    cycle flag instead of a partial chain. Pure projection computation."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    items = conn.execute(
+        "SELECT id, title, start_date, due_date FROM items"
+        " WHERE project_id = ? AND start_date IS NOT NULL AND due_date IS NOT NULL"
+        " AND COALESCE(status_group, '') NOT IN ('done', 'cancelled')",
+        (project_id,)).fetchall()
+    ids = {r["id"] for r in items}
+    rels = conn.execute(
+        "SELECT from_item, to_item, COALESCE(lag_days, 0) AS lag FROM item_relations"
+        " WHERE project_id = ? AND relation_type = 'depends_on'",
+        (project_id,)).fetchall()
+
+    succ: dict[str, list[tuple[str, int]]] = {}
+    indeg: dict[str, int] = {i: 0 for i in ids}
+    for r in rels:
+        if r["from_item"] in ids and r["to_item"] in ids:
+            succ.setdefault(r["from_item"], []).append((r["to_item"], int(r["lag"])))
+            indeg[r["to_item"]] = indeg.get(r["to_item"], 0) + 1
+
+    # Kahn topo order; items trapped in a cycle never surface
+    queue = deque(sorted(i for i, d in indeg.items() if d == 0))
+    order: list[str] = []
+    indeg_c = dict(indeg)
+    while queue:
+        n = queue.popleft()
+        order.append(n)
+        for m, _lag in succ.get(n, []):
+            indeg_c[m] -= 1
+            if indeg_c[m] == 0:
+                queue.append(m)
+    if len(order) < len(ids):
+        return {"project_id": project_id, "cycle": True, "chain": [], "float": {}}
+    if not order:
+        return {"project_id": project_id, "cycle": False, "chain": [],
+                "float": {}, "generated_at": _now().isoformat()}
+
+    info = {r["id"]: dict(r) for r in items}
+    max_due = max(date.fromisoformat(info[i]["due_date"]) for i in order)
+    dur = {nid: (date.fromisoformat(info[nid]["due_date"])
+                 - date.fromisoformat(info[nid]["start_date"])).days + 1
+           for nid in order}
+    latest: dict[str, date] = {}
+    for nid in reversed(order):
+        succs = succ.get(nid, [])
+        if succs:
+            # latest_finish[n] = min over successors m of
+            # latest_finish[m] - duration(m) - lag   (successor's span eaten first)
+            latest[nid] = min(
+                latest[m] - timedelta(days=dur[m] + lag)
+                for m, lag in succs)
+        else:
+            latest[nid] = max_due
+    float_days = {nid: (latest[nid] - date.fromisoformat(info[nid]["due_date"])).days
+                  for nid in order}
+    # float <= 0 is critical (negative float = the schedule is already blown)
+    chain = [nid for nid in order if float_days.get(nid) <= 0]
+    return {"project_id": project_id, "cycle": False, "chain": chain,
+            "float": float_days, "generated_at": _now().isoformat()}
 
 
 @router.get("/projects/{project_id}/responsiveness")
