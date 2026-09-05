@@ -644,3 +644,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **排除面**：`list_items` 默认 `archived_at IS NULL`——看板/列表/时间线/报表等所有走该函数的入口自动排除；critical-path 同步排除（归档任务退出关键链）。
 - **API**：`POST /api/items/{id}/archive`（重复归档 409）、`POST /api/items/{id}/restore`（未归档 409）、`GET /api/projects/{id}/trash`（归档项列表，按归档时间倒序）。
 - **UI**：看板卡片「🗄」按钮（confirm 后归档）+ 视图切换条「🗑」回收站抽屉（列表 + 一键恢复）。
+
+## 31. 时间关怀三件套（M34-I104/I105/I106）
+
+### 31.1 工作日历与非工作日落点顺延（I104）
+
+- **语义**（OpenProject 12.3「高级排期」的轻量版）：管理员维护全局非工作日（法定/本地节假日，叠加在周六日之上）；**auto_scheduled** 任务的 start/due 经 M14 传播或 I83 lag 对齐产生新落点时，落在非工作日则**顺延至下一个工作日**；手排期项零感知（OpenProject manual 语义）；工期保持日历日跨度不重算——落点顺延可能压缩 span（被跳过的本就是非工作时间，工作跨度不变），聚焦「截止日落在周六日」核心痛点。
+- **事件与投影**：`calendar.holiday_added` / `calendar.holiday_removed` 显式事件（agg_id=日期本身，确定性幂等）→ `non_working_days` 投影表（进 drop_projections，rebuild 重放存活）。
+- **收口点**：`advance_to_workday(d)` 单一辅助函数（calendar.py）——items.py 两处调用（M14 `propagate_reschedule` 平移后、I83 lag 绝对对齐处），其余入口不触碰；顺延后 start > due 时以 start 为准。
+- **API**：`GET /api/calendar/holidays`（任何登录者可读）、`POST /api/calendar/holidays`（admin only；重复 409、坏日期 422）、`DELETE /api/calendar/holidays/{date}`（不存在 404）。
+- **UI**：设置页「📅 工作日历」卡（日期+备注添加、chip 列表、✕ 移除）。
+- **测试**：test_calendar 3 项（admin roundtrip/传播跳假日与跨跳/手排期不动 + rebuild 存活）；test_scheduling 造数改锚定周一网格（M34 语义演进：传播落点不再落周末，三处落点数字重排、断言强度不变）。
