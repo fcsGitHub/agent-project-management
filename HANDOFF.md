@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M28 已审阅通过，下一步 M29 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M29 进行中：定义+I89 已完成，下一步 I90 看板卡片快捷编辑）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -42,7 +42,8 @@
 - **M26 流程纪律三件套（I80-I82，审阅通过 7a67013）**：I80 看板 WIP 限制（本体 `board_defaults.wip_limits`[generic=4/software-dev=5] + board resp `wip` **全项目口径**计数[Kanboard「计全部 open 非过滤后」修复语义] + 列头「n/limit」徽标超限红 ⚠ 软约束不拦截；test_wip_limits 4 项）、I81 评论编辑与修订史（`PATCH /comments/{id}` 仅作者 + comment.updated 事件 + comment_revisions 投影[id=cr_{事件id} 确定性、rowid 倒序] + edited_at 列/迁移/drop 清单 + 「✎ 已编辑」徽标行内历史/作者行内编辑 + 新提及入图零通知；test_comments 8 项）、I82 状态流转白名单（Concept.transitions 可选声明**缺省全兼容** + validate_transition fail-closed 接入 change_status 与 blocks 同层全入口一致 + software-dev bug 白名单[open 不能直跳 verified]；test_transitions 2 项；test_reports 触发器迁移走合法链）+ docs/12 §23；冒烟 32。
 - **M27 排期深化三件套（I83-I85，审阅通过 993540a，审阅即修 3 前端缺陷 ab00660）**：I83 lag 排期联动（post_relation 对 depends_on **显式非零 lag** 立即重对齐 auto_scheduled 后继[start=前置 due+1+lag、负=lead 重叠、span 保持、级联传播；None/0 不动 opt-in 兼容]——两段式：绝对对齐只在建关系时、改期走 M14 相对平移天然保间隔；时间线「+N 天」注记）、I84 跨项目里程碑路线图（`GET /portfolio/roadmap` 复用 feed._visible 三层同组合总览口径 + 排除归档/无里程碑项目 + overdue=逾期未达成[achieved 永不超期] + progress 复用 milestone_progress；「📅 路线图」页 + Dashboard 组合卡入口 + 顶导航——补 GitLab epic #1105 跨项目缺口）、I85 里程碑燃尽（`GET /milestones/{id}/burndown` **纯事件重放零新表**：done 首达日累计、实际线画到 min(today,due) 过期定格、理想线线性、velocity=近 7 天完成数、cancelled 不入口径、**rebuild 后逐字节相等**；报表「🔥 燃尽」卡 SVG 双折线）+ docs/12 §24 + 冒烟 33。审阅即修：RoadmapPage 链接 #/ 前缀畸形 URL + done_ratio 拼 % 显示 0.6%、TimelinePage depends_on 已对齐边静默不画致 lag 注记永不可见（新增 depends_on_ok 灰虚线）。
 - **M28 落地闭环三件套（I86-I88，审阅通过 5e8be63，审阅即修 6fd42de）**：I86 工时锁定与审批 ✅（timesheet 域：submit 按期间聚合[空 422/重复 409/重叠已批 409/驳回复用同 id 重提交 OR REPLACE]、approve/reject 仅 Owner·admin、**approved 后 timelog 三写路径 409 锁定**——计薪事实整条冻结含备注；MyTimePage 🧾 审批面板；test_timesheet 3 项）、I87 成员负载横切 ✅（`GET /portfolio/workload` _visible 项目循环内按 assignee 聚合活跃/超期/项目分布 + 7 天工时**按项目隔离聚合防不可见项目泄漏** + 「👥 负载」页/Dashboard 入口/顶导航；test_workload 2 项）、I88 打印视图 ✅（`@media print` 隐藏 no-print/nav/aside + Card 统一挂 print-card[去阴影细边框 break-inside avoid] + PrintButton 接入看板/报表/Dashboard——window.print 另存 PDF 零服务端零新依赖）+ docs/12 §25 + **冒烟 34**（审批冻结矩阵/负载对账/rebuild 一致），约 9 人日。
-- **当前验证基线：pytest 211（M28 审阅实跑）；冒烟 34 GREEN；vitest 2/build 绿。**
+- **M29 效率与可观测三件套（docs/01 §AB + docs/10 §M29；定义 45084db，I89 已完成，I90/I91+审阅进行中）**：I89 个人排期月历 ✅（`GET /my/schedule` own-data 口径全可见未归档项目有日期项；「📅 我的日程」页 /my/schedule：月网格 + 跨度逐日 chip + HTML5 DnD 拖卡片改期[span 保持 delta 平移→单 PATCH 复用 M14 审计] + 拖选空白格范围建任务[自动指派自己]；test_schedule 2 项）、I90 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日——全走 patch_item 守卫自然继承）、I91 运行聚合报表（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数——token/cost 载荷留位不造假数）+ docs/12 §26 + 冒烟 35 于 I91 + 审阅。
+- **当前验证基线：pytest 213（211 + I89 新增 2；全量收敛至 M29 审阅）；冒烟 34 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -56,7 +57,10 @@
 4. ~~M28-I87 成员负载横切~~ ✅ **已完成**（`d107707`+docs `f1d8aa0`）：`GET /portfolio/workload`（_visible 项目循环按 assignee 聚合活跃/超期/项目分布、7 天工时按项目隔离聚合防泄漏、无负载过滤）+ 「👥 负载」页 + Dashboard 入口 + 顶导航；test_workload 2 项绿。
 5. ~~M28-I88 打印视图 + 收尾~~ ✅ **已完成**（`149acb4`+docs `dee67f0`）：`@media print`（隐藏 no-print/nav/aside + Card 统一 print-card）+ PrintButton 接入看板/报表/Dashboard（window.print 另存 PDF 零服务端）+ docs/12 §25 + **冒烟 34 GREEN（基线 34）**。
 6. ~~M28 正式审阅~~ ✅ **已通过**（`5e8be63`，附录 B；审阅即修 1 处 `6fd42de`：list_timesheets 漏 join 项目名显示裸 id）：全量重跑 **211 passed**（首跑 1 偶发失败如实记录于附录 B：lastfailed 旧 cache 残留名已不存在、单跑 3 次与重跑全绿）+ 冒烟 **34** GREEN + vitest/build 绿；DoD 逐项 ✓；复演三件套（批准→「已批准·已锁定」徽标→API 冻结矩阵期内 409 期外 200 / 负载页李雷 活跃 2·⏱ 3h30·分布 chips 对账 / print 媒体模拟 header·aside·按钮全隐藏+白底+print-card 细边框）console 0 错误 + 2 截图入 docs/。
-7. **M29 调研定义（下一步）**：先 grep docs/01 防重查（digest 三次/归档四次/Cycles/工时审批·负载·打印 M28 刚做——不查）。候选池：评论引用回复、多基线趋势对比、项目模板一键套用增强、看板卡片自定义字段直编、Agent 运行报表/成本视图、日历月视图拖拽改期。三路调研后选定三件套，走「docs/01 新节[§AB] + docs/10 §M29 + 看板行 + 附录 A」定义闭环。
+7. ~~M29 调研定义~~ ✅ **已完成**（`45084db`，docs/01 §AB + docs/10 §M29）：防重查（候选池六项均无记录；M28 刚做的三项不查）→ 三路调研 → 选定**效率与可观测三件套** I89-I91（个人排期月历/看板卡片快捷编辑/运行聚合报表）。
+8. ~~M29-I89 个人排期月历~~ ✅ **已完成**（`aa7c7f5`+docs `a915d52`）：`GET /my/schedule`（own-data 有日期项）+ 「📅 我的日程」月历页（跨度逐日 chip + HTML5 DnD 拖拽改期 span 保持 + 拖选空白格建任务自动指派自己）+ AppShell 顶导航；test_schedule 2 项绿。
+9. **M29-I90 看板卡片快捷编辑（下一步）**（§AB.2）：卡片「⚡」快捷条直改状态/优先级/执行者/截止日——**全走既有 patch_item**（白名单/blocks 闭锁/WIP 守卫自然继承 + 422 toast 全文）；列表视图行内同样接入；复用既有 patch 矩阵不新增后端面。
+10. **M29-I91 运行聚合报表 + 收尾**（§AB.3）：`GET /projects/{id}/runs/report`（按角色/状态聚合运行数、成功率、平均时长、Gate 挂起率、步骤数；token/cost 载荷留位）+ RunsPage 报表卡；docs/12 §26；**冒烟 35**（月历数据源对账/快捷编辑守卫继承/运行聚合对账 + rebuild 一致）；相关验证 + M29 审阅（HEAD 全量 pytest 213/冒烟 35 + DoD 逐项 + 附录 B + 复演三件套[月历拖改/快捷编辑守卫/报表对账]）。
 8. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）。
 
 ## 5. 有哪些坑不要再踩
@@ -99,7 +103,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 211 项，应全绿
+cd app && python -m pytest            # 213 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 34 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
