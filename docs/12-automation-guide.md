@@ -556,3 +556,24 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **端点**：`GET /api/projects/{id}/runs/report`——纯投影聚合：运行总数、按状态计数、成功率（succeeded/(succeeded+failed)）、平均时长（started→ended 均存在者）、Gate 挂起率（interrupted/total）、每运行步骤数（spans 计数/run 数）、按角色分组成功率；tokens（input/output/estimated_cost_usd）直接 SUM 既有列——**replay provider 记零就如实报零**，接真实 provider 后自然有数（不造假数）。
 - **前端**：RunsPage 顶部「📊 运行报表」卡（五组数字 + 状态分布条形 + 角色成功率 chips），与运行列表逐条对账。
 - **一致性**：聚合全部来自 runs/spans 投影，rebuild 后响应相等。
+
+## 27. 治理洞察三件套（M30-I92/I93/I94）
+
+### 27.1 项目健康评分（I92）
+
+- **端点**：`GET /api/portfolio/health`——`_visible` 同口径逐项目出 0-100 分，**评分升序**（差的在前）；无活跃项项目 `score: null`（尚无健康可言）。
+- **公式**（加法式，各因子健康时贡献满权重）：`40×(1−超期率) + 20×(1−滞留率) + 30×吞吐动量 + 10×(1−Gate挂起率)`——超期率 = 活跃且 due 已过 / 活跃；滞留率 = 活跃且 updated_at 早于 14 天（STALE_DAYS 复用）；吞吐动量 = min(近 7 天 done 首达数/活跃, 1)（**事件重放**，同燃尽口径）；Gate 挂起率 = min(pending approvals/活跃, 1)。
+- **语义**：done 项退出 active 分母但计入 done_7d 分子——刚完成一批工作时动量分真实反映本周产出。
+- **前端**：Dashboard 组合总览行内 ♥ 评分徽标（绿 ≥80 / 黄 60-79 / 红 <60 / 无活跃灰「♥ —」），行按评分升序插入。
+
+### 27.2 健康趋势（I93）
+
+- **端点**：`GET /api/projects/{id}/health/history?days=30`（7-90 钳制）——**事件重放采样**（燃尽第三例同构）：扫 `item.created / item.updated[due_date] / item.status_changed + approval.requested/granted/rejected`，每 5 天周界（末点强制 = 今天，与 I92 同一真相）重算四因子套用同一评分函数。
+- **近似口径**：stale 因子重放用 **last_touch**（created 或末次状态变更）近似 updated_at——趋势是相对量，一致近似即可（文档明示）。
+- **前端**：报表页「💚 健康趋势」卡——SVG 迷你趋势线（null 分过滤）、末点圆点、当前分徽标、因子权重注记。
+
+### 27.3 评论引用回复（I94）
+
+- **交互**：评论条目「❝ 引用」按钮 → 编辑框填入 `@作者 > 原文逐行`（每行加 blockquote 前缀）并聚焦；预览模式下先切回编辑。
+- **契约**：存储仍是**纯文本**（M20 契约不变）——blockquote 渲染由既有 marked+DOMPurify 链免费获得，mention 解析走既有 @ 口径。
+- **语义**：GitHub quote-reply 的最小面（无 `r` 快捷键、无选区引用——backlog）。
