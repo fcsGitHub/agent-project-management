@@ -137,10 +137,12 @@ export function CommentsModal({ itemId, title, onClose }: {
   };
 
   // M30-I94 (docs/01 §AC.3, GitHub quote-reply semantics): blockquote the
-  // comment body into the draft — storage stays plain text, rendering is free
+  // comment body into the draft — storage stays plain text, rendering is free.
+  // The @author line stays on its own line: a mid-line `> ` is not a
+  // blockquote in markdown, so the quoted lines must start each line.
   const quote = (c: { author_name?: string | null; author_id: string; body: string }) => {
     const quoted = c.body.split("\n").map((l) => `> ${l}`).join("\n");
-    setDraft(`@${c.author_name ?? c.author_id} ${quoted}\n\n`);
+    setDraft(`@${c.author_name ?? c.author_id} 引用：\n${quoted}\n\n`);
     setPreview(false);
     setEditingId(null);
     requestAnimationFrame(() => inputRef.current?.focus());
