@@ -964,6 +964,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 35 GREEN；审阅全绿。
 - 演示路径：RunsPage 报表卡显示本角色运行成功率与平均时长，与运行列表逐条对得上。
 
+### M30 · 治理洞察三件套（吸收 CHAOSS 指标模型/Taiga Iocane/GitHub quote reply，I92-I94，约 9 人日）
+
+> v2.6 新增（2026-09-05，M29 审阅通过后按目标协议调研）。调研结论见 docs/01 §AC：CHAOSS 标准化健康指标模型 + Taiga Iocane + WeKan #4223 主控面板诉求确立「健康 = 多因子组合出单一可比数字」语义；健康是趋势而非快照，历史回溯靠事件重放（I85 燃尽第三例同构）；GitHub 原生 quote reply vs Redmine 插件补缺——AgentPM blockquote 渲染链免费可用。三件主题统一「治理洞察」：单点可比（评分）、趋势可比（重放）、讨论提速（引用）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I92 | 项目健康评分（四因子加权 `GET /portfolio/health` + 组合总览评分徽标） | 01 §AC.1 | I72 report/组合卡 | 3d |
+| I93 | 健康趋势（事件重放周界评分序列 `GET /projects/{id}/health/history` + 报表健康卡 SVG 趋势线） | 01 §AC.2 | I85 重放范式/M12 报表 | 3d |
+| I94 | 评论引用回复（CommentsModal「❝」逐行 blockquote + @作者）+ docs/12 §27 + 冒烟 36 + M30 审阅 | 01 §AC.3 | M20 md 渲染链 | 3d |
+
+#### I92 · 项目健康评分（3d）
+
+- 任务：`GET /portfolio/health`（复用 `_visible` 口径逐项目评分，0-100）：**超期率 40%**（overdue/active）+ **滞留率 20%**（活跃超 14 天占比，STALE_DAYS 复用）+ **吞吐动量 30%**（近 7 天 done 数/active，比值 1 封顶）+ **Gate 挂起率 10%**；无活跃项项目评分 None；组合总览卡每行评分徽标（绿 ≥80 / 黄 60-79 / 红 <60）+ 排序按评分升序（差的在前）；单测（四因子手算/无活跃 None/rebuild 一致）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：造一个超期重灾区项目 → 组合总览红徽标排最前。
+
+#### I93 · 健康趋势（3d）
+
+- 任务：`GET /projects/{id}/health/history?days=30`——事件重放 `item.created/status_changed/updated`（日期变化）重建每个周界（每 5 天一点）的因子值与评分 → 序列输出；报表页「💚 健康」卡（当前分 + SVG 迷你趋势线 + 今日竖线）；单测（重放序列 vs 手算两点/空项目空序列/rebuild 一致）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：报表页健康卡趋势线显示项目评分从 90 滑落到 60 的拐点。
+
+#### I94 · 评论引用回复 + 收尾审阅（3d）
+
+- 任务：CommentsModal 评论条目「❝ 引用」按钮 → 编辑框填入 `> 原文逐行` + `@作者 ` 开头并聚焦（存储纯文本不变）；docs/12 §27；**新增冒烟 36**（健康四因子手算/趋势重放对账/引用格式 roundtrip + rebuild 一致）；相关验证 + M30 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 36 GREEN；审阅全绿。
+- 演示路径：评论抽屉点「❝」→ 编辑框出现引用块 → 发送 → 渲染为 blockquote + mention chip。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1133,6 +1161,7 @@ agent-project-management/
 | **M27 排期深化三件套（I83-I85）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Z + docs/10 §M27）：I83 lag 排期联动（M14 传播引擎接入 lag_days——正 lag 间隔/负 lead 重叠，日历日口径[MS Project edays 语义]、时间线「+N 天」注记）/ I84 跨项目里程碑路线图（`GET /portfolio/roadmap` `_visible` 聚合 + 「📅 路线图」页——项目×里程碑时间线+进度+超期，纯投影补 GitLab epic #1105 跨项目缺口）/ I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** done 首达日累计 vs 理想线零新表 + 报表「🔥 燃尽」卡 + 速率注记）+ docs/12 §24 + 冒烟 33；审阅 pytest **205** 全绿 + 审阅即修 3 前端缺陷（附录 B）；工作日历/按人周历/独立速率卡/Cycles 留 backlog |
 | **M28 落地闭环三件套（I86-I88）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AA + docs/10 §M28）：I86 工时锁定与审批（timesheet submitted/approved/rejected 事件 + approved 冻结期间 409——Redmine 插件 log→submit→lock→approve 语义原生内建，计薪/结算刚需）/ I87 成员负载横切（`GET /portfolio/workload` `_visible` 项目横切按成员聚合——补 OpenProject resource planner 视角缺口）/ I88 打印视图（print CSS + 打印按钮——OpenProject 报表呈现语义、零新依赖「另存 PDF」）+ docs/12 §25 + 冒烟 34；审阅全量 211 绿 + 冒烟 34 GREEN + 审阅即修 1 处（附录 B）；按人拖拽周历/服务端报表 PDF/本体事件归档留 backlog |
 | **M29 效率与可观测三件套（I89-I91）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AB + docs/10 §M29）：I89 个人排期月历（/my/work 扩展日期 + 「📅 我的日程」月历：卡片拖拽改期[左柄 start/右柄 due]、拖选范围建任务——OpenProject calendar 个人面）/ I90 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日——补 Kanboard #3142 内联缺口，全守卫继承）/ I91 运行聚合报表（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率·平均时长·Gate 挂起率·步骤数——Langfuse 可观测语义纯投影切片，token/cost 载荷留位不造假数）+ docs/12 §26 + 冒烟 35；审阅全量 **216** 绿 + 冒烟 35 GREEN（附录 B）；评论引用回复/多基线趋势/工作日顺延/真实 token 成本留 backlog |
+| **M30 治理洞察三件套（I92-I94）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §AC + docs/10 §M30）：I92 项目健康评分（四因子加权[超期率 40/滞留率 20/吞吐动量 30/Gate 挂起 10]`GET /portfolio/health` + 组合总览评分徽标——CHAOSS 多因子语义落地）/ I93 健康趋势（事件重放周界评分序列 + 报表健康卡 SVG 迷你趋势线——事件溯源红利第三例）/ I94 评论引用回复（CommentsModal「❝」逐行 blockquote + @作者——GitHub quote reply 语义，零后端）+ docs/12 §27 + 冒烟 36 于 I94 + 审阅；引用键盘快捷键/CHAOSS 全维度/依赖图独立视图留 backlog |
 | I89 个人排期月历 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /my/schedule`：own-data 口径（assignee=我）跨全可见**未归档**项目的有日期项（start 或 due 任一存在）+ 项目名/状态组/优先级，按 COALESCE(due,start) 排序；「📅 我的日程」页（/my/schedule）：月网格 42 格（周一起始 UTC 算术与 MyTimePage 同构）、**多日期项按跨度逐日渲染 chip**（项目色点 map 去重分配 + done 划线降透明）、**HTML5 DnD 拖卡片改期**（有 start 项：delta=落点−start 的 span 保持平移→单 PATCH start/due 复用 M14 审计与冲突重算；仅 due 项：拖=改 due；dataTransfer JSON 载荷）、**拖选空白格范围建任务**（mousedown 记锚格→mouseenter 高亮区间→mouseup 弹创建窗：项目下拉[my/work projects]+概念下拉[task 优先]+标题+**自动指派自己**[listUsers.current]+预填起止范围）；AppShell 顶导航全局项（CalendarRange「我的日程」）；api.ts getMySchedule + MyScheduleItem 类型 + createItem 扩展 start/due/assignee 字段；test_schedule 2 项（own-data 只见自己指派项+无日期排除+跨项目聚合/改期 PATCH 后 rebuild 一致、归档项目排除）；schedule 2 项绿、build/vitest 绿 |
 | I90 看板卡片快捷编辑 | 已完成 | 2026-09-05 | 2026-09-05 | 看板卡片 badge 行与列表标题行新增「⚡」→ `QuickEditModal`：状态下拉（**本体 concept.states** 取集，无声明显示当前值）/优先级（low/medium/high）/执行者（listUsers 下拉 + 取消指派 + agent: 前缀保持 agent 指派形态）/截止日 date；**仅提交有变化的键**（diff 判定后组装 patch）走既有 `PATCH /items/{id}`——**流转白名单/blocks 闭锁/WIP/审计归因零成本继承**（选直改而非新端点的核心理由，§AB.2），422 toast 全文透出（如白名单拦截原因）；无新增后端面——复用既有 patch 矩阵验证；build/vitest 绿 |
 | I91 运行聚合报表 + 冒烟 35 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/runs/report`——**纯投影聚合**（Langfuse 可观测语义切片）：运行总数、按状态计数、成功率（succeeded/(succeeded+failed)）、平均时长（started/ended 均存在者）、Gate 挂起率（interrupted/total）、每运行步骤数（spans 计数/run 数）、按角色分组成功率；**tokens 直接 SUM 既有列**（total_input/output_tokens、estimated_cost_usd）——replay 记零如实报零，不造假数，接真 provider 后自然有数；RunsPage 顶部「📊 运行报表」卡（五组数字+状态分布条形+角色成功率 chips）与运行列表逐条对账；api.ts getRunsReport。docs/12 §26。**新增冒烟 35**（①月历数据源对账：/my/schedule 含指派项且拖拽同款 PATCH 生效；②快捷编辑守卫继承：bug 白名单 open→verified 422 + fixing 200、blocks 闭锁 done 422 "blocked by"——**关系须从阻塞者侧发出**[from=阻塞者 blocks to=任务]，造数方向反了守卫不触发——首跑踩坑已记附录 A；③运行报表与列表对账 total 1/成功率 1.0/挂起率 0.0；④rebuild 后报表与月历全一致）；runs_report+runtime+冒烟 35 共 8 项绿、冒烟基线 **35 条 GREEN**、build/vitest 绿 |
@@ -1323,6 +1352,8 @@ agent-project-management/
 | 2026-09-05 | I88 | 打印路线选「**print CSS + window.print**」而非服务端 PDF——OpenProject 的 Gantt/工作包 PDF 是服务端渲染（Headless/报表引擎），对单机 SQLite 项目是引依赖换边角；浏览器「另存 PDF」免费获得排版引擎，`@media print` 五十行 CSS 换全站可打印。`.print-card` 挂在 **Card 组件内部**而非逐页加类——所有卡片（报表/负载/路线图/工时面板）一次全量打印友好，新页面零成本继承。`break-inside: avoid` 防卡片跨页截断是打印排版的最低要求。冒烟 34 首跑踩坑：workload 按 **assignee** 聚合而造数 item 未指派——`members` 为空 IndexError；「按人聚合」类端点的造数清单必须含「指派给谁」，与 I87 单测的身份教训同源（数据口径要有人在位）。 |
 
 | 2026-09-05 | M29 定义 | 新一轮三路并行调研（防重查：候选池六项逐一 grep docs/01 无记录可查；M28 刚做的工时审批/负载/打印不重查）：①**个人排期月历**——OpenProject Calendar 官方语义：月/周切换 + 卡片拖拽改期（**左柄 start/右柄 finish**）+ 点击或拖选日期范围直接建工作包 + 保存自动顺延工作日；AgentPM M20 拖拽落在项目时间线条形图，个人跨项目月历缺失 → /my/work 扩展日期字段 + 「📅 我的日程」月历（拖拽复用 M20 单 PATCH 审计链，拖选建任务预填起止）；工作日顺延留 backlog（无工作日历，M27 已论证）。②**看板卡片快捷编辑**——Kanboard **无真内联编辑**（走任务页/下拉菜单），多任务内联/批量是社区长期诉求 #3142，插件补快捷按钮；WeKan 侧栏面板 + 键盘快捷键；AgentPM M22 批量覆盖多选、单卡仍要开抽屉 → 卡片 ⚡ 快捷编辑条（状态/优先级/执行者/截止日直改，**全走 patch_item**——白名单/blocks 闭锁/WIP 守卫自然继承，这是选直改而非新端点的核心理由）。③**运行聚合报表**——Langfuse（MIT 自托管）确立 per-run latency/cost/错误率聚合标准含 spend alerts，LangSmith 闭源 SaaS-only；replay provider 无真实 token **不造假数**，可真实聚合的：运行数按角色/状态、成功率、平均时长、Gate 挂起率、每运行步骤数（spans 计数），token/cost 载荷留位接真 provider 后即有数。选定 **M29 = 效率与可观测三件套**：I89 月历拖拽 / I90 卡片快捷编辑 / I91 运行报表 + docs/12 §26 + 冒烟 35 于 I91 + 审阅，估时 +9 人日。结论入 docs/01 §AB。 |
+
+| 2026-09-05 | M30 定义 | 新一轮三路并行调研（防重查：健康评分/引用回复/健康趋势 grep 无记录；多基线历史 M24 已做、工作日顺延 M27 论证 backlog、依赖图独立视图时间线连线已覆盖——不查）：①**项目健康评分**——CHAOSS 标准化健康指标模型（Starter Model）+ Taiga Iocane 团队健康度量 + WeKan #4223 主控面板多年诉求，共同语义「健康 = 多因子组合出单一可比数字」→ AgentPM 组合总览只有原始计数，补四因子加权评分（超期率 40/滞留率 20/吞吐动量 30/Gate 挂起 10，0-100）+ 组合卡评分徽标（绿/黄/红）；②**健康趋势**——健康是趋势非快照（CHAOSS），投影表只存当前值、历史回溯靠事件重放（与 I85 燃尽同构，事件溯源红利第三例）→ `GET /projects/{id}/health/history` 重放周界评分序列 + 报表 SVG 迷你趋势线；③**评论引用回复**——GitHub 原生 Quote reply（选区+r 快捷键+按钮）标配，Redmine 核心无引用靠插件补（Reply Button），格式摩擦是 #15520 核心抱怨 → AgentPM M20 blockquote 渲染链免费可用，只缺「❝ 引用」按钮（逐行加前缀 + @作者，纯前端零后端）。选定 **M30 = 治理洞察三件套**：I92 健康评分 / I93 健康趋势 / I94 引用回复 + docs/12 §27 + 冒烟 36 于 I94 + 审阅，估时 +9 人日。结论入 docs/01 §AC。 |
 
 | 2026-09-05 | I89 | 拖拽语义选「**span 保持的 delta 平移**」而非「落点=start 覆盖 due 不变」——时间线拖拽（M20）与 OpenProject calendar 均以「移动整卡」为主语义，改跨度是右缘缩放的事，月历格子天然承载不了两柄；delta 公式 `due += 落点−start` 与 M14 相对平移完全同构。多日期项在月历**按跨度逐日渲染**而非只标起点——OpenProject calendar 同款，跨度本身是信息（一眼看出任务占几天）。DnD 选 **HTML5 原生**（draggable/dataTransfer）而非 pointer capture——月历是「格子落点」语义非连续拖拽轨迹，原生 DnD 的 dragover 高亮 + drop 目标判定免费获得。拖选建任务限定**空白格**（mousedown 时 list.length 判空）——chip 与拖选抢事件，有任务的格子拖选意图模糊。建任务自动指派自己取 `listUsers().current` 而非新建端点——身份是后端已有全局状态，月历 own-data 语义要求项创建即在「我的日程」可见。 |
 
