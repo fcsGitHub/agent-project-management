@@ -994,6 +994,36 @@ agent-project-management/
 
 ---
 
+### M31 · 响应力三件套（吸收 Linear 键盘优先/GitLab Custom 通知/CHAOSS Responsiveness，I95-I97，约 9 人日）
+
+> v2.7 新增（2026-09-05，M30 审阅通过后按目标协议调研）。调研结论见 docs/01 §AD：Linear ⌘K+`C`+`?`+j/k 确立键盘优先标准（Dynatrace 指南把 ⌘K/?/jk 列为行业组合），AgentPM ⌘K 已有但缺发现性与看板内导航；GitLab Custom 级别=逐事件类型开关且必须在投递路径统一收口（#410008「关了还发」教训）；CHAOSS Starter Model 的 Time to First Response/Responsiveness 维度度量「人对人响应速度」——I92 四因子未覆盖。三件主题统一「响应力」：操作响应（键盘）、通道响应（通知偏好）、人对人响应（指标）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I95 | 键盘优先操作面（`?` 快捷键帮助浮层 + 看板 j/k 选中导航 Enter 打开 + `C` 新建任务；输入框聚焦自动让路） | 01 §AD.1 | M22 ⌘K/CreateModal | 3d |
+| I96 | 通知偏好按事件类型细分（事件类型 × 站内/邮件双通道开关 `GET/PUT /me/notification-prefs` + plan_notifications 投递收口 + 设置 UI） | 01 §AD.2 | M11 prefs/M10 通道 | 3d |
+| I97 | 响应性指标（`GET /projects/{id}/responsiveness` 审批响应/评论首响应配对聚合 + 报表「⏱ 响应力」卡）+ docs/12 §28 + 冒烟 37 + M31 审阅 | 01 §AD.3 | I91 聚合/I93 重放范式 | 3d |
+
+#### I95 · 键盘优先操作面（3d）
+
+- 任务：全局 `?`（Shift+/）快捷键帮助浮层——可搜索、穷举当前生效快捷键（⌘K/C/j/k/Enter/?/Esc…含来源模块注记）；看板网格 j/k 逐卡选中（高亮环）、Enter 打开评论抽屉、j/k 在输入框聚焦时不劫持按键；`C` 在看板/列表页打开 CreateModal。纯前端，无新后端面；单测以 vitest 键位分发为主。
+- DoD：vitest 绿；build 绿；既有页面无按键冲突回归。
+- 演示路径：看板按 j/k 移动高亮 → Enter 直开评论 → 按 `?` 出帮助浮层搜索「j」。
+
+#### I96 · 通知偏好按事件类型细分（3d）
+
+- 任务：notification_prefs 投影扩展（默认全开、逐事件类型 × email/inapp 两通道布尔）+ `GET/PUT /me/notification-prefs`（own-data）+ plan_notifications 投递前统一查闸门（站内与邮件同口径，mention 永远可达不可关——GitLab mention 档语义）+「🔔 通知设置」UI（AppShell 铃旁入口，事件类型行 × 双通道列勾选）；单测（默认全开/关闭 comment.created 站内后通知不落/邮件同关/mention 不可关/rebuild 一致）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：关掉「状态变更·站内」→ 改状态 → 铃不响；提及仍响。
+
+#### I97 · 响应性指标 + 收尾审阅（3d）
+
+- 任务：`GET /projects/{id}/responsiveness?days=30`——approval.requested→granted/rejected 逐对配对出审批响应（均值/中位/超 48h 占比）+ comment.created→下一非作者 comment/状态变更出评论首响应；报表页「⏱ 响应力」卡（两组数字 + 诚实空态）；docs/12 §28；**新增冒烟 37**（审批配对对账/首响应排除作者/偏好闸门 roundtrip + rebuild 一致）；相关验证 + M31 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 37 GREEN；审阅全绿。
+- 演示路径：真实跑一个 Gate 审批 + 一条评论回复 → 报表卡数字与事件对账。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1162,6 +1192,7 @@ agent-project-management/
 | **M28 落地闭环三件套（I86-I88）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AA + docs/10 §M28）：I86 工时锁定与审批（timesheet submitted/approved/rejected 事件 + approved 冻结期间 409——Redmine 插件 log→submit→lock→approve 语义原生内建，计薪/结算刚需）/ I87 成员负载横切（`GET /portfolio/workload` `_visible` 项目横切按成员聚合——补 OpenProject resource planner 视角缺口）/ I88 打印视图（print CSS + 打印按钮——OpenProject 报表呈现语义、零新依赖「另存 PDF」）+ docs/12 §25 + 冒烟 34；审阅全量 211 绿 + 冒烟 34 GREEN + 审阅即修 1 处（附录 B）；按人拖拽周历/服务端报表 PDF/本体事件归档留 backlog |
 | **M29 效率与可观测三件套（I89-I91）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AB + docs/10 §M29）：I89 个人排期月历（/my/work 扩展日期 + 「📅 我的日程」月历：卡片拖拽改期[左柄 start/右柄 due]、拖选范围建任务——OpenProject calendar 个人面）/ I90 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日——补 Kanboard #3142 内联缺口，全守卫继承）/ I91 运行聚合报表（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率·平均时长·Gate 挂起率·步骤数——Langfuse 可观测语义纯投影切片，token/cost 载荷留位不造假数）+ docs/12 §26 + 冒烟 35；审阅全量 **216** 绿 + 冒烟 35 GREEN（附录 B）；评论引用回复/多基线趋势/工作日顺延/真实 token 成本留 backlog |
 | **M30 治理洞察三件套（I92-I94）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AC + docs/10 §M30）：I92 项目健康评分（四因子加权[超期率 40/滞留率 20/吞吐动量 30/Gate 挂起 10]`GET /portfolio/health` + 组合总览评分徽标——CHAOSS 多因子语义落地）/ I93 健康趋势（事件重放周界评分序列 + 报表健康卡 SVG 迷你趋势线——事件溯源红利第三例）/ I94 评论引用回复（CommentsModal「❝」逐行 blockquote + @作者——GitHub quote reply 语义，零后端）+ docs/12 §27 + 冒烟 36；审阅全量 **222** 绿 + 冒烟 36 GREEN + 审阅即修 1 处（附录 B）；引用键盘快捷键/CHAOSS 全维度/依赖图独立视图留 backlog |
+| **M31 响应力三件套（I95-I97）** | 进行中（定义已出） | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §AD + docs/10 §M31）：I95 键盘优先操作面（`?` 快捷键帮助浮层 + 看板 j/k 选中导航 + `C` 新建——Linear/Dynatrace ⌘K·?·jk 行业组合）/ I96 通知偏好按事件类型细分（事件类型 × 站内/邮件双通道 + plan_notifications 投递收口——GitLab Custom 语义、#410008 教训）/ I97 响应性指标（审批响应/评论首响应配对聚合 + 报表「⏱ 响应力」卡——CHAOSS Time to First Response，事件溯源红利第四例）+ docs/12 §28 + 冒烟 37；引用快捷键/多基线趋势/工作日顺延留 backlog |
 | I92 项目健康评分 | 已完成 | 2026-09-05 | 2026-09-05 | `_health_factors`（per 项目：active/overdue[活跃且 due 已过]/stale[活跃且 updated_at < today−STALE_DAYS]/done_7d[**近 7 天 done 首达事件重放**同 I85 燃尽口径]/gates[approvals pending]）+ `_health_score`（**加法式**：40×(1−overdue_rate) + 20×(1−stale_rate) + 30×momentum[min(done_7d/active,1)] + 10×(1−gate_rate)——各因子健康时贡献满权重；无活跃项 None）；`GET /portfolio/health` 复用 `_visible` 同口径 + **评分升序**（差的在前）；Dashboard 组合总览行内评分徽标（♥ 绿≥80/黄 60-79/红<60/无活跃灰「♥ —」）+ 行按评分升序排入；api.ts portfolioHealth；test_health_score 3 项（**公式级**：满血 100 分/momentum 封顶/全恶 0 分/None；**集成手算**：甲 3 活跃 1 超期 1 完成 → 60.0[done 项退出 active 分母]vs 乙全健康无吞吐 70.0 + worst-first 排序 + rebuild 相等；空项目 None）；health+workload 5 项绿、build/vitest 绿 |
 | I93 健康趋势 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/health/history?days=30`（7-90 钳制）——**事件重放采样**（燃尽第三例同构）：扫 item.created / item.updated[due_date 变化] / item.status_changed + approval.requested/granted/rejected 五类事件按 id 序应用，每 5 天周界（末点=今天）重算四因子套用 `_health_score`；stale 因子重放口径用 **last_touch**（created 或末次状态变更）近似 updated_at（事件粒度取舍，附录 A 有记）；Gate 挂起 = requested 累加 − granted/rejected 递减（下限 0）。报表页「💚 健康趋势」卡：SVG 迷你趋势线（null 分过滤后连线、末点圆点、ag 色系）+ 当前分徽标 + 因子权重注记；api.ts getHealthHistory；test_health_history 2 项（30 天窗口 ≥7 采样点、首点 None[项目未建]/尾点活跃 2 评分 70.0、超期一项后尾点 overdue 1 评分 **60.0** 手算、rebuild 后序列逐点相等；空项目全 None）；health_history 2 项绿、build/vitest 绿 |
 | I94 评论引用回复 + 冒烟 36 | 已完成 | 2026-09-05 | 2026-09-05 | CommentsModal 评论条目「❝ 引用」按钮 → 编辑框填入 `@作者 > 原文逐行`（每行加 blockquote 前缀）并聚焦（预览模式先切回编辑、编辑中先退出，cx 条件布局 ml-auto 兜底）；**存储仍是纯文本**（M20 契约不变），blockquote 渲染由既有 marked+DOMPurify 链免费获得，@解析走既有 mention 口径——GitHub quote reply 最小面**零后端**；docs/12 §27；**新增冒烟 36**（①健康四因子手算：3 活跃 1 超期 1 本周完成 → 60.0；②趋势末点评分 == I92 实时评分 + 前序采样点 None[项目今日建]；③引用文本 roundtrip 逐字节[纯文本契约]；④rebuild 后评分/历史/评论全一致）；冒烟基线 **36 条 GREEN**、build/vitest 绿 |
@@ -1363,6 +1394,7 @@ agent-project-management/
 | 2026-09-05 | I93 | 趋势采样选「**每 5 天一个点**」而非逐日——30 天 7 个点足够看出趋势拐点，逐日 30 点 SVG 线噪多且重放计算 ×6；末点强制=今天（保证「当前分」与 I92 端点逐字段一致，两处入口同一真相）。stale 因子重放用 **last_touch 近似**（created 或末次状态变更）而非 updated_at——item.updated 事件粒度不携带全量字段变化且拖累计成本，趋势是相对量、近似口径一致即可；文档明示这是近似（诚实的模糊优于精确的错误）。Gate 挂起重放 = requested 累加减 granted/rejected（下限 0 防 re-request 场景负数）。首跑踩坑：SQLite Row 用 `e["agg_id"]` 报 IndexError——SELECT 列清单漏了 agg_id，Row 不像 dict 会给 KeyError 提示列名；**Row 取键错误先查 SELECT 清单**。 |
 
 | 2026-09-05 | I94 | 引用回复选「**纯前端文本合成**」而非后端引用模型——GitHub quote reply 的本质只是「把原文按 blockquote 语法预填进输入框」，存储端新增 reply_to 字段/引用表都是过度设计；M20 的 marked 渲染链对 `>` 前缀免费出 blockquote，@作者 前缀走既有 mention 通知口径——**两个既有能力拼一个按钮**，零后端零迁移。按钮布局踩坑：行内 ✎ 按钮的 ml-auto 是「推到行尾」的实现，插入 ❝ 后 ✎/✕ 的 ml-auto 条件破裂——用 cx 把 ml-auto 变成「作者不在场才归 ❝」的条件类；小空间行内布局里 ml-auto 归属要随按钮集合动态调整。 |
+| 2026-09-05 | M31 定义 | 新一轮三路并行调研（防重查：候选池六项 grep——引用快捷键/通知细分/多基线趋势/CHAOSS 全维度无记录可查，依赖图独立视图维持不查、工时审批代理 I86 刚做不查）：①**键盘优先操作面**——Linear ⌘K+`C`+`?`+j/k 是键盘优先 PM 事实标准（changelog 可搜索 ? 浮层）+ GitHub 命令面板 ⌘K 可自定义 + Dynatrace 快捷键规划指南确立 ⌘K/?/jk 行业组合 → AgentPM ⌘K 已有但缺发现性（无 ? 浮层）与看板内导航（无 j/k）→ 纯前端补 `?` 帮助浮层 + 看板 j/k 选中 Enter 打开 + `C` 新建；②**通知事件类型细分**——GitLab Custom 级别逐事件开关 + GitHub Custom watch checkbox，噪声治理最后一级=按事件类型说不要；GitLab #410008「关了还发」反证开关须投递路径统一收口 → AgentPM M11 仅邮件两级，扩为事件类型 × 站内/邮件双通道偏好 + plan_notifications 单源收口（mention 永远可达）；③**响应性指标**——CHAOSS Starter Model 四指标含 Time to First Response、维度族单列 Responsiveness；I92 四因子未度量「人对人响应速度」→ 审批响应时长（requested→granted/rejected 配对）+ 评论首响应时长（created→下一非作者响应）聚合报表，事件溯源红利第四例。选定 **M31 = 响应力三件套**：I95 键盘优先 / I96 通知细分 / I97 响应性指标 + docs/12 §28 + 冒烟 37 于 I97 + 审阅，估时 +9 人日。结论入 docs/01 §AD。 |
 
 | 2026-09-05 | I89 | 拖拽语义选「**span 保持的 delta 平移**」而非「落点=start 覆盖 due 不变」——时间线拖拽（M20）与 OpenProject calendar 均以「移动整卡」为主语义，改跨度是右缘缩放的事，月历格子天然承载不了两柄；delta 公式 `due += 落点−start` 与 M14 相对平移完全同构。多日期项在月历**按跨度逐日渲染**而非只标起点——OpenProject calendar 同款，跨度本身是信息（一眼看出任务占几天）。DnD 选 **HTML5 原生**（draggable/dataTransfer）而非 pointer capture——月历是「格子落点」语义非连续拖拽轨迹，原生 DnD 的 dragover 高亮 + drop 目标判定免费获得。拖选建任务限定**空白格**（mousedown 时 list.length 判空）——chip 与拖选抢事件，有任务的格子拖选意图模糊。建任务自动指派自己取 `listUsers().current` 而非新建端点——身份是后端已有全局状态，月历 own-data 语义要求项创建即在「我的日程」可见。 |
 

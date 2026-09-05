@@ -831,4 +831,34 @@ M29 = **效率与可观测三件套**：I89 个人排期月历（OpenProject cal
 
 M30 = **治理洞察三件套**：I92 项目健康评分（CHAOSS 多因子语义落地，管理面从「看数」到「看分」）/ I93 健康趋势（事件重放任意时点评分——事件溯源红利第三例）/ I94 评论引用回复（GitHub 语义、零后端）+ docs/12 §27 + 冒烟 36 + M30 审阅，约 9 人日。引用键盘快捷键、CHAOSS 全维度指标、依赖图独立视图（时间线连线已覆盖）留 backlog。
 
+## AD. M31 前置调研：响应力——键盘优先操作 / 通知事件细分 / 响应性指标（2026-09-05）
+
+> 目标协议触发：M30 审阅通过后开启。防重查：候选池六项逐一 grep——引用键盘快捷键（§AC.5 留 backlog，无调研记录）、通知偏好细分（M11 只做邮件/站内两级，事件类型粒度无记录）、多基线趋势（§AB 留 backlog 无记录）、CHAOSS 全维度（§AC.1 只取了 Starter 多因子语义）、依赖图独立视图（M21 时间线连线已覆盖，维持不查）、工时审批代理（I86 刚做，不查）。
+
+**AD.1 键盘优先操作面（Linear / GitHub command palette / Dynatrace 规范）**
+
+- Linear 是键盘优先 PM 工具的事实标准：⌘K 命令面板 + `C` 新建 issue + `?` 可搜索快捷键帮助浮层 + `G` 前缀页间导航（[Linear changelog](https://linear.app/changelog/2021-03-25-keyboard-shortcuts-help)、[Shortcuts.design](https://shortcuts.design/tools/toolspage-linear/)）；GitHub 命令面板同为 ⌘K 且支持自定义（[docs](https://docs.github.com/en/get-started/accessibility/github-command-palette)、[changelog](https://github.blog/changelog/2022-02-03-customizing-command-palette-keyboard-shortcuts-beta/)）；Dynatrace 的快捷键规划指南把 **⌘K / ? / j-k** 列为行业标准组合（[guide](https://developer.dynatrace.com/develop/guides/keyboard-shortcuts/plan-keyboard-shortcuts/)）。j/k 列表导航是 vim 血统的看板通行做法（GitHub 列表同款）。
+- 对本项目的映射：⌘K 已有（M22 搜索入口 + I10 NL 命令），缺的是**发现性**与**列表内导航**——①`?` 快捷键帮助浮层（可搜索，穷举当前生效快捷键，权威清单从此有处可查）；②看板 j/k 选中卡片 + Enter 打开评论抽屉（不与卡片行内 ✕/⚡ 按钮抢焦点，输入框聚焦时自动让路）；③`C` 新建任务（看板/列表上下文，复用既有 CreateModal）。纯前端零后端。
+
+**AD.2 通知偏好按事件类型细分（GitLab Custom 级别 / GitHub Custom watch）**
+
+- GitLab 通知级别五档 watch/participate/mention/custom/disabled，其中 **Custom** = 逐事件类型开关（issues/MRs/comments…按项目设置）（[docs](https://docs.gitlab.com/user/profile/notifications/)）；GitHub 仓库级 Custom watch 同样是事件类型 checkbox（[docs](https://docs.github.com/subscriptions-and-notifications/get-started/configuring-notifications)）。共同语义：**噪声治理的最后一级是「按事件类型说不要」**——前面的档位只决定「因为什么收到」，Custom 决定「哪类不要」。
+- 对本项目的映射：M11 的 user_prefs 只有 email_enabled 两级 + M18 per-item watch；扩为**事件类型 × 站内/邮件双通道开关**（item.status_changed / comment.created / mention / approval.requested / timesheet 待审类），`GET/PUT /me/notification-prefs`；投递统一收口在 **plan_notifications**（邮件与站内同走该闸门、逐事件查偏好）——GitLab #410008（「关了还发」）的教训 = 不在各投递通道各查一遍。
+
+**AD.3 响应性指标（CHAOSS Responsiveness / Time to First Response）**
+
+- CHAOSS Starter Model 四指标含 **Time to First Response** 与 Change Request Closure Ratio，维度族单列 **Responsiveness**（[Starter Model](https://www.chaoss.community/kb/metrics-model-starter-project-health/)、[维度族](https://www.chaoss.community/kbtopic/all-metrics-models/)）；I92 四因子覆盖了超期/滞留/吞吐/Gate，但**没有度量「人对人的响应速度」**——审批挂起多久有人理、评论发出多久有人回，恰是协作项目最被追问的数字。
+- 对本项目的映射：事件流里原料齐全——**审批响应时长**（approval.requested → 同 Gate 的 granted/rejected 逐对配对，均值/中位/超 48h 占比）与**评论首响应时长**（comment.created → 下一条件非作者的 comment 或状态变更）；`GET /projects/{id}/responsiveness` 聚合输出 + 报表页「⏱ 响应力」卡（延续 I91 聚合/I93 重放范式，事件溯源红利第四例）。
+
+**AD.4 M31 设计映射与验证纪律（沿用）**
+
+- I95 键盘优先操作面：`?` 帮助浮层 + 看板 j/k 导航 + `C` 新建；纯前端，无新后端面。
+- I96 通知偏好事件细分：notification_prefs 扩展（事件类型 × 双通道）+ plan_notifications 投递收口 + 设置 UI；docs/12 §28。
+- I97 响应性指标：审批/评论首响应聚合端点 + 报表卡；**新增冒烟 37** 于 I97 + 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M31 审阅。
+
+**AD.5 M31 取舍**
+
+M31 = **响应力三件套**：I95 键盘优先（Linear 语义的操作发现性与导航面）/ I96 通知事件细分（GitLab Custom 的投递收口语义）/ I97 响应性指标（CHAOSS Responsiveness 落地）——主题统一「响应力」：**操作响应**（键盘）、**通道响应**（通知偏好）、**人对人响应**（指标）。+ docs/12 §28 + 冒烟 37 + M31 审阅，约 9 人日。引用键盘快捷键、多基线趋势、工作日顺延、CHAOSS 社区维度（贡献者成长类，AgentPM 无 contributor 演化语义）留 backlog。
+
 
