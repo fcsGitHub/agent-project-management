@@ -411,6 +411,80 @@ def portfolio_health() -> dict:
     return {"projects": rows, "generated_at": _now().isoformat()}
 
 
+@router.get("/projects/{project_id}/health/history")
+def health_history(project_id: str, days: int = 30) -> dict:
+    """Health score over time (M30-I93, docs/01 §AC.2): the I92 composite
+    recomputed at ~5-day sample points by replaying item and approval events —
+    the same event-sourcing dividend as the milestone burndown, zero tables.
+    Staleness uses last touch (created or last status change) as a replay
+    approximation of updated_at."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    days = max(7, min(days, 90))
+    conn = db.get_conn()
+    today = _now().date()
+    start = today - timedelta(days=days - 1)
+    points = [start + timedelta(days=i) for i in range(0, days, 5)]
+    if points[-1] != today:
+        points.append(today)
+
+    evs = conn.execute(
+        "SELECT agg_id, event_type, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type IN"
+        " ('item.created','item.updated','item.status_changed',"
+        "  'approval.requested','approval.granted','approval.rejected')"
+        " ORDER BY id",
+        (project_id,),
+    ).fetchall()
+
+    items: dict[str, dict] = {}
+    done_arrival: dict[str, str] = {}
+    pending_gates = 0
+
+    def apply(e) -> None:
+        nonlocal pending_gates
+        p = json.loads(e["payload"])
+        et = e["event_type"]
+        if et == "item.created":
+            items[e["agg_id"]] = {"due": p.get("due_date"),
+                                  "group": p.get("status_group", ""),
+                                  "touch": e["ts"][:10]}
+        elif et == "item.updated" and e["agg_id"] in items:
+            if "due_date" in p:
+                items[e["agg_id"]]["due"] = p["due_date"]
+        elif et == "item.status_changed" and e["agg_id"] in items:
+            items[e["agg_id"]]["group"] = p.get("status_group", "")
+            items[e["agg_id"]]["touch"] = e["ts"][:10]
+            if p.get("status_group") == "done" and e["agg_id"] not in done_arrival:
+                done_arrival[e["agg_id"]] = e["ts"][:10]
+        elif et == "approval.requested":
+            pending_gates += 1
+        elif et in ("approval.granted", "approval.rejected"):
+            pending_gates = max(pending_gates - 1, 0)
+
+    series = []
+    ei = 0
+    for point in points:
+        point_s = point.isoformat()
+        while ei < len(evs) and evs[ei]["ts"][:10] <= point_s:
+            apply(evs[ei])
+            ei += 1
+        stale_cut = (point - timedelta(days=STALE_DAYS)).isoformat()
+        week_start = (point - timedelta(days=6)).isoformat()
+        active_items = [s for s in items.values() if s["group"] not in ("done", "cancelled")]
+        active = len(active_items)
+        overdue = sum(1 for s in active_items if s["due"] and s["due"] < point_s)
+        stale = sum(1 for s in active_items if s["touch"] <= stale_cut)
+        done_7d = sum(1 for d in done_arrival.values() if week_start <= d <= point_s)
+        f = {"active": active, "overdue": overdue, "stale": stale,
+             "done_7d": done_7d, "gates": pending_gates}
+        series.append({"date": point_s, "score": _health_score(f),
+                       "active": active, "overdue": overdue, "gates": pending_gates})
+    return {"project_id": project_id, "days": days, "series": series,
+            "generated_at": _now().isoformat()}
+
+
 @router.get("/projects/{project_id}/timelog_report")
 def timelog_report(project_id: str, days: int = 14) -> dict:
     """M19-I61: project time report — per-user totals + per-day trend, read

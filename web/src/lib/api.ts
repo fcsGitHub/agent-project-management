@@ -465,6 +465,10 @@ export const api = {
     req<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string; item_id?: string }[] }>(`/projects/${pid}/items/import`, { method: "POST", body: JSON.stringify({ csv }) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
+  getHealthHistory: (pid: string, days = 30) =>
+    req<{ project_id: string; days: number;
+          series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] }>(
+      `/projects/${pid}/health/history?days=${days}`),
   getRunsReport: (pid: string) =>
     req<{ total: number; by_status: Record<string, number>; success_rate: number | null;
           avg_duration_seconds: number | null; gate_pending_rate: number | null;

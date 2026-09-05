@@ -20,6 +20,12 @@ export function ReportsPage() {
     enabled: !!pid,
     refetchInterval: 15_000,
   });
+  const hist = useQuery({
+    queryKey: ["health-history", pid],
+    queryFn: () => api.getHealthHistory(pid!),
+    enabled: !!pid,
+    refetchInterval: 30_000,
+  });
   if (!pid) return null;
   const r = report.data;
   const maxBucket = r ? Math.max(1, ...BUCKET_ORDER.map((b) => r.funnel[b] ?? 0)) : 1;
@@ -129,7 +135,54 @@ export function ReportsPage() {
 
       {/* burndown (M27-I85): event-replayed remaining curve vs ideal line */}
       <BurndownCard pid={pid} />
+
+      {/* health trend (M30-I93): replayed score series */}
+      <HealthCard hist={hist.data} />
     </div>
+  );
+}
+
+function HealthCard({ hist }: { hist?: { series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] } | null }) {
+  const series = hist?.series ?? [];
+  const pts = series.filter((p) => p.score != null);
+  const cur = pts.length ? pts[pts.length - 1] : null;
+  const score = cur?.score ?? null;
+
+  const line = (() => {
+    if (pts.length < 2) return null;
+    const coords = pts.map((p, i) => `${(i / (pts.length - 1)) * 100},${(3 + (1 - p.score! / 100) * 37).toFixed(1)}`);
+    return { polyline: coords.join(" "), last: coords[coords.length - 1] };
+  })();
+
+  return (
+    <Card className="p-4 md:col-span-2">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold">💚 健康趋势</span>
+        {score != null && (
+          <Badge tone={score >= 80 ? "green" : score >= 60 ? "amber" : "red"}>
+            当前 {score >= 80 ? "♥" : score >= 60 ? "♥" : "♥"} {score}
+          </Badge>
+        )}
+      </div>
+      {line ? (
+        <>
+          <div className="text-xs text-mut">
+            事件重放 {series.filter((p) => p.active > 0).length} 个周界 · 当前活跃 {cur?.active} ·
+            超期 {cur?.overdue} · Gate 挂起 {cur?.gates}
+          </div>
+          <svg viewBox="0 0 100 43" className="mt-2 h-28 w-full" preserveAspectRatio="none">
+            <polyline points={line.polyline} fill="none" stroke="currentColor"
+              className="text-ag" strokeWidth="1" />
+            <circle cx={line.last.split(",")[0]} cy={line.last.split(",")[1]} r="1.2" className="fill-ag" />
+          </svg>
+          <div className="mt-1 text-center text-[10px] text-mut">
+            超期率 40% · 滞留率 20% · 吞吐动量 30% · Gate 挂起 10%（每 5 天一采样，事件重放）
+          </div>
+        </>
+      ) : (
+        <Empty title="暂无趋势数据" hint="项目有了活跃工作项后，这里会重放出评分趋势线" />
+      )}
+    </Card>
   );
 }
 
