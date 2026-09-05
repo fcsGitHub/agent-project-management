@@ -600,3 +600,26 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **评论首响应**：事件流重放——每条评论找**同 item 下一非作者**的 comment.created 或 item.status_changed（作者自评不算；事件 append-only 序即时间序）；无响应评论计入 `comments_unanswered`。
 - **空态**：窗口内无样本的分片输出 `null`（诚实空态，不编 0）——前端报表「⏱ 响应力」卡显示语义文案。
 - **语义注记**：一条回复同时应答它之前的所有无响应评论（「首响应=该评论之后的首个他人事件」），故 count 可大于「被回复讨论数」。
+
+## 29. 引擎与入口三件套（M32-I98/I99/I100）
+
+### 29.1 时间触发自动化（I98）
+
+- **规则形态**：`trigger_event: "schedule:daily"`（与四个事件触发器并列；缺省 `event:*` 全兼容）。schedule 规则**不在**事件 TRIGGERS 集合里——post-emit dispatch 路径零感知，永远不会被事件误触发。
+- **扫描器**：`run_daily_sweep(force=false)` 逐项目取启用的 schedule 规则 → 对每条规则评估条件（复用 M9 条件谓词）→ 命中走既有动作执行器（防循环继承）。**派生字段 `overdue`**：扫描时对每个 item 注入 `overdue = due 已过且未 done/cancelled`，条件里写 `overdue=true` 即「逾期升级」——等值条件引擎零改动。
+- **幂等**：`automation.swept` 心跳事件（payload 记当日 fired/created 数）——当日已存在 swept 事件则整个扫描跳过；心跳是事件流事实，重启/replay 皆持久，**零新表**。`force=true`（手动端点/单测用）忽略心跳强扫。
+- **周期建卡**：`action: {type: "create_recurring", concept_id, title, assignee_id?}` → 每日扫描 emit 真实 `item.created`（actor_type=automation、actor_id=规则 id）——一等卡，审计/投影/通知全链免费。
+- **生产节拍**：后台 ticker 线程每分钟醒来调 `run_daily_sweep()`——正确性靠心跳幂等，轮询频率无关紧要；`POST /api/automations/sweep` 手动触发（设置页规则面板「⟳ 手动扫描」按钮）。
+
+### 29.2 外部 intake 收件（I99）
+
+- **模型**：令牌即凭证（Trello 板级邮箱的 HTTP 版）。owner 在设置页「📮 外部收件」卡生成/吊销/重发（单活动令牌，重发=吊旧发新）；`/#/intake/{token}` 公开表单页无需登录。
+- **提交端点**：`POST /api/intake/{token}`，body 仅 `title`（必填 ≤200）与 `priority`（可选）——Pydantic 白名单 fail-closed，未知字段丢弃。令牌校验=SELECT 命中 + `secrets.compare_digest` 双查，未知/吊销一律 401。
+- **归账与校验链**：提交经 `create_item` 全链（本体概念校验、归档项目 409 emit guard、M8 门禁），`actor_type="intake"` 让审计流可区分外部来源——溯源令牌即溯源到发放者。
+- **存储**：intake_tokens 是 **intake.token_issued/revoked 事件的投影表**（进 drop_projections，rebuild 重现）；值明文存（同 feed_key——可显示的凭证明文、不可恢复的凭证哈希）。
+
+### 29.3 列表分组聚合（I100）
+
+- **交互**：列表视图「按组聚合」下拉（概念/状态/优先级/执行者/自定义字段——复用 M6 fieldOptions）→ 组头行显示「组名 · n 项 · ⏱ 合计」，点击折叠；「全部展开」一键还原。
+- **口径**：分组作用于**已显示行**（I79 渐进渲染兼容——「加载更多」后再分组），组内保持树序（父子缩进保留），组间按首次出现排序；spent 合计取 `spent_minutes` 投影列。
+- **数据源**：零新端点——组头数字与看板列计数同源（同批 items 投影），冒烟 38 逐桶对账。
