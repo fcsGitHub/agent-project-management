@@ -138,6 +138,9 @@ export function ReportsPage() {
 
       {/* health trend (M30-I93): replayed score series */}
       <HealthCard hist={hist.data} />
+
+      {/* responsiveness (M31-I97): approval latency + comment first response */}
+      <ResponsivenessCard pid={pid} />
     </div>
   );
 }
@@ -187,6 +190,44 @@ function HealthCard({ hist }: { hist?: { series: { date: string; score: number |
 }
 
 const DAY_MS = 86_400_000;
+
+type RespSlice = { count: number; avg_h: number; median_h: number; over_48h: number };
+
+/** I97 (docs/01 §AD.3, CHAOSS Time to First Response): approval decision
+ *  latency + comment first-response, honest None when the window is empty. */
+function ResponsivenessCard({ pid }: { pid: string }) {
+  const resp = useQuery({
+    queryKey: ["responsiveness", pid],
+    queryFn: () => api.getResponsiveness(pid),
+    refetchInterval: 30_000,
+  });
+  const d = resp.data;
+  const slice = (s: RespSlice | null) =>
+    s ? `${s.count} 次 · 平均 ${s.avg_h}h · 中位 ${s.median_h}h · 超 48h 占 ${(s.over_48h * 100).toFixed(0)}%` : null;
+  const a = slice(d?.approvals ?? null);
+  const c = slice(d?.comments ?? null);
+  return (
+    <Card className="p-4">
+      <div className="mb-2 text-sm font-semibold">⏱ 响应力</div>
+      <div className="space-y-2 text-xs">
+        <div className="rounded-lg border border-line px-3 py-2">
+          <div className="font-medium">Gate 审批响应</div>
+          <div className="mt-0.5 text-mut">{a ?? "窗口内暂无已决审批——诚实空态，不编数字"}</div>
+        </div>
+        <div className="rounded-lg border border-line px-3 py-2">
+          <div className="font-medium">评论首响应</div>
+          <div className="mt-0.5 text-mut">
+            {c ?? "窗口内暂无被回复的评论"}
+            {d != null && d.comments_unanswered > 0 && ` · 待响应 ${d.comments_unanswered}`}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 text-[10px] text-mut">
+        审批读投影 requested→decided；首响应 = 下一非作者评论或状态变更（事件流重放，作者自评不计）
+      </div>
+    </Card>
+  );
+}
 
 function BurndownCard({ pid }: { pid: string }) {
   const ms = useQuery({

@@ -607,6 +607,14 @@ export const api = {
       "/me/notification-prefs"),
   putNotificationPrefs: (body: { prefs: { kind: string; inapp: boolean; email: boolean }[] }) =>
     req<{ ok: boolean }>("/me/notification-prefs", { method: "PUT", body: JSON.stringify(body) }),
+  // I97: responsiveness (CHAOSS Time to First Response semantics); slices are
+  // null when the window has no samples — honest empty state, not zero.
+  getResponsiveness: (pid: string) =>
+    req<{ project_id: string; days: number;
+      approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
+      comments: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
+      comments_unanswered: number; generated_at: string }>(
+      `/projects/${pid}/responsiveness`),
   getFeedKey: () =>
     req<{ user_id: string; feed_key: string; created: boolean }>("/me/feed-key"),
   rotateFeedKey: () =>

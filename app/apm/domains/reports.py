@@ -485,6 +485,88 @@ def health_history(project_id: str, days: int = 30) -> dict:
             "generated_at": _now().isoformat()}
 
 
+@router.get("/projects/{project_id}/responsiveness")
+def project_responsiveness(project_id: str, days: int = 30) -> dict:
+    """Responsiveness metrics (M31-I97, docs/01 §AD.3 — CHAOSS Time to First
+    Response): approval decision latency reads straight off the approvals
+    projection (requested_at→decided_at); per-comment first-response latency
+    replays the event stream (next non-author comment or status change on the
+    same item). A slice with no samples is honest None, not zero."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    days = max(7, min(days, 90))
+    conn = db.get_conn()
+    since = (_now() - timedelta(days=days)).isoformat()
+
+    def _slice(samples: list[float]) -> dict | None:
+        if not samples:
+            return None
+        samples = sorted(samples)
+        n = len(samples)
+        mid = n // 2
+        median = samples[mid] if n % 2 else (samples[mid - 1] + samples[mid]) / 2
+        return {
+            "count": n,
+            "avg_h": round(sum(samples) / n, 1),
+            "median_h": round(median, 1),
+            "over_48h": round(sum(1 for s in samples if s > 48) / n, 3),
+        }
+
+    arows = conn.execute(
+        "SELECT requested_at, decided_at FROM approvals WHERE project_id = ?"
+        " AND status IN ('approved','rejected') AND decided_at IS NOT NULL"
+        " AND requested_at IS NOT NULL AND decided_at >= ?",
+        (project_id, since),
+    ).fetchall()
+    approval_samples = [
+        (datetime.fromisoformat(r["decided_at"]) - datetime.fromisoformat(r["requested_at"])
+         ).total_seconds() / 3600
+        for r in arows
+    ]
+
+    comments = conn.execute(
+        "SELECT item_id, author_id, created_at FROM item_comments"
+        " WHERE project_id = ? AND deleted_at IS NULL AND created_at >= ?",
+        (project_id, since),
+    ).fetchall()
+    timeline: dict[str, list[tuple[str, str]]] = {}
+    for ev in conn.execute(
+        "SELECT agg_id, event_type, payload, actor_id, ts FROM events"
+        " WHERE project_id = ? AND event_type IN"
+        " ('comment.created','item.status_changed') ORDER BY id",
+        (project_id,),
+    ):
+        if ev["event_type"] == "comment.created":
+            p = json.loads(ev["payload"])
+            item_id = p.get("item_id") or ev["agg_id"]
+            actor = p.get("author_id") or ev["actor_id"] or ""
+        else:
+            item_id, actor = ev["agg_id"], ev["actor_id"] or ""
+        timeline.setdefault(item_id, []).append((ev["ts"], actor))
+
+    comment_samples: list[float] = []
+    unanswered = 0
+    for c in comments:
+        responses = [ts for ts, actor in timeline.get(c["item_id"], [])
+                     if actor and actor != c["author_id"] and ts >= c["created_at"]]
+        if not responses:
+            unanswered += 1
+            continue
+        comment_samples.append(
+            (datetime.fromisoformat(responses[0]) - datetime.fromisoformat(c["created_at"])
+             ).total_seconds() / 3600)
+
+    return {
+        "project_id": project_id,
+        "days": days,
+        "approvals": _slice(approval_samples),
+        "comments": _slice(comment_samples),
+        "comments_unanswered": unanswered,
+        "generated_at": _now().isoformat(),
+    }
+
+
 @router.get("/projects/{project_id}/timelog_report")
 def timelog_report(project_id: str, days: int = 14) -> dict:
     """M19-I61: project time report — per-user totals + per-day trend, read
