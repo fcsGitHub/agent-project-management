@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M30 进行中：I92/I93/I94 已完成，下一步正式审阅）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M30 已审阅通过，下一步 M31 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -43,8 +43,8 @@
 - **M27 排期深化三件套（I83-I85，审阅通过 993540a，审阅即修 3 前端缺陷 ab00660）**：I83 lag 排期联动（post_relation 对 depends_on **显式非零 lag** 立即重对齐 auto_scheduled 后继[start=前置 due+1+lag、负=lead 重叠、span 保持、级联传播；None/0 不动 opt-in 兼容]——两段式：绝对对齐只在建关系时、改期走 M14 相对平移天然保间隔；时间线「+N 天」注记）、I84 跨项目里程碑路线图（`GET /portfolio/roadmap` 复用 feed._visible 三层同组合总览口径 + 排除归档/无里程碑项目 + overdue=逾期未达成[achieved 永不超期] + progress 复用 milestone_progress；「📅 路线图」页 + Dashboard 组合卡入口 + 顶导航——补 GitLab epic #1105 跨项目缺口）、I85 里程碑燃尽（`GET /milestones/{id}/burndown` **纯事件重放零新表**：done 首达日累计、实际线画到 min(today,due) 过期定格、理想线线性、velocity=近 7 天完成数、cancelled 不入口径、**rebuild 后逐字节相等**；报表「🔥 燃尽」卡 SVG 双折线）+ docs/12 §24 + 冒烟 33。审阅即修：RoadmapPage 链接 #/ 前缀畸形 URL + done_ratio 拼 % 显示 0.6%、TimelinePage depends_on 已对齐边静默不画致 lag 注记永不可见（新增 depends_on_ok 灰虚线）。
 - **M28 落地闭环三件套（I86-I88，审阅通过 5e8be63，审阅即修 6fd42de）**：I86 工时锁定与审批 ✅（timesheet 域：submit 按期间聚合[空 422/重复 409/重叠已批 409/驳回复用同 id 重提交 OR REPLACE]、approve/reject 仅 Owner·admin、**approved 后 timelog 三写路径 409 锁定**——计薪事实整条冻结含备注；MyTimePage 🧾 审批面板；test_timesheet 3 项）、I87 成员负载横切 ✅（`GET /portfolio/workload` _visible 项目循环内按 assignee 聚合活跃/超期/项目分布 + 7 天工时**按项目隔离聚合防不可见项目泄漏** + 「👥 负载」页/Dashboard 入口/顶导航；test_workload 2 项）、I88 打印视图 ✅（`@media print` 隐藏 no-print/nav/aside + Card 统一挂 print-card[去阴影细边框 break-inside avoid] + PrintButton 接入看板/报表/Dashboard——window.print 另存 PDF 零服务端零新依赖）+ docs/12 §25 + **冒烟 34**（审批冻结矩阵/负载对账/rebuild 一致），约 9 人日。
 - **M29 效率与可观测三件套（I89-I91，审阅通过 5fd751c）**：I89 个人排期月历 ✅（`GET /my/schedule` own-data 口径全可见未归档项目有日期项；「📅 我的日程」页 /my/schedule：月网格 + 跨度逐日 chip + HTML5 DnD 拖卡片改期[span 保持 delta 平移→单 PATCH 复用 M14 审计] + 拖选空白格范围建任务[自动指派自己]；test_schedule 2 项）、I90 看板卡片快捷编辑 ✅（卡片/列表行「⚡」→ QuickEditModal 直改状态/优先级/执行者/截止日——**仅提交变化键走既有 patchItem**，白名单/闭锁/WIP/审计零成本继承，agent: 前缀保持 agent 指派）、I91 运行聚合报表 ✅（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数——**tokens 直接 SUM 既有列如实报零**；RunsPage「📊 运行报表」卡对账；test_runs_report 2 项）+ docs/12 §26 + **冒烟 35**（月历对账/快捷编辑守卫继承/报表对账/rebuild 一致），约 9 人日。
-- **M30 治理洞察三件套（docs/01 §AC + docs/10 §M30；定义 bb4cb8a，I92/I93/I94 已完成，待正式审阅）**：I92 项目健康评分 ✅（`_health_factors`+`_health_score` 四因子加权[超期率 40/滞留率 20/吞吐动量 30 min 封顶/Gate 挂起 10，加法式各因子健康贡献满权重，无活跃 None]；`GET /portfolio/health` _visible 同口径评分升序；Dashboard 组合卡 ♥ 评分徽标绿/黄/红；test_health_score 3 项[公式级+集成手算 60/70+rebuild]）、I93 健康趋势 ✅（`GET /projects/{id}/health/history` 事件重放 item/approval 五类事件、每 5 天周界采样[末点=今天与 I92 同真相]、stale 用 last_touch 近似；报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项[尾点 70→超期 60 手算/rebuild 序列相等]）、I94 评论引用回复 ✅（CommentsModal「❝」→ `@作者 > 原文逐行` 填入编辑框聚焦——存储纯文本不变、blockquote 渲染免费，零后端）+ docs/12 §27 + **冒烟 36**（评分手算/趋势末点对齐/引用 roundtrip/rebuild 一致），约 9 人日。
-- **当前验证基线：pytest 221（219 + I93 新增 2）；冒烟 36 GREEN；vitest 2/build 绿。**
+- **M30 治理洞察三件套（I92-I94，审阅通过 11cc1b2，审阅即修 60a043c）**：I92 项目健康评分 ✅（`_health_factors`+`_health_score` 四因子加权[超期率 40/滞留率 20/吞吐动量 30 min 封顶/Gate 挂起 10，加法式各因子健康贡献满权重，无活跃 None]；`GET /portfolio/health` _visible 同口径评分升序；Dashboard 组合卡 ♥ 评分徽标绿/黄/红；test_health_score 3 项[公式级+集成手算 60/70+rebuild]）、I93 健康趋势 ✅（`GET /projects/{id}/health/history` 事件重放 item/approval 五类事件、每 5 天周界采样[末点=今天与 I92 同真相]、stale 用 last_touch 近似；报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项[尾点 70→超期 60 手算/rebuild 序列相等]——事件溯源红利第三例）、I94 评论引用回复 ✅（CommentsModal「❝」→「@作者 引用：」独立行 + 原文逐行 blockquote 预填聚焦，存储纯文本不变、渲染免费，零后端；**审阅即修 60a043c**：原「@作者 > 原文」同行内联 `>` 非引用语法不渲染 blockquote）+ docs/12 §27 + **冒烟 36**（评分手算/趋势末点对齐/引用 roundtrip/rebuild 一致），约 9 人日。
+- **当前验证基线：pytest 222（M30 审阅 HEAD 实跑全绿）；冒烟 36 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -52,18 +52,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M28 全闭环~~ ✅（定义+3 迭代+审阅，审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63，附录 B；详情真源=docs/10 §7 看板行与附录 A）。
-2. ~~M29 调研定义~~ ✅ **已完成**（`45084db`，docs/01 §AB + docs/10 §M29）：防重查（候选池六项均无记录；M28 刚做的三项不查）→ 三路调研 → 选定**效率与可观测三件套** I89-I91（个人排期月历/看板卡片快捷编辑/运行聚合报表）。
-3. ~~M29-I89 个人排期月历~~ ✅ **已完成**（`aa7c7f5`+docs `a915d52`）：`GET /my/schedule`（own-data 有日期项）+ 「📅 我的日程」月历页（跨度逐日 chip + HTML5 DnD 拖拽改期 span 保持 + 拖选空白格建任务自动指派自己）+ AppShell 顶导航；test_schedule 2 项绿。
-4. ~~M29-I90 看板卡片快捷编辑~~ ✅ **已完成**（`a01eb7e`+docs `5e2366b`）：卡片/列表行「⚡」→ QuickEditModal（状态[本体 states]/优先级/执行者[agent: 前缀]/截止日，仅提交变化键走 patchItem——守卫零漂移）；无新增后端面；build/vitest 绿。
-5. ~~M29-I91 运行聚合报表 + 收尾~~ ✅ **已完成**（`6728981`+docs `cf82c14`）：`GET /projects/{id}/runs/report`（按角色/状态聚合成功率/平均时长/Gate 挂起率/步骤数、tokens SUM 既有列如实报零）+ RunsPage「📊 运行报表」卡 + docs/12 §26 + **冒烟 35 GREEN（基线 35）**。
-6. ~~M29 正式审阅~~ ✅ **已通过**（`5fd751c`，附录 B）：HEAD 重跑全量 **pytest 216** 项 0 失败 + 冒烟 **35** GREEN + vitest/build 绿；DoD 逐项 ✓；复演三件套（playwright DnD 拖月历 chip → API 复核 span 保持 +2 / 快捷编辑白名单 422 console 硬证据 + 合法链 fixing API 复核 / 运行报表 Gate 挂起率 100%·步骤数 7·tokens 0/0 与运行列表对账）+ 2 截图入 docs/。
-7. ~~M30 调研定义~~ ✅ **已完成**（`bb4cb8a`，docs/01 §AC + docs/10 §M30）：防重查（健康评分/引用回复/趋势无记录；多基线历史 M24 已做、工作日顺延 backlog、依赖图时间线已覆盖——不查）→ 三路调研（CHAOSS+Taiga Iocane+WeKan #4223 / 健康趋势重放[燃尽第三例同构] / GitHub quote reply vs Redmine 插件）→ 选定**治理洞察三件套** I92-I94。
-8. ~~M30-I92 项目健康评分~~ ✅ **已完成**（`df288be`+docs `7b18c70`）：四因子加权评分（加法式/momentum 与 gate min 封顶/无活跃 None）+ `GET /portfolio/health`（_visible 同口径评分升序）+ Dashboard 组合卡 ♥ 评分徽标排序；test_health_score 3 项绿（stale 造数不可行——直改投影 rebuild 还原，公式级覆盖）。
-9. ~~M30-I93 健康趋势~~ ✅ **已完成**（`26ce7c6`+docs `5077c65`）：`GET /projects/{id}/health/history` 事件重放（item.created/updated/status_changed + approval.requested/granted/rejected、每 5 天采样末点=今天、stale 用 last_touch 近似）+ 报表页「💚 健康趋势」卡 SVG 迷你线；test_health_history 2 项绿。
-10. ~~M30-I94 评论引用回复 + 收尾~~ ✅ **已完成**（`6216cd7`+docs `b039ec9`）：CommentsModal「❝」→ `@作者 > 原文逐行` 预填聚焦（存储纯文本不变，渲染免费）+ docs/12 §27 + **冒烟 36 GREEN（基线 36）**。
-11. **M30 正式审阅（下一步）**：HEAD 重跑全量（pytest 221 / 冒烟 36 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（组合卡评分徽标/报表健康趋势线/评论引用回复 roundtrip）+ 附录 B +「M30 正式审阅通过」提交。
-8. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）。
+1. ~~M24~M30 全闭环~~ ✅（每轮：调研定义 → 3 迭代[三段式提交] → 正式审阅[全量回归+DoD 逐项+浏览器隔离复演]；审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63/5fd751c/**11cc1b2**；单迭代详情真源=docs/10 §7 看板行与附录 A/B——本节不再保留单迭代条目）。
+2. **M31 调研定义（下一步）**：先 `grep -n "AD\.\|候选" docs/01-open-source-research.md` 防重查（候选池各项确认无已做记录）→ 三路并行 WebSearch → docs/01 新节 + docs/10 §M31 节 + 看板行 + 附录 A →「M31 调研定义」提交 → HANDOFF 收口 → I95 起三迭代（每迭代三段式：代码 → docs → HANDOFF 收口）。**候选池**（上轮调研遗留、§AC 已论证不在本轮回做的项，M31 调研时验证贴合度）：①评论引用键盘快捷键（I94 仅按钮入口；Ctrl+R 等与浏览器刷新冲突需另选键）；②CHAOSS 全维度健康度量（I92 四因子可扩展社区/响应性维度）；③依赖图独立视图（时间线已画连线，独立图价值待证）；④通知偏好按事件类型细分（M11 仅邮件/站内两级开关）；⑤多基线趋势对比（M24 多基线快照已有、时序对比未做）；⑥工时审批代理与期间报表（I86 批/驳已有）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -105,7 +96,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 221 项，应全绿
+cd app && python -m pytest            # 222 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 36 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173

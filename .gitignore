@@ -42,3 +42,6 @@ tools/smoke/reports/
 .replay-m22/
 .replay-m23/
 .replay-m24/
+
+# 浏览器自动化产物（复演 console 日志/页面快照）
+.playwright-mcp/

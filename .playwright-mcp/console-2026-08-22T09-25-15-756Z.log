@@ -1,2 +1,0 @@
-[  264692ms] [ERROR] Failed to load resource: net::ERR_INCOMPLETE_CHUNKED_ENCODING @ http://localhost:5174/api/stream?project_id=p_83f693f338:0
-[  270071ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5174/api/stream?project_id=p_83f693f338:0
