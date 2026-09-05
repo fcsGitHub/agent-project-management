@@ -29,6 +29,7 @@ export function Board() {
   const [newViewPublic, setNewViewPublic] = useState(false);
   const [commentsFor, setCommentsFor] = useState<import("../lib/api").Item | null>(null);
   const [timelogFor, setTimelogFor] = useState<import("../lib/api").Item | null>(null);
+  const [quickEditFor, setQuickEditFor] = useState<import("../lib/api").Item | null>(null);
 
   const viewsQ = useQuery({
     queryKey: ["views", pid],
@@ -469,6 +470,8 @@ export function Board() {
                         onClick={() => addSubtask(item)}>＋子</button>
                       <button title="仅看该任务的后代" className="text-[10px] text-mut hover:text-acc"
                         onClick={() => setScopeDesc({ id: item.id, title: item.title })}>后代</button>
+                      <button title="快捷编辑（状态/优先级/执行者/截止日）" className="text-[10px] text-mut hover:text-acc"
+                        onClick={() => setQuickEditFor(item)}>⚡</button>
                     </div>
                   </td>
                   <td className="text-mut">{item.concept_id}</td>
@@ -571,6 +574,12 @@ export function Board() {
                               <Badge tone="neutral" title="实际投入工时">⏱ {fmtMinutes(item.spent_minutes ?? 0)}</Badge>
                             )}
                             <button
+                              onClick={(e) => { e.stopPropagation(); setQuickEditFor(item); }}
+                              className="text-[10px] text-mut hover:text-acc" title="快捷编辑（状态/优先级/执行者/截止日）"
+                            >
+                              ⚡
+                            </button>
+                            <button
                               onClick={(e) => { e.stopPropagation(); setTimelogFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="工时"
                             >
@@ -623,6 +632,11 @@ export function Board() {
       {timelogFor && (
         <TimeLogModal itemId={timelogFor.id} title={timelogFor.title}
           onClose={() => setTimelogFor(null)} />
+      )}
+      {quickEditFor && (
+        <QuickEditModal item={quickEditFor} concepts={onto.data?.concepts ?? []}
+          onClose={() => setQuickEditFor(null)}
+          onSaved={() => { setQuickEditFor(null); qc.invalidateQueries(); }} />
       )}
       {importOpen && (
         <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
@@ -677,5 +691,94 @@ export function Board() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** M29-I90 quick edit (docs/01 §AB.2, Kanboard #3142 gap): inline-edit a card's
+ * status/priority/assignee/due date without opening the drawer. Every change
+ * goes through PATCH /items/{id} — patch_item, so the transition whitelist,
+ * blocks closure, WIP limits and audit attribution are inherited for free. */
+function QuickEditModal({ item, concepts, onClose, onSaved }: {
+  item: import("../lib/api").Item;
+  concepts: { id: string; name: string; states?: { id: string; name: string }[] }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [status, setStatus] = useState(item.status);
+  const [priority, setPriority] = useState(item.priority ?? "");
+  const [assignee, setAssignee] = useState(
+    item.assignee_type === "human" ? item.assignee_id ?? "" : item.assignee_id ? `agent:${item.assignee_id}` : "",
+  );
+  const [due, setDue] = useState(item.due_date ?? "");
+  const [busy, setBusy] = useState(false);
+  const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+
+  const concept = concepts.find((c) => c.id === item.concept_id);
+  const states = concept?.states ?? [];
+
+  const submit = async () => {
+    const patch: Record<string, unknown> = {};
+    if (status && status !== item.status) patch.status = status;
+    if (priority !== (item.priority ?? "")) patch.priority = priority || null;
+    if (assignee !== (item.assignee_type === "human" ? item.assignee_id ?? "" : item.assignee_id ? `agent:${item.assignee_id}` : "")) {
+      if (!assignee) { patch.assignee_type = null; patch.assignee_id = null; }
+      else if (assignee.startsWith("agent:")) { patch.assignee_type = "agent"; patch.assignee_id = assignee.slice(6); }
+      else { patch.assignee_type = "human"; patch.assignee_id = assignee; }
+    }
+    if (due !== (item.due_date ?? "")) patch.due_date = due || null;
+    if (!Object.keys(patch).length) { onClose(); return; }
+    setBusy(true);
+    try {
+      await api.patchItem(item.id, patch);
+      toast.success("已更新");
+      onSaved();
+    } catch (e) {
+      toast.error(`${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const selectCls = "w-full rounded-lg border border-line bg-bg px-2 py-1.5 text-xs text-ink";
+  return (
+    <Modal open onClose={onClose} title={`⚡ 快捷编辑 · ${item.title}`}>
+      <div className="space-y-2 text-xs">
+        <label className="block text-[10px] text-mut">
+          状态
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={`mt-0.5 ${selectCls}`}>
+            {states.length
+              ? states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)
+              : <option value={status}>{status}</option>}
+          </select>
+        </label>
+        <label className="block text-[10px] text-mut">
+          优先级
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className={`mt-0.5 ${selectCls}`}>
+            <option value="">（无）</option>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+          </select>
+        </label>
+        <label className="block text-[10px] text-mut">
+          执行者
+          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={`mt-0.5 ${selectCls}`}>
+            <option value="">（取消指派）</option>
+            {(users.data?.users ?? []).map((u) => (
+              <option key={u.id} value={u.id}>👤 {u.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[10px] text-mut">
+          截止日
+          <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
+            className={`mt-0.5 ${selectCls}`} />
+        </label>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[10px] text-mut">变更走既有 PATCH——流转白名单/闭锁/WIP 全部生效</span>
+          <Button size="sm" variant="primary" disabled={busy} onClick={submit}>保存</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
