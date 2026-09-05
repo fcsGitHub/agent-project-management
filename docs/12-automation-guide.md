@@ -431,3 +431,22 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 
 - **按钮**：加粗 / 斜体 / 行内代码 / 链接 / 无序列表 / 任务清单 / 引用——对 textarea 选区做**包裹插入**（列表/引用/任务为行前缀），无选区插入占位符，插入后恢复焦点与选区（GitHub markdown-toolbar 语义，零新依赖）。
 - **边界**：工具栏只改**草稿文本**，存储仍是纯文本原文；预览/渲染规则见 §17.3。
+
+## 21. 结构与数据管理三件套（M24-I74/I75/I76）
+
+### 21.1 子任务层级（I74）
+
+- **建立**：创建时传 `parent_id`，或列表行内「＋子」快捷创建（预填父与同概念）；PATCH `parent_id` 可改挂（re-parent）。
+- **校验 fail-closed**：父须存在、同项目；re-parent 沿新祖先链上溯查环，成环 422（含自环）。
+- **查看**：列表视图树形缩进（子行随父、▸/▾ 折叠）；「后代」chip 只看某任务的全部递归后代；`GET /items?parent=`（直接子代）/ `?descendants=`（递归）；看板卡片「↳ 父标题」徽标。
+
+### 21.2 CSV 导入导出（I75）
+
+- **模板**：`GET /api/projects/{id}/items/import-template`——固定表头 `title,concept_id,status,priority,start_date,due_date,estimate_hours,parent_title`。
+- **导入**：看板「⬆ 导入 CSV」→ 选择文件或粘贴 → `POST /items/import`。首行必须是表头；`parent_title` 引用已有项或**同文件先导行**（实现层级导入）；逐行走 create_item 全量校验（含日期/概念状态/父校验），坏行单独报错**不整批回滚**。
+- **导出**：`GET /api/projects/{id}/items.csv`（含 parent_title 层级列、UTF-8 BOM，Excel 直接打开）。
+
+### 21.3 泳道避让与多基线（I76）
+
+- **泳道避让**：时间线同一概念行内条形重叠时自动拆分子行（区间图染色贪心：按 start 排序 + min-heap 行末线，O(n log n)），行高随子行数自适应——同概念多条形不再叠在同一水平线。
+- **多基线**：每次「📌 设为基线」追加一条快照历史（旧快照永不改写）；基线下拉可切换显示某一条或「全部基线」（多条幽灵线在子行内上下错开）；偏离基线的幽灵线呈 amber 虚线。「清除基线」清空该项目全部基线历史。
