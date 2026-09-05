@@ -102,6 +102,12 @@ def init_db() -> None:
             rcols = {r["name"] for r in conn.execute("PRAGMA table_info(item_relations)").fetchall()}
             if "lag_days" not in rcols:
                 conn.execute("ALTER TABLE item_relations ADD COLUMN lag_days INTEGER")
+        # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
+        if any(r[0] == "item_comments" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            ccols = {r["name"] for r in conn.execute("PRAGMA table_info(item_comments)").fetchall()}
+            if "edited_at" not in ccols:
+                conn.execute("ALTER TABLE item_comments ADD COLUMN edited_at TEXT")
         # M24-I76: baselines 多条化——存量表带 project_id UNIQUE 约束则重建去约束。
         if any(r[0] == "baselines" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

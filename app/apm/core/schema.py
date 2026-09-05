@@ -312,9 +312,23 @@ CREATE TABLE IF NOT EXISTS item_comments (
   body TEXT NOT NULL,
   mentions TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
+  edited_at TEXT,
   deleted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_item_comments_item ON item_comments(item_id);
+
+-- M26-I81: full revision history of comment edits (the capability Redmine
+-- needs a plugin for and GitLab lacks entirely, #3706) — one row per edit,
+-- holding the *previous* body, keyed deterministically by the event id.
+CREATE TABLE IF NOT EXISTS comment_revisions (
+  id TEXT PRIMARY KEY,
+  comment_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  edited_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comment_revisions_comment ON comment_revisions(comment_id);
 
 CREATE TABLE IF NOT EXISTS item_participants (
   item_id TEXT NOT NULL,
@@ -383,6 +397,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "milestones",
         "saved_views",
         "item_comments",
+        "comment_revisions",
         "item_participants",
         "item_time_entries",
         "extracted_tasks",

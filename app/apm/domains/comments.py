@@ -40,6 +40,27 @@ def _proj_comment_deleted(conn, e):
     conn.execute("UPDATE item_comments SET deleted_at = ? WHERE id = ?", (e.ts, e.agg_id))
 
 
+@on("comment.updated")
+def _proj_comment_updated(conn, e):
+    """Edit (M26-I81): the *previous* body lands in comment_revisions (row id
+    derived from the event id — projection ids must be deterministic), then the
+    comment row gets the new body, refreshed mentions and an edited_at stamp.
+    New mentions join the participant audience but never re-notify (edit noise
+    suppression)."""
+    p = e.payload
+    conn.execute(
+        "INSERT INTO comment_revisions (id, comment_id, project_id, body, edited_by, created_at)"
+        " VALUES (?,?,?,?,?,?)",
+        (f"cr_{e.id}", e.agg_id, e.project_id, p["old_body"], p["editor_id"], e.ts),
+    )
+    conn.execute(
+        "UPDATE item_comments SET body = ?, mentions = ?, edited_at = ? WHERE id = ?",
+        (p["body"], p.get("mentions_json", "[]"), e.ts, e.agg_id),
+    )
+    _join_participants(conn, e.project_id, p.get("item_id"),
+                       [(u, "mentioned") for u in json.loads(p.get("mentions_json", "[]"))])
+
+
 @on("comment.participant")
 def _proj_comment_participant(conn, e):
     p = e.payload
@@ -201,6 +222,56 @@ def get_comment(comment_id: str) -> dict:
     if row is None:
         raise HTTPException(status_code=404, detail=f"unknown comment '{comment_id}'")
     return dict(row)
+
+
+@router.patch("/comments/{comment_id}")
+def edit_comment(comment_id: str, body: CommentIn) -> dict:
+    """Edit own comment (M26-I81): author-only (stricter than delete — no
+    admin override). The old body is preserved as a revision via the
+    comment.updated event; new mentions join the audience without re-notifying."""
+    c = get_comment(comment_id)
+    if c["deleted_at"]:
+        raise HTTPException(status_code=404, detail=f"unknown comment '{comment_id}'")
+    if events.effective_actor() != c["author_id"]:
+        raise HTTPException(status_code=403, detail="only the author can edit a comment")
+    new_body = body.body.strip()
+    if not new_body:
+        raise HTTPException(status_code=422, detail="comment body must not be empty")
+    editor = events.effective_actor()
+    editor_row = db.get_conn().execute(
+        "SELECT name FROM users WHERE id = ?", (editor,)).fetchone()
+    editor_name = editor_row["name"] if editor_row else editor
+    mentions = [(uid, name) for uid, name in _parse_mentions(new_body) if uid != editor]
+    events.emit(
+        event_type="comment.updated",
+        agg_type="comment",
+        agg_id=comment_id,
+        project_id=c["project_id"],
+        payload={
+            "item_id": c["item_id"],
+            "body": new_body,
+            "old_body": c["body"],
+            "editor_id": editor,
+            "editor_name": editor_name,
+            "mentions_json": json.dumps([u for u, _ in mentions]),
+        },
+    )
+    return get_comment(comment_id)
+
+
+@router.get("/comments/{comment_id}/revisions")
+def list_comment_revisions(comment_id: str) -> dict:
+    """Revision history (Redmine comment_edit_history plugin semantics, native
+    here): each edit's previous body with editor and timestamp, newest first."""
+    c = get_comment(comment_id)
+    _gate(c["project_id"])
+    rows = db.get_conn().execute(
+        "SELECT r.*, u.name AS editor_name FROM comment_revisions r"
+        " LEFT JOIN users u ON u.id = r.edited_by"
+        " WHERE r.comment_id = ? ORDER BY r.rowid DESC",
+        (comment_id,),
+    ).fetchall()
+    return {"comment_id": comment_id, "revisions": [dict(r) for r in rows]}
 
 
 @router.delete("/comments/{comment_id}")

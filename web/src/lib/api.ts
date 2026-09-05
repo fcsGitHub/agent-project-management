@@ -42,7 +42,7 @@ export type SavedView = {
 export type ItemComment = {
   id: string; item_id: string; project_id: string; author_id: string;
   author_name?: string | null; body: string; mentions: string;
-  created_at: string; deleted_at: string | null;
+  created_at: string; edited_at?: string | null; deleted_at: string | null;
 };
 export type TimeEntry = {
   id: string; item_id: string; project_id: string; user_id: string;
@@ -322,6 +322,10 @@ export const api = {
   createComment: (itemId: string, body: { body: string }) =>
     req<ItemComment>(`/items/${itemId}/comments`, { method: "POST", body: JSON.stringify(body) }),
   deleteComment: (id: string) => req<{ deleted: string }>(`/comments/${id}`, { method: "DELETE" }),
+  editComment: (id: string, body: { body: string }) =>
+    req<ItemComment>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  listCommentRevisions: (id: string) =>
+    req<{ comment_id: string; revisions: { id: string; body: string; edited_by: string; editor_name?: string | null; created_at: string }[] }>(`/comments/${id}/revisions`),
   extractTask: (commentId: string, body: { text: string; concept_id?: string }) =>
     req<{ extraction_id: string; text: string; item: { id: string; title: string } }>(`/comments/${commentId}/extract-task`, { method: "POST", body: JSON.stringify(body) }),
   subscribeItem: (itemId: string) =>

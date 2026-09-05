@@ -1,7 +1,9 @@
 /** Work-item comments drawer (M18-I57): thread list + composer with @mention
  * completion against project members/users. Reused by Board cards and slices.
  * M20-I64: bodies render as read-only GFM (marked + DOMPurify, docs/01 §S.3);
- * storage stays plain text, composer gains an edit/preview toggle. */
+ * storage stays plain text, composer gains an edit/preview toggle.
+ * M26-I81: author-only inline editing with an "edited" badge and a revision
+ * history expansion (event-sourced comment_revisions — GitLab #3706, closed). */
 import { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,12 +35,30 @@ export function CommentsModal({ itemId, title, onClose }: {
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [historyId, setHistoryId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const comments = useQuery({
     queryKey: ["comments", itemId],
     queryFn: () => api.listItemComments(itemId),
   });
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const revisions = useQuery({
+    queryKey: ["comment-revisions", historyId],
+    queryFn: () => api.listCommentRevisions(historyId!),
+    enabled: !!historyId,
+  });
+
+  // M26-I81: save an inline edit (author-only endpoint; 403 surfaces as toast)
+  const saveEdit = useMutation({
+    mutationFn: (v: { id: string; body: string }) => api.editComment(v.id, { body: v.body }),
+    onSuccess: () => {
+      setEditingId(null);
+      qc.invalidateQueries();
+    },
+    onError: (e) => toast.error(`编辑失败：${e instanceof Error ? e.message : e}`),
+  });
 
   // I67: delegated clicks on the per-comment「转为子任务」buttons
   const extract = useMutation({
@@ -139,19 +159,61 @@ export function CommentsModal({ itemId, title, onClose }: {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{c.author_name ?? c.author_id}</span>
                 <span className="text-[10px] text-mut">{(c.created_at || "").slice(5, 16).replace("T", " ")}</span>
+                {c.edited_at && (
+                  <button title="已编辑——点击查看修订历史"
+                    onClick={() => setHistoryId(historyId === c.id ? null : c.id)}
+                    className="text-[10px] text-mut hover:text-acc">
+                    ✎ 已编辑
+                  </button>
+                )}
+                {c.author_id === me && editingId !== c.id && (
+                  <button
+                    onClick={() => { setEditingId(c.id); setEditDraft(c.body); setHistoryId(null); }}
+                    className="ml-auto text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
+                    title="编辑评论（仅作者）">✎</button>
+                )}
                 <button onClick={() => remove(c.id)}
-                  className="ml-auto text-[10px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100"
+                  className={`${c.author_id === me && editingId !== c.id ? "" : "ml-auto"} text-[10px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100`}
                   title="删除评论">✕</button>
               </div>
-              <div className={MD_BODY}
-                onClick={onBodyClick(c.id)}
-                dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name), {
-                  extracted: new Map((comments.data?.extracted ?? [])
-                    .filter((x) => x.comment_id === c.id)
-                    .map((x) => [x.text, x.item_id])),
-                  extractable: true,
-                  boardPath: pid ? `#/p/${pid}/board` : undefined,
-                }) }} />
+              {editingId === c.id ? (
+                <div className="mt-1 space-y-1">
+                  <textarea
+                    className="w-full rounded-lg border border-line bg-bg px-2 py-1.5 text-xs"
+                    rows={3} value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)} />
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => setEditingId(null)}
+                      className="text-[10px] text-mut hover:text-ink">取消</button>
+                    <Button size="sm" variant="primary" disabled={!editDraft.trim()}
+                      onClick={() => saveEdit.mutate({ id: c.id, body: editDraft.trim() })}>保存</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className={MD_BODY}
+                  onClick={onBodyClick(c.id)}
+                  dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name), {
+                    extracted: new Map((comments.data?.extracted ?? [])
+                      .filter((x) => x.comment_id === c.id)
+                      .map((x) => [x.text, x.item_id])),
+                    extractable: true,
+                    boardPath: pid ? `#/p/${pid}/board` : undefined,
+                  }) }} />
+              )}
+              {historyId === c.id && (
+                <div className="mt-1 space-y-1 rounded-lg bg-bg px-2 py-1.5">
+                  <div className="text-[10px] font-medium text-mut">修订历史（旧文倒序）</div>
+                  {(revisions.data?.revisions ?? []).map((r) => (
+                    <div key={r.id} className="border-t border-line pt-1 text-[10px] first:border-0 first:pt-0">
+                      <span className="text-mut">{(r.created_at || "").slice(5, 16).replace("T", " ")} · {r.editor_name ?? r.edited_by} 编辑前：</span>
+                      <div className="whitespace-pre-wrap text-ink">{r.body}</div>
+                    </div>
+                  ))}
+                  {!revisions.data?.revisions.length && (
+                    <div className="text-[10px] text-mut">暂无修订记录</div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {!comments.data?.comments.length && (

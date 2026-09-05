@@ -218,3 +218,56 @@ def test_task_list_extraction(client, pid):
     lst = client.get(f"/api/items/{item['id']}/comments").json()
     assert [x["text"] for x in lst["extracted"]] == ["写部署文档"]
     assert lst["comments"][0]["body"] == body
+
+
+def test_comment_edit_and_revisions(client, pid):
+    """M26-I81: author-only edit, revision chain (newest first), edit noise
+    suppression (new mentions join the audience but never re-notify), and
+    deterministic revision ids surviving rebuild."""
+    client.post("/api/users", json={"id": "u_bob", "name": "Bob"})
+    item = _mk_item(client, pid, "编辑目标")
+    c = _comment(client, pid, item["id"], "初稿内容")
+
+    # non-author is refused even in local mode (edit is stricter than delete)
+    saved = config.settings.user_id
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_bob"})
+        assert client.patch(f"/api/comments/{c['id']}", json={"body": "改别人的"}).status_code == 403
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+
+    # author edits: new body applies, old body lands in revisions
+    r = client.patch(f"/api/comments/{c['id']}", json={"body": "定稿内容 @Bob"})
+    assert r.status_code == 200, r.text
+    edited = r.json()
+    assert edited["body"] == "定稿内容 @Bob" and edited["edited_at"]
+    rev = client.get(f"/api/comments/{c['id']}/revisions").json()["revisions"]
+    assert len(rev) == 1 and rev[0]["body"] == "初稿内容"
+    assert rev[0]["edited_by"] == "u_admin" and rev[0]["comment_id"] == c["id"]
+
+    # edit noise suppression: newly mentioned user got NO mention notification,
+    # but did join the participant audience
+    try:
+        client.post("/api/session/identity", json={"user_id": "u_bob"})
+        notes = client.get("/api/notifications").json()["notifications"]
+        assert all(n["kind"] != "mention" for n in notes)
+    finally:
+        client.post("/api/session/identity", json={"user_id": saved})
+    parts = client.get(f"/api/items/{item['id']}/comments").json()["participants"]
+    assert any(p["user_id"] == "u_bob" and p["source"] == "mentioned" for p in parts)
+
+    # blank edit rejected
+    assert client.patch(f"/api/comments/{c['id']}", json={"body": "   "}).status_code == 422
+
+    # second edit → second revision on top, newest first
+    client.patch(f"/api/comments/{c['id']}", json={"body": "二稿"})
+    revisions = client.get(f"/api/comments/{c['id']}/revisions").json()["revisions"]
+    assert [x["body"] for x in revisions] == ["定稿内容 @Bob", "初稿内容"]
+    ids_before = [x["id"] for x in revisions]
+
+    # rebuild replays the whole chain deterministically
+    projections.rebuild()
+    revisions2 = client.get(f"/api/comments/{c['id']}/revisions").json()["revisions"]
+    assert [x["id"] for x in revisions2] == ids_before
+    final = client.get(f"/api/items/{item['id']}/comments").json()["comments"][0]
+    assert final["body"] == "二稿" and final["edited_at"]
