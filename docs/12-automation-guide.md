@@ -623,3 +623,24 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **交互**：列表视图「按组聚合」下拉（概念/状态/优先级/执行者/自定义字段——复用 M6 fieldOptions）→ 组头行显示「组名 · n 项 · ⏱ 合计」，点击折叠；「全部展开」一键还原。
 - **口径**：分组作用于**已显示行**（I79 渐进渲染兼容——「加载更多」后再分组），组内保持树序（父子缩进保留），组间按首次出现排序；spent 合计取 `spent_minutes` 投影列。
 - **数据源**：零新端点——组头数字与看板列计数同源（同批 items 投影），冒烟 38 逐桶对账。
+
+## 30. 纵深三件套（M33-I101/I102/I103）
+
+### 30.1 关键路径高亮（I101）
+
+- **端点**：`GET /api/projects/{id}/critical-path`——活跃已排期项（有 start/due 且非 done/cancelled）按 depends_on（含 lag）建 DAG，Kahn 拓扑排序（环安全：存在环输出 `cycle: true` 且不出残链）。
+- **算法**：逆向传递 `latest_finish[n] = min(latest_fin[m] − duration[m] − lag)`（后继工期先被扣掉）；无后继项 latest_finish = 项目 max due；`float = latest_finish − due`，**float ≤ 0 入关键链**（负 float = 排程已冲突，最该红）。基于实际排期日的简化 CPM——不重算理论 ES/LS，直接答「这项最多能滑几天」。
+- **前端**：TimelinePage「⛔ 关键路径」开关（环时 title 提示不可算）→ 关键项条形红框（ring-red-500）。
+
+### 30.2 子任务进度汇总（I102）
+
+- **口径**：`lib/rollup.ts subtaskProgress`——per 父任务统计**直接**子任务 done 数/总数 + spent_minutes 合计；孙任务向直接父汇总**不跨级**（GitHub sub-issue 单层语义，递归会稀释完成度且环检测昂贵）。
+- **UI**：看板父卡「🧩 n/m」徽标（全完成转绿）、列表父行同徽标、TimelinePage 父条形底部 emerald 微型进度条（done 百分比）。
+- **实现**：纯前端 useMemo 聚合（items 响应已含全部所需字段）——零后端、三处视图共享同一 Map、单层口径在 vitest 固化。
+
+### 30.3 工作项归档与回收站（I103）
+
+- **语义**：软删除可逆——`item.archived` / `item.restored` 显式事件（payload 带标题），items 投影 `archived_at` 列（存量库 ALTER 迁移）。归档≠删除：事件溯源下恢复零成本、永不真删。
+- **排除面**：`list_items` 默认 `archived_at IS NULL`——看板/列表/时间线/报表等所有走该函数的入口自动排除；critical-path 同步排除（归档任务退出关键链）。
+- **API**：`POST /api/items/{id}/archive`（重复归档 409）、`POST /api/items/{id}/restore`（未归档 409）、`GET /api/projects/{id}/trash`（归档项列表，按归档时间倒序）。
+- **UI**：看板卡片「🗄」按钮（confirm 后归档）+ 视图切换条「🗑」回收站抽屉（列表 + 一键恢复）。
