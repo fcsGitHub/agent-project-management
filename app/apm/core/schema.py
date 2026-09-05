@@ -279,6 +279,18 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
 
+-- I96: per-kind notification preference (runtime state, NOT an event projection —
+-- deliberately absent from drop_projections so rebuilds keep user preferences,
+-- same semantics as users.email_notify/feed_key). Missing row = fully on.
+CREATE TABLE IF NOT EXISTS notification_prefs (
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  inapp INTEGER NOT NULL DEFAULT 1,
+  email INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS milestones (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,

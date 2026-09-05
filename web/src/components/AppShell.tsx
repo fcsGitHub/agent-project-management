@@ -248,6 +248,41 @@ export function AppShell() {
 
 const KIND_ICON: Record<string, string> = { assigned: "👤", approval: "◆", rule_notify: "⚡", notify: "🔔" };
 
+/** I96: per-kind × channel preference matrix (GitLab Custom level). mention is
+ *  checked and disabled — the API refuses to turn it off anyway (fail-closed). */
+function KindPrefMatrix() {
+  const qc = useQueryClient();
+  const prefs = useQuery({ queryKey: ["notif-prefs"], queryFn: api.getNotificationPrefs });
+  const put = async (kind: string, inapp: boolean, email: boolean) => {
+    try {
+      await api.putNotificationPrefs({ prefs: [{ kind, inapp, email }] });
+      await qc.invalidateQueries({ queryKey: ["notif-prefs"] });
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  if (!prefs.data) return null;
+  return (
+    <div className="space-y-1 pt-1">
+      <div className="flex items-center gap-2 text-[10px] text-mut">
+        <span className="flex-1">按事件类型</span>
+        <span className="w-6 text-center">站内</span>
+        <span className="w-6 text-center">邮件</span>
+      </div>
+      {prefs.data.kinds.map((k) => (
+        <div key={k.kind} className="flex items-center gap-2 text-xs">
+          <span className="flex-1 truncate" title={k.kind}>{k.label}</span>
+          <input type="checkbox" checked={k.inapp} disabled={k.kind === "mention"}
+            title={k.kind === "mention" ? "@提及永远送达" : undefined}
+            onChange={(e) => put(k.kind, e.target.checked, k.email)} />
+          <input type="checkbox" checked={k.email} disabled={k.kind === "mention"}
+            onChange={(e) => put(k.kind, k.inapp, e.target.checked)} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** In-app notification center (M10-I34): unread badge + latest list + mark-read.
  *  Footer doubles as notification preferences (M11-I37): email switch + feed key. */
 function NotificationsBell() {
@@ -350,6 +385,7 @@ function NotificationsBell() {
               <input type="checkbox" checked={notes.data?.email_enabled ?? true} onChange={toggleEmail} />
               <span>邮件通知{notes.data?.email_enabled ? "（开启）" : "（已关，站内照常）"}</span>
             </label>
+            <KindPrefMatrix />
             <div className="flex items-center gap-2">
               <button onClick={loadFeedKey} className="text-[11px] text-acc hover:underline">
                 {showKey ? "隐藏 feed key" : "Atom 订阅 key"}

@@ -601,6 +601,12 @@ export const api = {
     req<{ ok: boolean }>("/notifications/read", { method: "POST", body: JSON.stringify(body) }),
   setNotificationPrefs: (body: { email_enabled: boolean }) =>
     req<{ user_id: string; email_enabled: boolean }>("/notifications/prefs", { method: "POST", body: JSON.stringify(body) }),
+  // I96: per-kind × channel matrix (GitLab Custom level); mention is locked on.
+  getNotificationPrefs: () =>
+    req<{ email_enabled: boolean; kinds: { kind: string; label: string; inapp: boolean; email: boolean }[] }>(
+      "/me/notification-prefs"),
+  putNotificationPrefs: (body: { prefs: { kind: string; inapp: boolean; email: boolean }[] }) =>
+    req<{ ok: boolean }>("/me/notification-prefs", { method: "PUT", body: JSON.stringify(body) }),
   getFeedKey: () =>
     req<{ user_id: string; feed_key: string; created: boolean }>("/me/feed-key"),
   rotateFeedKey: () =>

@@ -26,6 +26,28 @@ NOTIFY_EVENTS = (
     "comment.created", "item.status_changed",
 )
 
+# I96 (docs/01 §AD.2, GitLab Custom level): per-kind delivery gates. mention is
+# always deliverable — every other kind defaults to on when no pref row exists.
+NOTIFY_KINDS: dict[str, str] = {
+    "assigned": "指派给我",
+    "approval": "审批请求",
+    "comment": "参与项新评论",
+    "item": "参与项状态变更",
+    "mention": "@提及",
+}
+
+
+def pref_allows(conn, user_id: str, kind: str, channel: str) -> bool:
+    """Single delivery gate both channels call (GitLab #410008 lesson: gate at
+    the delivery path, once per channel, never ad hoc). mention is unfailable."""
+    if kind == "mention":
+        return True
+    row = conn.execute(
+        f"SELECT {channel} FROM notification_prefs WHERE user_id = ? AND kind = ?",
+        (user_id, kind),
+    ).fetchone()
+    return bool(row[channel]) if row else True
+
 
 def _item_title(conn, item_id: str) -> str:
     row = conn.execute("SELECT title FROM items WHERE id = ?", (item_id,)).fetchone()
@@ -83,6 +105,8 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
 def _notify(conn, e, user_id: str, kind: str, summary: str) -> None:
     if not user_id:
         return
+    if not pref_allows(conn, user_id, kind, "inapp"):
+        return  # I96: per-kind in-app gate
     # Deterministic id (source event seq + user): rebuild reproduces the exact
     # same ids, so notification.read payload ids keep matching after replay.
     conn.execute(
@@ -194,6 +218,57 @@ def set_prefs(body: PrefsIn) -> dict:
     )
     conn.commit()
     return {"user_id": user_id, "email_enabled": body.email_enabled}
+
+
+class KindPrefIn(BaseModel):
+    kind: str
+    inapp: bool
+    email: bool
+
+
+class KindPrefsIn(BaseModel):
+    prefs: list[KindPrefIn]
+
+
+@router.get("/me/notification-prefs")
+def get_kind_prefs() -> dict:
+    """I96: per-kind × channel matrix; missing rows are fully-on defaults."""
+    user_id = events.effective_actor()
+    conn = db.get_conn()
+    rows = {r["kind"]: r for r in conn.execute(
+        "SELECT kind, inapp, email FROM notification_prefs WHERE user_id = ?", (user_id,))}
+    pref = conn.execute(
+        "SELECT email_notify FROM users WHERE id = ?", (user_id,)).fetchone()
+    return {
+        "email_enabled": bool(pref["email_notify"]) if pref else True,
+        "kinds": [
+            {"kind": k, "label": label,
+             "inapp": bool(rows[k]["inapp"]) if k in rows else True,
+             "email": bool(rows[k]["email"]) if k in rows else True}
+            for k, label in NOTIFY_KINDS.items()
+        ],
+    }
+
+
+@router.put("/me/notification-prefs")
+def put_kind_prefs(body: KindPrefsIn) -> dict:
+    user_id = events.effective_actor()
+    bad = [p.kind for p in body.prefs if p.kind not in NOTIFY_KINDS]
+    if bad:
+        raise HTTPException(status_code=422, detail=f"unknown kinds: {bad}")
+    if any(p.kind == "mention" and not (p.inapp and p.email) for p in body.prefs):
+        raise HTTPException(status_code=422, detail="mention notifications cannot be turned off")
+    conn = db.get_conn()
+    now = events.utcnow()
+    for p in body.prefs:
+        conn.execute(
+            "INSERT INTO notification_prefs (user_id, kind, inapp, email, updated_at)"
+            " VALUES (?,?,?,?,?) ON CONFLICT(user_id, kind) DO UPDATE SET"
+            " inapp=excluded.inapp, email=excluded.email, updated_at=excluded.updated_at",
+            (user_id, p.kind, 1 if p.inapp else 0, 1 if p.email else 0, now),
+        )
+    conn.commit()
+    return {"ok": True, "user_id": user_id}
 
 
 @router.post("/notifications/read")

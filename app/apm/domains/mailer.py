@@ -19,7 +19,7 @@ from email.message import EmailMessage
 
 from apm import config
 from apm.core import db, events
-from apm.domains.notifications import NOTIFY_EVENTS, plan_notifications
+from apm.domains.notifications import NOTIFY_EVENTS, plan_notifications, pref_allows
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,8 @@ def enqueue(event: events.Event) -> None:
         return
     conn = db.get_conn()
     for user_id, kind, summary in pairs:
+        if not pref_allows(conn, user_id, kind, "email"):
+            continue  # I96: per-kind email gate (same gate the in-app channel uses)
         row = conn.execute(
             "SELECT email, email_notify FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row or not row["email"]:
