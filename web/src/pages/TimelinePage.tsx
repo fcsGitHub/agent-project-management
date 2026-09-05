@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { Item } from "../lib/api";
 import { Card, Empty, cx } from "../components/ui";
+import { subtaskProgress } from "../lib/rollup";
 
 const DAY = 86_400_000;
 const ROW_H = 40;
@@ -53,6 +54,8 @@ export function TimelinePage() {
   const cp = useQuery({ queryKey: ["critical-path", pid], queryFn: () => api.getCriticalPath(pid!), enabled: !!pid });
   const [showCP, setShowCP] = useState(false);
   const criticalIds = useMemo(() => new Set(showCP && !cp.data?.cycle ? cp.data?.chain ?? [] : []), [showCP, cp.data]);
+  // I102: subtask progress for the mini progress bars on parent bars
+  const subProgress = useMemo(() => subtaskProgress(items.data?.items ?? []), [items.data]);
   const variance = useQuery({
     queryKey: ["variance", pid, blFilter],
     queryFn: () => api.baselineVariance(pid!, blFilter === "all" ? undefined : blFilter),
@@ -450,6 +453,12 @@ export function TimelinePage() {
                         className={`group absolute h-4 -translate-y-1/2 cursor-grab touch-none rounded-full active:cursor-grabbing ${tone} ${dragging ? "opacity-50" : ""} ${criticalIds.has(d.item.id) ? "ring-2 ring-red-500 ring-offset-1 ring-offset-transparent" : ""}`}
                         style={{ left: `${left}%`, width: `${width}%`, top: laneTop + ROW_H / 2 }}
                       >
+                        {subProgress.get(d.item.id) && (
+                          <div className="absolute bottom-0 left-1 right-1 h-0.5 overflow-hidden rounded bg-black/25">
+                            <div className="h-full rounded bg-emerald-400"
+                              style={{ width: `${Math.round((subProgress.get(d.item.id)!.done / subProgress.get(d.item.id)!.total) * 100)}%` }} />
+                          </div>
+                        )}
                         <div
                           onPointerDown={(e) => beginDrag(e, d, "resize")}
                           title="拖动右缘改截止日"
