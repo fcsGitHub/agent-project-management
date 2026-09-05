@@ -5,7 +5,18 @@ off → silent; mention refused off and still delivered), then a rebuild pass
 proving prefs persist and numbers replay byte-stable."""
 import pytest
 
+from apm import config
 from apm.core import events, projections
+
+
+@pytest.fixture(autouse=True)
+def _restore_identity():
+    """Smoke 37 switches identity mid-flow; without restoring, the process-global
+    settings.user_id leaks into tests that run later in the same session (the
+    first smoke case ever to switch identity — timelog/users assert u_admin)."""
+    saved = config.settings.user_id
+    yield
+    config.settings.user_id = saved
 
 
 @pytest.mark.smoke

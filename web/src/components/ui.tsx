@@ -207,6 +207,16 @@ export function Modal({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // I95/SHORTCUTS contract: "Esc 关闭弹窗" — every open modal listens for
+  // Escape (an overlay that handled it first sets defaultPrevented).
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
