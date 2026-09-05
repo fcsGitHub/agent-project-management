@@ -22,6 +22,7 @@ const RAIL = [
   { to: "/runs", label: "Runs", icon: Activity },
   { to: "/my/work", label: "我的工作", icon: ListTodo, global: true },
   { to: "/my/time", label: "我的工时", icon: CalendarClock, global: true },
+  { to: "/my/schedule", label: "我的日程", icon: CalendarRange, global: true },
   { to: "/roadmap", label: "路线图", icon: MapIcon, global: true },
   { to: "/workload", label: "负载", icon: Users, global: true },
   { to: "/assets", label: "Assets", icon: Library, global: true },

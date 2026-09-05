@@ -23,6 +23,7 @@ import { MyTimePage } from "./pages/MyTimePage";
 import { SearchPage } from "./pages/SearchPage";
 import { RoadmapPage } from "./pages/RoadmapPage";
 import { WorkloadPage } from "./pages/WorkloadPage";
+import { SchedulePage } from "./pages/SchedulePage";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/my/time" element={<MyTimePage />} />
         <Route path="/roadmap" element={<RoadmapPage />} />
         <Route path="/workload" element={<WorkloadPage />} />
+        <Route path="/my/schedule" element={<SchedulePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

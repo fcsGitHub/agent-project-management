@@ -408,3 +408,24 @@ def my_work() -> dict:
     ).fetchone()["m"]
     return {"user_id": me, "items": items, "approvals": approvals, "projects": projects,
             "week_minutes": week_minutes}
+
+
+@router.get("/my/schedule")
+def my_schedule() -> dict:
+    """Personal cross-project schedule (M29-I89, docs/01 §AB.1): every item
+    assigned to the caller that carries a date, with project names — the data
+    source for the drag-to-reschedule month calendar. Own-data caliber (same
+    as /my/work): assignment is authorization."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT i.id, i.title, i.status_group, i.priority, i.start_date, i.due_date,"
+        " i.project_id, p.name AS project_name"
+        " FROM items i JOIN projects p ON p.id = i.project_id"
+        " WHERE i.assignee_type = 'human' AND i.assignee_id = ?"
+        " AND i.project_id IN (SELECT id FROM projects WHERE status != 'archived')"
+        " AND (i.start_date IS NOT NULL OR i.due_date IS NOT NULL)"
+        " ORDER BY COALESCE(i.due_date, i.start_date)",
+        (me,),
+    ).fetchall()
+    return {"items": [dict(r) for r in rows], "today": _now().date().isoformat()}

@@ -82,6 +82,11 @@ export type MemberWorkload = {
   projects: Record<string, number>;
 };
 export type WorkloadData = { members: MemberWorkload[]; today: string; generated_at: string };
+export type MyScheduleItem = {
+  id: string; title: string; status_group: string; priority?: string | null;
+  start_date?: string | null; due_date?: string | null;
+  project_id: string; project_name: string;
+};
 export type Run = {
   id: string; project_id?: string; conversation_id: string; agent_role?: string;
   item_id?: string; status: string; started_at?: string; ended_at?: string;
@@ -325,6 +330,8 @@ export const api = {
   getTimelogReport: (id: string, days = 14) =>
     req<TimelogReport>(`/projects/${id}/timelog_report?days=${days}`),
   getMyWork: () => req<MyWork>("/my/work"),
+  getMySchedule: () =>
+    req<{ items: MyScheduleItem[]; today: string }>("/my/schedule"),
   getMyTimelog: (days = 60) => req<MyTimelog>(`/my/timelog?days=${days}`),
 
   listMilestones: (pid: string) => req<{ milestones: Milestone[] }>(`/projects/${pid}/milestones`),
@@ -448,7 +455,7 @@ export const api = {
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
   batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>
     req<{ results: { id: string; ok: boolean; error?: string }[]; updated: number }>(`/projects/${pid}/items/batch-patch`, { method: "POST", body: JSON.stringify({ ids, patch }) }),
-  createItem: (pid: string, body: { concept_id: string; title: string; parent_id?: string; status?: string; priority?: string }) =>
+  createItem: (pid: string, body: { concept_id: string; title: string; parent_id?: string; status?: string; priority?: string; assignee_type?: string; assignee_id?: string; start_date?: string; due_date?: string; milestone_id?: string }) =>
     req<Item>(`/projects/${pid}/items`, { method: "POST", body: JSON.stringify(body) }),
   importItems: (pid: string, csv: string) =>
     req<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string; item_id?: string }[] }>(`/projects/${pid}/items/import`, { method: "POST", body: JSON.stringify({ csv }) }),
