@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M26 审阅通过，下一步 M27 调研定义——先 grep docs/01 防重查）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M27 已定义：排期深化三件套，下一步 I83 lag 排期联动）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -40,6 +40,7 @@
 - **M24 结构与数据管理三件套（I74-I76，审阅通过，代码补交 9200f14）**：子任务层级（`_validate_parent` 防环 + ItemPatch re-parent + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标）、CSV 导入导出（固定表头 + parent_title 引用 + 逐行校验报告——**行级 try 需捕 ValueError/TypeError**，float() 数据错误曾逃逸致 500 + 模板 + items.csv 导出 + 导入弹窗）、泳道避让（时间线概念行内子行贪心分配，区间染色 O(n log n)——修 M21 重叠 C 级）与多基线（baselines 去 UNIQUE + **db.py 存量迁移重建表** + set 追加历史 + 列表/切换）；docs/12 §21；冒烟 30。
 - **M25 计划治理深化三件套（I77-I79，审阅通过 2fca11f）**：I77 基线偏差表（`GET /baseline-variance?baseline_id=&include_same=` 当前−基线天数偏差 + 汇总 + TimelinePage 偏差抽屉正红负绿）、I78 blocks 闭锁与关系可视化（**KERNEL_RELATIONS 增 blocks/precedes/relates**[blocked_by 存储单向不入内核] + change_status 前置守卫 422 "blocked by X" 全入口继承 + item_relations.lag_days 列/ALTER 迁移/载荷透传 + 时间线连线 EDGE_STYLE 分类型[depends_on 红虚/blocks 橙实/precedes 灰虚/relates 点线]）、I79 列表分页（`?limit=&offset=` 缺省全量兼容 + total 过滤后计数 + limit 钳 1-200 + 列表渐进渲染「加载更多」——重置按 **id 签名**防 refetch 误重置，审阅即修 d68ff25）+ docs/12 §22；冒烟 31。
 - **M26 流程纪律三件套（I80-I82，审阅通过 7a67013）**：I80 看板 WIP 限制（本体 `board_defaults.wip_limits`[generic=4/software-dev=5] + board resp `wip` **全项目口径**计数[Kanboard「计全部 open 非过滤后」修复语义] + 列头「n/limit」徽标超限红 ⚠ 软约束不拦截；test_wip_limits 4 项）、I81 评论编辑与修订史（`PATCH /comments/{id}` 仅作者 + comment.updated 事件 + comment_revisions 投影[id=cr_{事件id} 确定性、rowid 倒序] + edited_at 列/迁移/drop 清单 + 「✎ 已编辑」徽标行内历史/作者行内编辑 + 新提及入图零通知；test_comments 8 项）、I82 状态流转白名单（Concept.transitions 可选声明**缺省全兼容** + validate_transition fail-closed 接入 change_status 与 blocks 同层全入口一致 + software-dev bug 白名单[open 不能直跳 verified]；test_transitions 2 项；test_reports 触发器迁移走合法链）+ docs/12 §23；冒烟 32。
+- **M27 排期深化三件套（docs/01 §Z + docs/10 §M27，已定义）**：I83 lag 排期联动（M14 传播引擎接入 I78 的 lag_days——后继 start=前置 due+1+lag，**正 lag 间隔/负 lead 重叠**，日历日口径[MS Project edays 语义]、时间线连线「+N 天」注记、仅 auto_scheduled 项传播）/ I84 跨项目里程碑路线图（`GET /portfolio/roadmap` `_visible` 三层同组合总览口径 + 「📅 路线图」页：行=项目、条=里程碑+进度+超期+今日线——补 GitLab epic #1105 跨项目缺口）/ I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** item.status_changed 的 done 首达日累计 → 剩余曲线 vs 理想线，零新表 + 报表「🔥 燃尽」卡 + 周速率注记）+ docs/12 §24 + 冒烟 33 于 I85 + 审阅，约 9 人日。
 - **当前验证基线：pytest 198 全绿；冒烟 32 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
@@ -62,8 +63,12 @@
 10. ~~M26-I81 评论编辑与修订史~~ ✅ **已完成**（`ce89168`+docs `5b1bdd8`）：仅作者 403、comment.updated + comment_revisions（cr_{事件id} 确定性、rowid 倒序防 cr_9/cr_10 错排）、edited_at 列+迁移+drop 清单、新提及入图零通知；前端「✎ 已编辑」徽标/行内历史/作者行内编辑；test_comments 8 项绿。
 11. ~~M26-I82 流转白名单 + 收尾~~ ✅ **已完成**（`8602264`+docs `0b8a955`）：transitions 声明（缺省全兼容）+ change_status 同层守卫 + bug 白名单示例 + docs/12 §23 + 冒烟 32 GREEN；全量回归 **198 绿**（test_reports 触发器迁移：新鲜 bug 走 fixing→fixed→verified 合法链）。
 12. ~~M26 正式审阅~~ ✅ **已通过**（`7a67013`，附录 B）：I82 全量 **pytest 198** 绿（= 审阅代码态）+ 冒烟 **32** GREEN + build/vitest 绿；DoD 逐项 ✓；复演三件套（WIP「6/5 ⚠」红徽标[清 SW 旧 precache 后方现——坑 #90 再验证] / 评论已编辑徽标+修订历史 / 白名单 422 toast 全文[DOM 断言；toast 截图通道超时未成，DOM 证据为准] + 合法链 fixing 成功）+ API 双核对 + console 0 错误；半成品库按纪律整库重建重 seed（events append-only 不可单删）。
-13. **M27 调研定义（下一步）**：先 `grep docs/01` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M27 + 看板行 + 附录 A →「M§ 调研定义」提交。候选池：lag 自动排期联动（I78 接口已备：precedes lag_days）、评论删除/软删除、transition 必填字段、跨项目工时聚合深化、本体版本事件级归档（导出快照形态，两次论证）、widget 拖装；digest（三次论证）/打印 PDF（Enterprise 面价值低）不再查。
-14. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
+13. ~~M27 调研定义~~ ✅ **已完成**（`89b2f58`，docs/01 §Z + docs/10 §M27）：防重查（评论删除 M18 已实现/归档四次/digest 三次/Cycles 已论证——不查）→ 三路调研 → 选定**排期深化三件套** I83-I85（lag 联动/跨项目路线图/里程碑燃尽）。
+14. **M27-I83 lag 排期联动（下一步）**（§Z.1）：M14 传播引擎（`domains/scheduling.py`，见 test_scheduling.py）接入 lag_days——后继 start=前置 due+1+lag（正/负），日历日口径；时间线连线「+N 天」注记（EDGE_STYLE 渲染处）；单测（lag=0 等价/+2 顺移/-1 重叠/链式累积/rebuild 一致）。
+15. **M27-I84 跨项目里程碑路线图**（§Z.2）：`GET /portfolio/roadmap`（reports.py 的 `_visible` 同款）+ 「📅 路线图」页（Dashboard 组合卡入口 + 顶导航 AppShell）；单测（可见性裁剪/聚合/空态/rebuild）。
+16. **M27-I85 里程碑燃尽 + 收尾**（§Z.3）：`GET /milestones/{id}/burndown` 事件重放（done 首达日=from 非 done→to done 的 status_changed 按日累计）+ 报表「🔥 燃尽」卡（SVG 折线+今日线+周速率注记）；docs/12 §24；**冒烟 33**（lag 传播/路线图对账/燃尽重放 vs 手算 + rebuild 一致）。
+17. **M27 正式审阅**：HEAD 重跑全量（pytest 198+ / 冒烟 32+33 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M27 正式审阅通过」提交。
+18. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
 
