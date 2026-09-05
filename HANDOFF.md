@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M25 已定义（计划治理深化三件套），下一步 I77 基线偏差表）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M25 进行中：I77 已完成，下一步 I78 blocks 闭锁与关系可视化）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -55,7 +55,7 @@
 1c. ~~M24-I75 CSV 导入导出~~ ✅ **已完成**（`c3905a3`+docs）：import 端点（固定表头 + parent_title 引用 + 逐行校验报告，**日期校验补在导入循环内**——create_item 不含日期校验）+ 模板/items.csv 导出 +「⬆ 导入 CSV」弹窗；test_csv_import.py 全绿。
 2. ~~M24-I76 泳道避让与多基线 + 收尾~~ ✅ **已完成**（`978f673`）：时间线子行贪心分配（区间染色，行高自适应）+ baselines 多条化（去 UNIQUE 存量迁移 + 追加历史 + 列表/切换）+ docs/12 §21；**冒烟 30 GREEN（基线 30）**。坑：无日期项不入基线快照；CSV 行必须 8 列对位。
 3. ~~M24 正式审阅~~ ✅ **已通过**（566967d，附录 B；审阅即修 CSV 导入 ValueError 500 eb16d19；I76 源码漏 stage 补交 9200f14）。~~M25 调研定义~~ ✅ **已完成**（docs/01 §X + docs/10 §M25）：选定**计划治理深化三件套**（MS Project Variance 表吸收 / OpenProject blocks 闭锁·lag 吸收 / GitLab 分页指南吸收）。
-4. **下一步：M25-I77 基线偏差表**（docs/01 §X.1）：`GET /projects/{id}/baseline-variance?baseline_id=`（缺省最新；逐已排期项 start/due 偏差天数（当前−基线）+ 仅列有偏差项（include_same=1 全列）+ 汇总行）+ TimelinePage「📊 偏差表」抽屉（正红负绿）。**只跑相关验证。**
+4. ~~M25-I77 基线偏差表~~ ✅ **已完成**（`5772f52`+docs）：`GET /baseline-variance?baseline_id=&include_same=`（当前−基线天数偏差、未变化省略、汇总行）+ TimelinePage「📊 偏差表」抽屉（正红负绿）；test_baselines 3 项绿。注意 §4 计划表行与 §7 看板行锚点区分（本次误替换已恢复）。
 5. **M25-I78 blocks 闭锁与关系可视化**（§X.2）：change_status 守卫（存在未完结 blocks→本项 且 blocker 非 done/cancelled → 422 "blocked by X"）+ 时间线连线按类型分样式（blocks 橙实线/precedes 灰虚线/relates 点线）+ item_relations 加 lag_days 列（ALTER）+ POST relations 可带 lag；**动 change_status → 升级全量回归**。
 6. **M25-I79 列表分页 + 收尾**（§X.3）：`GET /items?limit=&offset=`（缺省全量兼容、limit 钳 1-200）+ 响应 total + 列表「加载更多」（与树形/选择/批量兼容）；docs/12 §22；**新增冒烟 31**（偏差表对账/blocks 闭锁矩阵/分页 total 语义 + rebuild 一致）。
 7. **M25 正式审阅**：审阅时点 HEAD 重跑**全量**（pytest 185+ / 冒烟 30+31 / vitest+build）+ I77/I78/I79 DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M25 正式审阅通过」提交。之后 M26 调研定义（先 grep docs/01 防重查）。
