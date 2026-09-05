@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M27 进行中：I83/I84 已完成，下一步 I85 里程碑燃尽）
+# HANDOFF —— 写给下一个新会话（2026-09-05 更新 · M27 进行中：I83/I84/I85 已完成，下一步正式审阅）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -40,8 +40,8 @@
 - **M24 结构与数据管理三件套（I74-I76，审阅通过，代码补交 9200f14）**：子任务层级（`_validate_parent` 防环 + ItemPatch re-parent + `?parent=`/`?descendants=` + 列表缩进树/「＋子」/后代 chip + 卡片父徽标）、CSV 导入导出（固定表头 + parent_title 引用 + 逐行校验报告——**行级 try 需捕 ValueError/TypeError**，float() 数据错误曾逃逸致 500 + 模板 + items.csv 导出 + 导入弹窗）、泳道避让（时间线概念行内子行贪心分配，区间染色 O(n log n)——修 M21 重叠 C 级）与多基线（baselines 去 UNIQUE + **db.py 存量迁移重建表** + set 追加历史 + 列表/切换）；docs/12 §21；冒烟 30。
 - **M25 计划治理深化三件套（I77-I79，审阅通过 2fca11f）**：I77 基线偏差表（`GET /baseline-variance?baseline_id=&include_same=` 当前−基线天数偏差 + 汇总 + TimelinePage 偏差抽屉正红负绿）、I78 blocks 闭锁与关系可视化（**KERNEL_RELATIONS 增 blocks/precedes/relates**[blocked_by 存储单向不入内核] + change_status 前置守卫 422 "blocked by X" 全入口继承 + item_relations.lag_days 列/ALTER 迁移/载荷透传 + 时间线连线 EDGE_STYLE 分类型[depends_on 红虚/blocks 橙实/precedes 灰虚/relates 点线]）、I79 列表分页（`?limit=&offset=` 缺省全量兼容 + total 过滤后计数 + limit 钳 1-200 + 列表渐进渲染「加载更多」——重置按 **id 签名**防 refetch 误重置，审阅即修 d68ff25）+ docs/12 §22；冒烟 31。
 - **M26 流程纪律三件套（I80-I82，审阅通过 7a67013）**：I80 看板 WIP 限制（本体 `board_defaults.wip_limits`[generic=4/software-dev=5] + board resp `wip` **全项目口径**计数[Kanboard「计全部 open 非过滤后」修复语义] + 列头「n/limit」徽标超限红 ⚠ 软约束不拦截；test_wip_limits 4 项）、I81 评论编辑与修订史（`PATCH /comments/{id}` 仅作者 + comment.updated 事件 + comment_revisions 投影[id=cr_{事件id} 确定性、rowid 倒序] + edited_at 列/迁移/drop 清单 + 「✎ 已编辑」徽标行内历史/作者行内编辑 + 新提及入图零通知；test_comments 8 项）、I82 状态流转白名单（Concept.transitions 可选声明**缺省全兼容** + validate_transition fail-closed 接入 change_status 与 blocks 同层全入口一致 + software-dev bug 白名单[open 不能直跳 verified]；test_transitions 2 项；test_reports 触发器迁移走合法链）+ docs/12 §23；冒烟 32。
-- **M27 排期深化三件套（docs/01 §Z + docs/10 §M27；I83/I84 已完成，I85+审阅进行中）**：I83 lag 排期联动 ✅（post_relation 对 depends_on **显式非零 lag** 立即重对齐 auto_scheduled 后继[start=前置 due+1+lag、负=lead 重叠、span 保持、级联传播；None/0 不动 opt-in 兼容]——两段式：绝对对齐只在建关系时、改期走 M14 相对平移天然保间隔；时间线连线「+N 天」注记；test_scheduling 6 项）、I84 跨项目里程碑路线图 ✅（`GET /portfolio/roadmap` 复用 feed._visible 三层同组合总览口径 + 排除归档/无里程碑项目 + 里程碑按 due_date 排序 + overdue=逾期未达成[achieved 永不超期] + progress 复用 milestone_progress；「📅 路线图」页 /roadmap：行=项目条=里程碑[进度填充+超期红+今日线+双周刻度自适应窗口] + Dashboard 组合卡入口 + AppShell 顶导航——补 GitLab epic #1105 跨项目缺口；test_roadmap 3 项）、I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** item.status_changed 的 done 首达日累计 → 剩余曲线 vs 理想线，零新表 + 报表「🔥 燃尽」卡 + 周速率注记）+ docs/12 §24 + 冒烟 33 于 I85 + 审阅，约 9 人日。
-- **当前验证基线：pytest 202（198 + I83 新增 1 + I84 新增 3；全量收敛至 M27 审阅）；冒烟 32 GREEN；vitest 2/build 绿。**
+- **M27 排期深化三件套（docs/01 §Z + docs/10 §M27；I83/I84/I85 已完成，待正式审阅）**：I83 lag 排期联动 ✅（post_relation 对 depends_on **显式非零 lag** 立即重对齐 auto_scheduled 后继[start=前置 due+1+lag、负=lead 重叠、span 保持、级联传播；None/0 不动 opt-in 兼容]——两段式：绝对对齐只在建关系时、改期走 M14 相对平移天然保间隔；时间线连线「+N 天」注记；test_scheduling 6 项）、I84 跨项目里程碑路线图 ✅（`GET /portfolio/roadmap` 复用 feed._visible 三层同组合总览口径 + 排除归档/无里程碑项目 + 里程碑按 due_date 排序 + overdue=逾期未达成[achieved 永不超期] + progress 复用 milestone_progress；「📅 路线图」页 /roadmap：行=项目条=里程碑[进度填充+超期红+今日线+双周刻度自适应窗口] + Dashboard 组合卡入口 + AppShell 顶导航——补 GitLab epic #1105 跨项目缺口；test_roadmap 3 项）、I85 里程碑燃尽 ✅（`GET /milestones/{id}/burndown` **纯事件重放零新表**：扫 item.status_changed 各项目首次进 done 组日期、实际线画到 min(today,due) 过期定格、理想线 created→due 线性、velocity=近 7 天完成数、cancelled 不入口径、rebuild 后逐字节相等；报表页「🔥 燃尽」卡 SVG 双折线+今日线；test_milestones +2）+ docs/12 §24 + **冒烟 33**（lag 传播链/路线图对账/燃尽 vs 手算+rebuild 一致），约 9 人日。
+- **当前验证基线：pytest 204（198 + I83 新增 1 + I84 新增 3 + I85 新增 2；全量收敛至 M27 审阅）；冒烟 33 GREEN；vitest 2/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -53,8 +53,8 @@
 2. ~~M27 调研定义~~ ✅ **已完成**（`89b2f58`，docs/01 §Z + docs/10 §M27）：防重查（评论删除 M18 已实现/归档四次/digest 三次/Cycles 已论证——不查）→ 三路调研 → 选定**排期深化三件套** I83-I85（lag 联动/跨项目路线图/里程碑燃尽）。
 3. ~~M27-I83 lag 排期联动~~ ✅ **已完成**（`cd4a60e`+docs `1bd5bdc`）：post_relation 显式非零 lag 绝对重对齐（start=前置 due+1+lag、负 lead、span 保持、级联；None/0 opt-in 不动）+ 改期相对平移保间隔两段式 + 时间线「+N 天」注记 + test_scheduling 6 项绿。
 4. ~~M27-I84 跨项目里程碑路线图~~ ✅ **已完成**（`396210f`+docs `2d9288f`）：`GET /portfolio/roadmap`（复用 feed._visible 三层同组合总览口径、排除归档与无里程碑项目、overdue=逾期未达成、progress 复用 milestone_progress）+ 「📅 路线图」页（/roadmap：行=项目条=里程碑、进度填充+超期红+今日线+双周刻度自适应）+ Dashboard 组合卡入口 + AppShell 顶导航；test_roadmap 3 项绿。
-5. **M27-I85 里程碑燃尽 + 收尾（下一步）**（§Z.3）：`GET /milestones/{id}/burndown` 事件重放（done 首达日=from 非 done→to done 的 status_changed 按日累计）+ 报表「🔥 燃尽」卡（SVG 折线+今日线+周速率注记）；docs/12 §24；**冒烟 33**（lag 传播/路线图对账/燃尽重放 vs 手算 + rebuild 一致）。
-6. **M27 正式审阅**：HEAD 重跑全量（pytest 202+ / 冒烟 32+33 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套 + 附录 B +「M27 正式审阅通过」提交。
+5. ~~M27-I85 里程碑燃尽 + 收尾~~ ✅ **已完成**（`9168099`+docs `d2548bc`）：`GET /milestones/{id}/burndown` 纯事件重放零新表（done 首达日累计、实际线 min(today,due) 定格、理想线线性、velocity 近 7 天、cancelled 不计、rebuild 逐字节相等）+ 报表「🔥 燃尽」卡（SVG 双折线+今日线+速率注记）+ docs/12 §24 + **冒烟 33 GREEN（基线 33）**。
+6. **M27 正式审阅（下一步）**：HEAD 重跑全量（pytest 204 / 冒烟 33 / vitest+build）+ DoD 逐项 + 浏览器隔离复演三件套（lag 注记与间隔保持/路线图页行条与对账/燃尽卡曲线与速率）+ 附录 B +「M27 正式审阅通过」提交。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**。
 
 ## 5. 有哪些坑不要再踩
@@ -97,8 +97,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 202 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 32 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 204 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 33 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
