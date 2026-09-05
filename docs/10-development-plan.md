@@ -850,6 +850,36 @@ agent-project-management/
 
 ---
 
+### M26 · 流程纪律三件套（吸收 Kanboard WIP/Redmine·GitLab 评论史缺口/OpenProject 流转矩阵，I80-I82，约 9 人日）
+
+> v2.2 新增（2026-09-05，M25 审阅通过后按目标协议调研）。调研结论见 docs/01 §Y：Kanboard 列级 Task Limit 是**软约束**（超限列变红警示而非阻止，计数=全部 open 项）；Redmine 编辑史要插件、GitLab 完整评论史是多年 open request #3706——事件溯源让 AgentPM 近零成本补齐；OpenProject 流转约束=role×type 配置矩阵（无脚本）——简化为本体概念级 `transitions` 白名单声明。三件互不依赖、主题统一为「纪律」：在制品纪律 / 协作审计纪律 / 状态机纪律。验证纪律沿用：迭代期只跑相关测试（I82 动 change_status 升级全量），全量收敛至 M26 审阅。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I80 | 看板 WIP 限制（board_defaults.wip_limits + 列头徽标超限红，软约束） | 01 §Y.1 | 本体 board_defaults/看板列 | 3d |
+| I81 | 评论编辑与修订史（comment.updated + comment_revisions 投影 + 「已编辑」徽标/历史抽屉） | 01 §Y.2 | M18 评论域 | 3d |
+| I82 | 状态流转白名单（本体 transitions 声明 + change_status 校验）+ docs/12 §23 + 冒烟 32 + M26 审阅 | 01 §Y.3 | change_status/M25 守卫层 | 3d |
+
+#### I80 · 看板 WIP 限制（3d）
+
+- 任务：本体 YAML `board_defaults.wip_limits`（`status_group → limit` 映射，如 `{in_progress: 5}`）；看板列头渲染「n/limit」计数徽标、超限列头变红 + title「超出在制品上限」（Kanboard 软约束语义——**不阻止**任何入口的状态变更，计数口径=列内全部项而非过滤后）；generic/software-dev 本体示例声明；单测（wip_limits 进 ontology dict/看板列头计数与超限标志）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：software-dev 声明 wip_limits → 看板 in_progress 列加到第 6 项 → 列头红 + 徽标 6/5。
+
+#### I81 · 评论编辑与修订史（3d）
+
+- 任务：`PATCH /comments/{id}`（**仅作者本人**，403 非作者）→ `comment.updated` 事件（edit 动作显式落事件）；`comment_revisions` 投影表（编辑前旧 body 入修订行：comment_id/body/edited_by/edited_at）+ 进 drop_projections；前端「已编辑」徽标 + 修订历史抽屉（谁/何时/旧文倒序）；mentions 编辑不重发通知；单测（编辑/权限 403/修订行/rebuild 存活——投影 id 确定性）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：评论「上线时间待定」→ 编辑为「周五上线」→ 「已编辑」徽标 → 历史抽屉显示旧文。
+
+#### I82 · 状态流转白名单 + 收尾审阅（3d）
+
+- 任务：本体概念 states 支持可选 `transitions: [{from, to}]` 白名单（缺省不声明=全允许，存量本体零破坏）；change_status 校验 `from→to ∈ 白名单` 违规 422（与 blocks 闭锁同层守卫，PATCH/批量/NL/Agent 全入口一致）；software-dev 本体示例（bug：不能从 open 直跳 done）；docs/12 §23；**新增冒烟 32**（WIP 超限标志/评论编辑修订链/流转白名单矩阵 + rebuild 一致）；相关验证 + M26 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：**动 change_status 升级全量回归**；冒烟 32 GREEN；审阅全绿。
+- 演示路径：bug 从 open PATCH done → 422「流转不被允许」→ 按白名单 in_progress 再 done 成功。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1013,6 +1043,7 @@ agent-project-management/
 | I77 基线偏差表 | 已完成 | 2026-09-05 | 2026-09-05 | baselines.py 增 `GET /projects/{id}/baseline-variance?baseline_id=&include_same=`（缺省最新基线；逐已排期项 **当前−基线** 天数偏差 start/due 各自算；未变化项省略、include_same=1 全列；基线后新增项无快照不比较——纯投影对比零 ETL）；汇总行（偏差项数+最大截止延迟）；TimelinePage「📊 偏差表」抽屉（表格正红负绿+汇总注记）；api.ts baselineVariance；单测 test_baseline_variance_report（+2/+3 偏差/未变化 include_same/基线后新增不比较/未知 baseline 404/清基线 404）；基线 **3 项**绿、build 绿 |
 | I78 blocks 闭锁与关系可视化 | 已完成 | 2026-09-05 | 2026-09-05 | KERNEL_RELATIONS 增 **blocks/precedes/relates**（blocked_by 存储单向不入内核——视为 blocks 反向视图，test_projects_items 422 断言保持）；change_status 前置守卫：存在未完结 `blocks`→本项（blocker status_group 非 done/cancelled）→ 422 `"blocked by <title>"`，cancelled 目标本项不拦（放弃≠完成）；守卫在 change_status 内部——PATCH/batch-patch/NL 命令/Agent 工具全入口零改动继承；item_relations.**lag_days** 列（schema DDL + init_db ALTER 迁移）+ RelationIn/emit 载荷/投影 INSERT 7 列透传；时间线连线按类型分样式 EDGE_STYLE（depends_on 红虚冲突线保持/blocks 橙实线/precedes 灰虚线/relates 点线；blocks/precedes 线从 blocker due→dependent start，每边只画 from 方向防重复）；单测 test_relations 3 项（闭锁矩阵 422+放行/lag 存取与 NULL 语义/rebuild 存活+守卫仍生效）；**blocks 入内核使 5 个旧测试的 learn 触发器前提失效**——test_ontology_learn/test_ontology_versions/smoke_08 改用仍未注册的 blocked_by 作触发器（learn/unlock/diff 语义不变）；动 change_status 升级**全量回归 189 绿** + build/vitest 绿 |
 | I79 列表分页 + 冒烟 31 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /projects/{id}/items?limit=&offset=`：**缺省全量兼容**（不传 limit 不切片），显式 limit 钳 1-200、offset ≥0；响应新增 `total`（过滤后全量计数，分页与否都有）驱动「加载更多」——切片点在 cf/parent/descendants 全部过滤之后（语义=对最终结果集分页）；看板列表视图渐进渲染（LIST_PAGE=20，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化重置回第一页；全选范围=当前已显示行，树形缩进/折叠/批量天然兼容）；api.ts listItems 带 limit/offset/total；**冒烟 31**（①偏差表对账：+3/-1 两行、未动项省略、include_same 全列、summary {count, max_due_delay}；②blocks 闭锁矩阵：未完结 422 "blocked by X"、cancelled 放行、blocker 完成后放行、lag=2 详情回读；③分页：缺省全量 total=7、limit=5 offset 0/5 拼接无缝隙无重叠、limit 999→7/limit 0 钳 1、offset 越界空；④rebuild 后偏差/lag/守卫/分页全部一致）；docs/12 §22（M25 三件套指南）；冒烟基线 **31 GREEN**、build/vitest 绿 |
+| **M26 流程纪律三件套（I80-I82）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §Y + docs/10 §M26）：I80 看板 WIP 限制（本体 board_defaults.wip_limits + 列头计数徽标超限红，Kanboard **软约束**语义——不阻止多入口状态变更、计数=列内全部项）/ I81 评论编辑与修订史（PATCH /comments 仅作者 + comment.updated 事件 + comment_revisions 投影 + 「已编辑」徽标/历史抽屉——事件溯源近零成本补齐 Redmine 要插件/GitLab #3706 缺口）/ I82 状态流转白名单（本体概念 transitions 声明缺省全兼容 + change_status 校验与 blocks 闭锁同层全入口一致）+ docs/12 §23 + 冒烟 32 于 I82 + 审阅；transition 必填字段/评论删除/role 维度矩阵/WIP 硬拦截留 backlog |
 | I74 子任务层级 | 已完成 | 2026-09-05 | 2026-09-05 | items.py `_validate_parent`（父存在/同项目/**沿父链上溯防环**——create 挂校验链、patch 传 self_id 查环；parent_id 入 ItemPatch 支持 re-parent，清除不支持）；item.updated 投影器键表补 parent_id；`GET /items?parent=`/`?descendants=`（BFS 递归）显式参数；Board 列表**树形缩进**（▸/▾ 折叠 + 行内「＋子」快捷创建预填父与概念 + 「后代」范围 chip）+ 看板卡片「↳ 父标题」徽标；api.ts createItem；单测 test_hierarchy.py（校验矩阵/合法 re-parent rebuild 存活/子代与后代范围）；层级单测绿、items 9 项绿、build+vitest 绿 |
 | I75 CSV 导入导出 | 已完成 | 2026-09-05 | 2026-09-05 | `POST /projects/{id}/items/import`（固定表头 title/concept_id/status/priority/start_date/due_date/estimate_hours/parent_title——**parent_title 引用已有项或同文件先导行**实现层级导入；逐行走 create_item 全量校验，**日期校验补在导入循环内**——create_item 不含日期校验是端点层分工；逐行 ok/行号/错误不整批回滚）；`GET /items/import-template`（表头+示例行）与 `GET /items.csv`（含 parent_title 层级列、UTF-8 BOM）；前端「⬆ 导入 CSV」弹窗（选择文件/粘贴 + 逐行结果表 + 模板/导出链接）；api.ts importItems；单测 test_csv_import.py（两成功一坏日期隔离/parent 引用已有项/同文件父链/模板表头/导出 roundtrip/坏表头 422）；CSV 单测绿、items 9 项绿、build 绿 |
 | I76 泳道避让与多基线+收尾 | 已完成 | 2026-09-05 | 2026-09-05 | TimelinePage 概念行内**子行贪心分配**（区间图染色：按 start 排序 + min-heap 行末线 O(n log n)，行高=ROW_H×子行数自适应——**修 M21 同概念重叠 C 级观察**）；条形/幽灵定位改子行中心（pos 表行顶+子行中心，连接线 y 同步）；baselines 多条化：schema 去 UNIQUE + **存量库 db.py 迁移**（PRAGMA index_list 检测 UNIQUE → 重建表保留数据）+ set 追加历史 + `GET /baselines` 列表（旧→新）+ 前端基线下拉切换单条/全部（幽灵按序子行内错开）；docs/12 §21；**新增冒烟 30**（层级 roundtrip 防环 422/CSV 逐行隔离含 8 列对位/多基线历史旧快照不动/rebuild 层级+基线一致）；冒烟基线 **30 条 GREEN**、build+vitest 绿 |
@@ -1177,6 +1208,8 @@ agent-project-management/
 | 2026-09-05 | I78 | 关键决策：blocks/precedes/relates 并非「已有枚举」——docs/01 §X.2 所述枚举实为调研层语义，代码仅 KERNEL_RELATIONS 四种 → 本轮将其提升入内核（blocked_by 故意不入，存储单向视为 blocks 反向视图）。**连带效应**：5 个以「blocks 未注册被拒」为前提的 learn 测试失效，改 blocked_by 作触发器（learn/unlock/diff 语义完整保留）——功能演进使旧测试前提失效时改触发器而非放宽断言。守卫放 change_status 内部而非 PATCH 端点——批量/NL/Agent 入口零改动即继承；时间线新连线只画 from 方向（detail relations 双向返回，防重复画线）；顺手修掉 §4 计划表重复的 I77 行（定义时误加两行）。 |
 
 | 2026-09-05 | I79 | 分页切片点选在 get_items 出口（cf/parent/descendants 全部过滤后）而非 list_items SQL——saved view/cf/hierarchy 过滤都在 Python 层，SQL 层切页会把过滤语义切碎；total 在两种模式都返回（不分页也带），前端与第三方消费统一。前端「加载更多」做渲染层渐进（数据仍全量拉取）——Board 列表数据源是看板 buckets 平铺，真分页需 useInfiniteQuery 独立取数+树补全，超出本轮边界，如实记之（API 分页能力已就绪）。**流程违例自记：docs/12 §22 误用 heredoc 追加**（引号形式侥幸无损已核验，内容全对——但纪律是彻底禁止，第 4 次违例；根因=写长 Markdown 段落时顺手 bash；后续一律 Edit/Write）。 |
+
+| 2026-09-05 | M26 定义 | 新一轮开源调研（目标协议第 1 条）三路并行（防重查：digest 三次论证留 backlog、事件归档两次论证导出形态、打印/PDF Enterprise 面价值低——均不查）：①**WIP 限制**——Kanboard 列级 Task Limit 软约束（超限列红警示不阻止、计数=全部 open 项）、Taiga 内建 → AgentPM 本体 board_defaults.wip_limits + 列头徽标超限红（多入口状态变更硬拦截会入口不一致，软约束天然全局一致）；②**评论编辑与审计**——Redmine 编辑史要插件、GitLab 完整评论史是多年 open request #3706 → AgentPM 事件溯源让「同类做不到」近零成本（comment.updated + comment_revisions + 已编辑徽标/历史抽屉）；③**流转约束**——OpenProject role×type 配置矩阵、YouTrack workflow 脚本 → 简化为本体概念级 transitions 白名单（缺省全兼容，role 维度与既有写门禁语义重复不引入）。选定 **M26 = 流程纪律三件套**：I80 WIP 限制 / I81 评论编辑与修订史 / I82 流转白名单 + docs/12 §23 + 冒烟 32 于 I82 + 审阅；范围变更：计划外新增里程碑，理由 = 目标协议持续推进，估时 +9 人日。结论入 docs/01 §Y。 |
 
 ## 附录 B · 审阅记录（逐次追加）
 

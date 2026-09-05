@@ -677,3 +677,34 @@ M24 = **结构与数据管理三件套**：I74 子任务层级（parent 校验�
 **X.5 M25 取舍**
 
 M25 = **计划治理深化三件套**：I77 基线偏差表（variance 端点 + 抽屉）/ I78 blocks 闭锁与关系可视化（含 precedes lag 存储）/ I79 列表分页（limit/offset + total + 加载更多）+ docs/12 §22 + 冒烟 31 + M25 审阅，约 9 人日。keyset 分页、cost/work 偏差、lag 自动排期联动、widget 拖装留 backlog。
+
+## Y. M26 前置调研：流程纪律——看板 WIP 限制 / 评论编辑与修订史 / 状态流转白名单（2026-09-05）
+
+> 目标协议触发：M25 审阅通过后开启。防重查先行：digest 三次论证留 backlog（§J/§O.3）不查、事件级归档两次论证（导出快照形态，删除破坏 live==replay）不查、打印/PDF 属 Enterprise 独占面价值低（§O.1）。本轮三路（Kanboard/Taiga WIP 限制执行语义 / Redmine·GitLab 评论编辑与审计 / OpenProject·YouTrack 流转约束），选定 **M26 = 流程纪律三件套**——「在制品纪律（WIP）+ 协作审计纪律（评论史）+ 状态机纪律（流转白名单）」，§A 借鉴结论第 6 条「列 WIP 限制」的最后一块未实现承诺。
+
+**Y.1 看板 WIP 限制：软约束是主流语义（Kanboard）**
+
+- Kanboard 内建**列级 Task Limit**：达到上限后**列背景变红**——视觉警示而非阻止放入（[官方文档](https://docs.kanboard.org/v1/user/boards/)）；Changelog 修复过「limit 计所有 open 任务而非过滤后任务」（[ChangeLog](https://github.com/kanboard/kanboard/blob/main/ChangeLog)）——口径是列内全部未完项。Taiga 同样列 WIP 限制内建（[PCMag 评测](https://uk.pcmag.com/productivity-2/91533/taiga)）。
+- Jira 社区确认硬阻止需外力（[Atlassian Community](https://community.atlassian.com/forums/Jira-Product-Discovery-questions/How-to-set-WIP-Limits-within-a-Kanban-board/qaq-p/2365059)）。
+- → AgentPM 取舍：**软约束**——本体 `board_defaults.wip_limits`（`status_group → limit` 映射，声明式进类型系统）+ 看板列头「3/5」徽标、超限列头变红 + title 提示，**不阻止**状态变更（AgentPM 状态变更有拖拽/批量/NL/Agent 多入口，硬拦截只挡一个入口反而入口不一致——软约束天然全局一致）；计数口径=列内全部项（Kanboard 修复语义）。
+
+**Y.2 评论编辑与修订史：同类有缺口，事件溯源零成本补齐**
+
+- Redmine 原生**不记录 note 编辑历史**，审计要装插件（[comment_edit_history](https://www.redmine.org/plugins/comment_edit_history)——存每次修订全文+编辑者+时间）；GitLab 编辑评论只有 "edited" 标记，**完整编辑史是多年 open feature request #3706**（[gitlab#3706](https://gitlab.com/gitlab-org/gitlab/-/issues/3706)）——公认审计缺口。
+- → AgentPM 取舍：事件溯源让这个「同类要插件/做不到」的能力**近零成本**——`comment.updated` 事件（edit 动作显式落事件）+ `comment_revisions` 投影表（每次编辑前的旧 body 存修订行）+ 作者本人可编辑 + 抽屉「已编辑」徽标 + 修订历史列表（谁/何时/旧文）。不做删除评论（软删除也是删除，留 backlog 统一考量）；mentions 修订不重发通知（编辑降噪）。
+
+**Y.3 状态流转白名单：OpenProject 配置矩阵的声明式简化**
+
+- OpenProject 用管理 UI 配置 **role × type 的允许流转矩阵**（[官方博客](https://www.openproject.org/blog/status-and-workflows/)）；YouTrack 用 workflow **state-machine 规则脚本**控制流转/必填（[JetBrains 文档](https://www.jetbrains.com/help/youtrack/devportal/state-machine-per-issue-type.html)）。
+- → AgentPM 取舍：本体概念级 `transitions` 白名单声明（`{from: open, to: in_progress}` 列表，缺省不声明=全允许向后兼容）——声明后 change_status 校验 `from→to ∈ 白名单` 违规 422；配置矩阵的 role 维度不引入（AgentPM 角色三档且已有写门禁，语义重复）；transition 必填字段（YouTrack）留 backlog。与 M25-I78 blocks 闭锁同层：都是 change_status 内的**纪律守卫**，全入口一致继承。
+
+**Y.4 M26 设计映射与验证纪律（沿用）**
+
+- I80 看板 WIP 限制：本体 board_defaults.wip_limits + 看板列头计数徽标超限红（软约束）。
+- I81 评论编辑与修订史：comment.updated 事件 + comment_revisions 投影 + 「已编辑」徽标与历史抽屉。
+- I82 状态流转白名单：本体 transitions 声明 + change_status 校验（缺省全兼容）；docs/12 §23 + 冒烟 32 于 I82 + 审阅。
+- 验证纪律：每迭代只跑相关测试（I82 动 change_status 升级全量）；全量收敛至 M26 审阅。
+
+**Y.5 M26 取舍**
+
+M26 = **流程纪律三件套**：I80 看板 WIP 限制（Kanboard 软约束语义）/ I81 评论编辑与修订史（事件溯源补 GitLab #3706 缺口）/ I82 状态流转白名单（OpenProject 矩阵的声明式简化）+ docs/12 §23 + 冒烟 32 + M26 审阅，约 9 人日。transition 必填字段、评论删除、role 维度矩阵、WIP 硬拦截留 backlog。
