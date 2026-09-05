@@ -57,6 +57,9 @@ phases:
 
 board_defaults:
   group_by: lifecycle
+  # M26-I80: soft WIP limit on in-progress work (see software-dev.yaml note).
+  wip_limits:
+    in_progress: 4
 
 asset_kinds:
   - {id: brief-template, name: 简报模板, library: product}

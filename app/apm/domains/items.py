@@ -364,6 +364,17 @@ def get_board(
         "groups": None,
         "disabled_fields": sorted(inactive),
     }
+    # M26-I80: WIP limits (Kanboard task-limit semantics) — soft signals only.
+    # The count is deliberately project-wide (ignoring board filters) and the
+    # limit rides along from board_defaults; the board never blocks transitions.
+    wip_limits = onto.board_defaults.get("wip_limits") or {}
+    if isinstance(wip_limits, dict) and wip_limits:
+        all_items = list_items(project_id=project_id)
+        counts: dict[str, int] = {}
+        for it in all_items:
+            counts[it["status_group"]] = counts.get(it["status_group"], 0) + 1
+        resp["wip"] = {g: counts.get(g, 0) for g in wip_limits}
+        resp["wip_limits"] = {g: int(v) for g, v in wip_limits.items()}
     if effective == "lifecycle":
         return resp
     if not effective.startswith("field:"):

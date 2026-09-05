@@ -125,6 +125,8 @@ export type BoardData = {
   field?: { id: string; name: string; type: string } | null;
   groups?: { id: string; name: string; items: Item[] }[] | null;
   disabled_fields?: string[];
+  wip?: Record<string, number>;
+  wip_limits?: Record<string, number>;
 };
 export type Ontology = {
   name: string; display_name: string; version: number; errors: string[];

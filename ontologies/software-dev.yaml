@@ -90,6 +90,11 @@ phases:
 
 board_defaults:
   group_by: lifecycle
+  # M26-I80: WIP limits per status group (Kanboard task-limit semantics —
+  # a soft signal, the board never blocks transitions; count = all open items
+  # in the column regardless of board filters).
+  wip_limits:
+    in_progress: 5
 
 asset_kinds:
   - {id: prd-template, name: PRD 模板, library: product}

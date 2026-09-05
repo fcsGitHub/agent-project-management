@@ -515,11 +515,26 @@ export function Board() {
         ).map((col) => {
           const items = col.items.filter(matches);
           if (priority && !items.length) return null;
+          // M26-I80: WIP limit badge (Kanboard soft signal) — lifecycle buckets
+          // only; the count shown here is the project-wide one from the API
+          // (unfiltered, per Kanboard's "count all open tasks" fix).
+          const wipLimit = !board.data?.groups ? board.data?.wip_limits?.[col.id] : undefined;
+          const wipCount = board.data?.wip?.[col.id];
+          const overWip = wipLimit != null && wipCount != null && wipCount > wipLimit;
           return (
             <div key={col.id} className="flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50">
               <div className="flex items-center justify-between px-3 py-2">
-                <Badge tone={col.tone}>{col.label}</Badge>
-                <span className="text-xs text-mut">{items.length}</span>
+                <Badge tone={overWip ? "red" : col.tone}>{col.label}</Badge>
+                {overWip ? (
+                  <span className="text-xs font-medium text-red-500"
+                    title={`超出在制品上限（${wipCount}/${wipLimit}）——建议先完成再取新任务`}>
+                    {wipCount}/{wipLimit} ⚠
+                  </span>
+                ) : wipLimit != null && wipCount != null ? (
+                  <span className="text-xs text-mut" title={`在制品上限 ${wipLimit}`}>{wipCount}/{wipLimit}</span>
+                ) : (
+                  <span className="text-xs text-mut">{items.length}</span>
+                )}
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-3">
                 {items.map((item) => {
