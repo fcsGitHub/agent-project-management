@@ -21,11 +21,20 @@ export function RunsPage() {
     enabled: !!pid,
     refetchInterval: 3_000,
   });
+  const report = useQuery({
+    queryKey: ["runs-report", pid],
+    queryFn: () => api.getRunsReport(pid!),
+    enabled: !!pid,
+    refetchInterval: 15_000,
+  });
   const setOpen = (id: string | null) => {
     const usp = new URLSearchParams(params);
     if (id) usp.set("run", id); else usp.delete("run");
     setParams(usp, { replace: true });
   };
+
+  const rep = report.data;
+  const maxStatus = rep ? Math.max(1, ...Object.values(rep.by_status)) : 1;
 
   return (
     <div className="p-4">
@@ -33,6 +42,37 @@ export function RunsPage() {
         <span className="text-sm font-semibold">Runs · 轨迹浏览器</span>
         <span className="text-xs text-mut">{runs.data?.runs.length ?? 0} 次运行</span>
       </div>
+      {rep && rep.total > 0 && (
+        <Card className="no-print mb-3 p-4">
+          <div className="mb-2 text-sm font-semibold">📊 运行报表</div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-mut">
+            <span>共 <span className="font-medium text-ink">{rep.total}</span> 次</span>
+            <span>成功率 <span className="font-medium text-ink">{rep.success_rate != null ? `${Math.round(rep.success_rate * 100)}%` : "—"}</span></span>
+            <span>平均时长 <span className="font-medium text-ink">{rep.avg_duration_seconds != null ? `${rep.avg_duration_seconds}s` : "—"}</span></span>
+            <span>Gate 挂起率 <span className="font-medium text-ink">{rep.gate_pending_rate != null ? `${Math.round(rep.gate_pending_rate * 100)}%` : "—"}</span></span>
+            <span>平均步骤数 <span className="font-medium text-ink">{rep.avg_steps_per_run ?? "—"}</span></span>
+            <span title="replay provider 记零，接入真实 provider 后即有数">tokens <span className="font-medium text-ink">{rep.tokens.input}/{rep.tokens.output}</span></span>
+          </div>
+          <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-bg">
+            {Object.entries(rep.by_status).map(([k, n]) => (
+              n > 0 && (
+                <div key={k} title={`${k}: ${n}`} className={cx(
+                  k === "succeeded" ? "bg-ag" : k === "failed" ? "bg-dan" :
+                  k === "interrupted" ? "bg-warn" : "bg-line")} style={{ width: `${(n / maxStatus) * 100}%` }} />
+              )
+            ))}
+          </div>
+          {!!rep.by_role.length && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {rep.by_role.map((r) => (
+                <Badge key={r.agent_role} tone="neutral" title={`成功率 ${r.success_rate != null ? `${Math.round(r.success_rate * 100)}%` : "—"}`}>
+                  {r.agent_role} × {r.runs}{r.success_rate != null ? ` · ${Math.round(r.success_rate * 100)}%` : ""}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
       <div className="space-y-2">
         {(runs.data?.runs ?? []).map((r) => (
           <Card

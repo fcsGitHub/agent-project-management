@@ -112,6 +112,78 @@ def post_run(body: RunIn) -> dict:
     return _run_detail(run)
 
 
+@router.get("/projects/{project_id}/runs/report")
+def runs_report(project_id: str) -> dict:
+    """Run aggregation report (M29-I91, docs/01 §AB.3, Langfuse observability
+    semantics as a pure projection slice): per-role and per-status rollups of
+    runs, success rate, average duration, gate-pending (interrupted) rate and
+    steps per run. Token/cost columns exist and are summed as-is — the replay
+    provider records zeros, so the numbers stay honest until a real provider
+    fills them."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT agent_role, status, started_at, ended_at, total_input_tokens,"
+        " total_output_tokens, estimated_cost_usd FROM runs WHERE project_id = ?",
+        (project_id,),
+    ).fetchall()
+    total = len(rows)
+    by_status: dict[str, int] = {}
+    by_role: dict[str, dict] = {}
+    durations: list[float] = []
+    for r in rows:
+        by_status[r["status"]] = by_status.get(r["status"], 0) + 1
+        role = by_role.setdefault(r["agent_role"] or "unknown",
+                                  {"agent_role": r["agent_role"] or "unknown",
+                                   "runs": 0, "succeeded": 0, "failed": 0})
+        role["runs"] += 1
+        if r["status"] == "succeeded":
+            role["succeeded"] += 1
+        elif r["status"] == "failed":
+            role["failed"] += 1
+        if r["status"] in ("succeeded", "failed") and r["started_at"] and r["ended_at"]:
+            try:
+                from datetime import datetime
+                delta = (datetime.fromisoformat(r["ended_at"])
+                         - datetime.fromisoformat(r["started_at"])).total_seconds()
+                durations.append(max(delta, 0))
+            except ValueError:
+                pass
+    finished = by_status.get("succeeded", 0) + by_status.get("failed", 0)
+    role_rows = []
+    for role in by_role.values():
+        decided = role["succeeded"] + role["failed"]
+        role["success_rate"] = round(role["succeeded"] / decided, 2) if decided else None
+        role_rows.append(role)
+    role_rows.sort(key=lambda x: -x["runs"])
+    steps = conn.execute(
+        "SELECT COUNT(*) AS span_count, COUNT(DISTINCT run_id) AS run_count"
+        " FROM spans s JOIN runs r ON r.id = s.run_id WHERE r.project_id = ?",
+        (project_id,),
+    ).fetchone()
+    tokens = conn.execute(
+        "SELECT COALESCE(SUM(total_input_tokens), 0) AS inp,"
+        " COALESCE(SUM(total_output_tokens), 0) AS outp,"
+        " COALESCE(SUM(estimated_cost_usd), 0) AS cost"
+        " FROM runs WHERE project_id = ?",
+        (project_id,),
+    ).fetchone()
+    return {
+        "total": total,
+        "by_status": by_status,
+        "success_rate": round(by_status.get("succeeded", 0) / finished, 2) if finished else None,
+        "avg_duration_seconds": round(sum(durations) / len(durations), 1) if durations else None,
+        "gate_pending_rate": round(by_status.get("interrupted", 0) / total, 2) if total else None,
+        "avg_steps_per_run": round(steps["span_count"] / steps["run_count"], 1)
+        if steps["run_count"] else None,
+        "by_role": role_rows,
+        "tokens": {"input": tokens["inp"], "output": tokens["outp"],
+                   "estimated_cost_usd": tokens["cost"]},
+    }
+
+
 @router.get("/runs")
 def list_runs(
     project_id: str | None = None,

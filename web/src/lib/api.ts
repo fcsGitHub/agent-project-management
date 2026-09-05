@@ -461,6 +461,13 @@ export const api = {
     req<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string; item_id?: string }[] }>(`/projects/${pid}/items/import`, { method: "POST", body: JSON.stringify({ csv }) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
+  getRunsReport: (pid: string) =>
+    req<{ total: number; by_status: Record<string, number>; success_rate: number | null;
+          avg_duration_seconds: number | null; gate_pending_rate: number | null;
+          avg_steps_per_run: number | null;
+          by_role: { agent_role: string; runs: number; success_rate: number | null }[];
+          tokens: { input: number; output: number; estimated_cost_usd: number } }>(
+      `/projects/${pid}/runs/report`),
   getRun: (rid: string) => req<Run>(`/runs/${rid}`),
   getSpans: (rid: string) => req<{ spans: Span[] }>(`/runs/${rid}/spans`),
   getTimeline: (rid: string) =>
