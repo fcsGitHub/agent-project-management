@@ -215,6 +215,27 @@ export function Board() {
   useEffect(() => { setVisibleCount(LIST_PAGE); }, [listSignature]);
   const pagedRows = useMemo(() => listRows.slice(0, visibleCount), [listRows, visibleCount]);
 
+  // I100: list-view group-by with per-group count/spent headers (Airtable
+  // semantics). Groups preserve the underlying (tree-ordered) row sequence and
+  // operate on already-displayed rows, so I79 progressive rendering keeps working.
+  const [listGroup, setListGroup] = useState("");
+  const [groupCollapsed, setGroupCollapsed] = useState<Set<string>>(new Set());
+  const groupKeyOf = (item: (typeof scopedListed)[number]): string => {
+    if (listGroup === "concept") return item.concept_id || "—";
+    if (listGroup === "status") return item.status || "—";
+    if (listGroup === "priority") return item.priority || "—";
+    if (listGroup === "assignee")
+      return item.assignee_id ? `${item.assignee_type === "agent" ? "🤖 " : "👤 "}${item.assignee_id}` : "未指派";
+    if (listGroup) {
+      const cf = typeof item.custom_fields === "string"
+        ? JSON.parse(item.custom_fields || "{}")
+        : item.custom_fields ?? {};
+      const v = cf[listGroup];
+      return Array.isArray(v) ? v.join("、") : v != null ? String(v) : "—";
+    }
+    return "";
+  };
+
   const addSubtask = async (parent: { id: string; concept_id: string; project_id: string }) => {
     const title = window.prompt("子任务标题");
     if (!title) return;
@@ -468,6 +489,22 @@ export function Board() {
 
       {view === "list" && (
         <div className="overflow-x-auto p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs">
+            <span className="text-mut">按组聚合</span>
+            <select value={listGroup} onChange={(e) => setListGroup(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-2 py-1.5">
+              <option value="">不分组</option>
+              <option value="concept">概念</option>
+              <option value="status">状态</option>
+              <option value="priority">优先级</option>
+              <option value="assignee">执行者</option>
+              {[...fieldOptions].map(([fid, name]) => <option key={fid} value={fid}>{name}</option>)}
+            </select>
+            {listGroup && (
+              <button className="text-[11px] text-mut hover:text-acc"
+                onClick={() => setGroupCollapsed(new Set())}>全部展开</button>
+            )}
+          </div>
           <table className="w-full min-w-[640px] text-left text-xs">
             <thead>
               <tr className="border-b border-line text-mut">
@@ -484,59 +521,98 @@ export function Board() {
               </tr>
             </thead>
             <tbody>
-              {pagedRows.map(({ item, depth }) => (
-                <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
-                  <td className="py-2">
-                    <input type="checkbox" checked={selected.has(item.id)} readOnly
-                      onClick={(e) => {
-                        const next = new Set(selected);
-                        e.currentTarget.checked ? next.add(item.id) : next.delete(item.id);
-                        setSelected(next);
-                      }} />
-                  </td>
-                  <td className="py-2" style={{ paddingLeft: depth * 16 }}>
-                    <div className="flex items-center gap-1">
-                      {scopedListed.some((i) => i.parent_id === item.id) ? (
-                        <button className="w-3 text-mut" title={collapsed.has(item.id) ? "展开子任务" : "折叠子任务"}
-                          onClick={() => {
-                            const next = new Set(collapsed);
-                            next.has(item.id) ? next.delete(item.id) : next.add(item.id);
-                            setCollapsed(next);
-                          }}>{collapsed.has(item.id) ? "▸" : "▾"}</button>
-                      ) : <span className="w-3" />}
-                      <span className="font-medium">{item.title}</span>
-                      <button title="添加子任务" className="text-[10px] text-mut hover:text-acc"
-                        onClick={() => addSubtask(item)}>＋子</button>
-                      <button title="仅看该任务的后代" className="text-[10px] text-mut hover:text-acc"
-                        onClick={() => setScopeDesc({ id: item.id, title: item.title })}>后代</button>
-                      <button title="快捷编辑（状态/优先级/执行者/截止日）" className="text-[10px] text-mut hover:text-acc"
-                        onClick={() => setQuickEditFor(item)}>⚡</button>
-                    </div>
-                  </td>
-                  <td className="text-mut">{item.concept_id}</td>
-                  <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
-                  <td>{item.priority ?? "—"}</td>
-                  <td>{item.assignee_id ? `${item.assignee_type === "agent" ? "🤖" : "👤"} ${item.assignee_id}` : "—"}</td>
-                  <td>
-                    {customFieldBadges(item, onto.data?.concepts).length ? (
-                      customFieldBadges(item, onto.data?.concepts).map((b) => (
-                        <span key={b.label} className="mr-1 whitespace-nowrap text-mut">{b.label}: {b.text}</span>
-                      ))
-                    ) : "—"}
-                  </td>
-                  <td className="text-mut">{item.updated_at?.slice(5, 16)}</td>
-                </tr>
-              ))}
-              {pagedRows.length < listRows.length && (
-                <tr className="border-b border-line/60">
-                  <td colSpan={8} className="py-2 text-center">
-                    <button className="text-xs text-acc hover:underline"
-                      onClick={() => setVisibleCount((n) => n + LIST_PAGE)}>
-                      加载更多（已显示 {pagedRows.length} / 共 {listRows.length} 项）
-                    </button>
-                  </td>
-                </tr>
-              )}
+              {(() => {
+                const groups: { key: string; rows: { item: (typeof scopedListed)[number]; depth: number }[] }[] = [];
+                if (!listGroup) groups.push({ key: "", rows: pagedRows });
+                else
+                  for (const row of pagedRows) {
+                    const k = groupKeyOf(row.item);
+                    let g = groups.find((x) => x.key === k);
+                    if (!g) { g = { key: k, rows: [] }; groups.push(g); }
+                    g.rows.push(row);
+                  }
+                const out: React.ReactElement[] = [];
+                for (const g of groups) {
+                  if (listGroup) {
+                    const spent = g.rows.reduce((s, r) => s + (r.item.spent_minutes ?? 0), 0);
+                    const isCollapsed = groupCollapsed.has(g.key);
+                    out.push(
+                      <tr key={`g:${g.key}`} className="cursor-pointer bg-bg"
+                        title="点击折叠/展开该组" onClick={() => {
+                          const next = new Set(groupCollapsed);
+                          isCollapsed ? next.delete(g.key) : next.add(g.key);
+                          setGroupCollapsed(next);
+                        }}>
+                        <td colSpan={8} className="py-1.5 font-medium">
+                          {isCollapsed ? "▸" : "▾"} {g.key}
+                          <span className="ml-2 font-normal text-mut">
+                            {g.rows.length} 项 · ⏱ {fmtMinutes(spent)}
+                          </span>
+                        </td>
+                      </tr>,
+                    );
+                    if (isCollapsed) continue;
+                  }
+                  for (const { item, depth } of g.rows) {
+                    out.push(
+                      <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
+                        <td className="py-2">
+                          <input type="checkbox" checked={selected.has(item.id)} readOnly
+                            onClick={(e) => {
+                              const next = new Set(selected);
+                              e.currentTarget.checked ? next.add(item.id) : next.delete(item.id);
+                              setSelected(next);
+                            }} />
+                        </td>
+                        <td className="py-2" style={{ paddingLeft: depth * 16 }}>
+                          <div className="flex items-center gap-1">
+                            {scopedListed.some((i) => i.parent_id === item.id) ? (
+                              <button className="w-3 text-mut" title={collapsed.has(item.id) ? "展开子任务" : "折叠子任务"}
+                                onClick={() => {
+                                  const next = new Set(collapsed);
+                                  next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                                  setCollapsed(next);
+                                }}>{collapsed.has(item.id) ? "▸" : "▾"}</button>
+                            ) : <span className="w-3" />}
+                            <span className="font-medium">{item.title}</span>
+                            <button title="添加子任务" className="text-[10px] text-mut hover:text-acc"
+                              onClick={() => addSubtask(item)}>＋子</button>
+                            <button title="仅看该任务的后代" className="text-[10px] text-mut hover:text-acc"
+                              onClick={() => setScopeDesc({ id: item.id, title: item.title })}>后代</button>
+                            <button title="快捷编辑（状态/优先级/执行者/截止日）" className="text-[10px] text-mut hover:text-acc"
+                              onClick={() => setQuickEditFor(item)}>⚡</button>
+                          </div>
+                        </td>
+                        <td className="text-mut">{item.concept_id}</td>
+                        <td><Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge></td>
+                        <td>{item.priority ?? "—"}</td>
+                        <td>{item.assignee_id ? `${item.assignee_type === "agent" ? "🤖" : "👤"} ${item.assignee_id}` : "—"}</td>
+                        <td>
+                          {customFieldBadges(item, onto.data?.concepts).length ? (
+                            customFieldBadges(item, onto.data?.concepts).map((b) => (
+                              <span key={b.label} className="mr-1 whitespace-nowrap text-mut">{b.label}: {b.text}</span>
+                            ))
+                          ) : "—"}
+                        </td>
+                        <td className="text-mut">{item.updated_at?.slice(5, 16)}</td>
+                      </tr>,
+                    );
+                  }
+                }
+                if (pagedRows.length < listRows.length) {
+                  out.push(
+                    <tr key="loadmore" className="border-b border-line/60">
+                      <td colSpan={8} className="py-2 text-center">
+                        <button className="text-xs text-acc hover:underline"
+                          onClick={() => setVisibleCount((n) => n + LIST_PAGE)}>
+                          加载更多（已显示 {pagedRows.length} / 共 {listRows.length} 项）
+                        </button>
+                      </td>
+                    </tr>,
+                  );
+                }
+                return out;
+              })()}
             </tbody>
           </table>
         </div>
