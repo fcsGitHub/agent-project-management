@@ -102,6 +102,10 @@ def init_db() -> None:
             rcols = {r["name"] for r in conn.execute("PRAGMA table_info(item_relations)").fetchall()}
             if "lag_days" not in rcols:
                 conn.execute("ALTER TABLE item_relations ADD COLUMN lag_days INTEGER")
+        # I103: 存量库补 items.archived_at（工作项归档/回收站）。
+        icols2 = {r["name"] for r in conn.execute("PRAGMA table_info(items)").fetchall()}
+        if "archived_at" not in icols2:
+            conn.execute("ALTER TABLE items ADD COLUMN archived_at TEXT")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

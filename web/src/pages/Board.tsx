@@ -223,6 +223,8 @@ export function Board() {
   // operate on already-displayed rows, so I79 progressive rendering keeps working.
   const [listGroup, setListGroup] = useState("");
   const [groupCollapsed, setGroupCollapsed] = useState<Set<string>>(new Set());
+  // I103: trash drawer state
+  const [trashOpen, setTrashOpen] = useState(false);
   const groupKeyOf = (item: (typeof scopedListed)[number]): string => {
     if (listGroup === "concept") return item.concept_id || "—";
     if (listGroup === "status") return item.status || "—";
@@ -344,6 +346,8 @@ export function Board() {
               {v === "board" ? "▦ 看板" : "☰ 列表"}
             </button>
           ))}
+          <button onClick={() => setTrashOpen(true)}
+            className="px-2.5 py-1 text-xs text-mut hover:text-ink" title="归档项与恢复">🗑</button>
         </div>
         <PrintButton />
         {featureId && <Badge tone="indigo">功能切片</Badge>}
@@ -711,6 +715,22 @@ export function Board() {
                               ⚡
                             </button>
                             <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!window.confirm(`归档「${item.title}」？可随时在回收站恢复。`)) return;
+                                try {
+                                  await api.archiveItem(item.id);
+                                  toast.success("已归档——回收站可恢复");
+                                  qc.invalidateQueries();
+                                } catch (err) {
+                                  toast.error(`归档失败：${err instanceof Error ? err.message : err}`);
+                                }
+                              }}
+                              className="text-[10px] text-mut hover:text-acc" title="归档（回收站可恢复）"
+                            >
+                              🗄
+                            </button>
+                            <button
                               onClick={(e) => { e.stopPropagation(); setTimelogFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="工时"
                             >
@@ -774,6 +794,9 @@ export function Board() {
           onClose={() => setCreateOpen(false)}
           onCreated={() => { setCreateOpen(false); qc.invalidateQueries(); }} />
       )}
+      {trashOpen && pid && (
+        <TrashDrawer pid={pid} onClose={() => setTrashOpen(false)} onRestored={() => qc.invalidateQueries()} />
+      )}
       {importOpen && (
         <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
           <div className="space-y-3 text-xs">
@@ -827,6 +850,45 @@ export function Board() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/** I103: trash — archived items with one-click restore (soft delete; the
+ *  archived state itself is an event-sourced projection, nothing is lost). */
+function TrashDrawer({ pid, onClose, onRestored }: {
+  pid: string; onClose: () => void; onRestored: () => void;
+}) {
+  const qc = useQueryClient();
+  const trash = useQuery({ queryKey: ["trash", pid], queryFn: () => api.listTrash(pid) });
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const restore = async (id: string) => {
+    setRestoring(id);
+    try {
+      await api.restoreItem(id);
+      await qc.invalidateQueries();
+      onRestored();
+    } catch (e) {
+      toast.error(`恢复失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setRestoring(null);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title="🗑 回收站">
+      <div className="space-y-1.5 text-xs">
+        {(trash.data?.items ?? []).map((t) => (
+          <div key={t.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5">
+            <span className="min-w-0 flex-1 truncate font-medium">{t.title}</span>
+            <span className="shrink-0 text-[10px] text-mut">{t.archived_at?.slice(5, 16).replace("T", " ")} 归档</span>
+            <Button size="sm" variant="outline" disabled={restoring === t.id}
+              onClick={() => restore(t.id)}>恢复</Button>
+          </div>
+        ))}
+        {!trash.data?.items.length && (
+          <div className="py-4 text-center text-mut">回收站是空的——归档的工作项会出现在这里，随时可恢复</div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

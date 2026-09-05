@@ -592,6 +592,14 @@ export const api = {
   getCriticalPath: (pid: string) =>
     req<{ project_id: string; cycle: boolean; chain: string[]; float: Record<string, number> }>(
       `/projects/${pid}/critical-path`),
+  // I103: archive & trash (soft delete, fully restorable)
+  archiveItem: (itemId: string) =>
+    req<{ ok: boolean }>(`/items/${itemId}/archive`, { method: "POST" }),
+  restoreItem: (itemId: string) =>
+    req<{ ok: boolean }>(`/items/${itemId}/restore`, { method: "POST" }),
+  listTrash: (pid: string) =>
+    req<{ items: { id: string; title: string; concept_id: string; status: string; archived_at: string }[] }>(
+      `/projects/${pid}/trash`),
 
   // Outbound webhooks (M10-I32/I33): signed event push with delivery records.
   listWebhooks: (pid: string) =>

@@ -93,6 +93,17 @@ def _proj_item_assigned(conn, e):
     )
 
 
+# I103: archive / restore — soft delete with full reversibility (docs/01 §AF.3).
+@on("item.archived")
+def _proj_item_archived(conn, e):
+    conn.execute("UPDATE items SET archived_at = ? WHERE id = ?", (e.ts, e.agg_id))
+
+
+@on("item.restored")
+def _proj_item_restored(conn, e):
+    conn.execute("UPDATE items SET archived_at = NULL WHERE id = ?", (e.agg_id,))
+
+
 @on("item.rescheduled")
 def _proj_item_rescheduled(conn, e):
     """Auto-scheduling shift (M14-I44): explicit event, auditable follow-of."""
@@ -238,8 +249,12 @@ def list_items(
     status: str | None = None,
     assignee_id: str | None = None,
     priority: str | None = None,
+    include_archived: bool = False,
 ) -> list[dict]:
     where, params = ["1=1"], []
+    # I103: archived (trashed) items are excluded unless explicitly requested
+    if not include_archived:
+        where.append("archived_at IS NULL")
     if project_id:
         where.append("project_id = ?")
         params.append(project_id)
@@ -746,6 +761,49 @@ def get_item_detail(item_id: str) -> dict:
         " WHERE item_id = ? AND deleted_at IS NULL", (item_id,)).fetchone()
     item["spent_minutes"] = row["total"]
     return _parse_cf(_with_assignee_name(item))
+
+
+# ---------------------------------------------------------------- I103: trash
+@router.post("/items/{item_id}/archive")
+def archive_item(item_id: str) -> dict:
+    """I103 (docs/01 §AF.3): soft delete — the item leaves every view but stays
+    fully restorable from the trash (event-sourced, nothing is ever lost)."""
+    item = require_item(item_id)
+    if item.get("archived_at"):
+        raise HTTPException(status_code=409, detail="item already archived")
+    events.emit(
+        event_type="item.archived", agg_type="item", agg_id=item_id,
+        project_id=item["project_id"],
+        actor_type="human", actor_id=events.effective_actor(),
+        payload={"title": item["title"]},
+    )
+    return {"ok": True}
+
+
+@router.post("/items/{item_id}/restore")
+def restore_item(item_id: str) -> dict:
+    item = require_item(item_id)
+    if not item.get("archived_at"):
+        raise HTTPException(status_code=409, detail="item is not archived")
+    events.emit(
+        event_type="item.restored", agg_type="item", agg_id=item_id,
+        project_id=item["project_id"],
+        actor_type="human", actor_id=events.effective_actor(),
+        payload={"title": item["title"]},
+    )
+    return {"ok": True}
+
+
+@router.get("/projects/{project_id}/trash")
+def trash_items(project_id: str) -> dict:
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    rows = db.get_conn().execute(
+        "SELECT id, title, concept_id, status, archived_at FROM items"
+        " WHERE project_id = ? AND archived_at IS NOT NULL ORDER BY archived_at DESC",
+        (project_id,)).fetchall()
+    return {"items": [dict(r) for r in rows]}
 
 
 @router.patch("/items/{item_id}")

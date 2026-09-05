@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS items (
   milestone_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  version INTEGER NOT NULL DEFAULT 1
+  version INTEGER NOT NULL DEFAULT 1,
+  archived_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_items_project ON items(project_id);
 CREATE INDEX IF NOT EXISTS idx_items_feature ON items(feature_id);

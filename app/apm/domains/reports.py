@@ -500,6 +500,7 @@ def critical_path(project_id: str) -> dict:
     items = conn.execute(
         "SELECT id, title, start_date, due_date FROM items"
         " WHERE project_id = ? AND start_date IS NOT NULL AND due_date IS NOT NULL"
+        " AND archived_at IS NULL"
         " AND COALESCE(status_group, '') NOT IN ('done', 'cancelled')",
         (project_id,)).fetchall()
     ids = {r["id"] for r in items}
