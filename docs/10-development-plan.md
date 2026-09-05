@@ -936,6 +936,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 34 GREEN；审阅全绿。
 - 演示路径：报表页点「🖨 打印」→ 打印预览无导航噪声、卡片单栏可读。
 
+### M29 · 效率与可观测三件套（吸收 OpenProject calendar 拖拽/Kanboard 内联缺口/Langfuse 可观测语义，I89-I91，约 9 人日）
+
+> v2.5 新增（2026-09-05，M28 审阅通过后按目标协议调研）。调研结论见 docs/01 §AB：OpenProject Calendar 月/周切换 + 卡片拖拽改期（左柄 start/右柄 finish）+ 拖选日期范围建工作包——个人视角月历是 /my/work 的自然延伸；Kanboard 无真内联编辑（社区 #3142 长期诉求）、WeKan 侧栏面板——看板单卡快捷编辑补齐高频微操作；Langfuse（MIT 开源）确立 per-run latency/cost/错误率聚合标准而 replay provider 无真实 token——可真实聚合的是运行数/成功率/时长/步骤数，token·cost 载荷留位。三件主题统一「效率与可观测」：个人排期改得快（月历拖拽）、卡片改得快（快捷编辑条）、运行看得清（聚合报表）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I89 | 个人排期月历（/my/work 扩展日期 + 「📅 我的日程」月历页：拖拽改期/拖选建任务） | 01 §AB.1 | M20 拖拽链/M12 my-work | 3.5d |
+| I90 | 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日） | 01 §AB.2 | M22 批量校验/patch_item | 2.5d |
+| I91 | 运行聚合报表（GET /runs/report + RunsPage 报表卡；token/cost 载荷留位）+ docs/12 §26 + 冒烟 35 + M29 审阅 | 01 §AB.3 | M5 runs/spans/M12 报表 | 3d |
+
+#### I89 · 个人排期月历（3.5d）
+
+- 任务：`GET /my/work` 响应扩展 start_date/due_date（own-data 口径不变）；「📅 我的日程」页（`#/my/schedule`，月历格子渲染全部可见项目指派给我的有日期任务，项目色点区分）；拖拽卡片改期（整卡平移 → 单 PATCH start/due 复用 M14 审计与冲突重算；左柄改 start/右柄改 due 对齐 OpenProject 语义）；拖选日期范围快捷建任务（预填 start/due + 项目/概念选择弹窗）；AppShell 顶导航全局项 + MyWorkPage 入口；单测（my-work 日期字段/拖拽 PATCH 链路 rebuild 一致性走既有 items 域）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：我的日程月历拖一张卡 +3 天 → 看板该项目项日期同步（M14 传播）。
+
+#### I90 · 看板卡片快捷编辑（2.5d）
+
+- 任务：看板卡片「⚡」按钮 → 快捷编辑条（状态下拉[同概念校验]/优先级/执行者/截止日四个直改控件，变更即 patch_item——白名单/blocks 闭锁/WIP 全守卫自然生效 + 422 toast 显示完整原因）；列表视图行内同样接入；单测走既有 patch 矩阵（不新增后端面）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：卡片 ⚡ 改优先级 → 列头计数即变；改状态撞白名单 → toast 全文 422。
+
+#### I91 · 运行聚合报表 + 收尾审阅（3d）
+
+- 任务：`GET /projects/{id}/runs/report`（纯投影：按角色/状态聚合运行数、成功率、平均时长、Gate 挂起率、每运行步骤数[spans 计数]；runs 载荷 token/cost 字段留位——接入真实 provider 后即有数，replay 不造假数）+ RunsPage 报表卡（五组数字 + 状态条形）；docs/12 §26；**新增冒烟 35**（月历数据源对账/快捷编辑守卫继承/运行聚合与 runs 列表对账 + rebuild 一致）；相关验证 + M29 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 35 GREEN；审阅全绿。
+- 演示路径：RunsPage 报表卡显示本角色运行成功率与平均时长，与运行列表逐条对得上。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1104,6 +1132,7 @@ agent-project-management/
 | **M26 流程纪律三件套（I80-I82）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Y + docs/10 §M26）：I80 看板 WIP 限制（本体 board_defaults.wip_limits + 列头计数徽标超限红，Kanboard **软约束**语义——不阻止多入口状态变更、计数=列内全部项）/ I81 评论编辑与修订史（PATCH /comments 仅作者 + comment.updated 事件 + comment_revisions 投影 + 「已编辑」徽标/历史抽屉——事件溯源近零成本补齐 Redmine 要插件/GitLab #3706 缺口）/ I82 状态流转白名单（本体概念 transitions 声明缺省全兼容 + change_status 校验与 blocks 闭锁同层全入口一致）+ docs/12 §23 + 冒烟 32 + 审阅（pytest 198/冒烟 32 全绿 + 复演三件套[WIP 徽标/修订历史/白名单 toast+合法链]）；transition 必填字段/评论删除/role 维度矩阵/WIP 硬拦截留 backlog |
 | **M27 排期深化三件套（I83-I85）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §Z + docs/10 §M27）：I83 lag 排期联动（M14 传播引擎接入 lag_days——正 lag 间隔/负 lead 重叠，日历日口径[MS Project edays 语义]、时间线「+N 天」注记）/ I84 跨项目里程碑路线图（`GET /portfolio/roadmap` `_visible` 聚合 + 「📅 路线图」页——项目×里程碑时间线+进度+超期，纯投影补 GitLab epic #1105 跨项目缺口）/ I85 里程碑燃尽（`GET /milestones/{id}/burndown` **事件重放** done 首达日累计 vs 理想线零新表 + 报表「🔥 燃尽」卡 + 速率注记）+ docs/12 §24 + 冒烟 33；审阅 pytest **205** 全绿 + 审阅即修 3 前端缺陷（附录 B）；工作日历/按人周历/独立速率卡/Cycles 留 backlog |
 | **M28 落地闭环三件套（I86-I88）** | 已完成（审阅通过） | 2026-09-05 | 2026-09-05 | 3 迭代 / 约 9 人日（docs/01 §AA + docs/10 §M28）：I86 工时锁定与审批（timesheet submitted/approved/rejected 事件 + approved 冻结期间 409——Redmine 插件 log→submit→lock→approve 语义原生内建，计薪/结算刚需）/ I87 成员负载横切（`GET /portfolio/workload` `_visible` 项目横切按成员聚合——补 OpenProject resource planner 视角缺口）/ I88 打印视图（print CSS + 打印按钮——OpenProject 报表呈现语义、零新依赖「另存 PDF」）+ docs/12 §25 + 冒烟 34；审阅全量 211 绿 + 冒烟 34 GREEN + 审阅即修 1 处（附录 B）；按人拖拽周历/服务端报表 PDF/本体事件归档留 backlog |
+| **M29 效率与可观测三件套（I89-I91）** | 已定义 | 2026-09-05 | — | 3 迭代 / 约 9 人日（docs/01 §AB + docs/10 §M29）：I89 个人排期月历（/my/work 扩展日期 + 「📅 我的日程」月历：卡片拖拽改期[左柄 start/右柄 due]、拖选范围建任务——OpenProject calendar 个人面）/ I90 看板卡片快捷编辑（⚡ 快捷条直改状态/优先级/执行者/截止日——补 Kanboard #3142 内联缺口，全守卫继承）/ I91 运行聚合报表（`GET /projects/{id}/runs/report` 按角色/状态聚合成功率·平均时长·Gate 挂起率·步骤数——Langfuse 可观测语义纯投影切片，token/cost 载荷留位不造假数）+ docs/12 §26 + 冒烟 35 于 I91 + 审阅；评论引用回复/多基线趋势/工作日顺延/真实 token 成本留 backlog |
 | I86 工时锁定与审批 | 已完成 | 2026-09-05 | 2026-09-05 | timesheet 域：`POST /me/timesheets/submit` 按期间聚合 item_time_entries（空期间 422/同期间重复提交 409/期间重叠已批准期间 409/**驳回后复用同 id 重提交**——投影 INSERT OR REPLACE 重置决策字段）/ `GET /me/timesheets`（个人跨项目）/ `GET /projects/{id}/timesheets`（全量 + can_approve）/ approve·reject（**仅 Owner 或 admin**[local 单用户放行]，非 submitted 决策 409，reject 须 reason）；**approved 后锁定**：timelog 三写路径（log 落日/edit 原日与移入日/delete 原日）守卫 409 "timesheet locked"——计薪事实整条冻结**含备注**（要改走驳回重来）；timesheet.submitted/approved/rejected 事件 + timesheets 投影（进 drop_projections）；MyTimePage「🧾 工时审批」面板：期间起止+项目下拉（**记时记录去重**为候选——提交前也有可选项目）+ 提交按钮、我的提交状态徽标（待审 amber/批准绿/驳回红+原因）、can_approve 项目待审行 ✓批准/✕驳回（prompt 收原因）；test_timesheet 3 项（提交→驳回→补记时→重提交 total 210 链/批准冻结矩阵：期间内 log·edit·delete 全 409 + 期间外 log 200 + 补备注也 409 + 重叠提交 409/rebuild 重放后锁定存活且 timesheets 逐字段相等）；timesheet+timelog+冒烟 25 共 10 项绿、build 绿 |
 | I87 成员负载横切 | 已完成 | 2026-09-05 | 2026-09-05 | `GET /portfolio/workload`：复用 feed._visible 三层同 roadmap 口径，`_visible` 项目循环内按 assignee 聚合（assignee_type='human'）——活跃项数（非 done/cancelled）/超期数（活跃且 due 已过）/**项目分布 chips**（每项目活跃计数）；7 天工时**在项目循环内按项目隔离聚合**（不跨不可见项目汇总——工时泄漏恰是可见性裁剪要防的，见附录 A）；无负载成员（active=0 且无工时）不出行；active 降序排序。前端「👥 负载」页（/workload，行=成员：负载条[有超期转红]+「活跃 n」+「⏱ x/7d」+超期红徽标+项目分布 chips）+ AppShell 顶导航全局项（Users）+ Dashboard 组合卡「👥 负载」入口；api.ts portfolioWorkload + MemberWorkload。test_workload 2 项（跨项目聚合对账：3 active/1 overdue/分布{甲:2,乙:1}/done 项与无主项不出现/按 u_w1 身份记时后 minutes_7d=90/负载条排序 active 降序/rebuild 后 members 相等；rebuild 后排序复验）；workload+reports+roadmap 10 项绿、build/vitest 绿 |
 | I88 打印视图 + 冒烟 34 | 已完成 | 2026-09-05 | 2026-09-05 | index.css `@media print`（隐藏 `.no-print`/nav/aside——AppShell 顶栏挂 no-print；白底黑字；main 解除滚动裁剪；`.print-card` **Card 组件统一挂载**：去阴影/细边框/`break-inside: avoid` 保持卡片完整）；ui.tsx 新 `PrintButton`（`window.print()`——浏览器另存 PDF 即得报表，**零服务端零新依赖**，对齐 OpenProject 报表呈现语义而避开 Redmine #6280 型服务端 PDF 深坑）接入看板工具条/报表漏斗卡/Dashboard 组合卡；docs/12 §25；**新增冒烟 34**（①timesheet submit→approve 冻结矩阵：期间内 log·edit·delete 409 + 期间外 log 200 + 补备注 409；②workload 对账：active 1·minutes_7d 90=冻结 60+新 30·项目分布；③rebuild 后 timesheets 逐字段相等且锁定存活）；冒烟基线 **34 条 GREEN**、build/vitest 绿；造数坑自记：workload 按 assignee 聚合故 item 必须显式指派（未指派成员不出行，附录 A 有记） |
@@ -1289,6 +1318,8 @@ agent-project-management/
 | 2026-09-05 | I87 | 7 天工时聚合第一版写成全局 `GROUP BY user_id`（JOIN projects 只为过滤）——单测写「工时泄漏」断言时才意识到：**聚合粒度必须与可见性裁剪同构**，把不可见项目的工时汇进可见成员的负载条本身就是信息泄漏（从数字反推隐藏项目工作量）。修正为项目循环内逐项目聚合后累加——与 items 聚合同一循环，可见性过滤天然生效。测试还暴露两处造数问题：generic 本体无 task 概念（负载乙改 software-dev）；记时身份默认 u_admin 而 people 聚合按 assignee——**负载视图的口径是「谁的账」**，记时也要以成员身份发（identity 切换 + try/finally 恢复，呼应 M18 审阅坑）。无负载成员过滤（active=0 且无工时不出行）是聚合实践常识：done 完全员出现在「负载」页是噪声不是信息。 |
 
 | 2026-09-05 | I88 | 打印路线选「**print CSS + window.print**」而非服务端 PDF——OpenProject 的 Gantt/工作包 PDF 是服务端渲染（Headless/报表引擎），对单机 SQLite 项目是引依赖换边角；浏览器「另存 PDF」免费获得排版引擎，`@media print` 五十行 CSS 换全站可打印。`.print-card` 挂在 **Card 组件内部**而非逐页加类——所有卡片（报表/负载/路线图/工时面板）一次全量打印友好，新页面零成本继承。`break-inside: avoid` 防卡片跨页截断是打印排版的最低要求。冒烟 34 首跑踩坑：workload 按 **assignee** 聚合而造数 item 未指派——`members` 为空 IndexError；「按人聚合」类端点的造数清单必须含「指派给谁」，与 I87 单测的身份教训同源（数据口径要有人在位）。 |
+
+| 2026-09-05 | M29 定义 | 新一轮三路并行调研（防重查：候选池六项逐一 grep docs/01 无记录可查；M28 刚做的工时审批/负载/打印不重查）：①**个人排期月历**——OpenProject Calendar 官方语义：月/周切换 + 卡片拖拽改期（**左柄 start/右柄 finish**）+ 点击或拖选日期范围直接建工作包 + 保存自动顺延工作日；AgentPM M20 拖拽落在项目时间线条形图，个人跨项目月历缺失 → /my/work 扩展日期字段 + 「📅 我的日程」月历（拖拽复用 M20 单 PATCH 审计链，拖选建任务预填起止）；工作日顺延留 backlog（无工作日历，M27 已论证）。②**看板卡片快捷编辑**——Kanboard **无真内联编辑**（走任务页/下拉菜单），多任务内联/批量是社区长期诉求 #3142，插件补快捷按钮；WeKan 侧栏面板 + 键盘快捷键；AgentPM M22 批量覆盖多选、单卡仍要开抽屉 → 卡片 ⚡ 快捷编辑条（状态/优先级/执行者/截止日直改，**全走 patch_item**——白名单/blocks 闭锁/WIP 守卫自然继承，这是选直改而非新端点的核心理由）。③**运行聚合报表**——Langfuse（MIT 自托管）确立 per-run latency/cost/错误率聚合标准含 spend alerts，LangSmith 闭源 SaaS-only；replay provider 无真实 token **不造假数**，可真实聚合的：运行数按角色/状态、成功率、平均时长、Gate 挂起率、每运行步骤数（spans 计数），token/cost 载荷留位接真 provider 后即有数。选定 **M29 = 效率与可观测三件套**：I89 月历拖拽 / I90 卡片快捷编辑 / I91 运行报表 + docs/12 §26 + 冒烟 35 于 I91 + 审阅，估时 +9 人日。结论入 docs/01 §AB。 |
 
 | 2026-09-05 | I83 | lag 接入点选「**建关系时绝对对齐 + 改期时相对平移**」两段式而非每次传播都绝对重算——M14 传播是「保持间隔」语义，相对平移天然保持 lag 间隔，绝对公式只需在 lag 引入的那一刻对齐一次；且绝对重算会把手排的中间节点拖来拖去（级联里每个后继的 span 不同）。触发条件选「显式非零」而非「显式传入（含 0）」——lag=0 与不传等价于零行为变化，既有测试与用户习惯零破坏。**复演注意**：关系建立在 auto_scheduled 开启**之前**则不对齐（当时还不是自动项）——测试里先开 flag 再建关系。顺手修 import_items 重复 require_project（历史残留无害，双调用幂等）。 |
 

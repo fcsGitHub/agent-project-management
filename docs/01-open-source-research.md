@@ -770,3 +770,33 @@ M27 = **排期深化三件套**：I83 lag 排期联动（lag/lead 接入 M14 传
 **AA.5 M28 取舍**
 
 M28 = **落地闭环三件套**：I86 工时锁定与审批（submit→approve 计薪冻结，Redmine 插件语义原生内建）/ I87 成员负载横切（`/portfolio/workload` 补 OpenProject resource 视角缺口）/ I88 打印视图（print CSS 对齐 OpenProject 报表呈现、零新依赖）+ docs/12 §25 + 冒烟 34 + M28 审阅，约 9 人日。按人拖拽周历（team planner 编辑面）、服务端报表 PDF、本体事件归档留 backlog。
+
+## AB. M29 前置调研：效率与可观测——个人排期月历拖拽 / 看板卡片快捷编辑 / 运行聚合报表（2026-09-05）
+
+> 目标协议触发：M28 审阅通过后开启。防重查：候选池六项逐一 grep——评论引用回复/多基线趋势/模板套用增强/字段直编/运行报表/月视图拖拽均无调研记录；M28 刚做的工时审批·负载·打印不重查。
+
+**AB.1 个人排期月历与拖拽改期（OpenProject Calendar）**
+
+- [OpenProject Calendar](https://www.openproject.org/docs/user-guide/calendar/)：月/周切换、工作包卡片**拖拽改期**（官方 changelog 明确语义：**左柄拖动改 start、右柄拖动改 finish**、拖动卡片整体平移）、**点击或拖选日期范围直接建工作包**；保存时自动顺延到下一个工作日（[admin guide](https://www.openproject.org/docs/system-admin-guide/calendars-and-dates/)）。
+- 对本项目的映射：M20 拖拽改期落在**项目时间线**（条形图），个人视角缺「我的所有项目的有日期任务按日历排布」——`GET /my/work` 已聚合指派项，扩展携带 start/due 后即可出「我的日程」月历；拖拽落单 PATCH 复用 M14/M20 审计链；拖选范围快捷建任务（预填 start/due）对齐 OpenProject。工作日顺延留 backlog（无工作日历，M27 已论证）。
+
+**AB.2 看板卡片快捷编辑（Kanboard 内联缺口 / WeKan 侧栏）**
+
+- Kanboard **没有真正的卡片内联编辑**——编辑要走任务页或下拉菜单，社区多任务内联/批量编辑是长期诉求（[issue #3142](https://github.com/kanboard/kanboard/issues/3142)）；插件生态补卡片快捷按钮（edit/close/move/update date）；WeKan 用**侧栏面板**组织卡片属性 + 键盘快捷键（[docs](https://wekan.github.io/wekan-doc/user/Board-Administration.html)）。
+- 对本项目的映射：M22 批量编辑覆盖「多选统一改」，M26 WIP 徽标覆盖「警示」；单卡片的优先级/执行者/日期/状态仍要打开抽屉才能改——看板卡片**行内快捷控件**（点卡片上的 ⚡ 弹出快捷编辑条：状态下拉/优先级/执行者/截止日，复用 patch_item 校验与审计）补齐高频微操作路径。
+
+**AB.3 运行聚合报表（Langfuse 可观测语义）**
+
+- Agent 可观测平台的标准面：每次运行的 latency、token、**cost、错误率**按项目/模型聚合（[Langfuse](https://langfuse.com/) MIT 开源可自托管、含 spend alerts；[LangSmith](https://www.langchain.com/langsmith/observability) 能力强但闭源 SaaS-only；[对比](https://www.datacamp.com/blog/langfuse-vs-langsmith)）。监控回答「指标变没变」，可观测回答「为什么变」（[LangChain 综述](https://www.langchain.com/resources/llm-observability-tools)）。
+- 对本项目的映射：runs/spans 域已有运行与步骤数据（M5 起），但只有逐运行列表没有聚合面——replay provider 无真实 token/cost，不造假数；**可真实聚合的是**：运行数（按项目/角色/状态）、成功率、平均时长、Gate 挂起率、每运行步骤数（spans 计数）。`GET /runs/report` 纯投影聚合 + RunsPage 报表卡。token/cost 字段在 runs 载荷留位（接入真实 provider 后即有数）。
+
+**AB.4 M29 设计映射与验证纪律（沿用）**
+
+- I89 个人排期月历（/my/work 扩展日期 + 月历页拖拽改期/拖选建任务）。
+- I90 看板卡片快捷编辑条（⚡ 直改状态/优先级/执行者/截止日，全走既有 PATCH 审计）。
+- I91 运行聚合报表（`GET /runs/report` + RunsPage 报表卡；token/cost 载荷留位）；docs/12 §26 + 冒烟 35 于 I91 + 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M29 审阅。
+
+**AB.5 M29 取舍**
+
+M29 = **效率与可观测三件套**：I89 个人排期月历（OpenProject calendar 个人面 + 拖拽复用 M20 改期链）/ I90 看板卡片快捷编辑（补 Kanboard #3142 型内联缺口）/ I91 运行聚合报表（Langfuse 可观测语义的纯投影切片，token/cost 留位）+ docs/12 §26 + 冒烟 35 + M29 审阅，约 9 人日。评论引用回复、多基线趋势、工作日顺延、真实 token 成本接入留 backlog。
