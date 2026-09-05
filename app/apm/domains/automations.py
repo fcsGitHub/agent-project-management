@@ -8,6 +8,7 @@ re-enter the engine (single-layer execution)."""
 from __future__ import annotations
 
 import json
+import threading
 from contextvars import ContextVar
 
 from fastapi import APIRouter, HTTPException
@@ -29,15 +30,21 @@ from apm.domains.projects import require_project
 router = APIRouter(tags=["automations"])
 
 TRIGGERS = ("item.created", "item.updated", "item.status_changed", "item.assigned")
+SCHEDULE_TRIGGER = "schedule:daily"  # I98: YouTrack On-schedule semantics — evaluated
+# by the daily sweep, never by dispatch (not in TRIGGERS).
 PRIORITIES = ("high", "medium", "low")
 BUILTIN_CONDITION_FIELDS = {
     "title", "priority", "status", "status_group",
     "assignee_type", "assignee_id",
+    "overdue",  # I98: derived at sweep time (due past & not done/cancelled)
 }
-ACTION_TYPES = ("assign", "set_priority", "set_field", "set_status", "notify")
+ACTION_TYPES = ("assign", "set_priority", "set_field", "set_status", "notify",
+                "create_recurring")
+_valid_trigger_events = (*TRIGGERS, SCHEDULE_TRIGGER)
 
 _dispatching: ContextVar[bool] = ContextVar("apm_automation_dispatching", default=False)
 _installed = False
+_scheduler_thread: threading.Thread | None = None
 
 
 # ---------------------------------------------------------------- projectors
@@ -182,10 +189,18 @@ def field_owner_concept(onto, field_id: str) -> str:
 
 
 def _validate_rule(project_id: str, trigger_event: str, condition: dict, action: dict) -> None:
-    if trigger_event not in TRIGGERS:
-        raise HTTPException(status_code=422, detail=f"trigger_event must be one of {TRIGGERS}")
+    if trigger_event not in _valid_trigger_events:
+        raise HTTPException(status_code=422, detail=f"trigger_event must be one of {_valid_trigger_events}")
     onto = _project_ontology(project_id)
     _validate_condition(onto, condition)
+    if action.get("type") == "create_recurring":
+        concept_id = action.get("concept_id")
+        if not concept_id or concept_id not in onto.concepts:
+            raise HTTPException(status_code=422, detail="create_recurring needs a valid action.concept_id")
+        title = action.get("title")
+        if not title or not isinstance(title, str) or len(title) > 200:
+            raise HTTPException(status_code=422, detail="create_recurring needs action.title (≤200 chars)")
+        return
     _validate_action(onto, project_id, condition, action)
 
 
@@ -304,6 +319,104 @@ def install_automation_engine() -> None:
         _installed = True
 
 
+# ---------------------------------------------------------------- I98: daily sweep
+def _is_overdue(item: dict, today: str) -> bool:
+    return bool(item.get("due_date")) and item["due_date"] < today and \
+        item.get("status_group") not in ("done", "cancelled")
+
+
+def _execute_recurring(rule: dict) -> dict:
+    """create_recurring: emit a real item.created (automation-authored) so the
+    recurring card is a first-class item with full audit and projections."""
+    act = rule["action"]
+    payload: dict = {"concept_id": act["concept_id"], "title": act["title"]}
+    if act.get("assignee_id"):
+        payload["assignee_type"] = "human"
+        payload["assignee_id"] = act["assignee_id"]
+    events.emit(
+        event_type="item.created", agg_type="item", agg_id=new_id("i"),
+        project_id=rule["project_id"], actor_type="automation", actor_id=rule["id"],
+        payload=payload,
+    )
+    return {"type": "create_recurring", "ok": True, "detail": f"已创建「{act['title']}」"}
+
+
+def run_daily_sweep(force: bool = False) -> dict:
+    """I98 (docs/01 §AE.1, YouTrack On-schedule semantics): evaluate every
+    enabled `schedule:daily` rule once per day. Idempotency is a fact of the
+    event stream — a `automation.swept` heartbeat with today's date means the
+    sweep already ran (survives restarts and replays, zero new tables)."""
+    conn = db.get_conn()
+    today = events.utcnow()[:10]
+    if not force:
+        seen = conn.execute(
+            "SELECT 1 FROM events WHERE event_type = 'automation.swept'"
+            " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
+        if seen:
+            return {"swept": False, "date": today, "fired": 0, "created": 0}
+
+    fired = created = 0
+    rules = conn.execute(
+        "SELECT * FROM automation_rules WHERE trigger_event = ? AND enabled = 1",
+        (SCHEDULE_TRIGGER,)).fetchall()
+    for row in rules:
+        rule = _parse_rule(row)
+        if rule["action"].get("type") == "create_recurring":
+            result = _execute_recurring(rule)
+            created += 1
+        else:
+            result = None
+            for it in conn.execute(
+                    "SELECT i.* FROM items i JOIN projects p ON p.id = i.project_id"
+                    " WHERE i.project_id = ? AND COALESCE(p.status, '') != 'archived'",
+                    (rule["project_id"],)).fetchall():
+                item = dict(it)
+                item["overdue"] = _is_overdue(item, today)  # derived, sweep-only field
+                if not _condition_matches(rule, item):
+                    continue
+                result = _execute_action(rule, item)
+                fired += 1
+        if result is None:
+            continue
+        events.emit(
+            event_type="automation.rule_fired", agg_type="automation_rule",
+            agg_id=rule["id"], project_id=rule["project_id"],
+            actor_type="automation", actor_id=rule["id"],
+            payload={"rule_name": rule["name"], "trigger_event": SCHEDULE_TRIGGER,
+                     "sweep_date": today, "result": result},
+        )
+    events.emit(
+        event_type="automation.swept", agg_type="automation", agg_id="sweep",
+        project_id="", actor_type="automation", actor_id="scheduler",
+        payload={"date": today, "fired": fired, "created": created},
+    )
+    return {"swept": True, "date": today, "fired": fired, "created": created}
+
+
+def _scheduler_loop() -> None:
+    """Production ticker: wake up once a minute; the heartbeat check makes the
+    actual sweep idempotent, so polling frequency is irrelevant to correctness."""
+    import logging
+    import time
+
+    logger = logging.getLogger("apm.automations")
+    while True:
+        time.sleep(60)
+        try:
+            run_daily_sweep()
+        except Exception:  # the scheduler must survive anything
+            logger.exception("daily sweep failed")
+
+
+def install_scheduler() -> None:
+    """Idempotent: start the daily-sweep ticker thread (called in lifespan)."""
+    global _scheduler_thread
+    if _scheduler_thread is None or not _scheduler_thread.is_alive():
+        _scheduler_thread = threading.Thread(target=_scheduler_loop,
+                                             name="apm-scheduler", daemon=True)
+        _scheduler_thread.start()
+
+
 # ---------------------------------------------------------------- API
 class RuleIn(BaseModel):
     name: str
@@ -412,3 +525,14 @@ def rule_history(project_id: str, rule_id: str) -> dict:
         event_type="automation.rule_fired", limit=50)
     return {"runs": [
         {"event_id": e.id, "ts": e.ts, **e.payload} for e in evs], "total": total}
+
+
+class SweepIn(BaseModel):
+    force: bool = False
+
+
+@router.post("/automations/sweep")
+def post_sweep(body: SweepIn) -> dict:
+    """Manual trigger for the I98 daily sweep (the background ticker calls
+    run_daily_sweep() without force on its own cadence)."""
+    return run_daily_sweep(force=body.force)

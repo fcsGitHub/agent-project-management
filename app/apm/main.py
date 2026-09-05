@@ -43,6 +43,9 @@ def create_app() -> FastAPI:
         from apm.domains.mailer import install_mailer
 
         install_mailer()  # 邮件通道入队 hook + 后台发送线程（幂等，M11-I35）
+        from apm.domains.automations import install_scheduler
+
+        install_scheduler()  # 每日扫描 ticker（幂等，I98——心跳事件保证当日只扫一次）
         yield
 
     app = FastAPI(title="AgentPM", version="0.1.0", lifespan=lifespan)

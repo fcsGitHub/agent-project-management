@@ -237,13 +237,13 @@ export type TemplatePack = {
 export type AutomationRule = {
   id: string; project_id: string; name: string; trigger_event: string;
   condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
-  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string };
   enabled: boolean; created_at: string; updated_at: string;
 };
 export type AutomationRuleIn = {
   name: string; trigger_event: string;
   condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
-  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string };
   enabled?: boolean;
 };
 export type AutomationTestRun = {
@@ -575,6 +575,10 @@ export const api = {
     req<AutomationTestRun>(`/projects/${pid}/automations/${ruleId}/test`, { method: "POST" }),
   automationHistory: (pid: string, ruleId: string) =>
     req<{ runs: AutomationRun[]; total: number }>(`/projects/${pid}/automations/${ruleId}/runs`),
+  // I98: manual trigger of the daily sweep (heartbeat makes it idempotent)
+  sweepAutomations: () =>
+    req<{ swept: boolean; date: string; fired: number; created: number }>(
+      "/automations/sweep", { method: "POST", body: JSON.stringify({}) }),
 
   // Outbound webhooks (M10-I32/I33): signed event push with delivery records.
   listWebhooks: (pid: string) =>

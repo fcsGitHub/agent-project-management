@@ -482,10 +482,12 @@ const TRIGGER_LABEL: Record<string, string> = {
   "item.updated": "更新字段",
   "item.status_changed": "状态变更",
   "item.assigned": "指派变更",
+  "schedule:daily": "每日扫描",
 };
 const PRIORITY_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
 const ACTION_LABEL: Record<string, string> = {
   assign: "指派给", set_priority: "置优先级", set_field: "设自定义字段", set_status: "改状态",
+  create_recurring: "每日建卡",
 };
 
 function condSummary(r: { condition: { concept_id?: string; fields?: Record<string, unknown> } }): string {
@@ -503,6 +505,7 @@ function actionSummary(a: AutomationRule["action"]): string {
   }
   if (a.type === "set_field") return `${a.field_id} → ${Array.isArray(a.value) ? a.value.join("、") : String(a.value)}`;
   if (a.type === "set_status") return `状态 → ${a.status}`;
+  if (a.type === "create_recurring") return `每日建卡「${a.title}」`;
   return a.type;
 }
 
@@ -527,6 +530,7 @@ function AutomationsPanel({ pid, concepts }: {
   const [actFieldId, setActFieldId] = useState("");
   const [actFieldValue, setActFieldValue] = useState("");
   const [actStatus, setActStatus] = useState("");
+  const [recTitle, setRecTitle] = useState("");
   const [historyOf, setHistoryOf] = useState<string | null>(null);
 
   const declaredFields = new Map<string, { name: string; type: string; values?: (string | number)[] }>();
@@ -553,6 +557,10 @@ function AutomationsPanel({ pid, concepts }: {
         : actFieldValue;
     }
     if (actionType === "set_status") action.status = actStatus;
+    if (actionType === "create_recurring") {
+      action.concept_id = conceptId;
+      action.title = recTitle;
+    }
     return { name: name.trim(), trigger_event: trigger, condition, action };
   };
 
@@ -583,7 +591,17 @@ function AutomationsPanel({ pid, concepts }: {
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">自动化规则</span>
         <span className="text-xs text-mut">触发 → 条件 → 动作 · 事件溯源 · 动作按 automation 归账</span>
-        <Button size="sm" variant="outline" className="ml-auto" onClick={() => setOpen((v) => !v)}>＋ 新建规则</Button>
+        <Button size="sm" variant="ghost" className="ml-auto" title="立即运行每日扫描（当日幂等）"
+          onClick={async () => {
+            try {
+              const r = await api.sweepAutomations();
+              if (r.swept) toast.success(`扫描完成：动作 ${r.fired} 次 · 建卡 ${r.created} 张`);
+              else toast.info(`今日（${r.date}）已扫描过——心跳幂等`);
+            } catch (e) {
+              toast.error(`扫描失败：${e instanceof Error ? e.message : e}`);
+            }
+          }}>⟳ 手动扫描</Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>＋ 新建规则</Button>
       </div>
 
       <div className="mt-3 space-y-1.5">
@@ -630,7 +648,7 @@ function AutomationsPanel({ pid, concepts }: {
             <select value={condField} onChange={(e) => setCondField(e.target.value)}
               className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
               <option value="">无条件</option>
-              {["priority", "status", "assignee_id"].map((f) => <option key={f} value={f}>{f}</option>)}
+              {["priority", "status", "assignee_id", "overdue"].map((f) => <option key={f} value={f}>{f}</option>)}
               {[...declaredFields.keys()].map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
             {condField && <Input className="w-28" placeholder="值" value={condValue} onChange={(e) => setCondValue(e.target.value)} />}
@@ -681,7 +699,17 @@ function AutomationsPanel({ pid, concepts }: {
                 {statusPool.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
-            <Button size="sm" className="ml-auto" disabled={!name.trim() || (actionType === "assign" && !actUserId) || (actionType === "set_field" && (!actFieldId || !actFieldValue)) || (actionType === "set_status" && !actStatus)} onClick={create}>
+            {actionType === "create_recurring" && (
+              <>
+                <select value={conceptId} onChange={(e) => setConceptId(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                  <option value="">概念…</option>
+                  {concepts.map((c) => <option key={c.id} value={c.id}>{c.name}（{c.id}）</option>)}
+                </select>
+                <Input className="w-36" placeholder="每日卡片标题" value={recTitle} onChange={(e) => setRecTitle(e.target.value)} />
+              </>
+            )}
+            <Button size="sm" className="ml-auto" disabled={!name.trim() || (actionType === "assign" && !actUserId) || (actionType === "set_field" && (!actFieldId || !actFieldValue)) || (actionType === "set_status" && !actStatus) || (actionType === "create_recurring" && (!conceptId || !recTitle.trim()))} onClick={create}>
               创建规则
             </Button>
           </div>
