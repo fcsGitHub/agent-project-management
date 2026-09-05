@@ -1,5 +1,6 @@
 /** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start.
- * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns. */
+ * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns.
+ * M25-I79: list view renders progressively (LIST_PAGE rows per page + load more). */
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +10,8 @@ import { customFieldBadges } from "../lib/fmt";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, cx } from "../components/ui";
+
+const LIST_PAGE = 20;
 
 export function Board() {
   const { pid } = useParams();
@@ -161,6 +164,13 @@ export function Board() {
     walk(roots, 0);
     return out;
   }, [scopedListed, collapsed]);
+
+  // M25-I79: list view renders progressively ("load more") so the visible tree
+  // stays small on big projects; the data itself is already project-scoped.
+  // Reset whenever the filtered set changes (search/scope), not on collapse.
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE);
+  useEffect(() => { setVisibleCount(LIST_PAGE); }, [scopedListed]);
+  const pagedRows = useMemo(() => listRows.slice(0, visibleCount), [listRows, visibleCount]);
 
   const addSubtask = async (parent: { id: string; concept_id: string; project_id: string }) => {
     const title = window.prompt("子任务标题");
@@ -419,10 +429,10 @@ export function Board() {
               <tr className="border-b border-line text-mut">
                 <th className="py-2">
                   <input type="checkbox" title="全选/全不选（当前列表）"
-                    checked={listRows.length > 0 && listRows.every(({ item }) => selected.has(item.id))}
+                    checked={pagedRows.length > 0 && pagedRows.every(({ item }) => selected.has(item.id))}
                     onChange={(e) => {
                       const next = new Set(selected);
-                      for (const { item } of listRows) e.target.checked ? next.add(item.id) : next.delete(item.id);
+                      for (const { item } of pagedRows) e.target.checked ? next.add(item.id) : next.delete(item.id);
                       setSelected(next);
                     }} />
                 </th>
@@ -430,7 +440,7 @@ export function Board() {
               </tr>
             </thead>
             <tbody>
-              {listRows.map(({ item, depth }) => (
+              {pagedRows.map(({ item, depth }) => (
                 <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
                   <td className="py-2">
                     <input type="checkbox" checked={selected.has(item.id)} readOnly
@@ -471,6 +481,16 @@ export function Board() {
                   <td className="text-mut">{item.updated_at?.slice(5, 16)}</td>
                 </tr>
               ))}
+              {pagedRows.length < listRows.length && (
+                <tr className="border-b border-line/60">
+                  <td colSpan={8} className="py-2 text-center">
+                    <button className="text-xs text-acc hover:underline"
+                      onClick={() => setVisibleCount((n) => n + LIST_PAGE)}>
+                      加载更多（已显示 {pagedRows.length} / 共 {listRows.length} 项）
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

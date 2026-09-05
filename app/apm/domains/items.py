@@ -665,6 +665,8 @@ def get_items(
     view_id: str | None = None,
     parent: str | None = None,
     descendants: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> dict:
     base: dict = {}
     if view_id:  # M16-I50: saved view supplies base filters; explicit params win
@@ -705,8 +707,16 @@ def get_items(
                     keep.add(ch)
                     stack.append(ch)
         items = [it for it in items if it["id"] in keep]
+    # M25-I79 pagination (docs/01 §X.3, GitLab offset guidance): unbounded by
+    # default — only an explicit limit slices (clamped 1-200); offset rides
+    # along. total counts the fully filtered set in both modes, so clients can
+    # drive "load more" against it.
+    total = len(items)
+    if limit is not None:
+        offset = max(0, offset or 0)
+        items = items[offset:offset + max(1, min(200, limit))]
     _attach_spent(items)
-    return {"items": items}
+    return {"items": items, "total": total}
 
 
 @router.get("/items/{item_id}")

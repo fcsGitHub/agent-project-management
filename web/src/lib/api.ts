@@ -364,8 +364,14 @@ export const api = {
   putContext: (cid: string, level: "L1" | "L3", content: string) =>
     req<Context>(`/conversations/${cid}/context/${level}`, { method: "PUT", body: JSON.stringify({ content }) }),
 
-  listItems: (pid: string, params?: { feature_id?: string }) =>
-    req<{ items: Item[] }>(`/projects/${pid}/items${params?.feature_id ? `?feature_id=${params.feature_id}` : ""}`),
+  listItems: (pid: string, params?: { feature_id?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.feature_id) q.set("feature_id", params.feature_id);
+    if (params?.limit != null) q.set("limit", String(params.limit));
+    if (params?.offset != null) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return req<{ items: Item[]; total: number }>(`/projects/${pid}/items${qs ? `?${qs}` : ""}`);
+  },
   getItem: (iid: string) => req<Item>(`/items/${iid}`),
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
