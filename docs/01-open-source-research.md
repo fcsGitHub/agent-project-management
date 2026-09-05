@@ -891,4 +891,34 @@ M31 = **响应力三件套**：I95 键盘优先（Linear 语义的操作发现�
 
 M32 = **引擎与入口三件套**：I98 时间触发自动化（规则引擎的时间维度——YouTrack/Kanboard 语义）/ I99 外部 intake 收件（免登录入口地址——Trello/Jira 语义的 HTTP 最小面）/ I100 列表分组聚合（Airtable 组头统计语义）——主题统一「引擎与入口」：**引擎补节拍**（时间）、**容器加入口**（intake）、**数据给组织**（分组聚合）。+ docs/12 §29 + 冒烟 38 + M32 审阅，约 9 人日。IMAP 邮件轮询、多级分组、按组聚合排序、引用快捷键、多基线趋势留 backlog。
 
+## AF. M33 前置调研：纵深——关键路径高亮 / 子任务进度汇总 / 工作项归档与回收站（2026-09-06）
+
+> 目标协议触发：M32 审阅通过后开启。防重查：候选池 grep——引用快捷键/多基线趋势/工时审批代理/IMAP 轮询无调研记录；「关键路径」仅出现于验收语境与 OpenProject 排程讨论（无 CPM 算法记录）；工作项删除在 §Y.1（M26）留过「统一考量」backlog。
+
+**AF.1 关键路径高亮（CPM 正逆传递）**
+
+- 关键路径法（CPM）是排程科学的底座：**正向传递** ES/EF（`EF = ES + duration`）、**逆向传递** LS/LF（`LS = LF − duration`）、**Float = LF − EF**，float=0 的任务链即关键路径——任何一环延误直接顺延项目终点（[PMI](https://www.pmi.org/learning/library/critical-path-method-calculations-scheduling-8040)、[Wrike 公式](https://www.wrike.com/blog/critical-path-is-easy-as-123/)、[Asana](https://asana.com/resources/critical-path-method)）；ProjectManager/Smartsheet 都把关键路径渲染为 Gantt 上的红色链（[渲染](https://www.projectmanager.com/blog/critical-path-on-gantt)）。
+- 对本项目的映射：M14 已有依赖图（depends_on + lag + auto_scheduled 级联）——CPM 只需在**同一张图**上做正逆两遍传递：`GET /projects/{id}/critical-path`（按已排期项的 start/due 迭代后继链，float=0 链输出）+ TimelinePage 关键链条形红框高亮 + 开关切。零新表、纯投影计算（事件溯源红利第五例——图即事件投影）。
+
+**AF.2 子任务进度汇总（GitHub sub-issue progress 语义）**
+
+- GitHub 原生 **sub-issue progress fields**：父 issue 自带「n/m 完成」进度字段、自动聚合（[官方](https://docs.github.com/en/issues/planning-and-tracking-with-projects/understanding-fields/about-parent-issue-and-sub-issue-progress-fields)、[sub-issues 发布](https://github.blog/engineering/architecture-optimization/introducing-sub-issues-enhancing-issue-management-on-github/)）；Jira 靠 automation 模板汇总 story points/状态到父任务（[模板](https://www.atlassian.com/software/jira/automation-template-library/sum-up-story-points)），首子任务开始→父转 in_progress 也是常见规则（[KB](https://support.atlassian.com/automation/kb/automation-rule-to-transition-a-parent-issue-to-in-progress-when-its-first/)）。
+- 对本项目的映射：M24 子任务层级（parent_id）已存在但父任务**看不到子任务进度**——父卡/列表行加「子任务 n/m」徽标（done 子任务数/总子任务数，纯投影聚合、spent 合计同卡头）+ 时间线父条形上进度条。零后端（聚合在前端于已有 items 内完成）或可选 portfolio 口径。
+
+**AF.3 工作项归档与回收站（软删除 + 保留期）**
+
+- 现状格局：monday.com 有专门 Trash 区（[docs](https://support.monday.com/hc/en-us/articles/115005312729-The-trash-section)）、Azure DevOps 删除的工作项进 **Recycle Bin 可恢复**（[docs](https://learn.microsoft.com/en-us/azure/devops/boards/backlogs/remove-delete-work-items?view=azure-devops)）、Teamhood 删除项保留 30 天（[docs](https://teamhood.com/knowledge-base/best-practices/restoring-deleted-content/)）；**Jira 没有原生回收站**——删错只能整体回滚备份（[社区抱怨](https://community.atlassian.com/forums/Jira-questions/Is-it-possible-to-retrieve-deleted-tasks-from-a-Kanban-Board/qaq-p/971594)）；Vikunja 社区把软删除列为防数据丢失核心诉求（[请求](https://community.vikunja.io/t/add-soft-delete-and-restore-functionality-for-projects-and-tasks-to-prevent-irreversible-data-loss/4388)）。共同语义：**删除必须是可逆的软状态，回收站有入口有保留期**。
+- 对本项目的映射：AgentPM 工作项**至今无法删除**（§Y.1 backlog「统一考量」）——`item.archived` / `item.restored` 显式事件 + items 投影 archived_at 列 + 看板/列表默认排除归档项 + 「🗑 回收站」抽屉（归档项列表 + 恢复按钮，事件溯源下恢复零成本、永不真删）。关系/子任务随归档悬置、恢复即复活。
+
+**AF.4 M33 设计映射与验证纪律（沿用）**
+
+- I101 关键路径：CPM 正逆传递 + `GET /projects/{id}/critical-path` + TimelinePage 红框高亮开关；单测（链计算/float 手算/lag 参与/环安全）。
+- I102 子任务进度 rollup：父卡/列表行「子任务 n/m」徽标（含时间线进度条）；vitest 聚合口径。
+- I103 工作项归档与回收站：archived/restored 事件 + archived_at 列迁移 + 回收站抽屉 + 默认排除；**新增冒烟 39**（关键路径手算对账/rollup 计数/归档恢复 roundtrip + rebuild 一致）于 I103 + 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M33 审阅。
+
+**AF.5 M33 取舍**
+
+M33 = **纵深三件套**：I101 关键路径高亮（时间纵深——排程科学补最后一块）/ I102 子任务进度汇总（层级纵深——GitHub sub-issue progress 语义）/ I103 工作项归档与回收站（数据纵深——软删除+可恢复，补「统一考量」backlog）+ docs/12 §30 + 冒烟 39 + M33 审阅，约 9 人日。硬删除（真删+保留期清理作业）、多级 rollup（孙任务向爷任务）、CPM 资源平衡、IMAP 轮询、引用快捷键、多基线趋势留 backlog。
+
 
