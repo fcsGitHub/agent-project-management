@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
 import { Card, Empty } from "../components/ui";
 
@@ -42,6 +43,9 @@ export function ActivityPage() {
 
   const projects = overview.data?.projects ?? [];
   const acts = feed.data?.activities ?? [];
+  // I115: the Atom subscription URL is the credential (feed_key, M11 semantics)
+  const feedKey = useQuery({ queryKey: ["feed-key"], queryFn: api.getFeedKey });
+  const atomUrl = feedKey.data ? `${location.origin}/api/portfolio/activity.atom?key=${feedKey.data.feed_key}` : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
@@ -60,6 +64,14 @@ export function ActivityPage() {
             {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
           <span className="ml-auto text-[10px] text-mut">最近 {acts.length} 条 · 30 秒自动刷新</span>
+          {atomUrl && (
+            <button
+              onClick={async () => { await navigator.clipboard.writeText(atomUrl); toast.success("Atom 订阅链接已复制"); }}
+              className="rounded border border-line px-1.5 py-0.5 text-[10px] text-mut hover:border-acc hover:text-acc"
+              title={atomUrl}>
+              🔗 Atom
+            </button>
+          )}
         </div>
 
         {acts.length ? (

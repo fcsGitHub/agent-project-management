@@ -24,7 +24,7 @@ import json
 from collections import deque
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from apm.core import db, events
 from apm.domains.items import BUCKET_NAMES
@@ -191,6 +191,14 @@ def portfolio_activity(project_id: str | None = None, kind: str | None = None,
     me = events.effective_actor()
     conn = db.get_conn()
     user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    return {"activities": _activity_list(conn, user, project_id, kind, actor, limit),
+            "generated_at": _now().isoformat()}
+
+
+def _activity_list(conn, user, project_id: str | None, kind: str | None,
+                   actor: str | None, limit: int) -> list[dict]:
+    """Shared activity aggregation for the JSON feed and the Atom subscription
+    (M37-I115). Visible trimming + whitelist + filters, newest first."""
     from apm.domains.feed import _visible
 
     limit = max(1, min(limit, 200))
@@ -254,7 +262,7 @@ def portfolio_activity(project_id: str | None = None, kind: str | None = None,
         })
         if len(out) >= limit:
             break
-    return {"activities": out, "generated_at": _now().isoformat()}
+    return out
 
 
 ACTIVITY_EVENTS = {
@@ -288,6 +296,44 @@ def _activity_summary(r, p: dict, item_titles: dict) -> str:
     if et in ("approval.granted", "approval.rejected"):
         return "批准了审批" if et == "approval.granted" else "拒绝了审批"
     return et
+
+
+@router.get("/portfolio/activity.atom")
+def portfolio_activity_atom(key: str, request: Request) -> Response:
+    """Atom subscription for the cross-project activity feed (M37-I115,
+    docs/01 §AJ.3): the URL IS the credential — same feed_key model as the
+    M11 per-user feeds and iCal. Hand-written Atom, zero dependencies."""
+    import xml.sax.saxutils as sx
+
+    from apm.domains.feed import _user_by_feed_key
+
+    user = _user_by_feed_key(key)
+    if user is None:
+        raise HTTPException(status_code=401, detail="invalid feed key")
+    conn = db.get_conn()
+    acts = _activity_list(conn, user, None, None, None, 50)
+    base = str(request.base_url).rstrip("/")
+    entries = []
+    for a in acts:
+        title = sx.escape(f"{a['actor_name']} {a['summary']} · {a['project_name']}")
+        entries.append(
+            f"  <entry>\n"
+            f"    <id>urn:apm:activity/{a['project_id']}/{a['event_id']}</id>\n"
+            f"    <title>{title}</title>\n"
+            f"    <updated>{a['ts']}</updated>\n"
+            f"    <link href=\"{base}/#/p/{a['project_id']}/board\"/>\n"
+            f"    <author><name>{sx.escape(a['actor_name'])}</name></author>\n"
+            f"  </entry>"
+        )
+    xml = (
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+        "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n"
+        "  <id>urn:apm:activity</id>\n"
+        "  <title>AgentPM 项目动态</title>\n"
+        + (f"  <updated>{acts[0]['ts']}</updated>\n" if acts else "")
+        + "\n".join(entries) + "\n</feed>"
+    )
+    return Response(content=xml, media_type="application/atom+xml")
 
 
 @router.get("/portfolio/report")

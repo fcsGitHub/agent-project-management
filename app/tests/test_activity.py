@@ -84,3 +84,22 @@ def test_feed_order_is_rebuild_stable(client, tmp_data, isolated_ontologies):
     projections.rebuild()
     after = client.get("/api/portfolio/activity").json()["activities"]
     assert after == before  # the feed reads events — replay cannot change it
+
+
+def test_atom_subscription_key_auth_and_payload(client, tmp_data, isolated_ontologies):
+    """I115 (docs/01 §AJ.3): the Atom URL is the credential — same feed_key
+    model as M11; invalid keys 401, valid keys get trimmed, escaped XML."""
+    pid = _mkproject(client, "动态Atom")
+    client.post(f"/api/projects/{pid}/items",
+                json={"concept_id": "task", "title": "Atom 条目来源"})
+
+    assert client.get("/api/portfolio/activity.atom",
+                      params={"key": "wrong-key"}).status_code == 401
+    key = client.get("/api/me/feed-key").json()["feed_key"]
+    r = client.get("/api/portfolio/activity.atom", params={"key": key})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/atom+xml")
+    body = r.text
+    assert "<feed xmlns=\"http://www.w3.org/2005/Atom\">" in body
+    assert "Atom 条目来源" in body
+    assert "</feed>" in body
