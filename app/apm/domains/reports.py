@@ -593,12 +593,16 @@ def health_history(project_id: str, days: int = 30) -> dict:
 
 
 @router.get("/projects/{project_id}/baseline-curve")
-def baseline_curve(project_id: str, baseline_id: str | None = None) -> dict:
-    """Baseline S-curve (M34-I106, docs/01 §AG.3, EVM semantics): PV accrues
-    each baseline item's weight by its planned due (weight = estimate_hours,
-    falling back to 1.0 for pre-I106 snapshots), EV accrues by the replayed
-    first-arrival day of done — the event-sourcing dividend again, zero new
-    tables. SPI = EV/PV at the last sample; PV=0 is an honest None."""
+def baseline_curve(project_id: str, baseline_id: str | None = None,
+                   compare: str | None = None) -> dict:
+    """Baseline S-curve (M34-I106 + M36-I112, docs/01 §AI.3, EVM semantics):
+    PV accrues each baseline item's weight by its planned due (weight =
+    estimate_hours, falling back to 1.0 for pre-I106 snapshots), EV accrues by
+    the replayed first-arrival day of done, AC accrues actual logged minutes
+    on baseline items (replayed from time.logged minus soft-deleted entries).
+    `compare=<baseline_id>` overlays a second baseline's PV curve — the
+    multi-baseline overlay MS Project needs an Excel export for. SPI = EV/PV
+    at the last sample; PV=0 is an honest None."""
     from apm.domains.projects import require_project
 
     require_project(project_id)
@@ -634,6 +638,25 @@ def baseline_curve(project_id: str, baseline_id: str | None = None) -> dict:
             if json.loads(e["payload"]).get("status_group") == "done":
                 first_done[e["agg_id"]] = e["ts"][:10]
 
+    # AC (I112): logged minutes on baseline items by spent_on, replayed from
+    # time.logged and excluding entries soft-deleted via time.deleted
+    deleted_entries = {e["agg_id"] for e in conn.execute(
+        "SELECT agg_id FROM events"
+        " WHERE project_id = ? AND event_type = 'time.deleted'",
+        (project_id,)).fetchall()}
+    ac_logs: list[tuple[str, int]] = []  # (spent_on, minutes)
+    if weights:
+        for e in conn.execute(
+            "SELECT agg_id, payload FROM events"
+            " WHERE project_id = ? AND event_type = 'time.logged' ORDER BY id",
+            (project_id,),
+        ).fetchall():
+            if e["agg_id"] in deleted_entries:
+                continue
+            p = json.loads(e["payload"])
+            if p.get("item_id") in weights:
+                ac_logs.append((p.get("spent_on") or "9999", p.get("minutes") or 0))
+
     total = sum(weights.values())
     start = (row["created_at"] or "")[:10]
     points = _now().date()
@@ -651,17 +674,46 @@ def baseline_curve(project_id: str, baseline_id: str | None = None) -> dict:
     def ev_on(day_s: str) -> float:
         return sum(weights[iid] for iid, d in first_done.items() if d <= day_s)
 
+    def ac_on(day_s: str) -> float:
+        return sum(m for d, m in ac_logs if d <= day_s) / 60.0
+
     samples = []
     for pday in sample_days:
         ds = pday.isoformat()
         samples.append({"date": ds, "pv": round(pv_on(ds), 2),
-                        "ev": round(ev_on(ds), 2)})
+                        "ev": round(ev_on(ds), 2), "ac": round(ac_on(ds), 2)})
     pv_total, ev_last = samples[-1]["pv"], samples[-1]["ev"]
     spi = round(ev_last / pv_total, 3) if pv_total > 0 else None
+
+    # I112: a second baseline's PV overlaid on the same sample points
+    compare_data = None
+    if compare:
+        crow = next((r for r in rows if r["id"] == compare and r["id"] != row["id"]), None)
+        if crow is None:
+            raise HTTPException(status_code=404, detail="unknown compare baseline")
+        csnap = json.loads(crow["snapshot"])["items"]
+        cw: dict[str, float] = {}
+        cdue: dict[str, str] = {}
+        for item_id, entry in csnap.items():
+            cw[item_id] = float(entry[2]) if len(entry) > 2 and entry[2] else 1.0
+            if entry[1]:
+                cdue[item_id] = entry[1]
+
+        def cpv_on(day_s: str) -> float:
+            return sum(w for iid, w in cw.items()
+                       if cdue.get(iid, "9999") <= day_s)
+
+        compare_data = {
+            "baseline_id": crow["id"], "created_at": crow["created_at"],
+            "pv_total": round(sum(cw.values()), 2),
+            "samples": [{"date": d.isoformat(), "pv": round(cpv_on(d.isoformat()), 2)}
+                        for d in sample_days],
+        }
     return {"project_id": project_id, "baseline_id": row["id"],
             "created_at": row["created_at"], "total": round(total, 2),
             "samples": samples, "pv_total": pv_total, "ev_last": ev_last,
-            "spi": spi,
+            "ac_last": samples[-1]["ac"], "spi": spi,
+            "compare": compare_data,
             "weights": "estimate_hours, fallback 1.0 for pre-I106 snapshots"}
 
 

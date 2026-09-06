@@ -459,12 +459,19 @@ export const api = {
     req<{ project_id: string; baseline_id: string; created_at: string; variances: { item_id: string; title: string; status: string; baseline_start: string | null; baseline_due: string | null; current_start: string | null; current_due: string | null; start_deviation: number | null; due_deviation: number | null }[]; summary: { count: number; max_due_delay: number } }>(`/projects/${pid}/baseline-variance?include_same=${includeSame}${baselineId ? `&baseline_id=${baselineId}` : ""}`),
   setBaseline: (pid: string) =>
     req<{ project_id: string; baseline: unknown }>(`/projects/${pid}/baseline`, { method: "POST" }),
-  // I106: baseline S-curve — EVM PV/EV weekly samples + SPI (event replay)
-  getBaselineCurve: (pid: string, baselineId?: string) =>
-    req<{ project_id: string; baseline_id: string; created_at: string; total: number;
-          samples: { date: string; pv: number; ev: number }[];
-          pv_total: number; ev_last: number; spi: number | null }>(
-      `/projects/${pid}/baseline-curve${baselineId ? `?baseline_id=${baselineId}` : ""}`),
+  // I106/I112: baseline S-curve — EVM PV/EV/AC samples + SPI (event replay)
+  getBaselineCurve: (pid: string, baselineId?: string, compareId?: string) => {
+    const q = new URLSearchParams();
+    if (baselineId) q.set("baseline_id", baselineId);
+    if (compareId) q.set("compare", compareId);
+    const qs = q.toString();
+    return req<{ project_id: string; baseline_id: string; created_at: string; total: number;
+      samples: { date: string; pv: number; ev: number; ac: number }[];
+      pv_total: number; ev_last: number; ac_last: number; spi: number | null;
+      compare: { baseline_id: string; created_at: string; pv_total: number;
+        samples: { date: string; pv: number }[] } | null }>(
+      `/projects/${pid}/baseline-curve${qs ? `?${qs}` : ""}`);
+  },
   // I108: saved replies — the user's own canned responses (GitHub semantics)
   listSavedReplies: () =>
     req<{ replies: { id: string; title: string; body: string; created_at: string }[] }>("/me/saved-replies"),

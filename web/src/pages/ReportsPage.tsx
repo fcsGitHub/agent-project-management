@@ -232,8 +232,9 @@ function ResponsivenessCard({ pid }: { pid: string }) {
   );
 }
 
-/** I106 (docs/01 §AG.3, EVM semantics): baseline S-curve — PV accrues baseline
- *  weights by planned due, EV by replayed done arrival; SPI at the last sample. */
+/** I106/I112 (docs/01 §AG.3 + §AI.3, EVM semantics): baseline S-curve — PV by
+ *  planned due, EV by replayed done arrival, AC by replayed logged minutes;
+ *  `?compare=` overlays a second baseline's PV (MS Project needs Excel for this). */
 function SCurveCard({ pid }: { pid: string }) {
   const bl = useQuery({
     queryKey: ["baselines", pid],
@@ -241,11 +242,12 @@ function SCurveCard({ pid }: { pid: string }) {
     enabled: !!pid,
   });
   const [bid, setBid] = useState("");
+  const [compareId, setCompareId] = useState("");
   const list = bl.data?.baselines ?? [];
   const selected = bid || list[list.length - 1]?.id || "";
   const curve = useQuery({
-    queryKey: ["baseline-curve", pid, selected],
-    queryFn: () => api.getBaselineCurve(pid, selected),
+    queryKey: ["baseline-curve", pid, selected, compareId],
+    queryFn: () => api.getBaselineCurve(pid, selected, compareId || undefined),
     enabled: !!selected,
   });
 
@@ -257,10 +259,13 @@ function SCurveCard({ pid }: { pid: string }) {
     const end = new Date(d.samples[d.samples.length - 1].date + "T00:00:00Z").getTime();
     const window = Math.max(end - start, DAY_MS);
     const x = (date: string) => ((new Date(date + "T00:00:00Z").getTime() - start) / window) * 100;
-    const y = (n: number) => 3 + (1 - n / d.total) * 37;
-    const pts = (key: "pv" | "ev") =>
+    const y = (n: number) => 3 + (1 - Math.min(n / d.total, 1.2)) * 37;
+    const pts = (key: "pv" | "ev" | "ac") =>
       d.samples.map((p) => `${x(p.date).toFixed(2)},${y(p[key]).toFixed(2)}`).join(" ");
-    return { pv: pts("pv"), ev: pts("ev") };
+    const comparePts = d.compare
+      ? d.compare.samples.map((p) => `${x(p.date).toFixed(2)},${y(p.pv).toFixed(2)}`).join(" ")
+      : null;
+    return { pv: pts("pv"), ev: pts("ev"), ac: pts("ac"), compare: comparePts };
   })();
 
   return (
@@ -278,26 +283,43 @@ function SCurveCard({ pid }: { pid: string }) {
             ))}
             {!list.length && <option value="">（无基线）</option>}
           </select>
+          <select value={compareId} onChange={(e) => setCompareId(e.target.value)}
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" title="叠加另一条基线的 PV 对比计划漂移">
+            <option value="">不对比</option>
+            {list.filter((b) => b.id !== selected).map((b) => (
+              <option key={b.id} value={b.id}>对比 {b.created_at?.slice(0, 10) || b.id}</option>
+            ))}
+          </select>
         </div>
       </div>
       {d && view ? (
         <>
           <div className="text-xs text-mut">
-            计划值 PV {d.pv_total}h · 挣值 EV {d.ev_last}h · 总盘 {d.total}h
+            计划值 PV {d.pv_total}h · 挣值 EV {d.ev_last}h · 实际 AC {d.ac_last}h · 总盘 {d.total}h
             {d.spi == null && " · PV 为 0，SPI 不可算——诚实空态"}
           </div>
           <svg viewBox="0 0 100 43" className="mt-2 h-36 w-full" preserveAspectRatio="none">
+            {view.compare && (
+              <polyline points={view.compare} fill="none" stroke="currentColor"
+                className="text-acc/70" strokeWidth="0.6" strokeDasharray="1 2" />
+            )}
             <polyline points={view.pv} fill="none" stroke="currentColor"
               className="text-mut/60" strokeWidth="0.8" strokeDasharray="2 2" />
+            {d.ac_last > 0 && (
+              <polyline points={view.ac} fill="none" stroke="currentColor"
+                className="text-violet-500" strokeWidth="0.8" strokeDasharray="0.8 1.4" />
+            )}
             <polyline points={view.ev} fill="none" stroke="currentColor"
               className="text-acc" strokeWidth="1" />
           </svg>
-          <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
+          <div className="mt-1 flex flex-wrap justify-center gap-3 text-[10px] text-mut">
             <span><i className="mr-1 inline-block h-0.5 w-3 border-b border-dashed border-mut align-middle" />PV（基线计划累计）</span>
             <span><i className="mr-1 inline-block h-0.5 w-3 bg-acc align-middle" />EV（实际完成累计）</span>
+            {d.ac_last > 0 && <span><i className="mr-1 inline-block h-0.5 w-3 border-b border-dotted border-violet-500 align-middle" />AC（实际工时累计）</span>}
+            {view.compare && <span><i className="mr-1 inline-block h-0.5 w-3 border-b border-dotted border-acc align-middle" />对比基线 PV</span>}
           </div>
           <div className="mt-1 text-center text-[10px] text-mut">
-            权重 = estimate_hours（旧基线缺省按项数 1.0）· EV 事件重放 done 首达日
+            权重 = estimate_hours（旧基线缺省按项数 1.0）· EV 重放 done 首达日 · AC 重放 time.logged（删账不计）
           </div>
         </>
       ) : (
