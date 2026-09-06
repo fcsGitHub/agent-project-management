@@ -703,6 +703,13 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **UI**：设置页「🏖 我的休假」卡（起止日期+原因登记、chip 列表、✕ 取消）。
 - **测试**：test_time_off 2 项（roundtrip + 四向重叠 409 + 倒序 422 + own-data 取消 404 / 当天覆盖 on_leave 标记 + rebuild 存活）。
 
+### 33.3 S 曲线扩展：AC 第三线 + 多基线并列（I112）
+
+- **语义**（EVM 完整三线 + 多基线叠图，docs/01 §AI.3）：**AC**（实际工时）重放 `time.logged` 按 `spent_on` 累计基线项 minutes（换算小时）；`time.deleted` 软删条目**永不计入**（先取删除集再过滤）。`?compare=<baseline_id>` 在同一组采样点上并列第二条基线的 PV——「计划漂移了多少」一眼可见。MS Project 原生不支持多基线+EV+AC 单图叠加（需导出 Excel 手工叠），事件溯源下零导出直出。
+- **API**：`GET /api/projects/{id}/baseline-curve?baseline_id=&compare=`——samples 每点加 `ac`；响应加 `ac_last` 与 `compare: {baseline_id, pv_total, samples}`（未知对比基线 404、与主基线相同则排除）。
+- **UI**：报表「📈 S 曲线」卡三线（PV 灰虚 / EV 实 / AC violet 点线）+「不对比 / 对比 <日期>」下拉 + 图例随内容显隐。
+- **测试**：test_baseline_curve +1 共 4 项（AC=90+30min=2h 手算 / 双基线 PV 6 vs 10 并列同采样点 / 删账后 AC=0.5）；**冒烟 42** 三段 roundtrip + rebuild（动态流交错+过滤/休假登记+🏖 标记/S 曲线 AC+compare）。
+
 ### 32.3 引用快捷键（I109）
 
 - **语义**（GitHub quote reply 的键位化——I94 ❝ 按钮的三轮 backlog 转正）：看板 j/k 游标选中卡片后按 `R` → 直开该卡评论弹层并**预填引用最后一条评论**（`@作者 引用：` + 逐行 blockquote，复用 I94 预填格式）；`Enter` 依旧是打开评论不预填——两个键位、两种意图。预填是**一次性 effect**：仅在草稿为空时落笔，用户已输入的内容永不被覆盖。
