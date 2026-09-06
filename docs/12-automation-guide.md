@@ -694,6 +694,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`_fetch_messages` 补两个头 + `_find_thread_item` 用线程 Message-ID 集合查 imap_seen 的 message→item 归属；known sender 以其身份评论、unknown sender 走 intake 身份（routed=`reply` / `reply_intake` 留痕）；回复邮件自身的 Message-ID 同样入 imap_seen——幂等与线程链均可回溯。
 - **测试**：test_imap_in +1 共 6 项（回复命中 → 任务数不变 + 评论数增 + routed=reply）。
 
+### 34.3 动态流 Atom 订阅（I115）
+
+- **语义**（「订阅地址即凭证」，docs/01 §AJ.3）：`GET /api/portfolio/activity.atom?key=<feed_key>`——复用 M11 feed_key 认证（错误 key 401），与 GitHub/GitLab 的「Atom URL 携带 token」模式同构；聚合与 JSON 端点同源（`_activity_list` 共用：_visible 裁剪 + 八类白名单 + 倒序）。
+- **实现**：手写 Atom XML（`xml.sax.saxutils` 转义、`request.base_url` 拼绝对链接）——零依赖（I67 iCal 先例）；动态页「🔗 Atom」按钮用 getFeedKey 组订阅地址一键复制。
+- **测试**：test_activity +1 共 4 项（错误 key 401 / content-type=atom+xml / feed xmlns 结构 / 条目摘要入文）；**冒烟 43** 三段 roundtrip + rebuild（主题路由剥离/回复转评论任务数不变/Atom 认证+XML）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
