@@ -215,6 +215,15 @@ def portfolio_activity(project_id: str | None = None, kind: str | None = None,
         proj_names = {r["id"]: r["name"] for r in conn.execute(
             f"SELECT id, name FROM projects WHERE id IN ({marks})", tuple(pids)).fetchall()}
     item_ids = {r["agg_id"] for r in rows if r["event_type"] == "item.status_changed"}
+    # comment summaries also name the item — take it from the payload
+    for r in rows:
+        if r["event_type"] == "comment.created":
+            try:
+                iid = json.loads(r["payload"]).get("item_id")
+            except (TypeError, ValueError):
+                continue
+            if iid:
+                item_ids.add(iid)
     item_titles = {}
     if item_ids:
         marks = ",".join("?" for _ in item_ids)
