@@ -11,6 +11,7 @@ so re-polls and rebuilds never duplicate an item."""
 from __future__ import annotations
 
 import email
+import re
 from email import policy
 
 from fastapi import APIRouter, HTTPException
@@ -77,6 +78,8 @@ def _fetch_messages() -> list[dict]:
                 "from": email.utils.parseaddr(msg.get("From", ""))[1],
                 "subject": str(msg.get("Subject") or "").strip(),
                 "body": body.strip()[:2000],
+                "in_reply_to": str(msg.get("In-Reply-To") or "").strip(),
+                "references": str(msg.get("References") or "").strip(),
             })
             client.store(num, "+FLAGS", "\\Seen")
         return out
@@ -164,6 +167,21 @@ def _attach_body(item_id: str, project_id: str, author_id: str,
     )
 
 
+def _find_thread_item(conn, msg: dict) -> dict | None:
+    """I114 (docs/01 §AJ.2, Jira replies-become-comments): if the mail's
+    In-Reply-To/References chain points at a Message-ID this system already
+    processed into an item, the reply belongs to that item's conversation —
+    it must become a comment, not a new task."""
+    refs = re.findall(r"<[^>]+>",
+                      f"{msg.get('in_reply_to', '')} {msg.get('references', '')}")
+    if not refs:
+        return None
+    marks = ",".join("?" for _ in refs)
+    return conn.execute(
+        f"SELECT item_id, project_id FROM imap_seen WHERE message_id IN ({marks})"
+        " AND item_id IS NOT NULL LIMIT 1", tuple(refs)).fetchone()
+
+
 def poll_inbox() -> dict:
     """One mailbox pass; every outcome is an imap.message_processed event
     (routed=user/intake or skipped), and the imap_seen projection makes the
@@ -178,6 +196,36 @@ def poll_inbox() -> dict:
             "SELECT 1 FROM imap_seen WHERE message_id = ?", (message_id,)
         ).fetchone():
             continue
+
+        # I114: a reply in a known thread becomes a comment on that item —
+        # never a new task (Jira replies-become-comments semantics)
+        thread = _find_thread_item(conn, msg)
+        if thread is not None:
+            from_email = email.utils.parseaddr(msg.get("from") or "")[1].lower()
+            sender = conn.execute(
+                "SELECT id, name FROM users WHERE LOWER(COALESCE(email, '')) = ?",
+                (from_email,)).fetchone()
+            if sender:
+                author_id, author_name = sender["id"], sender["name"]
+                routed = "reply"
+            else:
+                author_id, author_name = "intake", "intake"
+                routed = "reply_intake"
+            _attach_body(thread["item_id"], thread["project_id"],
+                         author_id, author_name, msg.get("body"))
+            result = {"routed": routed, "item_id": thread["item_id"],
+                      "project_id": thread["project_id"]}
+            events.emit(
+                event_type="imap.message_processed", agg_type="imap_message",
+                agg_id=message_id, project_id=thread["project_id"],
+                actor_type="automation", actor_id="imap",
+                payload={"message_id": message_id,
+                         "from_email": from_email,
+                         "subject": msg.get("subject"), **result},
+            )
+            processed += 1
+            continue
+
         result = _route_message(conn, msg)
         normalized = email.utils.parseaddr(msg.get("from") or "")[1].lower()
         events.emit(

@@ -130,6 +130,40 @@ def test_message_id_idempotent_and_rebuild(client, tmp_data, isolated_ontologies
     assert count == 1
 
 
+def test_reply_becomes_comment(client, tmp_data, isolated_ontologies,
+                               project, imap_env, monkeypatch):
+    """I114 (docs/01 §AJ.2): a mail whose In-Reply-To points at a processed
+    Message-ID joins that item's conversation as a comment — the item count
+    never grows."""
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.com"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+
+    _stub_messages(monkeypatch, {
+        "message_id": "<t1@x.com>", "from": "qa@x.com",
+        "subject": "线程起点", "body": "",
+    })
+    assert imap_in.poll_inbox()["processed"] == 1
+    items = client.get(f"/api/projects/{pid}/items").json()["items"]
+    assert len(items) == 1
+    item_id = items[0]["id"]
+
+    _stub_messages(monkeypatch, {
+        "message_id": "<t2@x.com>", "from": "qa@x.com",
+        "subject": "Re: 线程起点", "body": "回复：已修复，请回归。",
+        "in_reply_to": "<t1@x.com>", "references": "",
+    })
+    assert imap_in.poll_inbox()["processed"] == 1
+    items2 = client.get(f"/api/projects/{pid}/items").json()["items"]
+    assert len(items2) == 1                       # no new task
+    comments = client.get(f"/api/items/{item_id}/comments").json()["comments"]
+    assert any("已修复，请回归" in c["body"] for c in comments)
+    routed = db.get_conn().execute(
+        "SELECT routed FROM imap_seen WHERE message_id = '<t2@x.com>'").fetchone()["routed"]
+    assert routed == "reply"
+
+
 def test_not_configured_is_honestly_off(client, tmp_data, isolated_ontologies, project):
     assert imap_in.poll_inbox() == {"enabled": False, "processed": 0}
     assert client.post("/api/imap/poll").status_code == 409
