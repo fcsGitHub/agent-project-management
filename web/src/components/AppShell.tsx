@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, BarChart3, CalendarClock, CalendarRange, Library, LayoutDashboard, KanbanSquare, ListTodo, Map as MapIcon, Menu, MessagesSquare, ScrollText,
+  Activity, BarChart3, CalendarClock, CalendarRange, Library, LayoutDashboard, KanbanSquare, ListTodo, Map as MapIcon, Menu, MessagesSquare, Newspaper, ScrollText,
   Settings as SettingsIcon, Shapes, Users, Workflow, Plus, Bell, BellRing, Command,
 } from "lucide-react";
 import { api } from "../lib/api";
@@ -26,6 +26,7 @@ const RAIL = [
   { to: "/my/time", label: "我的工时", icon: CalendarClock, global: true },
   { to: "/my/schedule", label: "我的日程", icon: CalendarRange, global: true },
   { to: "/roadmap", label: "路线图", icon: MapIcon, global: true },
+  { to: "/activity", label: "项目动态", icon: Newspaper, global: true },
   { to: "/workload", label: "负载", icon: Users, global: true },
   { to: "/assets", label: "Assets", icon: Library, global: true },
   { to: "/templates", label: "模板", icon: Shapes, global: true },

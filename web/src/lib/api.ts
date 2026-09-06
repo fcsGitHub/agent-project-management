@@ -315,6 +315,18 @@ export const api = {
     req<PortfolioReport>("/portfolio/report"),
   portfolioRoadmap: () =>
     req<RoadmapData>("/portfolio/roadmap"),
+  // I110: cross-project activity feed — the visible event stream, newest first
+  portfolioActivity: (params?: { project_id?: string; kind?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.project_id) q.set("project_id", params.project_id);
+    if (params?.kind) q.set("kind", params.kind);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return req<{ activities: { event_id: number; ts: string; icon: string; kind: string;
+      event_type: string; summary: string; actor_id: string; actor_name: string;
+      project_id: string; project_name: string; agg_id: string }[]; generated_at: string }>(
+      `/portfolio/activity${qs ? `?${qs}` : ""}`);
+  },
   portfolioWorkload: () =>
     req<WorkloadData>("/portfolio/workload"),
   portfolioHealth: () =>

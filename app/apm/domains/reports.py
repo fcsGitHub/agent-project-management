@@ -181,6 +181,106 @@ def project_report(project_id: str) -> dict:
     }
 
 
+@router.get("/portfolio/activity")
+def portfolio_activity(project_id: str | None = None, kind: str | None = None,
+                       actor: str | None = None, limit: int = 50) -> dict:
+    """Cross-project activity feed (M36-I110, docs/01 §AI.1, OpenProject
+    'My activity' semantics): the visible slice of the event stream IS the
+    feed — no new tables, no replay, just a whitelisted read with membership
+    trimming (event-sourcing dividend #7: the activity page is free)."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    from apm.domains.feed import _visible
+
+    limit = max(1, min(limit, 200))
+    placeholders = ",".join("?" for _ in ACTIVITY_EVENTS)
+    sql = f"SELECT * FROM events WHERE event_type IN ({placeholders})"
+    params: list = list(ACTIVITY_EVENTS)
+    if project_id:
+        sql += " AND project_id = ?"
+        params.append(project_id)
+    if actor:
+        sql += " AND actor_id = ?"
+        params.append(actor)
+    # over-fetch then trim by visibility — the feed stays limit-sized
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit * 3)
+    rows = conn.execute(sql, params).fetchall()
+
+    pids = {r["project_id"] for r in rows if r["project_id"]}
+    proj_names = {}
+    if pids:
+        marks = ",".join("?" for _ in pids)
+        proj_names = {r["id"]: r["name"] for r in conn.execute(
+            f"SELECT id, name FROM projects WHERE id IN ({marks})", tuple(pids)).fetchall()}
+    item_ids = {r["agg_id"] for r in rows if r["event_type"] == "item.status_changed"}
+    item_titles = {}
+    if item_ids:
+        marks = ",".join("?" for _ in item_ids)
+        item_titles = {r["id"]: r["title"] for r in conn.execute(
+            f"SELECT id, title FROM items WHERE id IN ({marks})", tuple(item_ids)).fetchall()}
+    actor_ids = {r["actor_id"] for r in rows if r["actor_id"]}
+    actor_names = {}
+    if actor_ids:
+        marks = ",".join("?" for _ in actor_ids)
+        actor_names = {r["id"]: r["name"] for r in conn.execute(
+            f"SELECT id, name FROM users WHERE id IN ({marks})", tuple(actor_ids)).fetchall()}
+
+    out = []
+    for r in rows:
+        if user is None or not _visible(r["project_id"], user):
+            continue
+        icon, k = ACTIVITY_EVENTS[r["event_type"]]
+        if kind and k != kind:
+            continue
+        p = json.loads(r["payload"])
+        summary = _activity_summary(r, p, item_titles)
+        out.append({
+            "event_id": r["id"], "ts": r["ts"], "icon": icon, "kind": k,
+            "event_type": r["event_type"], "summary": summary,
+            "actor_id": r["actor_id"], "actor_name": actor_names.get(r["actor_id"], r["actor_id"]),
+            "project_id": r["project_id"], "project_name": proj_names.get(r["project_id"], ""),
+            "agg_id": r["agg_id"],
+        })
+        if len(out) >= limit:
+            break
+    return {"activities": out, "generated_at": _now().isoformat()}
+
+
+ACTIVITY_EVENTS = {
+    "item.created": ("🆕", "item"),
+    "item.status_changed": ("🔁", "item"),
+    "comment.created": ("💬", "comment"),
+    "milestone.created": ("🚩", "milestone"),
+    "milestone.achieved": ("🏁", "milestone"),
+    "approval.requested": ("⏳", "approval"),
+    "approval.granted": ("✅", "approval"),
+    "approval.rejected": ("⛔", "approval"),
+}
+
+
+def _activity_summary(r, p: dict, item_titles: dict) -> str:
+    et = r["event_type"]
+    if et == "item.created":
+        return f"创建了工作项「{p.get('title', '?')}」"
+    if et == "item.status_changed":
+        title = item_titles.get(r["agg_id"], "")
+        return f"「{title}」状态变更为 {p.get('status', '?')}"
+    if et == "comment.created":
+        title = item_titles.get(p.get("item_id"), "")
+        return f"评论了「{title}」：{(p.get('body') or '')[:40]}"
+    if et == "milestone.created":
+        return f"创建了里程碑「{p.get('title', '?')}」"
+    if et == "milestone.achieved":
+        return f"达成里程碑「{p.get('title', '?')}」"
+    if et == "approval.requested":
+        return f"发起{p.get('kind', '')}审批"
+    if et in ("approval.granted", "approval.rejected"):
+        return "批准了审批" if et == "approval.granted" else "拒绝了审批"
+    return et
+
+
 @router.get("/portfolio/report")
 def portfolio_report() -> dict:
     """Cross-project portfolio overview (M23-I72, docs/01 §V.2): one row per

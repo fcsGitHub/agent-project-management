@@ -22,6 +22,7 @@ import { MyWorkPage } from "./pages/MyWorkPage";
 import { MyTimePage } from "./pages/MyTimePage";
 import { SearchPage } from "./pages/SearchPage";
 import { RoadmapPage } from "./pages/RoadmapPage";
+import { ActivityPage } from "./pages/ActivityPage";
 import { WorkloadPage } from "./pages/WorkloadPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { IntakePage } from "./pages/IntakePage";
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/my/time" element={<MyTimePage />} />
         <Route path="/roadmap" element={<RoadmapPage />} />
         <Route path="/workload" element={<WorkloadPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
         <Route path="/my/schedule" element={<SchedulePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/login" element={<LoginPage />} />
