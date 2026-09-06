@@ -1015,6 +1015,38 @@ M35 = **通道与回复三件套**：I107 IMAP 邮件转任务（入口通道补
 M36 = **透明与容量三件套**：I110 跨项目动态流（透明——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（容量——Taiga 痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（对照——AC 第三线+多基线并列，MS Project 原生缺失项）+ docs/12 §33 + 冒烟 42 + M36 审阅，约 9 人日。休假自动转派、IMAP 多项目路由、动态流订阅 RSS 留 backlog。
 
 
+## AJ. M37 前置调研：通道收尾——IMAP 主题路由 / 邮件回复转评论 / 动态流 Atom（2026-09-06）
+
+> 目标协议触发：M36 审阅通过后开启。防重查：候选池 grep——IMAP subject 前缀路由（§AI.5/I107 仅留 backlog）、动态流 RSS（§AI.5 仅留 backlog）、休假自动转派（§AI.5 仅留 backlog）均无调研记录。行业面：Huly SaaS 停运转 self-host、Focalboard 进入维护模式、Plane 发布权限大改——均不改 AgentPM 功能路线。
+
+**AJ.1 IMAP 主题路由（Jira Split Regex 的轻量版——`[项目名]` 前缀）**
+
+- Jira Data Center 的 mail handler 有 **Split Regex** 字段（按正则切分回复膨胀），但「subject 正则路由到项目」原生能力有限，社区普遍靠 Email This Issue/JEMH 等三方应用做「正则匹配邮件属性 + 过滤/退信模板」（[Atlassian 社区](https://community.atlassian.com/forums/Jira-questions/Can-the-JIRA-Incoming-Mail-Handler-that-uses-regex-parse-HTML/qaq-p/623545)、[Meta-Inf 文档](https://docs.meta-inf.hu/email-this-issue/email-this-issue-for-jira-server-data-center/documentation/incoming-emails/next-generation-mail-handlers)）；另有「忽略特定地址/关键词」诉求（[社区](https://community.atlassian.com/forums/Jira-questions/Incoming-Mail-Handler-ignore-certain-address-or-keywords-when/qaq-p/831293)）。共同语义：**主题可携带路由信息，命中即定向，不命中走默认**。
+- 对本项目的映射：I107 的默认项目路由保持，主题以 `[项目名]` 开头时**优先路由到该名称的可见项目**（发件人是其成员；非成员或项目不存在 → 落回默认项目路由，不静默丢信）；设置页「📮 外部收件」区提示前缀用法。零新表（路由是纯函数），正则留位。
+
+**AJ.2 邮件回复转评论（Jira「replies become comments」语义）**
+
+- Jira：新邮件建 issue，而**同主题的回复邮件变成该 issue 的评论**（[UWaterloo 解析](https://uwaterloo.ca/atlassian/blog/understanding-jiras-mail-handler-turning-emails-actionable)）；Cloud 版支持正文标记/分隔符过滤引用历史（[官方](https://support.atlassian.com/jira-cloud-administration/docs/create-issues-and-comments-from-email/)）。共同语义：**邮件线程与会话线合一**——回复不该生成新任务。
+- 对本项目的映射：I107 处理邮件时先查 **In-Reply-To/References 头**是否指向本系统发出的 imap.message_processed 已见 Message-ID（或同主题且存在由邮件建出的任务）→ 命中则该邮件**不建新任务而是给对应任务发首条评论**（复用 I107 的 _attach_body）；纯标准库 email 头解析。imap_seen 记录 message→item 归属使线程链可回溯。
+
+**AJ.3 动态流 Atom 订阅（feed_key 模式同构——M11 语义的全局活动版）**
+
+- GitHub 私有活动 feed 需登录态/Token（[Stack Overflow](https://stackoverflow.com/questions/10730341/how-can-i-access-a-github-private-repository-rss-feed)）；GitLab 活动流是 Atom URL+**token 追加认证**且近期收紧了无 token 访问（[GitLab issue #433351](https://gitlab.com/gitlab-org/gitlab/-/issues/433351)）。共同语义：**订阅地址即凭证**（与 AgentPM users.feed_key / M11 Atom per-user key 完全同构）。
+- 对本项目的映射：`GET /portfolio/activity.atom?key=`——复用 feed_key 认证（M11 同款 `_user_by_feed_key`）+ I110 的 _visible 裁剪与白名单聚合，手写 RFC 5545 式 Atom XML（I67 iCal 的零依赖先例）；动态页加「🔗 Atom」链接展示订阅地址。
+
+**AJ.4 M37 设计映射与验证纪律（沿用）**
+
+- I113 主题路由：imap_in.py `_route_message` 前置 `[项目名]` 解析（纯函数 + 成员校验）；单测（命中成员项目/非成员落默认/不存在落默认/无前缀不变/rebuild）。
+- I114 回复转评论：In-Reply-To 头解析 + imap_seen 归属查询 + 转评论路径；单测（回复命中转评论/新主题建任务/Message-ID 幂等保持）。
+- I115 动态 Atom：/portfolio/activity.atom?key= + feed_key 认证 + 动态页订阅链接；单测（key 认证 401/裁剪/XML 结构/rebuild 无影响——直读）+ **冒烟 43**（主题路由 roundtrip/回复转评论/Atom 订阅 XML 有效 + rebuild 一致）并入 I115 + M37 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M37 审阅。
+
+**AJ.5 M37 取舍**
+
+M37 = **通道收尾三件套**：I113 IMAP 主题路由（路由面——Jira Split Regex 轻量版）/ I114 邮件回复转评论（会话面——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（订阅面——feed_key 同构，M11 全局活动版）+ docs/12 §34 + 冒烟 43 + M37 审阅，约 9 人日。休假自动转派、subject 正则全量路由、退信模板留 backlog。
+
+
+
 
 
 

@@ -1174,6 +1174,36 @@ agent-project-management/
 
 ---
 
+### M37 · 通道收尾三件套（IMAP 主题路由/邮件回复转评论/动态流 Atom，I113-I115，约 9 人日）
+
+> v2.9 新增（2026-09-06，M36 审阅通过后按目标协议调研）。调研结论见 docs/01 §AJ。主题统一「通道收尾」：**路由面**（主题定向项目）、**会话面**（回复归线程）、**订阅面**（动态出 Atom）——把 M35 邮件通道与 M36 动态流做成完整闭环。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I113 | IMAP 主题路由（`[项目名]` 前缀 → 发件人成员项目优先路由，非成员/不存在落回默认——Jira Split Regex 轻量版） | 01 §AJ.1 | I107 路由链 | 3d |
+| I114 | 邮件回复转评论（In-Reply-To/References 头 + imap_seen 归属 → 回复不建任务发评论——Jira replies-become-comments 语义） | 01 §AJ.2 | I107 _attach_body | 3d |
+| I115 | 动态流 Atom 订阅 + 收尾审阅（`/portfolio/activity.atom?key=` feed_key 认证 + _visible 白名单聚合 + 手写 Atom XML + 动态页订阅链接）+ docs/12 §34 + 冒烟 43 + M37 审阅 | 01 §AJ.3 | M11 Atom/I67 手写 XML | 3d |
+
+#### I113 · IMAP 主题路由（3d）
+
+- 任务：`_route_message` 前置 `[项目名]` 前缀解析（subject 以 `[xxx]` 开头时按名称查项目：发件人是该项目成员 → 路由该项目并剥离前缀作标题；非成员/项目不存在 → 静默落回默认路由，不丢信）；设置页「📮 外部收件」区提示 `[项目名]` 用法；单测（命中成员项目/非成员落默认/不存在落默认/无前缀不变/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：发 `[动态演示] 数据导出报错` → 任务落「动态演示」项目且标题无前缀；发 `[不存在的项目] x` → 落默认项目。
+
+#### I114 · 邮件回复转评论（3d）
+
+- 任务：邮件 In-Reply-To/References 头解析 → 命中 imap_seen 已处理 Message-ID（即本系统由邮件建出的任务）→ 该邮件**不建新任务**而是给对应任务发评论（复用 _attach_body）；无命中保持建任务路径；Message-ID 幂等不变；单测（回复命中转评论/新主题建任务/幂等保持）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：回复建任务时的原邮件 → 看板任务不增、任务评论 +1。
+
+#### I115 · 动态流 Atom 订阅 + 收尾审阅（3d）
+
+- 任务：`GET /portfolio/activity.atom?key=`——复用 M11 feed_key 认证（_user_by_feed_key）+ I110 _visible 白名单聚合 + 手写 Atom XML（I67 零依赖先例）；动态页「🔗 Atom」链接展示订阅地址；docs/12 §34；**新增冒烟 43**（主题路由 roundtrip/回复转评论/Atom 订阅 XML 有效 + rebuild 一致）；相关验证 + M37 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 43 GREEN；审阅全绿。
+- 演示路径：复制动态页 Atom 链接 → 阅读器订阅 → 收到可见项目的活动条目。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1348,6 +1378,10 @@ agent-project-management/
 | **M34 时间关怀三件套（I104-I106）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AG + docs/10 §M34）：I104 工作日历与非工作日落点顺延（calendar.holiday_added/removed 事件 + non_working_days 投影表 + advance_to_workday 收口 M14 传播与 I83 对齐——OpenProject 12.3 语义，M27 backlog 转正）/ I105 到期邻近提醒（run_daily_sweep 内建动作 + item.due_soon_notified + NOTIFY_KINDS 第六类 + 双通道同闸——Plane/Linear 语义，sweep 第一公民应用）/ I106 基线 S 曲线对比（`GET /projects/{id}/baseline-curve` PV/EV 周界采样 + SVG 双线 + SPI 手算——EVM 语义，事件溯源红利第六例）+ docs/12 §31 + 冒烟 40；审阅全量 **260** 绿 + 冒烟 40 GREEN + 审阅即修 0 处（语义演进波及在迭代段收口；附录 B）；个人 Availability/AC 第三线/多基线并列对比/IMAP 轮询/引用快捷键留 backlog |
 | **M35 通道与回复三件套（I107-I109）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AH + docs/10 §M35）：I107 IMAP 邮件转任务（imaplib env 可选 + ticker 轮询 + 发件人匹配 users.email 归账/降级 intake/ignore + Message-ID 幂等——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（saved_replies 运行态表 + own-data CRUD + `Ctrl+.` 过滤面板 + 存为常用——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（游标 `R` 直开评论预填引用 + SHORTCUTS/浮层自动收录——I94 backlog 转正）+ docs/12 §32 + 冒烟 41；审阅全量 **268** 绿 + 冒烟 41 GREEN + 审阅即修 1 处（常用回复面板 Enter 闭包时序加固 ba5623c；附录 B）；多项目邮件路由/个人 Availability/AC 第三线/多基线并列留 backlog |
 | **M36 透明与容量三件套（I110-I112）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AI + docs/10 §M36）：I110 跨项目动态流（`GET /portfolio/activity` _visible 裁剪 + 事件白名单 + 「📰 项目动态」页——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（user_time_off_* 事件 + 投影表 + workload「🏖 休假中」+ my/schedule 休假条——Taiga 容量痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（AC 第三线 spent 重放 + `?compare=` 多基线 PV 并列——MS Project 原生缺失的免费叠图）+ docs/12 §33 + 冒烟 42；审阅全量 **274** 绿 + 冒烟 42 GREEN + 审阅即修 1 处（动态流评论行标题空补 item_id 0e1000a；附录 B）；休假自动转派/IMAP 多项目路由/动态 RSS 留 backlog |
+| **M37 通道收尾三件套（I113-I115）** | 进行中（定义已出） | 2026-09-06 | — | 3 迭代 / 约 9 人日（docs/01 §AJ + docs/10 §M37）：I113 IMAP 主题路由（`[项目名]` 前缀 → 成员项目优先/非成员落默认——Jira Split Regex 轻量版）/ I114 邮件回复转评论（In-Reply-To + imap_seen 归属 → 回复发评论不建任务——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（`/portfolio/activity.atom?key=` feed_key 认证 + 手写 Atom XML——M11 全局活动版）+ docs/12 §34 + 冒烟 43 + M37 审阅；休假自动转派/subject 正则全量路由/退信模板留 backlog |
+| I113 IMAP 主题路由 | 进行中 | 2026-09-06 | — | `_route_message` 前置 `[项目名]` 前缀解析（subject `[xxx]` 开头按名称查项目：发件人是成员 → 路由该项目并剥离前缀作标题；非成员/不存在 → 落回默认路由不丢信）+ 设置页外部收件区提示用法；单测（命中成员项目/非成员落默认/不存在落默认/无前缀不变/rebuild） |
+| I114 邮件回复转评论 | 待开始 | 2026-09-06 | — | 邮件 In-Reply-To/References 头解析 → 命中 imap_seen 已处理 Message-ID → 不建新任务改发对应任务评论（复用 _attach_body）；无命中保持建任务；Message-ID 幂等不变；单测（回复命中转评论/新主题建任务/幂等保持） |
+| I115 动态流 Atom+冒烟 43+收尾 | 待开始 | 2026-09-06 | — | `GET /portfolio/activity.atom?key=`：复用 M11 feed_key 认证 + I110 _visible 白名单聚合 + 手写 Atom XML（I67 零依赖先例）+ 动态页「🔗 Atom」订阅链接；docs/12 §34；**新增冒烟 43**（主题路由 roundtrip/回复转评论/Atom XML 有效 + rebuild 一致）+ M37 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I110 跨项目动态流 | 已完成 | 2026-09-06 | 2026-09-06 | `GET /portfolio/activity`：feed._visible 三层裁剪 + ACTIVITY_EVENTS 八类白名单（item.created/status_changed、comment.created、milestone.created/achieved、approval.requested/granted/rejected）+ ts 倒序 + project_id/kind/actor/limit 过滤（over-fetch 3 倍→可见性裁剪→截 limit 保证页大小）+ 批量 map 补项目名/条目标题/操作者名（无 N+1）+ _activity_summary 中文摘要；「📰 项目动态」页 /activity（项目/类型下拉+相对时间+30s 自动刷新+点击跳看板）+ 侧栏 Newspaper 全局入口；**事件溯源红利第七例：活动流免费**（零新表零重放直读 events）；test_activity 3 项（成员级裁剪函数级断言——**local 隐式 self 语义：切身份即全可见端点级不可测**[I87 同款边界]/admin 双项目倒序/过滤 limit/rebuild 后序不变[直接读事件天然稳定]）+ 报表回归 8 项绿；build/vitest 9 绿 |
 | I111 个人 Availability 休假 | 已完成 | 2026-09-06 | 2026-09-06 | `user.time_off_started`/`user.time_off_cancelled` 显式事件 + user_time_off 投影表[进 drop 清单、user 索引] + `GET/POST/DELETE /me/time-off`（own-data；四向重叠 409、end<start 422、删他人/不存在 404）+ 设置页「🏖 我的休假」卡（起止+原因登记、chip 列表、✕ 取消）+ 消费两端：workload 成员行 `on_leave` 徽标「🏖 休假中」（今天落在 active 段）+ 我的日程月历 🏖 日期标记（前端拉 time-off 展开）；test_time_off 2 项（roundtrip+四向重叠+倒序+own-data 取消 404/当天覆盖标记+rebuild 存活）；build 绿 |
 | I112 S 曲线扩展+冒烟 42+收尾 | 已完成 | 2026-09-06 | 2026-09-06 | baseline-curve 扩展：**AC 第三线**（重放 time.logged 按基线项 spent_on 累计 minutes/60；先取 time.deleted 软删集再过滤——删账永不计）+ `?compare=<baseline_id>` 双基线 PV 同采样点并列（未知 404、自比排除）+ 报表「📈 S 曲线」卡三线图例（PV 灰虚/EV 实/AC violet 点线）+「对比」下拉；test_baseline_curve +1 共 4 项（AC=2h 手算/双基线 PV 6 vs 10/删账 AC=0.5）；**新增冒烟 42**（动态流双项目交错+过滤/休假登记+workload 🏖 标记/S 曲线 AC+compare + rebuild 三段重放）；冒烟 **42** 条 GREEN + build 绿 |
@@ -1661,6 +1695,7 @@ agent-project-management/
 | 2026-09-06 | I111 | 休假建模选「**日期段事件对**」（started/cancelled）而非布尔状态——段可查历史（何时休的假）、取消零成本、投影可算「今天在段内」；重叠 409 在端点层防录入错误而非产品强约束。消费面选「**标记而非扣减**」——workload 的 active 数字不变只加 on_leave 徽标、日程只是叠加 🏖 标记：自动把休假从容量里扣除（OpenProject resource management 式）需要工时配额模型，AgentPM 无配额域，标记已回答「这人今天在不在」。my/schedule 的休假条走**前端展开**（拉 /me/time-off 展开 🏖 到格）而非后端注入响应——日程响应契约不动，休假是个人数据前端天然可拿。 |
 | 2026-09-06 | I112 | AC 重放选「**先取 time.deleted 集合再过滤 time.logged**」而非反向标记——软删条目的 logged 事件仍在流里，减去删除集等价于投影表的 deleted_at 判定但完全走事件（重放语义纯正）。compare 选「**同采样点并列第二 PV**」而非独立时间轴——「计划漂移」的对比必须在同一时间格上读数；compare 与主基线相同则排除（自比无意义）。首版 AC 重放留了半截废循环（sqlite Row 无 .get 的坑差点踩上）——写完即删，YAGNI。 |
 | 2026-09-06 | M36 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 274** 项 0 失败 + 冒烟 **42** 条 GREEN + vitest 9/build 绿；验证纪律第十七轮执行）——**I110**：test_activity 3 项 ✓（函数级裁剪/倒序/过滤/rebuild）；**I111**：test_time_off 2 项 ✓（四向重叠 409/on_leave/rebuild）；**I112**：test_baseline_curve 4 项 ✓（AC 手算/compare 双 PV/删账不计）。浏览器隔离复演三件套（`/tmp/apm-m36` + SW 清理第十次）：①动态页 6 条交错倒序（截图 m36-review-activity-newtab）——**审阅即修**：评论行标题空，补 comment.created payload.item_id 进标题 map（0e1000a）；②负载页「🏖 休假中」徽标与 API on_leave 对账（截图 m36-review-workload-leave）；③S 曲线卡「SPI 0.5 · PV 8h/EV 4h/AC 1h」+ 对比下拉双 PV（8 vs 6）与 API 逐字段对账（截图 m36-review-scurve-ac-compare）；console 0 错误。 | — | 里程碑通过 |
+| 2026-09-06 | M37 定义 | 新一轮三路并行调研（防重查：候选池 grep——IMAP subject 前缀路由[§AI.5/I107 仅 backlog]/动态流 RSS[§AI.5 仅 backlog]/休假自动转派[§AI.5 仅 backlog]均无调研记录；行业面 Huly SaaS 停运/Focalboard 维护模式/Plane 权限大改均不改功能路线）：①**IMAP 主题路由**——Jira Data Center mail handler 有 Split Regex 但「subject 正则路由到项目」原生有限、社区靠 Email This Issue/JEMH 三方做正则匹配+退信模板（Atlassian 社区/Meta-Inf），另有忽略特定地址/关键词诉求 → 轻量版：subject `[项目名]` 前缀 → 发件人成员项目优先路由并剥离前缀、非成员/不存在落回默认不丢信（纯函数零新表、正则留位）；②**邮件回复转评论**——Jira「新邮件建 issue、同主题回复变评论」（UWaterloo 解析）+ Cloud 正文标记过滤 → In-Reply-To/References 头解析 + imap_seen 的 message→item 归属查询 → 命中不建任务改发评论（复用 I107 _attach_body），线程与会话合一；③**动态流 Atom**——GitHub 私有 feed 需 Token、GitLab Atom URL+token 追加认证且收紧无 token 访问（GitLab #433351）——「订阅地址即凭证」与 users.feed_key/M11 Atom per-user key 完全同构 → `/portfolio/activity.atom?key=` 复用 feed_key 认证 + I110 裁剪白名单 + 手写 Atom XML（I67 零依赖先例）+ 动态页订阅链接。选定 **M37 = 通道收尾三件套**：I113 IMAP 主题路由 / I114 邮件回复转评论 / I115 动态流 Atom+收尾 + docs/12 §34 + 冒烟 43 予 I115 + 审阅，估计 +9 人日。结论入 docs/01 §AJ。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
