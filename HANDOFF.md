@@ -50,7 +50,8 @@
 - **M34 时间关怀三件套（I104-I106，定义 cfe71ef，docs/01 §AG + docs/10 §M34）**：调研结论——I104 工作日历跳休（OpenProject 12.3 非工作日语义：calendar.holiday_added/removed 事件 + non_working_days 投影表 + M14 **落点顺延**[start/due 落非工作日顺延至下一工作日；手排期零感知；工期保持日历日跨度] + 设置页「📅 工作日历」卡——M27 backlog 转正）、I105 到期邻近提醒（Plane/Linear 语义：run_daily_sweep 新增动作 due∈[today,today+N] → item.due_soon_notified + NOTIFY_KINDS 第六类 due_soon 默认开 + pref_allows 双通道；同 sweep 先查当日已通知集合幂等，**零新引擎零新表**）、I106 基线 S 曲线对比（EVM 语义：`GET /projects/{id}/baseline-curve` PV 周界采样累计 + EV 事件重放 done 时点累计 + SVG 双线 + SPI=EV/PV 末点手算——**事件溯源红利第六例**）。+ docs/12 §31 + 冒烟 40（并入 I106）+ M34 审阅。
 - **I104 已完成（代码 4f228a4 + docs cabe74c）**：calendar.py 新域（advance_to_workday 单一辅助函数收口 M14 传播+I83 对齐两处；non_working_days 进 drop 清单；GET/POST/DELETE /calendar/holidays admin only）+ 设置页「📅 工作日历」卡；test_calendar 3 项；**test_scheduling 造数改锚定周一网格**（M34 语义演进：传播落点不落周末，三处数字重排断言强度不变——「功能提升使旧测试前提失效」处理范式第二例）。
 - **I105 已完成（代码 2b9db7d + docs 42bd47c）**：run_daily_sweep 内建 `_notify_due_soon`（due∈[today,today+N] 未完成未归档有 human 指派 → item.due_soon_notified 专用事件，事件流查当日已通知幂等、心跳带 notified）+ NOTIFY_KINDS 第六类 due_soon + 站内 @on 投影器/邮件 NOTIFY_EVENTS+plan_notifications 双通道同闸（**事件是事实投递是收口**：偏好关=事件照发、投递为零）+ due_soon_days 配置默认 3；test_due_soon 3 项 + I96 kinds 断言演进。**教训入档：NOTIFY_EVENTS（邮件白名单）与 @on 装饰器（站内投影）是两套名册，新 kind 两处都挂**；heredoc 第 6 次违例自记。
-- **当前验证基线：pytest 257（254 + test_due_soon 3）；冒烟 39 GREEN；vitest 8/build 绿。**
+- **I106 已完成（代码 a1ee967+验证 ad294e9 + docs 59f7a65）**：`GET /projects/{id}/baseline-curve`（PV 按基线 planned due 周界采样累计 + EV 事件重放 done 首达 + SPI=EV/PV 诚实 None——**事件溯源红利第六例**）+ 快照 3 元组 [start,due,estimate_hours]（旧快照回退权重 1.0；索引解构消费点天然兼容、整组相等断言不兼容——全量揪出 test_baselines/冒烟 29 共 4 处补 None 位）+ 报表「📈 S 曲线」卡（基线下拉+SVG 双线+SPI 徽标）+ **冒烟 40**（三段 roundtrip+rebuild；S 曲线段独立项目防权重盘污染；冒烟 26 周日落点顺延、冒烟 20/33 锚定周一网格）。
+- **当前验证基线：pytest 260 全绿；冒烟 40 条 GREEN；vitest 8/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -59,7 +60,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M33 全闭环~~ ✅（每轮：调研定义 → 3 迭代[三段式提交] → 正式审阅[全量回归+DoD 逐项+浏览器隔离复演]；审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63/5fd751c/11cc1b2/f859af5/6f247c2/**9fc20d1**；单迭代详情真源=docs/10 §7 看板行与附录 A/B——本节不再保留单迭代条目）。
-2. **M34 三迭代（I104 ✅ 4f228a4/cabe74c、I105 ✅ 2b9db7d/42bd47c；下一步 I106）**：**I106 基线 S 曲线 + 冒烟 40 + M34 审阅**（reports.py `GET /projects/{id}/baseline-curve?baseline_id=` PV 周界采样累计基线项 estimate[due≤采样日计入] + EV 事件重放 item.status→done 时点累计 + SPI=末点 EV/PV[PV=0 诚实 None] + 报表页「📈 S 曲线」卡基线下拉+SVG 双线；docs/12 §31.3；**冒烟 40**=跳休 roundtrip/提醒 roundtrip/S 曲线手算对账 + rebuild；随后 M34 审阅=全量回归+DoD 逐项+附录 B+浏览器隔离复演三件套[隔离 data+ontologies+netstat 单监听+SW 清理]）。每迭代三段式提交：代码 → docs → HANDOFF 收口。设计细节真源=docs/10 §M34 三小节 + docs/01 §AG。
+2. **M34 正式审阅（下一步，I104/I105/I106 三迭代已完成）**：全量回归（pytest 260 + 冒烟 40 + vitest 8/build 绿已过，审阅时点 HEAD 复跑确认）→ DoD 逐项核对（I104 落点顺延四场景/I105 窗口幂等双闸/I106 PV-EV-SPI 手算——单测即 DoD 断言）→ 浏览器隔离复演三件套（`/tmp/apm-m34` 隔离 data+ontologies + netstat 单监听 + 生产构建 + SW 清理；①工作日历：设置页加假日 → 自动排期 due 落假日顺延 + 手排期不动；②到期提醒：sweep → 铃面板 due_soon + force 幂等 toast/接口复核；③S 曲线：基线+部分完成 → 报表 📈 卡 PV/EV 双线与 SPI 对账 API；截图三张+console 0 错误）→ docs/10 附录 B 审阅记录 + 看板 M34 总览行审阅通过态 →「M34 正式审阅通过」提交 → HANDOFF 收口 → M35 调研定义（候选池：①评论引用键盘快捷键；②个人 Availability 休假层；③AC 第三线 spent 叠加；④多基线并列对比；⑤IMAP 邮件转任务；⑥M35 调研新发现）。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**；**M31 审阅重跑 seed 前清库重启后端**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**；**M31 审阅第七次验证：构建后必须 SW 清理+reload 才见修复**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**（M31 三次同型失误——把原文行整行替换掉，均靠 git diff 纯新增校验兜住）；**冒烟/测试切身份后必须恢复 settings.user_id**（M31 审阅踩：smoke 首个切身份测试泄漏身份致字母序后续测试失败）；**测试切身份前先确认目标用户已注册**（I97 踩：未注册用户切换静默无效）。
 
 ## 5. 有哪些坑不要再踩
@@ -102,8 +103,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 257 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 39 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 260 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 40 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
