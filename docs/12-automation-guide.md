@@ -680,6 +680,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **接缝**：imaplib 触碰只存在于 `_fetch_messages` 一个函数——测试 monkeypatch 它（同 mailer FakeSMTP 的缝），断言走完整路由/投影/幂等管线。
 - **测试**：test_imap_in 4 项（匹配归账 + 正文首评 + 事件归账 qa-wang/降级 intake + ignore 双态/Message-ID 幂等 + rebuild 存活/未配置诚实关闭 409）。
 
+### 34. 通道收尾三件套（M37-I113/I114/I115）
+
+### 34.1 IMAP 主题路由（I113）
+
+- **语义**（Jira Split Regex 轻量版，docs/01 §AJ.1）：subject 以 `[项目名]` 开头且发件人是**该项目成员**时，邮件路由到该项目并把前缀从标题剥离；非成员或项目名不存在 → 落回默认路由（默认项目/fallback/ignore）且**保留前缀**——信息不丢、不静默改道。纯函数零新表（`_route_message` 前置解析），完整正则路由留位。
+- **UI**：设置页「📮 外部收件」说明行提示 `[项目名] 主题` 前缀用法。
+- **测试**：test_imap_in +1 共 5 项（成员前缀命中剥离/非成员前缀落默认保留/不存在项目落默认）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
