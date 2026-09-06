@@ -80,6 +80,7 @@ export type MemberWorkload = {
   user_id: string; user_name: string;
   active: number; overdue: number; minutes_7d: number;
   projects: Record<string, number>;
+  on_leave?: boolean;
 };
 export type WorkloadData = { members: MemberWorkload[]; today: string; generated_at: string };
 export type MyScheduleItem = {
@@ -471,6 +472,13 @@ export const api = {
     req<{ id: string; title: string; body: string }>("/me/saved-replies", { method: "POST", body: JSON.stringify({ title, body }) }),
   deleteSavedReply: (id: string) =>
     req<{ deleted: string }>(`/me/saved-replies/${id}`, { method: "DELETE" }),
+  // I111: personal time-off stretches (evented; workload & schedule consume)
+  listTimeOff: () =>
+    req<{ time_off: { id: string; start_date: string; end_date: string; reason: string | null; cancelled_at: string | null; created_at: string }[] }>("/me/time-off"),
+  addTimeOff: (start_date: string, end_date: string, reason?: string) =>
+    req<{ id: string; start_date: string; end_date: string; reason: string | null }>("/me/time-off", { method: "POST", body: JSON.stringify({ start_date, end_date, reason: reason || null }) }),
+  cancelTimeOff: (id: string) =>
+    req<{ cancelled: string }>(`/me/time-off/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>
     req<{ project_id: string; baseline: null }>(`/projects/${pid}/baseline`, { method: "DELETE" }),
   getBoard: (pid: string, featureId?: string, groupBy?: string) => {

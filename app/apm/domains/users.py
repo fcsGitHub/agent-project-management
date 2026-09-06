@@ -200,3 +200,93 @@ def delete_saved_reply(reply_id: str) -> dict:
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="no such saved reply")
     return {"deleted": reply_id}
+
+
+# ---------------------------------------------------- time off (I111)
+@on("user.time_off_started")
+def _proj_time_off_started(conn, e):
+    p = e.payload
+    conn.execute(
+        "INSERT INTO user_time_off (id, user_id, start_date, end_date, reason,"
+        " cancelled_at, created_at) VALUES (?,?,?,?,?,NULL,?)",
+        (e.agg_id, p["user_id"], p["start_date"], p["end_date"], p.get("reason"), e.ts),
+    )
+
+
+@on("user.time_off_cancelled")
+def _proj_time_off_cancelled(conn, e):
+    conn.execute(
+        "UPDATE user_time_off SET cancelled_at = ? WHERE id = ?", (e.ts, e.agg_id))
+
+
+def _overlaps(conn, user_id: str, start: str, end: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM user_time_off WHERE user_id = ? AND cancelled_at IS NULL"
+        " AND NOT (end_date < ? OR start_date > ?) LIMIT 1",
+        (user_id, start, end)).fetchone() is not None
+
+
+def is_on_leave(conn, user_id: str, day: str | None = None) -> bool:
+    """True when `day` (default today) falls inside one of the user's active
+    time-off stretches — the workload page and my-schedule consume this."""
+    day = day or events.utcnow()[:10]
+    return conn.execute(
+        "SELECT 1 FROM user_time_off WHERE user_id = ? AND cancelled_at IS NULL"
+        " AND start_date <= ? AND end_date >= ? LIMIT 1",
+        (user_id, day, day)).fetchone() is not None
+
+
+class TimeOffIn(BaseModel):
+    start_date: str
+    end_date: str
+    reason: str | None = None
+
+
+@router.get("/me/time-off")
+def list_time_off() -> dict:
+    rows = db.get_conn().execute(
+        "SELECT id, start_date, end_date, reason, cancelled_at, created_at"
+        " FROM user_time_off WHERE user_id = ? ORDER BY start_date",
+        (events.effective_actor(),)).fetchall()
+    return {"time_off": [dict(r) for r in rows]}
+
+
+@router.post("/me/time-off")
+def add_time_off(body: TimeOffIn) -> dict:
+    from datetime import date as _date
+
+    user_id = events.effective_actor()
+    try:
+        start = _date.fromisoformat(body.start_date)
+        end = _date.fromisoformat(body.end_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid date")
+    if end < start:
+        raise HTTPException(status_code=422, detail="end_date must not precede start_date")
+    if _overlaps(db.get_conn(), user_id, body.start_date, body.end_date):
+        raise HTTPException(status_code=409, detail="overlaps an existing time-off stretch")
+    off_id = new_id("off")
+    events.emit(
+        event_type="user.time_off_started", agg_type="time_off", agg_id=off_id,
+        actor_type="human", actor_id=user_id,
+        payload={"user_id": user_id, "start_date": body.start_date,
+                 "end_date": body.end_date, "reason": body.reason},
+    )
+    return {"id": off_id, "start_date": body.start_date,
+            "end_date": body.end_date, "reason": body.reason}
+
+
+@router.delete("/me/time-off/{off_id}")
+def cancel_time_off(off_id: str) -> dict:
+    conn = db.get_conn()
+    row = conn.execute(
+        "SELECT * FROM user_time_off WHERE id = ? AND user_id = ? AND cancelled_at IS NULL",
+        (off_id, events.effective_actor())).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="no such active time-off")
+    events.emit(
+        event_type="user.time_off_cancelled", agg_type="time_off", agg_id=off_id,
+        actor_type="human", actor_id=events.effective_actor(),
+        payload={"user_id": row["user_id"]},
+    )
+    return {"cancelled": off_id}

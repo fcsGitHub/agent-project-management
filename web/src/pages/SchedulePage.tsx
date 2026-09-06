@@ -34,6 +34,19 @@ export function SchedulePage() {
   const schedule = useQuery({ queryKey: ["my-schedule"], queryFn: api.getMySchedule, refetchInterval: 15_000 });
   const items = schedule.data?.items ?? [];
   const today = schedule.data?.today ?? iso(new Date());
+  // I111: my time-off stretches overlay as 🏖 marks on the month grid
+  const timeOff = useQuery({ queryKey: ["time-off"], queryFn: api.listTimeOff });
+  const leaveDays = useMemo(() => {
+    const s = new Set<string>();
+    for (const o of timeOff.data?.time_off ?? []) {
+      if (o.cancelled_at) continue;
+      for (let t = new Date(o.start_date + "T00:00:00Z").getTime();
+           t <= new Date(o.end_date + "T00:00:00Z").getTime(); t += DAY) {
+        s.add(iso(new Date(t)));
+      }
+    }
+    return s;
+  }, [timeOff.data]);
 
   const cells = useMemo(() => {
     const first = new Date(Date.UTC(anchor.getFullYear(), anchor.getMonth(), 1));
@@ -134,7 +147,7 @@ export function SchedulePage() {
                   dragOver === day && "border-acc bg-accbg/40",
                   inRange && "bg-accbg/60 border-acc")}>
                 <div className={cx("px-0.5 text-[10px]", day === today ? "font-semibold text-acc" : "text-mut")}>
-                  {new Date(day + "T00:00:00Z").getUTCDate()}
+                  {leaveDays.has(day) ? "🏖 " : ""}{new Date(day + "T00:00:00Z").getUTCDate()}
                 </div>
                 <div className="mt-0.5 space-y-0.5">
                   {list.slice(0, 4).map((it) => (

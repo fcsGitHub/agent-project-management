@@ -449,6 +449,19 @@ CREATE TABLE IF NOT EXISTS saved_replies (
   created_at TEXT NOT NULL,
   PRIMARY KEY (user_id, id)
 );
+
+-- I111: personal time-off stretches (projection of user.time_off_* events —
+-- in drop_projections so rebuild reproduces them; workload/schedule consume).
+CREATE TABLE IF NOT EXISTS user_time_off (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  reason TEXT,
+  cancelled_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_time_off_user ON user_time_off(user_id);
 """
 
 FTS_DDL = """
@@ -482,6 +495,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "intake_tokens",
         "non_working_days",
         "imap_seen",
+        "user_time_off",
         "extracted_tasks",
         "baselines",
         "project_members",

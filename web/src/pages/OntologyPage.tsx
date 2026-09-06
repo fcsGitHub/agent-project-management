@@ -200,6 +200,8 @@ export function OntologyPage() {
 
       <CalendarPanel />
 
+      <TimeOffPanel />
+
       <OidcPanel />
 
       <AutomationsPanel pid={pid!} concepts={o.concepts} />
@@ -473,6 +475,83 @@ function IntakePanel({ pid }: { pid: string }) {
       )}
       <div className="mt-1 text-[10px] text-mut">
         任何人用此链接无需账号即可提交工作项（标题必填、优先级可选），提交按「intake」身份归账；吊销或重发后旧链接立即失效。
+      </div>
+    </Card>
+  );
+}
+
+/** I111: personal time-off (Taiga capacity-pain / Jira PTO semantics) —
+ *  own-data stretches; workload flags 🏖 and my-schedule overlays the bar. */
+function TimeOffPanel() {
+  const qc = useQueryClient();
+  const offs = useQuery({ queryKey: ["time-off"], queryFn: api.listTimeOff });
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["time-off"] });
+
+  const add = async () => {
+    if (!start || !end) return;
+    setBusy(true);
+    try {
+      await api.addTimeOff(start, end, reason);
+      toast.success("休假已登记");
+      setStart(""); setEnd(""); setReason("");
+      await invalidate();
+    } catch (e) {
+      toast.error(`登记失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async (id: string) => {
+    setBusy(true);
+    try {
+      await api.cancelTimeOff(id);
+      toast.info("休假已取消");
+      await invalidate();
+    } catch (e) {
+      toast.error(`取消失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const list = (offs.data?.time_off ?? []).filter((o) => !o.cancelled_at);
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">🏖 我的休假</span>
+        <span className="text-xs text-mut">日期段登记 · 负载页与我的日程自动消费</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <span className="text-xs text-mut">至</span>
+        <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="原因（如：年假）"
+          className="w-32 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <Button size="sm" variant="outline" disabled={busy || !start || !end} onClick={add}>登记休假</Button>
+      </div>
+      {list.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {list.map((o) => (
+            <span key={o.id}
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-bg px-2 py-0.5 text-[10px] text-ink">
+              🏖 {o.start_date} ~ {o.end_date}{o.reason ? ` · ${o.reason}` : ""}
+              <button disabled={busy} onClick={() => cancel(o.id)}
+                className="text-mut hover:text-dan" title="取消">✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-1 text-[10px] text-mut">
+        登记后负载页会在休假期间给你标「🏖 休假中」，「我的日程」月历也会叠加休假条；日期段重叠会被拒绝。
       </div>
     </Card>
   );

@@ -431,6 +431,12 @@ def portfolio_workload() -> dict:
     # members with neither active work nor recent logged time are not "load"
     rows = sorted((p for p in people.values() if p["active"] or p["minutes_7d"]),
                   key=lambda x: (-x["active"], -x["minutes_7d"], x["user_name"]))
+    # I111: flag members whose active time-off stretch covers today
+    on_leave = {r["user_id"] for r in conn.execute(
+        "SELECT user_id FROM user_time_off WHERE cancelled_at IS NULL"
+        " AND start_date <= ? AND end_date >= ?", (today_s, today_s)).fetchall()}
+    for p in rows:
+        p["on_leave"] = p["user_id"] in on_leave
     return {"members": rows, "today": today_s, "generated_at": _now().isoformat()}
 
 

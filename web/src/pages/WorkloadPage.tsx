@@ -37,6 +37,9 @@ function MemberRow({ m, maxActive }: { m: MemberWorkload; maxActive: number }) {
     <Card className="p-4">
       <div className="flex items-center gap-3">
         <span className="w-24 shrink-0 truncate text-sm font-medium">{m.user_name}</span>
+        {m.on_leave && (
+          <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-500" title="今天在登记的休假日期段内">🏖 休假中</span>
+        )}
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
           <div className={cx("h-full rounded-full", m.overdue ? "bg-red-400" : "bg-acc")}
             style={{ width: `${(m.active / maxActive) * 100}%` }} />
