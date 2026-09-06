@@ -51,7 +51,8 @@
 - **当前验证基线：pytest 260 全绿；冒烟 40 条 GREEN；vitest 8/build 绿。**
 - **M35 通道与回复三件套（I107-I109，定义 31a1297，docs/01 §AH + docs/10 §M35）**：调研结论——I107 IMAP 邮件转任务（Redmine receive_imap/Jira mail handler 双先例：imaplib **零依赖** env 可选[未配置关闭、SMTP 同构] + ticker 轮询 + From 匹配 users.email 归账默认项目复用 create_item 全校验链、无匹配**降级 I99 intake 身份** + Message-ID 幂等——与 I99 HTTP 端点互补双入口）、I108 常用回复（GitHub Saved Replies `Ctrl+.` 语义：saved_replies 用户级运行态表[notification_prefs 同构] + own-data CRUD + CommentsModal 过滤面板 + 存为常用）、I109 引用快捷键（I94 backlog 转正：游标 `R` 直开评论预填引用 + SHORTCUTS/`?` 浮层自动收录）。+ docs/12 §32 + 冒烟 41（并入 I109）+ M35 审阅。
 - **I107 已完成（代码 93c1b4f + docs cf80b15）**：新域 imap_in.py（`_fetch_messages` 唯一 imaplib 接缝；parseaddr 收口 `_route_message`；正文转首条评论[零 mention 解析]；降级双态=fallback 配置则 intake 否则 ignore[Redmine --unknown-user=ignore]；imap_seen 投影表进 drop 清单；POST /imap/poll admin）+ ticker 顺带 poll；test_imap_in 4 项。
-- **I108 已完成（代码 62722df + docs 638a039）**：saved_replies 用户级运行态表[不进 drop 清单、rebuild 保留] + GET/POST/DELETE /me/saved-replies own-data[≤100/≤2000 超长 422、删他人 404] + CommentsModal「⌨ 常用回复」/`Ctrl+.` 面板[过滤/Enter 插入第一条/点击插入光标处/✕ 删除] + 「☆ 存为常用」选中文本入库；test_saved_replies 3 项。**当前验证基线：pytest 267；冒烟 40；vitest 8/build 绿。**
+- **I108 已完成（代码 62722df + docs 638a039）**：saved_replies 用户级运行态表[不进 drop 清单、rebuild 保留] + GET/POST/DELETE /me/saved-replies own-data[≤100/≤2000 超长 422、删他人 404] + CommentsModal「⌨ 常用回复」/`Ctrl+.` 面板[过滤/Enter 插入第一条/点击插入光标处/✕ 删除] + 「☆ 存为常用」选中文本入库；test_saved_replies 3 项。
+- **I109 已完成（代码 90f4946 + docs 8e0d1b9）**：SHORTCUTS `R` 条目 + 看板游标选中按 `R` 直开评论并预填引用最后一条评论[autoQuote 一次性 effect、草稿空守卫；Enter 不预填] + vitest 9 绿；**冒烟 41**（IMAP stub roundtrip/常用回复 own-data+rebuild/引用字节一致 roundtrip）。**当前验证基线：pytest 268；冒烟 41 条 GREEN；vitest 9/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -60,7 +61,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M34 全闭环~~ ✅（每轮：调研定义 → 3 迭代[三段式提交] → 正式审阅[全量回归+DoD 逐项+浏览器隔离复演]；审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63/5fd751c/11cc1b2/f859af5/6f247c2/9fc20d1/**1fd27b5**；单迭代详情真源=docs/10 §7 看板行与附录 A/B——本节不再保留单迭代条目）。
-2. **M35 三迭代（I107 ✅ 93c1b4f/cf80b15、I108 ✅ 62722df/638a039；下一步 I109）**：**I109 引用快捷键 + 冒烟 41 + M35 审阅**（看板 j/k 游标选中按 `R` 直开 CommentsModal 预填引用[复用 I94 quote 预填逻辑] + SHORTCUTS 注册表 `R` 条目[`?` 浮层自动收录]；docs/12 §32.3；**冒烟 41**=IMAP stub roundtrip/常用回复 CRUD+插入/引用快捷键预填 + rebuild；随后 M35 审阅=全量回归+DoD 逐项+附录 B+浏览器隔离复演）。每迭代三段式提交：代码 → docs → HANDOFF 收口。设计细节真源=docs/10 §M35 三小节 + docs/01 §AH。
+2. **M35 正式审阅（下一步，I107/I108/I109 三迭代已完成）**：全量回归（审阅时点 HEAD 复跑 pytest 268 + 冒烟 41 + vitest 9/build 绿）→ DoD 逐项核对（I107 匹配归账/降级/幂等/未配置关闭、I108 CRUD own-data/校验/rebuild 保留、I109 R 键位/预填——单测即 DoD 断言）→ 浏览器隔离复演三件套（`/tmp/apm-m35` 隔离 data+ontologies + netstat 单监听 + 生产构建 + SW 清理；①IMAP：无配置时设置态诚实关闭 → （演示可用 POST /imap/poll 409 或 stub 难以浏览器化——复演改为验证冒烟 41 的 API 对账 + 铃面板/看板核对 stub 已造数据）；②常用回复：评论框「⌨ 常用回复」Ctrl+. 面板 → 过滤/Enter 插入 → 「☆ 存为常用」→ ✕ 删除；③引用快捷键：看板 j/k 落卡 → 按 R → 评论弹层预填「@作者 引用：」blockquote → `?` 浮层含 R 行；截图三张+console 0 错误）→ docs/10 附录 B 审阅记录 + 看板 M35 总览行审阅通过态 →「M35 正式审阅通过」提交 → HANDOFF 收口 → M36 调研定义（候选池：①个人 Availability 休假层；②S 曲线 AC 第三线 spent；③多基线并列对比；④IMAP 多项目路由[subject 前缀]；⑤M36 调研新发现）。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**；**M31 审阅重跑 seed 前清库重启后端**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**；**M31 审阅第七次验证：构建后必须 SW 清理+reload 才见修复**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**（M31 三次同型失误——把原文行整行替换掉，均靠 git diff 纯新增校验兜住）；**冒烟/测试切身份后必须恢复 settings.user_id**（M31 审阅踩：smoke 首个切身份测试泄漏身份致字母序后续测试失败）；**测试切身份前先确认目标用户已注册**（I97 踩：未注册用户切换静默无效）。
 
 ## 5. 有哪些坑不要再踩
@@ -103,8 +104,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 260 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 40 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 268 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 41 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
