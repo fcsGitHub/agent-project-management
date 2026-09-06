@@ -984,5 +984,37 @@ M34 = **时间关怀三件套**：I104 工作日历跳休（排期关怀——M2
 M35 = **通道与回复三件套**：I107 IMAP 邮件转任务（入口通道补全——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（回复效率——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（操作效率——I94 backlog 转正）+ docs/12 §32 + 冒烟 41 + M35 审阅，约 9 人日。多项目邮件路由、个人 Availability 休假层、AC 第三线、多基线并列对比留 backlog。
 
 
+## AI. M36 前置调研：透明与容量——跨项目动态流 / 个人休假 / S 曲线扩展（2026-09-06）
+
+> 目标协议触发：M35 审阅通过后开启。防重查：候选池 grep——Availability 休假层（§AG.1/§AH.5 仅留 backlog）、AC 第三线/多基线并列（§AG.5 仅留 backlog）、IMAP 多项目路由（I107 刚做主链路不查）均无调研记录；跨项目动态为本轮三路调研新发现。
+
+**AI.1 跨项目动态流（OpenProject「My activity」语义——事件溯源红利第七例）**
+
+- OpenProject：**My activity 页**聚合「你的全部最新动作与所参与项目的动态」（[官方文档](https://www.openproject.org/docs/getting-started/my-activity/)），另有跨项目 Overall activity 视图（[project lists](https://www.openproject.org/docs/user-guide/projects/project-lists/)）与项目内 activity 流（工作包新增/评论/状态变更，[activity 文档](https://www.openproject.org/docs/user-guide/activity/)）；Redmine 的 activity/journal 是同语义的经典实现。共同语义：**「我可见的项目里最近发生了什么」的单一聚合入口**——Linear Inbox 是通知态（推给个人），activity 是浏览态（回看全局）。
+- 对本项目的映射：AgentPM 有 per-user 站内通知（M10）与项目内审计页（M22），缺**跨项目浏览态聚合**——事件流本身就是 activity feed：`GET /portfolio/activity`（复用 feed._visible 三层裁剪，扫可见项目的 item.created/status_changed/comment.created/milestone.*/approval.* 等白名单事件，按时间倒序 + actor/项目/类型过滤 + limit）+ 侧栏「📰 项目动态」页（时间线式：图标+事件摘要+项目名+相对时间，点击跳转）。零新表零重放——直接读 events（**事件溯源红利第七例：活动流免费**）。
+
+**AI.2 个人 Availability 休假（Taiga 容量痛点 / Jira PTO 插件语义）**
+
+- Taiga 有项目级周容量但「告诉 Taiga 某人 11 月只工作 13 天」是社区长年痛点（[capacity planning 帖](https://community.taiga.io/t/capacity-planning/2554)）；Jira 侧容量规划靠 HeroCoders/ActivityTimeline 等插件把**假期/病假/休假分类直接从容量中扣除**（[HeroCoders](https://www.herocoders.com/blog/pto-tracking-jira-capacity-planner)、[ActivityTimeline](https://activitytimeline.com/blog/jira-workload-capacity)）；OpenProject resource management 把 planned time off 作为资源计划的头等公民（[17.7 发布](https://www.openproject.org/blog/resource-management-capacity-planning/)、[用例文档](https://www.openproject.org/docs/use-cases/resource-management/)）。共同语义：**个人休假是日期段，容量与日程视图必须消费它**。
+- 对本项目的映射：`user.time_off_started`/`user.time_off_cancelled` 显式事件 + user_time_off 投影表（user_id/start/end/reason，进 drop 清单）+ 设置页「🏖 我的休假」卡（own-data 登记日期段）+ **消费两端**：I87 `GET /portfolio/workload` 对休假中成员标「🏖 休假中」（活跃任务仍在但分母/标记体现）+ I89 我的日程月历叠加休假条。审批/Gate 流转不受休假影响（不做自动转派，转派规则留 backlog）。
+
+**AI.3 S 曲线扩展：AC 第三线 + 多基线并列（MS Project 做不到的免费叠图）**
+
+- MS Project 原生**不支持**多基线+EV+AC 单图叠加，社区标准工作流是「存多基线 → 导出 time-phased 数据 → Excel 手工叠图」（[Planning Planet 讨论](https://planningplanet.com/forums/microsoft-project/416271-s-curve-microsoft-project)、[Microsoft Learn Q&A「原生缺失」](https://learn.microsoft.com/en-us/answers/questions/5235196/)）；EVM 完整三线即 PV/EV/**AC**（实际成本=实际工时累计）（[monday.com S-curve](https://www.monday.com/blog/project-management/s-curve/)、[ProjectManager](https://www.projectmanager.com/blog/s-curve-project-management)）。
+- 对本项目的映射：I106 端点扩展——**AC 第三线**：重放 timelog.time_logged 事件按采样日累计基线项的 spent_minutes（事件溯源下 AC 与 EV 同构免费）；**多基线并列**：`?compare=<baseline_id>` 参数返回第二组 PV 样本（两条基线 PV 同图对比「计划漂移了多少」）；报表卡三线图例 + 基线「对比」下拉。MS Project 要导 Excel 才能做的图，事件溯源下零导出直出。
+
+**AI.4 M36 设计映射与验证纪律（沿用）**
+
+- I110 跨项目动态流：reports.py `GET /portfolio/activity`（_visible + 事件白名单 + 过滤参数）+「📰 项目动态」页 + 侧栏入口；单测（_visible 裁剪/白名单/过滤/limit/rebuild 后事件序不变——事件即真相）。
+- I111 休假：user_time_off 投影表 + 设置页卡 + workload 休假标记 + my/schedule 休假条；单测（登记 roundtrip/重叠 409/取消/workload 标记/rebuild 存活）。
+- I112 S 曲线扩展：baseline-curve 加 ac 样本与 compare 参数 + 报表三线/双 PV；单测（AC 手算/compare 双 PV/rebuild 相等）+ **冒烟 42**（动态流对账/休假 roundtrip+标记/S 曲线三线手算 + rebuild 一致）并入 I112 + M36 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M36 审阅。
+
+**AI.5 M36 取舍**
+
+M36 = **透明与容量三件套**：I110 跨项目动态流（透明——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（容量——Taiga 痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（对照——AC 第三线+多基线并列，MS Project 原生缺失项）+ docs/12 §33 + 冒烟 42 + M36 审阅，约 9 人日。休假自动转派、IMAP 多项目路由、动态流订阅 RSS 留 backlog。
+
+
+
 
 

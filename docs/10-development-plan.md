@@ -1144,6 +1144,36 @@ agent-project-management/
 
 ---
 
+### M36 · 透明与容量三件套（跨项目动态流/个人休假/S 曲线扩展，I110-I112，约 9 人日）
+
+> v2.9 新增（2026-09-06，M35 审阅通过后按目标协议调研）。调研结论见 docs/01 §AI。主题统一「透明与容量」：**动态给全局透明**（回看可见世界）、**休假给容量兜底**（负载/日程消费休假）、**曲线给对照加深**（AC/多基线免费叠图）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I110 | 跨项目动态流（`GET /portfolio/activity` _visible 裁剪 + 事件白名单聚合 + 「📰 项目动态」页/侧栏入口——OpenProject My activity 语义，事件溯源红利第七例） | 01 §AI.1 | feed._visible/事件流 | 3d |
+| I111 | 个人 Availability 休假（user_time_off_* 事件 + 投影表 + 设置页「🏖 我的休假」卡 + workload「🏖 休假中」标记 + my/schedule 休假条） | 01 §AI.2 | I87 负载/I89 日程 | 3d |
+| I112 | S 曲线扩展 + 收尾审阅（baseline-curve 加 AC 第三线 spent 重放 + `?compare=` 多基线 PV 并列 + 报表三线图例）+ docs/12 §33 + 冒烟 42 + M36 审阅 | 01 §AI.3 | I106 S 曲线/timelog 重放 | 3d |
+
+#### I110 · 跨项目动态流（3d）
+
+- 任务：`GET /portfolio/activity`——复用 feed._visible 三层裁剪扫可见项目事件流（白名单：item.created/item.status_changed/comment.created/milestone.*/approval.requested 等），按 ts 倒序 + `?actor=&project_id=&kind=&limit=` 过滤参数 + 每条出图标/摘要/项目名/相对时间；「📰 项目动态」页（/activity 时间线式，点击跳转对应项目/条目）+ 侧栏全局入口；纯读事件零新表；单测（_visible 裁剪不可见项目不出现/白名单外事件不出现/过滤与 limit/rebuild 后序不变）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：双项目各动一下 → 动态页两项目事件交错倒序 → 过滤某项目只剩该项目的。
+
+#### I111 · 个人 Availability 休假（3d）
+
+- 任务：`user.time_off_started`/`user.time_off_cancelled` 显式事件 + user_time_off 投影表（进 drop 清单）+ 设置页「🏖 我的休假」卡（own-data 日期段+原因；重叠 409）+ I87 `GET /portfolio/workload` 成员行「🏖 休假中」标记（当天落在休假段）+ I89 我的日程月历休假条叠加；单测（登记 roundtrip/重叠 409/取消/workload 标记/rebuild 存活）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：登记明天起 3 天休假 → 负载页该成员「🏖 休假中」→ 我的日程月历出现休假条 → 取消后消失。
+
+#### I112 · S 曲线扩展 + 收尾审阅（3d）
+
+- 任务：baseline-curve 扩展——**AC 第三线**（重放 timelog.time_logged 按采样日累计基线项 spent_minutes 换算小时）+ `?compare=<baseline_id>` 返回第二组 PV 样本（双基线 PV 并列）+ 报表「📈 S 曲线」卡三线图例（PV/EV/AC）+ 基线对比下拉；docs/12 §33；**新增冒烟 42**（动态流对账/休假 roundtrip+双端标记/S 曲线 AC 手算 + rebuild 一致）；相关验证 + M36 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 42 GREEN；审阅全绿。
+- 演示路径：记几笔工时 → S 曲线卡出现 AC 第三线 → 切 compare 基线 → 双 PV 同图。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1317,6 +1347,10 @@ agent-project-management/
 | **M33 纵深三件套（I101-I103）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AF + docs/10 §M33）：I101 关键路径高亮（`GET /projects/{id}/critical-path` CPM 正逆传递 float=0 链 + TimelinePage 红框开关）/ I102 子任务进度汇总（父卡/列表行「子任务 n/m」徽标 + 时间线父条形进度——GitHub sub-issue progress 语义）/ I103 工作项归档与回收站（item.archived/restored 事件 + archived_at 列 + 回收站抽屉恢复——软删除+可恢复，补 §Y.1「统一考量」backlog）+ docs/12 §30 + 冒烟 39；审阅全量 **251** 绿 + 冒烟 39 GREEN + 审阅即修 1 处（关键路径按钮移出基线条件块；附录 B）；硬删除/多级 rollup/CPM 资源平衡留 backlog |
 | **M34 时间关怀三件套（I104-I106）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AG + docs/10 §M34）：I104 工作日历与非工作日落点顺延（calendar.holiday_added/removed 事件 + non_working_days 投影表 + advance_to_workday 收口 M14 传播与 I83 对齐——OpenProject 12.3 语义，M27 backlog 转正）/ I105 到期邻近提醒（run_daily_sweep 内建动作 + item.due_soon_notified + NOTIFY_KINDS 第六类 + 双通道同闸——Plane/Linear 语义，sweep 第一公民应用）/ I106 基线 S 曲线对比（`GET /projects/{id}/baseline-curve` PV/EV 周界采样 + SVG 双线 + SPI 手算——EVM 语义，事件溯源红利第六例）+ docs/12 §31 + 冒烟 40；审阅全量 **260** 绿 + 冒烟 40 GREEN + 审阅即修 0 处（语义演进波及在迭代段收口；附录 B）；个人 Availability/AC 第三线/多基线并列对比/IMAP 轮询/引用快捷键留 backlog |
 | **M35 通道与回复三件套（I107-I109）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AH + docs/10 §M35）：I107 IMAP 邮件转任务（imaplib env 可选 + ticker 轮询 + 发件人匹配 users.email 归账/降级 intake/ignore + Message-ID 幂等——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（saved_replies 运行态表 + own-data CRUD + `Ctrl+.` 过滤面板 + 存为常用——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（游标 `R` 直开评论预填引用 + SHORTCUTS/浮层自动收录——I94 backlog 转正）+ docs/12 §32 + 冒烟 41；审阅全量 **268** 绿 + 冒烟 41 GREEN + 审阅即修 1 处（常用回复面板 Enter 闭包时序加固 ba5623c；附录 B）；多项目邮件路由/个人 Availability/AC 第三线/多基线并列留 backlog |
+| **M36 透明与容量三件套（I110-I112）** | 进行中（定义已出） | 2026-09-06 | — | 3 迭代 / 约 9 人日（docs/01 §AI + docs/10 §M36）：I110 跨项目动态流（`GET /portfolio/activity` _visible 裁剪 + 事件白名单 + 「📰 项目动态」页——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（user_time_off_* 事件 + 投影表 + workload「🏖 休假中」+ my/schedule 休假条——Taiga 容量痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（AC 第三线 spent 重放 + `?compare=` 多基线 PV 并列——MS Project 原生缺失的免费叠图）+ docs/12 §33 + 冒烟 42 + M36 审阅；休假自动转派/IMAP 多项目路由/动态 RSS 留 backlog |
+| I110 跨项目动态流 | 进行中 | 2026-09-06 | — | `GET /portfolio/activity`：复用 feed._visible 三层裁剪扫可见项目事件流（白名单 item.created/status_changed/comment.created/milestone.*/approval.requested 等）+ ts 倒序 + `?actor=&project_id=&kind=&limit=` 过滤 + 「📰 项目动态」页（时间线式+侧栏全局入口）——纯读事件零新表；单测（_visible 裁剪/白名单/过滤 limit/rebuild 后序不变） |
+| I111 个人 Availability 休假 | 待开始 | 2026-09-06 | — | `user.time_off_started`/`user.time_off_cancelled` 显式事件 + user_time_off 投影表[进 drop 清单] + 设置页「🏖 我的休假」卡（own-data、重叠 409）+ I87 workload 成员行「🏖 休假中」标记 + I89 我的日程月历休假条；单测（登记 roundtrip/重叠 409/取消/双端标记/rebuild 存活） |
+| I112 S 曲线扩展+冒烟 42+收尾 | 待开始 | 2026-09-06 | — | baseline-curve 扩展：AC 第三线（重放 timelog.time_logged 按采样日累计基线项 spent）+ `?compare=<baseline_id>` 双基线 PV 并列 + 报表三线图例/对比下拉；docs/12 §33；**新增冒烟 42**（动态流对账/休假 roundtrip+双端标记/S 曲线 AC 手算 + rebuild 一致）+ M36 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I107 IMAP 邮件转任务 | 已完成 | 2026-09-06 | 2026-09-06 | 新域 imap_in.py：`IMAP_HOST/PORT/USER/PASS` env 可选（未配置关闭、SMTP 同构）+ ticker 每分钟顺带 poll + `POST /imap/poll`[admin、未配置 409]；`_fetch_messages` 唯一 imaplib 接缝（测试 stub 同 FakeSMTP 范式）；parseaddr 规范化收口 `_route_message`——From 匹配 users.email → 该用户身份路由默认项目（成员第一项/admin 首项目）复用 create_item 全校验链（主题=标题 ≤200、**正文转首条评论**[comment.created 显式事件、零 mention 解析]）/无匹配降级 `IMAP_FALLBACK_PROJECT_ID` intake 身份或 ignore[Redmine --unknown-user=ignore]；Message-ID 幂等 imap_seen 投影表[进 drop 清单]；每种结局一条 imap.message_processed 事件；test_imap_in 4 项（匹配归账+正文首评+归账 qa-wang/降级+ignore 双态/幂等+rebuild 存活/未配置 409）+ intake/调度回归 14 项绿；build 绿 |
 | I108 常用回复 | 已完成 | 2026-09-06 | 2026-09-06 | saved_replies 用户级运行态表（PK(user_id,id)、**不进 drop 清单**——notification_prefs 同构、rebuild 保留）+ `GET/POST/DELETE /me/saved-replies`（own-data 严格隔离[GET 只见自己/删他人 404]、标题 ≤100 正文 ≤2000 超长 422）+ CommentsModal「⌨ 常用回复」按钮与 **Ctrl+. 唤起面板**（输入即过滤[标题/正文]、Enter 插入第一条、Escape 关闭、点击插入**光标处**、行内 ✕ 删除）+ 「☆ 存为常用」把评论框选中文本一键入库；test_saved_replies 3 项（CRUD roundtrip+双身份隔离+删他人 404/四向校验边界/rebuild 保留）；build/vitest 绿 |
 | I109 引用快捷键+冒烟 41+收尾 | 已完成 | 2026-09-06 | 2026-09-06 | SHORTCUTS 注册表加 `R` 条目（`?` 浮层自动收录零文案维护）+ 看板 j/k 游标选中按 `R` 直开 CommentsModal 并**预填引用最后一条评论**（autoQuote prop + 一次性 effect——仅草稿为空时落笔不覆盖用户输入；`Enter` 依旧打开不预填，两键两意图）；vitest shortcuts +1（R 存在且 scope=看板）共 9 绿 + build 绿；**新增冒烟 41**（IMAP stub roundtrip：poll → 归账 qa-wang 任务卡 + 正文首评 + Message-ID 幂等/常用回复 own-data 隔离 + rebuild 保留/引用草稿字节一致入库 + rebuild 重放）；冒烟 **41** 条 GREEN |
@@ -1621,6 +1655,7 @@ agent-project-management/
 | 2026-09-06 | I108 | 存储选「**运行态表、不进 drop 清单**」而非事件投影——常用回复是用户私人配置（同 notification_prefs/feed_key），不是协作事实；事件化会让 rebuild 重放私人库、事件流里也充满噪声。own-data 收口选「**查询一律 WHERE user_id = 当前身份**」而非列出全部再过滤——删他人回复 404 的语义天然成立（行不属于你就「不存在」）。插入点选「**光标处**」而非追加/替换——GitHub 同款语义，面板是输入辅助不是输入替代。 |
 | 2026-09-06 | I109 | 预填时机选「**一次性 effect + 草稿空守卫**」而非打开即写——autoQuote 数据异步到达（comments query），且用户可能在加载间隙已开始输入；`autoQuotedRef` 保证只落笔一次、`!draft` 保证永不覆盖。键位语义选「**R=引用打开、Enter=普通打开**」双键双意图而非复用 Enter 加修饰键——GitHub quote reply 的 `r` 是独立键位，肌肉记忆零歧义。引用对象选「**最后一条评论**」而非全部——卡片级 R 没有单条评论上下文，最后一条是对话前沿（GitHub 在评论行内 r 引用该条，AgentPM 卡片级取前沿是最近似映射）。 |
 | 2026-09-06 | M35 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 268** 项 0 失败 + 冒烟 **41** 条 GREEN + vitest 9/build 绿；验证纪律第十六轮执行）——**I107**：test_imap_in 4 项 ✓（匹配归账+正文首评/降级 intake+ignore/幂等+rebuild/未配置 409）；**I108**：test_saved_replies 3 项 ✓；**I109**：vitest shortcuts R 断言 ✓。浏览器隔离复演三件套（`/tmp/apm-m35` + SW 清理第九次）：①IMAP 未配置 `POST /imap/poll` **409 逐字对账**；②常用回复面板点击插入光标处 + 过滤/Enter 插入（截图 m35-review-saved-replies）；③看板琥珀环 → R → 预填「@QA 王 引用：> …」（截图 m35-review-r-quote）→ `?` 浮层八条含 R 自动收录（截图 m35-review-overlay-r）；console 0 错误。**审阅即修 1 处**（ba5623c）：常用回复面板 Enter 插入的渲染闭包时序——insertReply 改函数式 setDraft + 过滤命中改实时取 e.target 值；**环境教训入档：IAB 合成键盘 press/cua keypress 派发不到页面**（body.press("j") 不触发 window keydown，dispatchEvent KeyboardEvent 同构可达）——浏览器复演键盘路径一律 dispatchEvent，press 失败先怀疑工具再怀疑产品。 | — | 里程碑通过 |
+| 2026-09-06 | M36 定义 | 新一轮三路并行调研（防重查：候选池 grep——Availability 休假层[§AG.1/§AH.5 仅 backlog]/AC 第三线与多基线并列[§AG.5 仅 backlog]/IMAP 多项目路由[I107 刚做主链路不查]均无调研记录；跨项目动态为三路调研新发现）：①**跨项目动态流**——OpenProject「My activity」页聚合「你的全部最新动作与参与项目动态」（官方文档）+ 跨项目 Overall activity 视图 + 项目内 activity 流（Redmine activity/journal 经典同义）——共同语义：「我可见的项目里最近发生了什么」的**浏览态聚合**（区别于 Linear Inbox 的通知态推送）→ AgentPM 有通知与项目内审计、缺跨项目浏览面：事件流本身就是 activity feed——`GET /portfolio/activity`（feed._visible 三层裁剪 + 事件白名单 + actor/project/kind/limit 过滤）+「📰 项目动态」页，**零新表零重放直读 events（事件溯源红利第七例：活动流免费）**；②**个人 Availability 休假**——Taiga 项目级周容量但「某人 11 月只工作 13 天」是社区长年痛点（capacity planning 帖），Jira 容量靠 HeroCoders/ActivityTimeline 插件把假期/病假从容量扣除，OpenProject 17.7 把 planned time off 列为资源计划头等公民——共同语义：个人休假是日期段、容量与日程视图必须消费它 → `user.time_off_started/cancelled` 显式事件 + user_time_off 投影表 + 设置页「🏖 我的休假」卡（own-data、重叠 409）+ 消费两端：I87 workload「🏖 休假中」标记 + I89 我的日程休假条（自动转派留 backlog）；③**S 曲线扩展**——MS Project 原生不支持多基线+EV+AC 单图叠加（Planning Planet/Microsoft Learn Q&A 证实「原生缺失」），标准工作流是导 Excel 手工叠图；EVM 完整三线=PV/EV/AC → I106 端点扩展：AC 第三线（重放 timelog.time_logged 累计基线项 spent，事件溯源下与 EV 同构免费）+ `?compare=` 双基线 PV 并列——**MS Project 要导 Excel 才能做的图，事件溯源零导出直出**。选定 **M36 = 透明与容量三件套**：I110 跨项目动态流 / I111 个人 Availability 休假 / I112 S 曲线扩展+收尾 + docs/12 §33 + 冒烟 42 予 I112 + 审阅，估计 +9 人日。结论入 docs/01 §AI。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
