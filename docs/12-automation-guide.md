@@ -687,6 +687,15 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **API**：`GET/POST/DELETE /api/me/saved-replies`（登录态 own-data）。
 - **测试**：test_saved_replies 3 项（CRUD roundtrip + 双身份 own-data 隔离/四向校验边界/rebuild 保留）。
 
+## 33. 透明与容量三件套（M36-I110/I111/I112）
+
+### 33.1 跨项目动态流（I110）
+
+- **语义**（OpenProject「My activity」的浏览态聚合，docs/01 §AI.1）：区别于通知（推给个人）与项目内审计（管理视角），动态流回答「**我可见的项目里最近发生了什么**」——直接读事件流（八类白名单：item.created/status_changed、comment.created、milestone.created/achieved、approval.requested/granted/rejected），feed._visible 三层裁剪后按时间倒序输出。**零新表零重放**（事件溯源红利第七例：活动流免费）。
+- **API**：`GET /api/portfolio/activity?project_id=&kind=&actor=&limit=`（kind ∈ item/comment/milestone/approval；over-fetch 3 倍后按可见性裁剪再截 limit，保证页大小）；每条含 icon/中文摘要/操作者名/项目名/相对时间所需的全部字段（批量 map 补齐，无 N+1）。
+- **UI**：侧栏「📰 项目动态」全局页（/activity）——项目下拉 + 类型下拉过滤、30 秒自动刷新、点击项目名跳对应看板。
+- **测试**：test_activity 3 项（成员级裁剪函数级断言——**local 模式切身份即 implicit self 全可见，端点级裁剪不可测**[I87 同款边界]；admin 双项目倒序/过滤与 limit/rebuild 后序不变——直接读事件天然稳定）。
+
 ### 32.3 引用快捷键（I109）
 
 - **语义**（GitHub quote reply 的键位化——I94 ❝ 按钮的三轮 backlog 转正）：看板 j/k 游标选中卡片后按 `R` → 直开该卡评论弹层并**预填引用最后一条评论**（`@作者 引用：` + 逐行 blockquote，复用 I94 预填格式）；`Enter` 依旧是打开评论不预填——两个键位、两种意图。预填是**一次性 effect**：仅在草稿为空时落笔，用户已输入的内容永不被覆盖。
