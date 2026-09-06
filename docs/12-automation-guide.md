@@ -662,3 +662,11 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **幂等**：零新表——`_notify_due_soon` 发事件前查事件流「该 agg_id 当日是否已有 due_soon_notified」，同日 force 重扫永不重复；`automation.swept` 心跳 payload 增加 `notified` 计数。
 - **窗口**：`config.settings.due_soon_days`（默认 3，env `APM_DUE_SOON_DAYS` 可调，含当天）。
 - **测试**：test_due_soon 3 项（窗口边界 today/+3 内、+4 外、无指派/done 不发 + 每日幂等 / 偏好闸挡投递不挡事件 + pref_allows 双通道函数级 / rebuild 确定性 id 重放 + 幂等保持）；test_notification_prefs kinds 断言演进含 due_soon。
+
+### 31.3 基线 S 曲线对比（I106）
+
+- **语义**（EVM，docs/01 §AG.3）：**PV**（计划值）按基线快照中每项的 planned due 周界采样累计；**EV**（挣值）按事件重放 `item.status_changed→done` 首达日累计；**SPI = EV/PV**（末点，PV=0 诚实 None）——「基线本质是快照」（Xurrent），S 曲线是 MS Project/ProjectManager 的基线对比标准渲染；开源 OpenProject EVA 仅列表 work vs spent，完整 S 曲线靠外接 BI——AgentPM 用事件重放免费拿到（**事件溯源红利第六例**）。
+- **快照扩展**：`_snapshot` 每项从 `[start, due]` 升为 `[start, due, estimate_hours]`；旧快照（pre-I106）解析回退权重 1.0（项数口径），消费点（幽灵条形 s[0]/s[1]、baseline-variance b[0]/b[1]）全部索引式解构天然兼容。
+- **端点**：`GET /api/projects/{id}/baseline-curve?baseline_id=`（缺省最新基线；未知 404；采样 = 基线 created_at → 今天、步长 5 天、末点必含今天）。
+- **UI**：报表页「📈 S 曲线」卡——基线下拉 + PV 虚线/EV 实线 SVG 双线 + SPI 徽标（≥1 绿 / <1 琥珀）。
+- **测试**：test_baseline_curve 3 项（PV/EV 手算 SPI=4/7 与推进到 5/7、旧格式权重回退 + 空盘诚实 None + 未知 404、rebuild 采样相等）；**冒烟 40** 三段 roundtrip + rebuild。
