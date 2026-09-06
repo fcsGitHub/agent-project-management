@@ -670,3 +670,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **端点**：`GET /api/projects/{id}/baseline-curve?baseline_id=`（缺省最新基线；未知 404；采样 = 基线 created_at → 今天、步长 5 天、末点必含今天）。
 - **UI**：报表页「📈 S 曲线」卡——基线下拉 + PV 虚线/EV 实线 SVG 双线 + SPI 徽标（≥1 绿 / <1 琥珀）。
 - **测试**：test_baseline_curve 3 项（PV/EV 手算 SPI=4/7 与推进到 5/7、旧格式权重回退 + 空盘诚实 None + 未知 404、rebuild 采样相等）；**冒烟 40** 三段 roundtrip + rebuild。
+
+## 32. 通道与回复三件套（M35-I107/I108/I109）
+
+### 32.1 IMAP 邮件转任务（I107）
+
+- **语义**（Redmine `receive_imap` / Jira mail handler 的最小面）：`IMAP_HOST/IMAP_PORT/IMAP_USER/IMAP_PASS` env 可选通道（**未配置即关闭**，与 SMTP 同构）；ticker 每分钟顺带一次邮箱 pass（`imap_seen` 投影让整轮按 Message-ID 幂等）+ `POST /api/imap/poll` admin 手动触发。
+- **路由**：发件人邮箱（parseaddr 规范化）匹配 `users.email` → 以**该用户身份**把邮件落成其默认项目（成员第一项；admin 取首项目）的一等任务——复用 `create_item` 全校验链，标题=邮件主题（≤200 截断）；**邮件正文转首条评论**（items 无 description 列；显式 `comment.created` 事件、不做 mention 解析——邮件正文永不触发 @通知）；无匹配发件人 → 配置了 `IMAP_FALLBACK_PROJECT_ID` 则降级为 intake 身份投该收件箱项目，否则 **ignore**（Redmine `--unknown-user=ignore`）。每种结局都是一条 `imap.message_processed` 事件（routed=user/intake/skipped），审计可回放。
+- **接缝**：imaplib 触碰只存在于 `_fetch_messages` 一个函数——测试 monkeypatch 它（同 mailer FakeSMTP 的缝），断言走完整路由/投影/幂等管线。
+- **测试**：test_imap_in 4 项（匹配归账 + 正文首评 + 事件归账 qa-wang/降级 intake + ignore 双态/Message-ID 幂等 + rebuild 存活/未配置诚实关闭 409）。
