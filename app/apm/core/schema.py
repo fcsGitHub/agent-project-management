@@ -426,6 +426,17 @@ CREATE TABLE IF NOT EXISTS non_working_days (
   note TEXT,
   created_at TEXT NOT NULL
 );
+
+-- I107: processed mail Message-IDs (projection of imap.message_processed —
+-- in drop_projections so rebuild reproduces them; idempotency per Message-ID).
+CREATE TABLE IF NOT EXISTS imap_seen (
+  message_id TEXT PRIMARY KEY,
+  from_email TEXT,
+  routed TEXT NOT NULL,
+  item_id TEXT,
+  project_id TEXT,
+  processed_at TEXT NOT NULL
+);
 """
 
 FTS_DDL = """
@@ -458,6 +469,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "timesheets",
         "intake_tokens",
         "non_working_days",
+        "imap_seen",
         "extracted_tasks",
         "baselines",
         "project_members",

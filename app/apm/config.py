@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     # I105 due-date reminder window (days ahead, inclusive of today).
     due_soon_days: int = 3
+    # I107 IMAP inbox-to-task: optional channel, unset host means off
+    # (same env-gated shape as SMTP). Fallback project takes unknown senders
+    # under the intake identity; without it unknown senders are ignored.
+    imap_host: str = ""
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_pass: str = ""
+    imap_fallback_project_id: str = ""
 
     model_config = {"env_prefix": "APM_", "env_file": ".env", "extra": "ignore"}
 

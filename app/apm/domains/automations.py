@@ -434,7 +434,9 @@ def run_daily_sweep(force: bool = False) -> dict:
 
 def _scheduler_loop() -> None:
     """Production ticker: wake up once a minute; the heartbeat check makes the
-    actual sweep idempotent, so polling frequency is irrelevant to correctness."""
+    actual sweep idempotent, so polling frequency is irrelevant to correctness.
+    The I107 mailbox pass rides the same wake-up (its own imap_seen projection
+    makes it idempotent per Message-ID)."""
     import logging
     import time
 
@@ -445,6 +447,11 @@ def _scheduler_loop() -> None:
             run_daily_sweep()
         except Exception:  # the scheduler must survive anything
             logger.exception("daily sweep failed")
+        try:
+            from apm.domains.imap_in import poll_inbox
+            poll_inbox()
+        except Exception:
+            logger.exception("imap poll failed")
 
 
 def install_scheduler() -> None:

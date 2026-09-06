@@ -10,6 +10,7 @@ from apm.domains import (  # noqa: F401
     events_api,
     features,
     ical,
+    imap_in,
     intake,
     items,
     mailer,

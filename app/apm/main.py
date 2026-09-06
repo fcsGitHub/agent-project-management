@@ -117,6 +117,7 @@ def create_app() -> FastAPI:
     from apm.domains.features import router as features_router
     from apm.domains.feed import router as feed_router
     from apm.domains.intake import router as intake_router
+    from apm.domains.imap_in import router as imap_router
     from apm.domains.calendar import router as calendar_router
     from apm.domains.comments import router as comments_router
     from apm.domains.timelog import router as timelog_router
@@ -179,6 +180,7 @@ def create_app() -> FastAPI:
     app.include_router(timelog_router, prefix="/api")
     app.include_router(timesheet_router, prefix="/api")
     app.include_router(intake_router, prefix="/api")
+    app.include_router(imap_router, prefix="/api")
     app.include_router(ical_router, prefix="/api")
     app.include_router(search_router, prefix="/api")
     app.include_router(baselines_router, prefix="/api")
