@@ -1046,6 +1046,38 @@ M36 = **透明与容量三件套**：I110 跨项目动态流（透明——OpenP
 M37 = **通道收尾三件套**：I113 IMAP 主题路由（路由面——Jira Split Regex 轻量版）/ I114 邮件回复转评论（会话面——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（订阅面——feed_key 同构，M11 全局活动版）+ docs/12 §34 + 冒烟 43 + M37 审阅，约 9 人日。休假自动转派、subject 正则全量路由、退信模板留 backlog。
 
 
+## AK. M38 前置调研：层级与代位——多级进度 rollup / 休假代理转派 / 负载超载标记（2026-09-06）
+
+> 目标协议触发：M37 审阅通过后开启。防重查：候选池 grep——多级 rollup（M33 §AF.5 仅留 backlog「孙任务向爷任务」）、资源平衡（M33 留 backlog 无调研记录）、休假自动转派（§AI.5/I111 仅留 backlog）均无调研记录。
+
+**AK.1 多级进度 rollup（Jira Plans 逐级加权 + MS Project work-weighted 语义）**
+
+- Jira Advanced Roadmaps：**Roll up values to parent issues**——日期与进度沿 Initiative→Epic→Story 层级逐级上卷，剩余估算加权（[Atlassian 文档](https://confluence.atlassian.com/jiraportfolioserver/rolling-up-values-to-parent-issues-968677334.html)、[progress 监控](https://confluence.atlassian.com/jiraportfolioserver/monitoring-progress-of-work-970614913.html)）；MS Project：**%Work Complete 按 work/工时加权**上卷，比 %Complete（工期加权）更准，Physical % Complete 完全不上卷（[ProjectPlan365](https://www.projectplan365.com/articles/percent-complete/)、[r/MSProject](https://www.reddit.com/r/MSProject/comments/1940rtu/the_age_old_question_percent_complete_based_on/)）。共同语义：**父级进度 = 子级的加权聚合，权重是估算量而非个数**。
+- 对本项目的映射：I102 的 subtaskProgress 是「直接子任务 done 计数」单层——本轮扩展 rollup.ts：**递归沿 parent 链逐级上卷**（孙→子→父），进度权重改 **estimate_hours 加权**（无估算回退 1.0，与 I106 S 曲线同口径）；看板「🧩 n/m」徽标升级为加权百分比 + 时间线父条形沿用；vitest 固化递归口径（三层链/权重/环安全——parent 链理论无环但 rollup 加深度上限防御）。
+
+**AK.2 休假代理转派（Jira automation + 「on leave until」字段语义）**
+
+- Atlassian 官方 KB 两篇：用 automation + user properties（on leave until）**自动转派休假代理的 issue**（[KB-with-properties](https://support.atlassian.com/jira/kb/automatically-reassign-issues-of-agents-who-are-on-vacation-with-user-properties/)、[KB](https://support.atlassian.com/jira/kb/automatically-reassign-issues-of-agents-who-are-on-vacation/)）；Deviniti Assignment Rules 支持按人假期配置**在分配队列中自动跳过缺席者**（[Deviniti](https://deviniti.com/support/addon/cloud/assignment-rules/latest/rules/)）；Reddit 社区实践强调「**stand-in 转派、销假后转回原人**」（[r/jira](https://www.reddit.com/r/jira/comments/p3u4z3/how_do_you_guys_handle_vacation_replacement_for/)）。共同语义：**休假登记携带代理人，节拍任务负责转派与转回，全程留审计**。
+- 对本项目的映射：I111 休假登记加可选 `delegate` 字段（代理人须同项目成员）+ I98 每日 sweep 扩展代位动作：休假首日把该成员**活跃未完成任务临时转给 delegate**（item.assigned 事件、payload 记 original_assignee），休假结束日自动转回——事件溯源下「转回」零成本；通知双通道照常（被转派人收 assigned 通知）。
+
+**AK.3 负载超载标记（MS Project 自动 leveling 的反模式教训——检测而非自动改排）**
+
+- MS Project 自动 leveling「把任务整体后移解决资源超载」，但社区公认它会**推出关键路径、恶化完成日期**（[GanttPRO](https://blog.ganttpro.com/en/resource-leveling-ms-microsoft-project/)、[Boyle 咨询的逻辑分析](https://boyleprojectconsulting.com/tomsblog/2016/01/05/logic-analysis-of-resource-leveled-schedules-ms-project/)）；MPUG 提出 **resource-critical path**（资源约束下的关键路径）概念；Aurora 直言「自动 leveling 可能高度低效——保证不超载 ≠ 高效排程」（[Aurora](https://www.aurorascheduling.com/blogs/why-resource-leveling-may-be-highly-inefficient/)、[MPUG](https://mpug.com/a-better-microsoft-project-workload-levelling-and-resource-critical-path)）。共同教训：**自动改排是反模式，透明检测才是正道**。
+- 对本项目的映射：AgentPM **不做自动 leveling**（与 I104 手排期零感知一脉相承）——workload 端点加 `overloaded` 标记（活跃任务数超阈值，默认 5 可配）+ 负载页红色徽标提示人工均衡；与 I111 on_leave 徽标并列，负载页从「看数字」升级「看预警」。
+
+**AK.4 M38 设计映射与验证纪律（沿用）**
+
+- I116 多级 rollup：rollup.ts 递归版（per 父聚合直接子+继承子的加权进度）+ 看板徽标/时间线进度条升级；vitest（三层链/estimate 权重/无估算回退/深度防御）。
+- I117 休假转派：time_off 加 delegate（同项目成员校验）+ sweep 代位动作（转派/转回、事件审计）+ 通知照常；单测（首日转派/payload 原人/末日转回/无 delegate 不动/rebuild）。
+- I118 负载超载 + 收尾审阅：workload overloaded 阈值标记（config 可配）+ 负载页红色徽标；docs/12 §35；**冒烟 44**（三层 rollup 计数/转派转回 roundtrip/超载标记 + rebuild 一致）并入 I118 + M38 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M38 审阅。
+
+**AK.5 M38 取舍**
+
+M38 = **层级与代位三件套**：I116 多级进度 rollup（层级面——Jira Plans 逐级 estimate 加权，I102 单层升维）/ I117 休假代理转派（代位面——Jira KB 转派/转回语义，sweep 节拍）/ I118 负载超载标记+收尾（预警面——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44 + M38 审阅，约 9 人日。subject 正则全量路由、退信模板、自动 leveling（明确不做）留 backlog。
+
+
+
 
 
 

@@ -1204,6 +1204,36 @@ agent-project-management/
 
 ---
 
+### M38 · 层级与代位三件套（多级进度 rollup/休假代理转派/负载超载标记，I116-I118，约 9 人日）
+
+> v2.9 新增（2026-09-06，M37 审阅通过后按目标协议调研）。调研结论见 docs/01 §AK。主题统一「层级与代位」：**进度沿层级上卷**（加权递归）、**任务沿休假代位**（转派/转回审计）、**负载给预警**（检测而非自动改排）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I116 | 多级进度 rollup（rollup.ts 递归沿 parent 链上卷 + estimate_hours 加权[无估算回退 1.0] + 看板徽标/时间线进度条升级——Jira Plans 逐级加权语义） | 01 §AK.1 | I102 rollup | 3d |
+| I117 | 休假代理转派（time_off 加 delegate 同项目成员校验 + I98 sweep 首日转派/末日转回 + item.assigned 事件审计 payload 记原人） | 01 §AK.2 | I111 休假/I98 sweep | 3d |
+| I118 | 负载超载标记 + 收尾审阅（workload `overloaded` 阈值标记[config 可配默认 5] + 负载页红色徽标——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44 + M38 审阅 | 01 §AK.3 | I87 workload | 3d |
+
+#### I116 · 多级进度 rollup（3d）
+
+- 任务：rollup.ts 扩展递归版——per 父任务聚合直接子任务并继承子的加权进度（estimate_hours 加权、无估算回退 1.0，深度上限防环）；看板「🧩」徽标从 n/m 升级为加权百分比（保留 n/m 显示）+ 时间线父条形进度条沿用新口径；vitest 固化（三层链上卷/estimate 权重/无估算回退/深度防御）。
+- DoD：vitest 绿；build 绿。
+- 演示路径：父→子→孙三层，孙完成 → 父徽标百分比按估算加权上卷。
+
+#### I117 · 休假代理转派（3d）
+
+- 任务：time_off 登记加可选 `delegate`（须与休假人同项目成员，校验 422）+ I98 每日 sweep 代位动作——休假段首日把休假人**活跃未完成任务**临时转给 delegate（item.assigned 事件 payload 记 original_assignee）、段末日自动转回原人；转派/转回均事件审计 + 被转派人收 assigned 通知（既有双通道照常）；单测（首日转派/原人记录/末日转回/无 delegate 不动/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：QA 登记休假带 delegate=李雷 → sweep 后 QA 活跃任务指派变李雷 → 末日 sweep 自动转回 QA。
+
+#### I118 · 负载超载标记 + 收尾审阅（3d）
+
+- 任务：workload `overloaded` 标记（活跃任务 > 阈值，config `workload_overload_threshold` 默认 5）+ 负载页红色「⚠ 超载」徽标（与 🏖 并列）；docs/12 §35；**新增冒烟 44**（三层 rollup 加权计数/转派转回 roundtrip/超载标记 + rebuild 一致）；相关验证 + M38 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 44 GREEN；审阅全绿。
+- 演示路径：给成员建 6 个活跃任务 → 负载页出现「⚠ 超载」徽标。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1379,6 +1409,10 @@ agent-project-management/
 | **M35 通道与回复三件套（I107-I109）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AH + docs/10 §M35）：I107 IMAP 邮件转任务（imaplib env 可选 + ticker 轮询 + 发件人匹配 users.email 归账/降级 intake/ignore + Message-ID 幂等——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（saved_replies 运行态表 + own-data CRUD + `Ctrl+.` 过滤面板 + 存为常用——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（游标 `R` 直开评论预填引用 + SHORTCUTS/浮层自动收录——I94 backlog 转正）+ docs/12 §32 + 冒烟 41；审阅全量 **268** 绿 + 冒烟 41 GREEN + 审阅即修 1 处（常用回复面板 Enter 闭包时序加固 ba5623c；附录 B）；多项目邮件路由/个人 Availability/AC 第三线/多基线并列留 backlog |
 | **M36 透明与容量三件套（I110-I112）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AI + docs/10 §M36）：I110 跨项目动态流（`GET /portfolio/activity` _visible 裁剪 + 事件白名单 + 「📰 项目动态」页——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（user_time_off_* 事件 + 投影表 + workload「🏖 休假中」+ my/schedule 休假条——Taiga 容量痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（AC 第三线 spent 重放 + `?compare=` 多基线 PV 并列——MS Project 原生缺失的免费叠图）+ docs/12 §33 + 冒烟 42；审阅全量 **274** 绿 + 冒烟 42 GREEN + 审阅即修 1 处（动态流评论行标题空补 item_id 0e1000a；附录 B）；休假自动转派/IMAP 多项目路由/动态 RSS 留 backlog |
 | **M37 通道收尾三件套（I113-I115）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AJ + docs/10 §M37）：I113 IMAP 主题路由（`[项目名]` 前缀 → 成员项目优先/非成员落默认——Jira Split Regex 轻量版）/ I114 邮件回复转评论（In-Reply-To + imap_seen 归属 → 回复发评论不建任务——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（`/portfolio/activity.atom?key=` feed_key 认证 + 手写 Atom XML——M11 全局活动版）+ docs/12 §34 + 冒烟 43；审阅全量 **277** 绿 + 冒烟 43 GREEN + 审阅即修 0 处（附录 B）；休假自动转派/subject 正则全量路由/退信模板留 backlog |
+| **M38 层级与代位三件套（I116-I118）** | 进行中（定义已出） | 2026-09-06 | — | 3 迭代 / 约 9 人日（docs/01 §AK + docs/10 §M38）：I116 多级进度 rollup（rollup.ts 递归沿 parent 链 + estimate_hours 加权——Jira Plans 逐级加权语义，I102 单层升维）/ I117 休假代理转派（time_off 加 delegate + sweep 首日转派/末日转回 + item.assigned 审计——Jira KB 转派/转回语义）/ I118 负载超载标记+收尾（workload `overloaded` 阈值徽标——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44 + M38 审阅；subject 正则全量路由/退信模板/自动 leveling[明确不做]留 backlog |
+| I116 多级进度 rollup | 进行中 | 2026-09-06 | — | rollup.ts 扩展递归版：per 父任务聚合直接子任务并继承子的加权进度（estimate_hours 加权、无估算回退 1.0、深度上限防环）+ 看板「🧩」徽标升级加权百分比[保留 n/m] + 时间线父条形沿用新口径；vitest（三层链上卷/权重/回退/深度防御） |
+| I117 休假代理转派 | 待开始 | 2026-09-06 | — | time_off 登记加可选 delegate（同项目成员校验 422）+ I98 sweep 代位动作：段首日把休假人活跃未完成任务临时转给 delegate（item.assigned payload 记 original_assignee）、段末日自动转回原人；事件审计+被转派人 assigned 通知照常；单测（首日转派/原人记录/末日转回/无 delegate 不动/rebuild） |
+| I118 负载超载标记+冒烟 44+收尾 | 待开始 | 2026-09-06 | — | workload `overloaded` 标记（活跃任务 > config 阈值默认 5）+ 负载页红色「⚠ 超载」徽标（与 🏖 并列）；docs/12 §35；**新增冒烟 44**（三层 rollup 加权计数/转派转回 roundtrip/超载标记 + rebuild 一致）+ M38 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I113 IMAP 主题路由 | 已完成 | 2026-09-06 | 2026-09-06 | `_route_message` 前置 `[项目名]` 前缀解析（正则 `[^\[\]]{1,60}` 取名 + projects×project_members JOIN 校验发件人成员身份 → 命中：路由该项目并剥离前缀作标题[剥离后空标题保留原样]；非成员/项目不存在：落回默认路由[默认项目/fallback/ignore]保留前缀不丢信；无前缀不变）+ 设置页外部收件区提示 `[项目名] 主题` 用法；纯函数零新表；test_imap_in +1 共 5 项（成员前缀命中剥离/非成员落默认保留前缀/不存在项目落默认——首版用例注册用户漏 email 致全 skipped，正是匹配语义的反向验证）+ build 绿 |
 | I114 邮件回复转评论 | 已完成 | 2026-09-06 | 2026-09-06 | `_fetch_messages` 补 In-Reply-To/References 头 + `_find_thread_item`（线程 Message-ID 集合 IN 查询 imap_seen 的 message→item 归属，item_id 非空）+ poll 循环回复分支：命中线程 → known sender 以其身份 / unknown sender 以 intake 身份给对应任务发评论（复用 _attach_body），**不建新任务**；routed=`reply`/`reply_intake` 留痕；回复邮件自身 Message-ID 同样入 imap_seen（幂等与线程链可回溯）；test_imap_in +1 共 6 项（回复命中 → 任务数不变 + 评论「已修复，请回归」入账 + routed=reply） |
 | I115 动态流 Atom+冒烟 43+收尾 | 已完成 | 2026-09-06 | 2026-09-06 | `GET /portfolio/activity.atom?key=`：复用 M11 feed_key 认证（_user_by_feed_key、错误 key 401）+ `_activity_list` 抽取共用聚合（JSON 端点与 Atom 同源——_visible 裁剪+八类白名单+倒序）+ 手写 Atom XML（sx.escape 转义 + request.base_url 绝对链接 + 零依赖[I67 先例]）+ 动态页「🔗 Atom」按钮（getFeedKey 组地址一键复制）；test_activity +1 共 4 项（401/atom+xml content-type/feed xmlns/条目摘要）；**新增冒烟 43**（[项目名] 前缀路由剥离建任务/In-Reply-To 回复转评论任务数不变/Atom key 认证+XML 有效 + rebuild 线程归属存活）；冒烟 **43** 条 GREEN + build/vitest 9 绿 |
@@ -1697,6 +1731,8 @@ agent-project-management/
 | 2026-09-06 | I112 | AC 重放选「**先取 time.deleted 集合再过滤 time.logged**」而非反向标记——软删条目的 logged 事件仍在流里，减去删除集等价于投影表的 deleted_at 判定但完全走事件（重放语义纯正）。compare 选「**同采样点并列第二 PV**」而非独立时间轴——「计划漂移」的对比必须在同一时间格上读数；compare 与主基线相同则排除（自比无意义）。首版 AC 重放留了半截废循环（sqlite Row 无 .get 的坑差点踩上）——写完即删，YAGNI。 |
 | 2026-09-06 | M36 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 274** 项 0 失败 + 冒烟 **42** 条 GREEN + vitest 9/build 绿；验证纪律第十七轮执行）——**I110**：test_activity 3 项 ✓（函数级裁剪/倒序/过滤/rebuild）；**I111**：test_time_off 2 项 ✓（四向重叠 409/on_leave/rebuild）；**I112**：test_baseline_curve 4 项 ✓（AC 手算/compare 双 PV/删账不计）。浏览器隔离复演三件套（`/tmp/apm-m36` + SW 清理第十次）：①动态页 6 条交错倒序（截图 m36-review-activity-newtab）——**审阅即修**：评论行标题空，补 comment.created payload.item_id 进标题 map（0e1000a）；②负载页「🏖 休假中」徽标与 API on_leave 对账（截图 m36-review-workload-leave）；③S 曲线卡「SPI 0.5 · PV 8h/EV 4h/AC 1h」+ 对比下拉双 PV（8 vs 6）与 API 逐字段对账（截图 m36-review-scurve-ac-compare）；console 0 错误。 | — | 里程碑通过 |
 | 2026-09-06 | M37 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 277** 项 0 失败 + 冒烟 **43** 条 GREEN + vitest 9/build 绿；验证纪律第十八轮执行）——**I113**：test_imap_in 5 项 ✓（成员前缀命中剥离/非成员落默认保留/不存在落默认）；**I114**：test_imap_in 6 项 ✓（回复命中任务数不变+评论+ routed=reply）；**I115**：test_activity 4 项 ✓（401/atom+xml/xmlns/摘要）。浏览器隔离复演三件套（`/tmp/apm-m37` + SW 清理第十一次）：①动态页 2 条事件 + 「🔗 Atom」按钮（截图 m37-review-activity-newtab）；②浏览器直开 activity.atom?key= → XML 渲染完整（feed xmlns/entry/title UTF-8）+ 错误 key 401 对账（curl entries=2 标题入文）；③主题路由与回复转评论 roundtrip 由冒烟 43 stub 覆盖；console 0 错误。**审阅即修 0 处**。 | — | 里程碑通过 |
+| 2026-09-06 | M37 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 277** 项 0 失败 + 冒烟 **43** 条 GREEN + vitest 9/build 绿；验证纪律第十八轮执行）——**I113**：test_imap_in 5 项 ✓（成员前缀命中剥离/非成员落默认保留/不存在落默认）；**I114**：test_imap_in 6 项 ✓（回复命中任务数不变+评论+ routed=reply）；**I115**：test_activity 4 项 ✓（401/atom+xml/xmlns/摘要）。浏览器隔离复演三件套（`/tmp/apm-m37` + SW 清理第十一次）：①动态页 2 条事件 + 「🔗 Atom」按钮（截图 m37-review-activity-newtab）；②浏览器直开 activity.atom?key= → XML 渲染完整（feed xmlns/entry/title UTF-8）+ 错误 key 401 对账（curl entries=2 标题入文）；③主题路由与回复转评论 roundtrip 由冒烟 43 stub 覆盖；console 0 错误。**审阅即修 0 处**。 | — | 里程碑通过 |
+| 2026-09-06 | M38 定义 | 新一轮三路并行调研（防重查：候选池 grep——多级 rollup[M33 §AF.5 仅 backlog「孙任务向爷任务」]/资源平衡[M33 留 backlog 无调研记录]/休假自动转派[§AI.5/I111 仅 backlog]均无调研记录）：①**多级进度 rollup**——Jira Advanced Roadmaps「Roll up values to parent issues」日期与进度沿 Initiative→Epic→Story 逐级上卷、剩余估算加权（Atlassian 文档），MS Project **%Work Complete 按 work/工时加权**上卷优于 %Complete、Physical % Complete 完全不上卷（ProjectPlan365/r/MSProject）——共同语义：父级进度=子级**加权**聚合、权重是估算量而非个数 → I102 单层「n/m 计数」升维：rollup.ts 递归沿 parent 链 + estimate_hours 加权[无估算回退 1.0 与 I106 同口径] + 深度上限防环；②**资源平衡**——MS Project 自动 leveling「任务后移解决超载」但社区公认会推出关键路径恶化完成日期（GanttPRO/Boyle 逻辑分析），MPUG 提出 resource-critical path、Aurora 直言自动 leveling 高度低效——教训：**自动改排是反模式、透明检测才是正道** → AgentPM 明确不做自动 leveling：workload `overloaded` 阈值标记+红色徽标提示人工均衡（与 I104 手排期零感知一脉相承）；③**休假代理转派**——Atlassian 官方 KB 两篇 automation+user properties「on leave until」自动转派、Deviniti Assignment Rules 分配队列自动跳过缺席者、Reddit 社区「stand-in 转派销假转回」实践——共同语义：休假登记携带代理人、节拍任务负责转派与转回、全程留审计 → I111 休假登记加可选 delegate（同项目成员校验）+ I98 sweep 首日转派活跃任务[payload 记 original_assignee]/末日自动转回 + 被转派人 assigned 通知照常——事件溯源下转回零成本。选定 **M38 = 层级与代位三件套**：I116 多级进度 rollup / I117 休假代理转派 / I118 负载超载标记+收尾 + docs/12 §35 + 冒烟 44 予 I118 + 审阅，估计 +9 人日。结论入 docs/01 §AK。 |
 | 2026-09-06 | M37 定义 | 新一轮三路并行调研（防重查：候选池 grep——IMAP subject 前缀路由[§AI.5/I107 仅 backlog]/动态流 RSS[§AI.5 仅 backlog]/休假自动转派[§AI.5 仅 backlog]均无调研记录；行业面 Huly SaaS 停运/Focalboard 维护模式/Plane 权限大改均不改功能路线）：①**IMAP 主题路由**——Jira Data Center mail handler 有 Split Regex 但「subject 正则路由到项目」原生有限、社区靠 Email This Issue/JEMH 三方做正则匹配+退信模板（Atlassian 社区/Meta-Inf），另有忽略特定地址/关键词诉求 → 轻量版：subject `[项目名]` 前缀 → 发件人成员项目优先路由并剥离前缀、非成员/不存在落回默认不丢信（纯函数零新表、正则留位）；②**邮件回复转评论**——Jira「新邮件建 issue、同主题回复变评论」（UWaterloo 解析）+ Cloud 正文标记过滤 → In-Reply-To/References 头解析 + imap_seen 的 message→item 归属查询 → 命中不建任务改发评论（复用 I107 _attach_body），线程与会话合一；③**动态流 Atom**——GitHub 私有 feed 需 Token、GitLab Atom URL+token 追加认证且收紧无 token 访问（GitLab #433351）——「订阅地址即凭证」与 users.feed_key/M11 Atom per-user key 完全同构 → `/portfolio/activity.atom?key=` 复用 feed_key 认证 + I110 裁剪白名单 + 手写 Atom XML（I67 零依赖先例）+ 动态页订阅链接。选定 **M37 = 通道收尾三件套**：I113 IMAP 主题路由 / I114 邮件回复转评论 / I115 动态流 Atom+收尾 + docs/12 §34 + 冒烟 43 予 I115 + 审阅，估计 +9 人日。结论入 docs/01 §AJ。 |
 | 2026-09-06 | I113 | 路由选「**成员 JOIN 校验**」而非仅项目名存在——前缀命中的项目还要求发件人是其成员，防「猜项目名投递到别人项目」的越权写入；非成员/不存在统一落回默认路由并**保留前缀**——信息不丢、事后可人工改道。首版用例失败=注册用户漏 email 字段 → 三封全走 skipped（processed=3 但零任务）——恰好反向验证了「匹配不上就走降级、绝不猜」的路由纪律；测试断言用 items dict 而非事件数， locals 一眼定位。 |
 | 2026-09-06 | I114 | 线程归属选「**imap_seen 的 message→item 映射**」而非邮件主题匹配——Jira 早期按 subject 匹配会被「Re: Re:」与同名主题污染，标准 email 头（In-Reply-To/References）是确定性的线程语义；imap_seen 本就是 message→item 的投影，零成本复用。unknown sender 的回复走 **reply_intake**（intake 身份评论该任务）而非 ignore——回复的内容属于该任务的会话，丢弃反而丢上下文；与 I113「非成员落默认不丢信」同哲学。 |
