@@ -169,12 +169,17 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoQuote, list.length, draft]);
 
-  // I108: insert a saved reply at the caret (panel click / Enter selection)
+  // I108: insert a saved reply at the caret (panel click / Enter selection).
+  // Functional setDraft — the keydown closure may hold a stale draft.
   const insertReply = (body: string) => {
     const el = inputRef.current;
-    const at = el?.selectionStart ?? draft.length;
-    const next = draft.slice(0, at) + body + draft.slice(el?.selectionEnd ?? at);
-    setDraft(next);
+    const at = el?.selectionStart ?? -1;
+    const end = el?.selectionEnd ?? -1;
+    setDraft((cur) => {
+      const s = at >= 0 ? at : cur.length;
+      const e2 = end >= 0 ? end : cur.length;
+      return cur.slice(0, s) + body + cur.slice(e2);
+    });
     setRepliesOpen(false);
     setReplyFilter("");
     setPreview(false);
@@ -322,7 +327,13 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
                   value={replyFilter}
                   onChange={(e) => setReplyFilter(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && filteredReplies.length) insertReply(filteredReplies[0].body);
+                    if (e.key === "Enter") {
+                      // read the live input value — render closures go stale
+                      const q = (e.target as HTMLInputElement).value;
+                      const hit = (replies.data?.replies ?? [])
+                        .find((r) => !q || r.title.includes(q) || r.body.includes(q));
+                      if (hit) { e.preventDefault(); insertReply(hit.body); }
+                    }
                     if (e.key === "Escape") { setRepliesOpen(false); setReplyFilter(""); }
                   }}
                   placeholder="过滤常用回复… Enter 插入第一条（Ctrl+. 唤起）"
