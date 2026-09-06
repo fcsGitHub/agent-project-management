@@ -60,7 +60,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M35 全闭环~~ ✅（每轮：调研定义 → 3 迭代[三段式提交] → 正式审阅[全量回归+DoD 逐项+浏览器隔离复演]；审阅提交号 566967d/2fca11f/7a67013/993540a/5e8be63/5fd751c/11cc1b2/f859af5/6f247c2/9fc20d1/1fd27b5/**2e5f70a**；单迭代详情真源=docs/10 §7 看板行与附录 A/B——本节不再保留单迭代条目）。
-2. **M36 三迭代（I110 ✅ b92dbef/c96c41a[端点+动态页+侧栏；test_activity 3——local 隐式 self 边界函数级断言]；下一步 I111）**：**I110 跨项目动态流**（reports.py `GET /portfolio/activity`——复用 feed._visible 三层裁剪 + 事件白名单[item.created/item.status_changed/comment.created/milestone.*/approval.requested] + ts 倒序 + `?actor=&project_id=&kind=&limit=` 过滤 + 「📰 项目动态」页 /activity 时间线式[图标+摘要+项目名+相对时间+点击跳转] + 侧栏全局入口，纯读事件零新表；单测：_visible 裁剪/白名单/过滤 limit/rebuild 后序不变）→ **I111 个人 Availability 休假**（`user.time_off_started`/`user.time_off_cancelled` 显式事件 + user_time_off 投影表[进 drop 清单] + 设置页「🏖 我的休假」卡 own-data[重叠 409] + I87 workload 成员行「🏖 休假中」标记 + I89 我的日程月历休假条；单测：roundtrip/重叠 409/取消/双端标记/rebuild）→ **I112 S 曲线扩展 + 冒烟 42 + M36 审阅**（baseline-curve 加 AC 第三线[重放 timelog.time_logged 累计基线项 spent] + `?compare=<baseline_id>` 双基线 PV 并列 + 报表三线图例/对比下拉；docs/12 §33；冒烟 42=动态流对账/休假 roundtrip+双端标记/S 曲线 AC 手算 + rebuild；审阅=全量回归+DoD 逐项+附录 B+浏览器隔离复演）。每迭代三段式提交：代码 → docs → HANDOFF 收口。设计细节真源=docs/10 §M36 三小节 + docs/01 §AI。
+2. **M36 三迭代（I110 ✅ b92dbef/c96c41a[端点+📰动态页+侧栏入口；test_activity 3——local 隐式 self 边界函数级断言]、I111 ✅ 9d6fb98/e7d3327[time_off 事件对+投影表+设置页🏖卡+workload on_leave 徽标+日程 🏖 标记；test_time_off 2]；下一步 I112）**：**I112 S 曲线扩展 + 冒烟 42 + M36 审阅**（baseline-curve 加 AC 第三线[重放 timelog.time_logged 累计基线项 spent 换算小时] + `?compare=<baseline_id>` 双基线 PV 并列 + 报表三线图例/对比下拉；docs/12 §33.3；冒烟 42=动态流对账/休假 roundtrip+双端标记/S 曲线 AC 手算 + rebuild；审阅=全量回归+DoD 逐项+附录 B+浏览器隔离复演）。每迭代三段式提交：代码 → docs → HANDOFF 收口。设计细节真源=docs/10 §M36 三小节 + docs/01 §AI。
 7. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**（M22 审阅踩；M26 审阅：events append-only 不可单删→**整库重建重 seed**；**M31 审阅重跑 seed 前清库重启后端**）；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**（M25 ID 笔误、M26 SW 旧缓存；**M28 审阅 console 200 错误=SW 旧 precache 第四次验证**；**M31 审阅第七次验证：构建后必须 SW 清理+reload 才见修复**）；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——I79 第 4 次违例；**M28-I86 收口第 5 次违例自记**：python heredoc 改 HANDOFF 虽带引号形式无损，仍属违例——改用 Edit 工具）；**commit message 反引号用单引号包裹**（M23-I72 踩）；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**（M24-I76 漏 stage 被审阅揪出）；**看板行状态 Edit 失败必须重试补正**（M25 定义时发现 M24 行漏改）；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**（M27 审阅踩：Git Bash curl GBK 编码致 error parsing body）；**「按人聚合」端点的造数必须含「指派给谁」**（I88 冒烟踩：未指派则 members 空 IndexError）；**blocks 关系造数方向=from 阻塞者 to 被阻塞者**（I91 冒烟踩：方向反了闭锁守卫静默不触发）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**（M31 三次同型失误——把原文行整行替换掉，均靠 git diff 纯新增校验兜住）；**冒烟/测试切身份后必须恢复 settings.user_id**（M31 审阅踩：smoke 首个切身份测试泄漏身份致字母序后续测试失败）；**测试切身份前先确认目标用户已注册**（I97 踩：未注册用户切换静默无效）。
 
 ## 5. 有哪些坑不要再踩
@@ -103,7 +103,7 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 271 项，应全绿
+cd app && python -m pytest            # 273 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 41 条，应 GREEN（repo 根目录跑）
 # 前端
 cd web && pnpm install && pnpm dev    # http://localhost:5173
