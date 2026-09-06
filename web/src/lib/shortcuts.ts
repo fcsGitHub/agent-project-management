@@ -12,6 +12,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["J"], desc: "选中下一张卡片", scope: "看板" },
   { keys: ["K"], desc: "选中上一张卡片", scope: "看板" },
   { keys: ["Enter"], desc: "打开选中卡片的评论区", scope: "看板" },
+  { keys: ["R"], desc: "引用选中卡片的最后一条评论（GitHub quote reply）", scope: "看板" },
 ];
 
 /** True when the event target is a text-entry surface — single-key shortcuts must

@@ -140,6 +140,9 @@ export function Board() {
   // comments, C opens quick create. The cursor is an index into `listed`.
   const [kbIndex, setKbIndex] = useState(-1);
   const [createOpen, setCreateOpen] = useState(false);
+  // I109: R opens the selected card's comments pre-filled with a quote of its
+  // last comment (GitHub quote reply); Enter opens without the auto-quote.
+  const [autoQuote, setAutoQuote] = useState(false);
   const anyModalOpen = !!commentsFor || !!timelogFor || !!quickEditFor || createOpen || viewsOpen || !!scopeDesc || importOpen;
 
   useEffect(() => {
@@ -155,6 +158,12 @@ export function Board() {
       } else if (e.key === "Enter") {
         if (anyModalOpen || kbIndex < 0 || kbIndex >= listed.length) return;
         e.preventDefault();
+        setAutoQuote(false);
+        setCommentsFor(listed[kbIndex]);
+      } else if (key === "r") {
+        if (anyModalOpen || kbIndex < 0 || kbIndex >= listed.length) return;
+        e.preventDefault();
+        setAutoQuote(true);
         setCommentsFor(listed[kbIndex]);
       } else if (key === "c") {
         if (anyModalOpen || !pid) return;
@@ -777,8 +786,8 @@ export function Board() {
       </div>
 
       {commentsFor && (
-        <CommentsModal itemId={commentsFor.id} title={commentsFor.title}
-          onClose={() => { setCommentsFor(null); if (focusItem) setFilter("item", ""); }} />
+        <CommentsModal itemId={commentsFor.id} title={commentsFor.title} autoQuote={autoQuote}
+          onClose={() => { setCommentsFor(null); setAutoQuote(false); if (focusItem) setFilter("item", ""); }} />
       )}
       {timelogFor && (
         <TimeLogModal itemId={timelogFor.id} title={timelogFor.title}

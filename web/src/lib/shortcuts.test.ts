@@ -18,6 +18,11 @@ describe("shortcuts registry", () => {
     expect(flat).toContain("Enter");
     expect(flat).toContain("C");
   });
+  it("documents the I109 quote-reply binding", () => {
+    const r = SHORTCUTS.find((s) => s.keys.join("+") === "R");
+    expect(r?.desc).toContain("引用");
+    expect(r?.scope).toBe("看板");
+  });
 });
 
 describe("isTypingTarget", () => {

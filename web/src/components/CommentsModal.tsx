@@ -4,7 +4,7 @@
  * storage stays plain text, composer gains an edit/preview toggle.
  * M26-I81: author-only inline editing with an "edited" badge and a revision
  * history expansion (event-sourced comment_revisions — GitLab #3706, closed). */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -27,8 +27,10 @@ const TOOLS: Tool[] = [
   { label: "❝ 引用", title: "引用", linePrefix: "> " },
 ];
 
-export function CommentsModal({ itemId, title, onClose }: {
+export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
   itemId: string; title?: string; onClose: () => void;
+  /** I109: pre-fill the draft with a quote of the last comment on open (R key) */
+  autoQuote?: boolean;
 }) {
   const qc = useQueryClient();
   const { pid } = useParams();
@@ -155,6 +157,17 @@ export function CommentsModal({ itemId, title, onClose }: {
     setEditingId(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
+
+  // I109: R opens the modal pre-filled with a quote of the last comment —
+  // applied once, only when the draft is still empty (quote-reply semantics).
+  const autoQuotedRef = useRef(false);
+  const list = comments.data?.comments ?? [];
+  useEffect(() => {
+    if (!autoQuote || autoQuotedRef.current || !list.length || draft) return;
+    autoQuotedRef.current = true;
+    quote(list[list.length - 1]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoQuote, list.length, draft]);
 
   // I108: insert a saved reply at the caret (panel click / Enter selection)
   const insertReply = (body: string) => {
