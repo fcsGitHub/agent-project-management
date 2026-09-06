@@ -686,3 +686,9 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **存储**：saved_replies 用户级运行态表（PRIMARY KEY (user_id, id)；**刻意不进 drop_projections**——同 notification_prefs 语义，rebuild 保留用户库）；own-data 严格隔离（GET 只见自己的、DELETE 他人 404）；标题 ≤100、正文 ≤2000 超长 422。
 - **API**：`GET/POST/DELETE /api/me/saved-replies`（登录态 own-data）。
 - **测试**：test_saved_replies 3 项（CRUD roundtrip + 双身份 own-data 隔离/四向校验边界/rebuild 保留）。
+
+### 32.3 引用快捷键（I109）
+
+- **语义**（GitHub quote reply 的键位化——I94 ❝ 按钮的三轮 backlog 转正）：看板 j/k 游标选中卡片后按 `R` → 直开该卡评论弹层并**预填引用最后一条评论**（`@作者 引用：` + 逐行 blockquote，复用 I94 预填格式）；`Enter` 依旧是打开评论不预填——两个键位、两种意图。预填是**一次性 effect**：仅在草稿为空时落笔，用户已输入的内容永不被覆盖。
+- **注册表**：SHORTCUTS 单一真源加 `R` 条目——`?` 浮层自动收录，零额外文案维护；vitest 断言 R 存在且 scope=看板。
+- **测试**：vitest shortcuts +1；**冒烟 41** 三段 roundtrip + rebuild（IMAP stub 归账+幂等/常用回复 own-data+rebuild 保留/引用草稿字节一致入库+重放）。
