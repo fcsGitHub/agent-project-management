@@ -696,6 +696,13 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **UI**：侧栏「📰 项目动态」全局页（/activity）——项目下拉 + 类型下拉过滤、30 秒自动刷新、点击项目名跳对应看板。
 - **测试**：test_activity 3 项（成员级裁剪函数级断言——**local 模式切身份即 implicit self 全可见，端点级裁剪不可测**[I87 同款边界]；admin 双项目倒序/过滤与 limit/rebuild 后序不变——直接读事件天然稳定）。
 
+### 33.2 个人 Availability 休假（I111）
+
+- **语义**（Taiga 容量痛点 / Jira PTO 插件语义，docs/01 §AI.2）：休假是**日期段**（start/end/reason），事件化为 `user.time_off_started` / `user.time_off_cancelled`（投影 user_time_off 表进 drop 清单）；own-data（GET/POST/DELETE /api/me/time-off），日期段与既有 active 段重叠 409、end<start 422。
+- **消费两端**：①负载页 `GET /api/portfolio/workload` 成员行 `on_leave: true`（今天落在任一 active 段）→ 前端「🏖 休假中」天蓝徽标；②「我的日程」月历叠加 🏖 日期标记（前端拉 /me/time-off 计算）。不做自动转派（转派规则留 backlog）。
+- **UI**：设置页「🏖 我的休假」卡（起止日期+原因登记、chip 列表、✕ 取消）。
+- **测试**：test_time_off 2 项（roundtrip + 四向重叠 409 + 倒序 422 + own-data 取消 404 / 当天覆盖 on_leave 标记 + rebuild 存活）。
+
 ### 32.3 引用快捷键（I109）
 
 - **语义**（GitHub quote reply 的键位化——I94 ❝ 按钮的三轮 backlog 转正）：看板 j/k 游标选中卡片后按 `R` → 直开该卡评论弹层并**预填引用最后一条评论**（`@作者 引用：` + 逐行 blockquote，复用 I94 预填格式）；`Enter` 依旧是打开评论不预填——两个键位、两种意图。预填是**一次性 effect**：仅在草稿为空时落笔，用户已输入的内容永不被覆盖。
