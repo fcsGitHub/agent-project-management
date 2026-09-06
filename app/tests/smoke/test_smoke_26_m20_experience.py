@@ -57,7 +57,8 @@ def test_smoke_26_m20_experience(client, tmp_data, isolated_ontologies):
     assert client.patch(f"/api/items/{item_a['id']}",
                         json={"start_date": "2026-09-04", "due_date": "2026-09-08"}).status_code == 200
     b2 = client.get(f"/api/items/{item_b['id']}").json()
-    assert b2["start_date"] == "2026-09-06" and b2["due_date"] == "2026-09-10"
+    # M34-I104: the raw landing 09-06 is a Sunday — skipped forward to Monday
+    assert b2["start_date"] == "2026-09-07" and b2["due_date"] == "2026-09-10"
     rescheds = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
     assert len(rescheds) == 1 and rescheds[0]["agg_id"] == item_b["id"]
     assert rescheds[0]["payload"]["delta_days"] == 3

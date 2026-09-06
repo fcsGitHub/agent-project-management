@@ -23,12 +23,12 @@ def test_smoke_29_m23_planning_overview(client, tmp_data, isolated_ontologies):
     # --- 1) baseline: snapshot fixed, later drift visible --------------------
     assert client.post(f"/api/projects/{pid}/baseline").status_code == 200
     snap = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert snap["items"][item_a["id"]] == ["2026-09-01", "2026-09-05"]
+    assert snap["items"][item_a["id"]] == ["2026-09-01", "2026-09-05", None]
     # dates drift +3 — the snapshot must not move
     assert client.patch(f"/api/items/{item_a['id']}",
                         json={"start_date": "2026-09-04", "due_date": "2026-09-08"}).status_code == 200
     snap2 = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert snap2["items"][item_a["id"]] == ["2026-09-01", "2026-09-05"]
+    assert snap2["items"][item_a["id"]] == ["2026-09-01", "2026-09-05", None]
 
     # --- 2) portfolio report reconciles with per-project numbers -------------
     client.post(f"/api/items/{item_a['id']}/time_entries", json={"minutes": 90, "spent_on": "2026-09-05"})
@@ -48,7 +48,7 @@ def test_smoke_29_m23_planning_overview(client, tmp_data, isolated_ontologies):
     # --- 4) rebuild: baseline, portfolio and comment all replay --------------
     projections.rebuild()
     snap3 = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert snap3["items"][item_a["id"]] == ["2026-09-01", "2026-09-05"]
+    assert snap3["items"][item_a["id"]] == ["2026-09-01", "2026-09-05", None]
     rep2 = client.get("/api/portfolio/report").json()
     assert rep2["totals"]["timelog_minutes"] == 90
     comments = client.get(f"/api/items/{item_a['id']}/comments").json()["comments"]

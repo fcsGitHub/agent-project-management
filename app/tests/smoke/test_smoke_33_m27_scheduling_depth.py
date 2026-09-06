@@ -9,7 +9,12 @@ from apm.core import projections
 
 
 def _day(offset: int) -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=offset)).date().isoformat()
+    # M34-I104: auto-scheduled landings skip non-working days — anchor the
+    # fixture grid to a Monday so propagation landings stay on workdays.
+    base = (datetime.now(timezone.utc) + timedelta(days=7)).date()
+    while base.weekday() != 0:
+        base -= timedelta(days=1)
+    return (base + timedelta(days=offset)).isoformat()
 
 
 @pytest.mark.smoke

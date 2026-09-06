@@ -38,12 +38,12 @@ def test_baseline_snapshot_drift_and_rebuild(client, pid):
     assert client.patch(f"/api/items/{a['id']}",
                         json={"due_date": "2026-09-08"}).status_code == 200
     snap2 = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert snap2["items"][a["id"]] == ["2026-09-01", "2026-09-05"]
+    assert snap2["items"][a["id"]] == ["2026-09-01", "2026-09-05", None]
 
     # re-setting replaces the snapshot with current dates
     assert client.post(f"/api/projects/{pid}/baseline").status_code == 200
     snap3 = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert snap3["items"][a["id"]] == ["2026-09-01", "2026-09-08"]
+    assert snap3["items"][a["id"]] == ["2026-09-01", "2026-09-08", None]
 
     # clear removes it; getting returns None
     assert client.delete(f"/api/projects/{pid}/baseline").status_code == 200
@@ -53,7 +53,7 @@ def test_baseline_snapshot_drift_and_rebuild(client, pid):
     client.post(f"/api/projects/{pid}/baseline")
     projections.rebuild()
     final = client.get(f"/api/projects/{pid}/baseline").json()["baseline"]
-    assert final["items"][a["id"]] == ["2026-09-01", "2026-09-08"]
+    assert final["items"][a["id"]] == ["2026-09-01", "2026-09-08", None]
     assert final["milestones"]
 
     # unknown project 404

@@ -20,7 +20,13 @@ def test_smoke_20_scheduling_and_portability(client, tmp_data, isolated_ontologi
     pid = r.json()["id"]
 
     def day(n):
-        return (datetime.now(timezone.utc) + timedelta(days=n)).date().isoformat()
+        # M34-I104: auto-scheduled landings skip non-working days — anchor to
+        # a Monday grid; the +4 chain shift lands C on day(21) (a workday),
+        # whereas the old naive day(19) was a Saturday and now gets skipped.
+        base = (datetime.now(timezone.utc) + timedelta(days=7)).date()
+        while base.weekday() != 0:
+            base -= timedelta(days=1)
+        return (base + timedelta(days=n)).isoformat()
 
     # A ← B(auto) ← C(auto): moving A shifts the whole chain
     a = client.post(f"/api/projects/{pid}/items",
@@ -40,7 +46,7 @@ def test_smoke_20_scheduling_and_portability(client, tmp_data, isolated_ontologi
 
     assert client.patch(f"/api/items/{a['id']}", json={"due_date": day(9)}).status_code == 200  # +4
     assert client.get(f"/api/items/{b['id']}").json()["due_date"] == day(14)
-    assert client.get(f"/api/items/{c['id']}").json()["due_date"] == day(19)
+    assert client.get(f"/api/items/{c['id']}").json()["due_date"] == day(21)
     evs = client.get("/api/events", params={"event_type": "item.rescheduled"}).json()["events"]
     assert [(e["id"], e["payload"]["follow_of"]) for e in sorted(evs, key=lambda e: e["id"])] == \
            sorted([(e["id"], e["payload"]["follow_of"]) for e in evs])
@@ -62,7 +68,7 @@ def test_smoke_20_scheduling_and_portability(client, tmp_data, isolated_ontologi
 
         items2 = c2.get(f"/api/projects/{pid}/items").json()["items"]
         got = {i["title"]: (i["start_date"], i["due_date"]) for i in items2}
-        assert got["A"][1] == day(9) and got["B"][1] == day(14) and got["C"][1] == day(19)
+        assert got["A"][1] == day(9) and got["B"][1] == day(14) and got["C"][1] == day(21)
         rep2 = c2.get(f"/api/projects/{pid}/report").json()
         assert rep2["funnel"] == report_before["funnel"]
 
