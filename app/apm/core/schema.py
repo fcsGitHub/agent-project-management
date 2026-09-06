@@ -437,6 +437,18 @@ CREATE TABLE IF NOT EXISTS imap_seen (
   project_id TEXT,
   processed_at TEXT NOT NULL
 );
+
+-- I108: per-user canned responses (runtime state like notification_prefs —
+-- deliberately absent from drop_projections so rebuilds keep the user's
+-- library; GitHub Saved Replies semantics).
+CREATE TABLE IF NOT EXISTS saved_replies (
+  user_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, id)
+);
 """
 
 FTS_DDL = """

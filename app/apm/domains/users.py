@@ -155,3 +155,48 @@ def _derive_id(name: str) -> str:
     if not slug:  # 纯非 ASCII 名（如中文）：退化为 u+短随机，避免碰撞
         return f"u-{new_id('u').split('_', 1)[1][:6]}"
     return slug[:60]
+
+
+# ---------------------------------------------------- saved replies (I108)
+class SavedReplyIn(BaseModel):
+    title: str
+    body: str
+
+
+@router.get("/me/saved-replies")
+def list_saved_replies() -> dict:
+    """GitHub Saved Replies semantics (docs/01 §AH.2): the user's own canned
+    responses, runtime state (like notification_prefs — rebuild keeps them)."""
+    rows = db.get_conn().execute(
+        "SELECT id, title, body, created_at FROM saved_replies WHERE user_id = ?"
+        " ORDER BY created_at, id", (events.effective_actor(),)).fetchall()
+    return {"replies": [dict(r) for r in rows]}
+
+
+@router.post("/me/saved-replies")
+def add_saved_reply(body: SavedReplyIn) -> dict:
+    title = (body.title or "").strip()
+    text = (body.body or "").strip()
+    if not title or len(title) > 100:
+        raise HTTPException(status_code=422, detail="title is required (≤100 chars)")
+    if not text or len(text) > 2000:
+        raise HTTPException(status_code=422, detail="body is required (≤2000 chars)")
+    rid = new_id("sr")
+    db.get_conn().execute(
+        "INSERT INTO saved_replies (user_id, id, title, body, created_at) VALUES (?,?,?,?,?)",
+        (events.effective_actor(), rid, title, text, events.utcnow()),
+    )
+    db.get_conn().commit()
+    return {"id": rid, "title": title, "body": text}
+
+
+@router.delete("/me/saved-replies/{reply_id}")
+def delete_saved_reply(reply_id: str) -> dict:
+    conn = db.get_conn()
+    cur = conn.execute(
+        "DELETE FROM saved_replies WHERE user_id = ? AND id = ?",
+        (events.effective_actor(), reply_id))
+    conn.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="no such saved reply")
+    return {"deleted": reply_id}

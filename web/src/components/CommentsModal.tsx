@@ -38,12 +38,20 @@ export function CommentsModal({ itemId, title, onClose }: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [historyId, setHistoryId] = useState<string | null>(null);
+  // I108: GitHub Saved Replies — filterable panel + insert at caret
+  const [repliesOpen, setRepliesOpen] = useState(false);
+  const [replyFilter, setReplyFilter] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const comments = useQuery({
     queryKey: ["comments", itemId],
     queryFn: () => api.listItemComments(itemId),
   });
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const replies = useQuery({
+    queryKey: ["saved-replies"],
+    queryFn: api.listSavedReplies,
+    enabled: repliesOpen,
+  });
   const revisions = useQuery({
     queryKey: ["comment-revisions", historyId],
     queryFn: () => api.listCommentRevisions(historyId!),
@@ -148,6 +156,38 @@ export function CommentsModal({ itemId, title, onClose }: {
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  // I108: insert a saved reply at the caret (panel click / Enter selection)
+  const insertReply = (body: string) => {
+    const el = inputRef.current;
+    const at = el?.selectionStart ?? draft.length;
+    const next = draft.slice(0, at) + body + draft.slice(el?.selectionEnd ?? at);
+    setDraft(next);
+    setRepliesOpen(false);
+    setReplyFilter("");
+    setPreview(false);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at + body.length, at + body.length);
+    });
+  };
+
+  // I108: stash the current selection as a canned reply
+  const stashSelection = async () => {
+    const el = inputRef.current;
+    const sel = el ? draft.slice(el.selectionStart ?? 0, el.selectionEnd ?? 0).trim() : "";
+    if (!sel) { toast.info("先在评论框选中一段文本，再点「存为常用回复」"); return; }
+    try {
+      await api.addSavedReply(sel.slice(0, 60), sel);
+      toast.success("已存为常用回复");
+      qc.invalidateQueries({ queryKey: ["saved-replies"] });
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const filteredReplies = (replies.data?.replies ?? [])
+    .filter((r) => !replyFilter || r.title.includes(replyFilter) || r.body.includes(replyFilter));
+
   // M18-I58: manual watch — subscribers hear about status changes and new comments
   const me = users.data?.current;
   const subscribed = !!(comments.data?.participants ?? []).some(
@@ -251,7 +291,49 @@ export function CommentsModal({ itemId, title, onClose }: {
                   {t.label}
                 </button>
               ))}
+              <button type="button" title="常用回复（Ctrl+.）"
+                onMouseDown={(e) => { e.preventDefault(); setRepliesOpen((v) => !v); }}
+                className="rounded border border-line px-1.5 py-0.5 text-[10px] text-mut hover:border-acc hover:text-acc">
+                ⌨ 常用回复
+              </button>
+              <button type="button" title="把选中文本存为常用回复"
+                onMouseDown={(e) => { e.preventDefault(); stashSelection(); }}
+                className="rounded border border-line px-1.5 py-0.5 text-[10px] text-mut hover:border-acc hover:text-acc">
+                ☆ 存为常用
+              </button>
             </div>
+            {repliesOpen && (
+              <div className="mb-1 rounded-lg border border-line bg-bg p-1.5">
+                <input
+                  autoFocus
+                  value={replyFilter}
+                  onChange={(e) => setReplyFilter(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && filteredReplies.length) insertReply(filteredReplies[0].body);
+                    if (e.key === "Escape") { setRepliesOpen(false); setReplyFilter(""); }
+                  }}
+                  placeholder="过滤常用回复… Enter 插入第一条（Ctrl+. 唤起）"
+                  className="mb-1 w-full rounded border border-line bg-bg px-2 py-1 text-[11px] text-ink"
+                />
+                {(filteredReplies.length ? filteredReplies : []).map((r) => (
+                  <div key={r.id} className="group/r flex items-start gap-1 rounded px-1 py-0.5 hover:bg-bg">
+                    <button type="button" onClick={() => insertReply(r.body)}
+                      className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-[11px] font-medium text-ink">{r.title}</div>
+                      <div className="truncate text-[10px] text-mut">{r.body}</div>
+                    </button>
+                    <button type="button"
+                      onClick={async () => { await api.deleteSavedReply(r.id); qc.invalidateQueries({ queryKey: ["saved-replies"] }); }}
+                      className="text-[10px] text-mut opacity-0 transition-opacity hover:text-dan group-hover/r:opacity-100" title="删除">✕</button>
+                  </div>
+                ))}
+                {!filteredReplies.length && (
+                  <div className="px-1 py-1 text-[10px] text-mut">
+                    {replies.data?.replies.length ? "没有匹配的常用回复" : "还没有常用回复——选中评论框文本点「☆ 存为常用」"}
+                  </div>
+                )}
+              </div>
+            )}
             <textarea
               ref={inputRef}
               className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs"
@@ -259,7 +341,14 @@ export function CommentsModal({ itemId, title, onClose }: {
               placeholder="写下评论… 用 @ 提及同事，支持 Markdown（表格 / 清单 / 代码块）"
               value={draft}
               onChange={(e) => { setDraft(e.target.value); setMentionOpen(e.target.value.includes("@")); }}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit();
+                // I108: Ctrl+. / Cmd+. toggles the saved-replies panel
+                if (e.key === "." && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  setRepliesOpen((v) => !v);
+                }
+              }}
             />
             </>
           )}

@@ -452,6 +452,13 @@ export const api = {
           samples: { date: string; pv: number; ev: number }[];
           pv_total: number; ev_last: number; spi: number | null }>(
       `/projects/${pid}/baseline-curve${baselineId ? `?baseline_id=${baselineId}` : ""}`),
+  // I108: saved replies — the user's own canned responses (GitHub semantics)
+  listSavedReplies: () =>
+    req<{ replies: { id: string; title: string; body: string; created_at: string }[] }>("/me/saved-replies"),
+  addSavedReply: (title: string, body: string) =>
+    req<{ id: string; title: string; body: string }>("/me/saved-replies", { method: "POST", body: JSON.stringify({ title, body }) }),
+  deleteSavedReply: (id: string) =>
+    req<{ deleted: string }>(`/me/saved-replies/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>
     req<{ project_id: string; baseline: null }>(`/projects/${pid}/baseline`, { method: "DELETE" }),
   getBoard: (pid: string, featureId?: string, groupBy?: string) => {
