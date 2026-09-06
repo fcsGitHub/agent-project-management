@@ -679,3 +679,10 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **路由**：发件人邮箱（parseaddr 规范化）匹配 `users.email` → 以**该用户身份**把邮件落成其默认项目（成员第一项；admin 取首项目）的一等任务——复用 `create_item` 全校验链，标题=邮件主题（≤200 截断）；**邮件正文转首条评论**（items 无 description 列；显式 `comment.created` 事件、不做 mention 解析——邮件正文永不触发 @通知）；无匹配发件人 → 配置了 `IMAP_FALLBACK_PROJECT_ID` 则降级为 intake 身份投该收件箱项目，否则 **ignore**（Redmine `--unknown-user=ignore`）。每种结局都是一条 `imap.message_processed` 事件（routed=user/intake/skipped），审计可回放。
 - **接缝**：imaplib 触碰只存在于 `_fetch_messages` 一个函数——测试 monkeypatch 它（同 mailer FakeSMTP 的缝），断言走完整路由/投影/幂等管线。
 - **测试**：test_imap_in 4 项（匹配归账 + 正文首评 + 事件归账 qa-wang/降级 intake + ignore 双态/Message-ID 幂等 + rebuild 存活/未配置诚实关闭 409）。
+
+### 32.2 常用回复（I108）
+
+- **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
+- **存储**：saved_replies 用户级运行态表（PRIMARY KEY (user_id, id)；**刻意不进 drop_projections**——同 notification_prefs 语义，rebuild 保留用户库）；own-data 严格隔离（GET 只见自己的、DELETE 他人 404）；标题 ≤100、正文 ≤2000 超长 422。
+- **API**：`GET/POST/DELETE /api/me/saved-replies`（登录态 own-data）。
+- **测试**：test_saved_replies 3 项（CRUD roundtrip + 双身份 own-data 隔离/四向校验边界/rebuild 保留）。
