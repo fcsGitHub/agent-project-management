@@ -97,6 +97,8 @@ def _default_project(conn, user_id: str) -> str | None:
 
 
 def _route_message(conn, msg: dict) -> dict:
+    import re
+
     from apm import config
 
     # parseaddr here (not only in _fetch_messages) so every entry path —
@@ -106,9 +108,26 @@ def _route_message(conn, msg: dict) -> dict:
         "SELECT id, name FROM users WHERE LOWER(COALESCE(email, '')) = ?",
         (from_email,)).fetchone()
     title = msg.get("subject") or "(无主题来信)"
-    if row:  # known sender → their own identity, their first project
+
+    # I113 (docs/01 §AJ.1, Jira Split-Regex lite): a `[项目名]` subject prefix
+    # routes to that project when the sender is its member; non-members or
+    # unknown names fall through to the default routing, keeping the prefix.
+    prefix_project = None
+    m = re.match(r"\[([^\[\]]{1,60})\]\s*", title)
+    if m and row:
+        named = conn.execute(
+            "SELECT p.id FROM projects p JOIN project_members pm ON pm.project_id = p.id"
+            " WHERE p.name = ? AND pm.user_id = ?",
+            (m.group(1), row["id"])).fetchone()
+        if named:
+            prefix_project = named["id"]
+            stripped = title[m.end():].strip()
+            if stripped:
+                title = stripped
+
+    if row:  # known sender → their own identity
         user_id, author_name = row["id"], row["name"]
-        project_id = _default_project(conn, user_id)
+        project_id = prefix_project or _default_project(conn, user_id)
         if not project_id:
             return {"routed": "skipped", "reason": "no visible project", "user_id": user_id}
         item = create_item(

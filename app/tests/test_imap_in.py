@@ -133,3 +133,39 @@ def test_message_id_idempotent_and_rebuild(client, tmp_data, isolated_ontologies
 def test_not_configured_is_honestly_off(client, tmp_data, isolated_ontologies, project):
     assert imap_in.poll_inbox() == {"enabled": False, "processed": 0}
     assert client.post("/api/imap/poll").status_code == 409
+
+
+def test_subject_prefix_routes_to_member_project(client, tmp_data, isolated_ontologies,
+                                                 project, imap_env, monkeypatch):
+    """I113 (docs/01 §AJ.1): `[项目名]` routes to the sender's membership
+    project with the prefix stripped; non-members and unknown names fall
+    through to the default routing with the prefix kept."""
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.com"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    other = client.post("/api/projects",
+                        json={"name": "别的项目", "ontology": "software-dev",
+                              "requirement": "I113b"}).json()["id"]
+
+    _stub_messages(monkeypatch, {
+        "message_id": "<p1@x.com>", "from": "qa@x.com",
+        "subject": f"[{project['name']}] 数据导出报错", "body": "",
+    }, {
+        "message_id": "<p2@x.com>", "from": "qa@x.com",
+        "subject": "[别的项目] 越权尝试", "body": "",
+    }, {
+        "message_id": "<p3@x.com>", "from": "qa@x.com",
+        "subject": "[不存在的项目] 落默认", "body": "",
+    })
+    assert imap_in.poll_inbox()["processed"] == 3
+
+    items = {i["title"]: i["project_id"]
+             for i in client.get("/api/projects/%s/items" % pid).json()["items"]}
+    # member prefix route: right project, prefix stripped
+    assert items.get("数据导出报错") == pid
+    # non-member prefix and unknown-name prefix fall through to the default
+    assert items.get("[别的项目] 越权尝试") == pid
+    assert items.get("[不存在的项目] 落默认") == pid
+    assert "越权尝试" not in [i["title"] for i in
+                          client.get(f"/api/projects/{other}/items").json()["items"]]
