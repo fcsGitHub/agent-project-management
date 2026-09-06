@@ -1114,6 +1114,36 @@ agent-project-management/
 
 ---
 
+### M35 · 通道与回复三件套（IMAP 邮件转任务/常用回复/引用快捷键，I107-I109，约 9 人日）
+
+> v2.9 新增（2026-09-06，M34 审阅通过后按目标协议调研）。调研结论见 docs/01 §AH。主题统一「通道与回复」：**入口加邮箱通道**（被动收件）、**回复给常用语库**（一键盘出）、**操作加速键**（backlog 转正）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I107 | IMAP 邮件转任务（imaplib env 可选配置 + ticker 轮询 + 发件人匹配 users.email 归账/降级 intake 身份 + Message-ID 幂等） | 01 §AH.1 | I99 intake/I98 ticker | 3d |
+| I108 | 常用回复（saved_replies 用户级运行态表 + own-data CRUD + CommentsModal `Ctrl+.` 面板[过滤/↑↓/Enter 插入] + 选中文本存为常用） | 01 §AH.2 | I96 运行态表语义 | 3d |
+| I109 | 引用快捷键 + 收尾审阅（游标选中 `R` 直开评论预填引用 + SHORTCUTS 注册表/`?` 浮层自动收录）+ docs/12 §32 + 冒烟 41 + M35 审阅 | 01 §AH.3 | I94 引用/I95 快捷键 | 3d |
+
+#### I107 · IMAP 邮件转任务（3d）
+
+- 任务：`IMAP_HOST/IMAP_PORT/IMAP_USER/IMAP_PASS` env 可选配置（未配置即关闭，与 SMTP 通道同构）+ ticker 线程轮询（复用 I98 调度器，测试 monkeypatch stub 同 I96 FakeSMTP 范式）→ 每封未读邮件：`From` 邮箱匹配 `users.email` → 以该用户身份路由到默认项目（第一个其可见项目）复用 `create_item` 全校验链（主题=标题、正文=描述）；无匹配 → 降级 intake 身份投 I99 公共表单项目；Message-ID 记录幂等（重复投递不重建）；处理留痕事件；单测（邮箱匹配归账/不匹配降级/Message-ID 幂等/未配置关闭/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：stub 收一封 qa-wang@ 邮件 → 看板出现以其身份归账的任务卡 → 同 Message-ID 重放不重建。
+
+#### I108 · 常用回复（3d）
+
+- 任务：saved_replies 用户级运行态表（不进 drop 清单、缺省空）+ `GET/POST/DELETE /me/saved-replies`（own-data、标题+正文 ≤2000 超长 422）+ CommentsModal「⌨ 常用回复」按钮与 `Ctrl+.` 唤起面板（输入过滤、↑↓ 选择、Enter 插入光标处）+ 工具条「存为常用回复」（选中文本一键入库）；存储纯文本渲染零改动；单测（CRUD own-data 边界/超长 422/rebuild 保留）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：存一条「LGTM，注意补测试」→ 新评论框 `Ctrl+.` → 过滤选中 Enter 插入。
+
+#### I109 · 引用快捷键 + 收尾审阅（3d）
+
+- 任务：看板 j/k 游标选中项按 `R` → 直开 CommentsModal 并预填引用（复用 I94 预填函数）+ SHORTCUTS 注册表加 `R` 条目（`?` 浮层自动收录零文案维护）；docs/12 §32；**新增冒烟 41**（IMAP stub roundtrip/常用回复 CRUD+插入/引用快捷键预填 + rebuild 一致）；相关验证 + M35 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 41 GREEN；审阅全绿。
+- 演示路径：看板 j/k 营销环落某卡 → 按 R → 评论弹层打开且引用已预填。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1286,6 +1316,10 @@ agent-project-management/
 | **M32 引擎与入口三件套（I98-I100）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AE + docs/10 §M32）：I98 时间触发自动化（规则 trigger:daily + 扫描线程 + automation.swept 心跳幂等 + 周期建卡——YouTrack On-schedule/Kanboard 插件语义）/ I99 外部 intake 收件（intake token + 公开 JSON 端点 + 公开表单页——Trello 板级邮箱/Jira mail handler 的 HTTP 最小面）/ I100 列表分组聚合（group by + 组头计数/spent 合计——Airtable/NocoDB 组头统计语义）+ docs/12 §29 + 冒烟 38；审阅全量 **239** 绿 + 冒烟 38 GREEN + 审阅即修 1 处（scheduler_enabled 测试开关——ticker 心跳与显式 sweep 竞态；附录 B）；IMAP 轮询/多级分组/按组排序留 backlog |
 | **M33 纵深三件套（I101-I103）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AF + docs/10 §M33）：I101 关键路径高亮（`GET /projects/{id}/critical-path` CPM 正逆传递 float=0 链 + TimelinePage 红框开关）/ I102 子任务进度汇总（父卡/列表行「子任务 n/m」徽标 + 时间线父条形进度——GitHub sub-issue progress 语义）/ I103 工作项归档与回收站（item.archived/restored 事件 + archived_at 列 + 回收站抽屉恢复——软删除+可恢复，补 §Y.1「统一考量」backlog）+ docs/12 §30 + 冒烟 39；审阅全量 **251** 绿 + 冒烟 39 GREEN + 审阅即修 1 处（关键路径按钮移出基线条件块；附录 B）；硬删除/多级 rollup/CPM 资源平衡留 backlog |
 | **M34 时间关怀三件套（I104-I106）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AG + docs/10 §M34）：I104 工作日历与非工作日落点顺延（calendar.holiday_added/removed 事件 + non_working_days 投影表 + advance_to_workday 收口 M14 传播与 I83 对齐——OpenProject 12.3 语义，M27 backlog 转正）/ I105 到期邻近提醒（run_daily_sweep 内建动作 + item.due_soon_notified + NOTIFY_KINDS 第六类 + 双通道同闸——Plane/Linear 语义，sweep 第一公民应用）/ I106 基线 S 曲线对比（`GET /projects/{id}/baseline-curve` PV/EV 周界采样 + SVG 双线 + SPI 手算——EVM 语义，事件溯源红利第六例）+ docs/12 §31 + 冒烟 40；审阅全量 **260** 绿 + 冒烟 40 GREEN + 审阅即修 0 处（语义演进波及在迭代段收口；附录 B）；个人 Availability/AC 第三线/多基线并列对比/IMAP 轮询/引用快捷键留 backlog |
+| **M35 通道与回复三件套（I107-I109）** | 进行中（定义已出） | 2026-09-06 | — | 3 迭代 / 约 9 人日（docs/01 §AH + docs/10 §M35）：I107 IMAP 邮件转任务（imaplib env 可选 + ticker 轮询 + 发件人匹配 users.email 归账/降级 intake + Message-ID 幂等——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（saved_replies 运行态表 + own-data CRUD + `Ctrl+.` 过滤面板 + 存为常用——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（游标 `R` 直开评论预填引用 + SHORTCUTS/浮层自动收录——I94 backlog 转正）+ docs/12 §32 + 冒烟 41 + M35 审阅；多项目邮件路由/个人 Availability/AC 第三线/多基线并列留 backlog |
+| I107 IMAP 邮件转任务 | 进行中 | 2026-09-06 | — | `IMAP_HOST/IMAP_PORT/IMAP_USER/IMAP_PASS` env 可选（未配置关闭、SMTP 同构）+ ticker 轮询复用 I98 调度器（测试 stub 同 I96 FakeSMTP 范式）+ From 邮箱匹配 users.email → 该用户身份路由默认项目复用 create_item 全校验链（主题=标题、正文=描述）/无匹配降级 intake 身份 + Message-ID 幂等 + 处理留痕事件；单测（匹配归账/降级/幂等/未配置关闭/rebuild） |
+| I108 常用回复 | 待开始 | 2026-09-06 | — | saved_replies 用户级运行态表（不进 drop 清单、缺省空）+ `GET/POST/DELETE /me/saved-replies`（own-data、正文 ≤2000 超长 422）+ CommentsModal「⌨ 常用回复」/`Ctrl+.` 面板（输入过滤、↑↓、Enter 插入光标处）+ 工具条「存为常用回复」（选中文本入库）；单测（CRUD own-data/超长 422/rebuild 保留） |
+| I109 引用快捷键+冒烟 41+收尾 | 待开始 | 2026-09-06 | — | 看板 j/k 游标选中按 `R` 直开 CommentsModal 预填引用（复用 I94）+ SHORTCUTS 注册表 `R` 条目（`?` 浮层自动收录）；docs/12 §32；**新增冒烟 41**（IMAP stub roundtrip/常用回复 CRUD+插入/引用快捷键预填 + rebuild 一致）+ M35 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I104 工作日历跳休 | 已完成 | 2026-09-06 | 2026-09-06 | `calendar.holiday_added`/`calendar.holiday_removed` 显式事件（agg_id=日期确定性幂等）+ non_working_days 投影表（进 drop 清单）+ 设置页「📅 工作日历」管理卡（admin 日期+备注/chip 列表/✕ 移除）+ `GET/POST/DELETE /calendar/holidays`[admin only、重复 409/坏日期 422] + **advance_to_workday 单一辅助函数收口**：M14 传播平移后与 I83 lag 对齐处两处接入（start/due 落周末或假日顺延至下一工作日；手排期零感知；start>due 时以 start 为准）；test_calendar 3 项（admin roundtrip/传播跳假日+跨跳/手排期+rebuild 存活）+ test_scheduling 造数改**锚定周一网格**（M34 语义演进：传播落点不落周末，single_level/multilevel/drag 三处数字重排、断言强度不变）18 项绿；build/vitest 8 绿 |
 | I105 到期邻近提醒 | 已完成 | 2026-09-06 | 2026-09-06 | run_daily_sweep 内建提醒动作 `_notify_due_soon`（due∈[today, today+due_soon_days] 且未完成未归档且有 human 指派 → emit `item.due_soon_notified` 专用事件[审计+幂等载体]；**事件是事实投递是收口**：站内 @on 投影器与邮件 NOTIFY_EVENTS/plan_notifications 共享决策双通道按 kind="due_soon" 走 pref_allows 闸门[默认开可关]；发前查事件流「agg_id 当日已有」永不重复，force 重扫幂等；心跳 payload 加 notified 计数）+ NOTIFY_KINDS 第六类「临近截止提醒」+ config due_soon_days 默认 3[env 可调]；test_due_soon 3 项（窗口边界 today/+3 内 +4 外/无指派与 done 不发/每日幂等/偏好闸挡投递不挡事件/rebuild 确定性 id+幂等保持）+ I96 kinds 断言演进含 due_soon，15 项绿；build 绿 |
 | I106 基线 S 曲线+冒烟 40+收尾 | 已完成 | 2026-09-06 | 2026-09-06 | `GET /projects/{id}/baseline-curve?baseline_id=`[缺省最新/未知 404]：PV 按基线 planned due 周界采样累计权重（**快照 3 元组扩展** [start,due,estimate_hours]，旧快照回退 1.0，消费点索引式解构天然兼容）+ EV 事件重放 item.status_changed→done 首达日累计（**事件溯源红利第六例**）+ SPI=末点 EV/PV[PV=0 诚实 None] + 报表「📈 S 曲线」卡（基线下拉+SVG 双线+SPI 徽标）；test_baseline_curve 3 项（PV/EV 手算 SPI=4/7→5/7/旧格式回退/空盘 None/404/rebuild 采样相等）；**冒烟 40**（假日推走 auto 落点+删除恢复/提醒 roundtrip+force 幂等/S 曲线手算对账[独立项目防权重盘污染]+rebuild 三段重放）+ 快照/落点语义演进波及修正（test_baselines×3 补 None 位、冒烟 29 同款、冒烟 26 周日顺延、冒烟 20/33 锚定周一网格）；全量 **pytest 260** 项 0 失败 + 冒烟 **40** 条 GREEN + build/vitest 8 绿 |
@@ -1581,6 +1615,7 @@ agent-project-management/
 | 2026-09-06 | I105 | 事件模型选「**专用 due_soon_notified 事件**」而非复用 notification.sent——幂等查询（agg_id+当日）、审计（此项何时被提醒过）都依赖专用事件类型，通用兜底事件语义会混。**「事件是事实、投递是收口」在 I105 的推论**：偏好关掉时 sweep 照发事件（notified=1）但站内/邮件零投递——与 I96「rebuild 重放按当前偏好重算」同一哲学；首版漏写站内 @on 投影器（NOTIFY_EVENTS 只是邮件白名单、站内靠逐事件装饰器），测试当场揪出——**NOTIFY_EVENTS 与 @on 注册是两套名册，新 kind 必须两处都挂**（同「注册新域两处都要」教训的通知版）。heredoc 违例第 6 次自记：I105 改 test_notification_prefs 断言时用 python heredoc 做 ASCII replace，虽无损仍属违例——无例外，一律 Edit。 |
 | 2026-09-06 | I106 | 权重口径选「**estimate_hours 缺省回退 1.0**」而非只按项数或拒绝旧快照——EVM 的价值加权保留、pre-I106 快照零迁移可算（项数口径是其诚实近似），响应里带 weights 说明字段自曝口径。**快照 3 元组演进**（[start,due]→[start,due,estimate]）：消费点全部索引式解构（s[0]/s[1]、b[0]/b[1]）天然兼容——「追加式字段扩展 + 索引解构」是事件溯源快照演进的低阻力路径；但全量仍揪出 test_baselines/冒烟 29 的**整组相等断言**（==[start,due]）——索引读兼容、整组比较不兼容，演进字段时 grep 整组断言样式。冒烟 40 首版 S 曲线段与前段共享项目，基线权重盘被传播链带日期项污染（total=9≠6）——**冒烟每段独立语境**（新开项目）比重算断言数字干净。 |
 | 2026-09-06 | M34 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 260** 项 0 失败 + 冒烟 **40** 条 GREEN + vitest 8/build 绿；验证纪律第十五轮执行）——**I104**：test_calendar 3 项 + test_scheduling 周一网格重排 ✓；**I105**：test_due_soon 3 项[窗口/幂等/闸门/rebuild] ✓；**I106**：test_baseline_curve 3 项[PV/EV 手算 SPI=4/7→5/7/旧快照回退/诚实 None/rebuild] ✓。浏览器隔离复演三件套（`/tmp/apm-m34` + SW 清理）：①日历卡 chip roundtrip + API 对账 B raw 09-14[假日]→顺延 09-15、手排项不动（截图 m34-review-calendar-card）；②ticker 心跳抢先=显式 sweep swept:false（M32 教训现场复现）→ force notified=1 → QA 王铃面板 due_soon + 六类矩阵新增「临近截止提醒」行 → 二次 force 幂等（截图 m34-review-due-soon-bell）；③S 曲线卡 SPI 0.667 徽标 + PV 6h/EV 4h 与 API 逐字段对账（截图 m34-review-scurve-clean）；console 0 错误。审阅即修 **0 处**——三迭代已把语义演进波及（快照 3 元组/周一网格/周日落点）在验证段收口。 | — | 里程碑通过 |
+| 2026-09-06 | M35 定义 | 新一轮三路并行调研（防重查：候选池 grep——Availability 休假层[§AG.1 仅 backlog]/AC 第三线与多基线并列[§AG.5 仅 backlog]/IMAP 轮询[§AE.2 仅 backlog]/引用快捷键[三轮留 backlog]均无调研记录）：①**IMAP 邮件转任务**——Redmine `rake redmine:email:receive_imap` cron 轮询（--project 路由/--unknown-user 降级策略/**发件人邮箱必须匹配账号才归账**，官方 Wiki）+ rdm-mailhandler.rb WS 推送模式，Jira POP/IMAP mail handler（项目级 vs 系统级路由）——共同语义：轮询邮箱→发件人身份匹配归账（不匹配走降级）→规则路由目标容器 → Python 标准库 **imaplib 零依赖**（SMTP 通道同构 env 配置、未配置即关闭）+ ticker 轮询（I98 同款）+ From 匹配 users.email 归账默认项目复用 create_item 全校验链、无匹配降级 I99 intake 身份 + Message-ID 幂等——与 I99 HTTP 端点互补成「HTTP 免登录 + 邮件被动」双入口；②**常用回复**——GitHub Saved Replies：`Ctrl+.` 唤起面板 + `Ctrl+数字` 直选 + 输入即过滤（官方文档+发布博客+Atomic Object 实践=code review 标准化回复核心工具）→ saved_replies 用户级运行态表（notification_prefs 同构语义）+ own-data CRUD + CommentsModal `Ctrl+.` 面板（过滤/↑↓/Enter 插入）+ 选中文本「存为常用回复」，存储纯文本渲染零改动；③**引用快捷键**——GitHub quote reply 按钮+`r` 键双入口（§AC.1 已调研键位三轮留 backlog）→ I95 SHORTCUTS 注册表已铺路：游标选中 `R` 直开评论预填引用（复用 I94）、`?` 浮层自动收录零文案维护。选定 **M35 = 通道与回复三件套**：I107 IMAP 邮件转任务 / I108 常用回复 / I109 引用快捷键+收尾 + docs/12 §32 + 冒烟 41 予 I109 + 审阅，估计 +9 人日。结论入 docs/01 §AH。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

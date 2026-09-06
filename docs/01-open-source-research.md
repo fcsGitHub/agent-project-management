@@ -953,4 +953,36 @@ M33 = **纵深三件套**：I101 关键路径高亮（时间纵深——排程�
 M34 = **时间关怀三件套**：I104 工作日历跳休（排期关怀——M27 backlog 转正，OpenProject 落点顺延语义）/ I105 到期邻近提醒（人的关怀——Plane/Linear 语义，sweep 第一公民应用）/ I106 基线 S 曲线（趋势关怀——EVM PV/EV 语义，M24+I93 红利第六例）+ docs/12 §31 + 冒烟 40 + M34 审阅，约 9 人日。个人 Availability（休假层）、AC 第三线、多基线并列对比、IMAP 轮询、引用快捷键留 backlog。
 
 
+## AH. M35 前置调研：通道与回复——IMAP 邮件转任务 / 常用回复 / 引用快捷键（2026-09-06）
+
+> 目标协议触发：M34 审阅通过后开启。防重查：候选池 grep——Availability 休假层（§AG.1 仅留 backlog 无调研记录）、AC 第三线/多基线并列（§AG.5 仅留 backlog）、IMAP 轮询（§AE.2 仅留 backlog）、引用快捷键（§AC/§AD/§AF 三轮留 backlog）均无调研记录。
+
+**AH.1 IMAP 邮件转任务（Redmine/Jira 邮件通道语义——intake 的邮箱入口）**
+
+- Redmine：`rake redmine:email:receive_imap` cron 轮询邮箱，参数含 `--project`（路由目标）/`--tracker`/`--unknown-user`（未知发件人策略 ignore/accept/check 权限），**发件人邮箱必须匹配已有账号才能归账**（[官方 Wiki](https://www.redmine.org/projects/redmine/wiki/redminereceivingemails)、[配置指南](https://www.simplified.guide/redmine/incoming-email-configure)）；另有 `rdm-mailhandler.rb` Web Service 推送模式（绕开 IMAP 轮询）；Jira：POP/IMAP/Mail handler 轮询 + 项目级 vs 系统级 handler 决定路由与权限（[Atlassian 文档](https://confluence.atlassian.com/spaces/ADMINJIRASERVER0911/pages/1318890898)、[handler 作用域](https://community.atlassian.com/forums/Jira-Service-Management/Difference-between-project-and-system-mail-handlers/qaq-p/784380)）。共同语义：**轮询邮箱 → 发件人身份匹配归账（不匹配走降级策略）→ 规则路由到目标容器**。
+- 对本项目的映射：Python 标准库 **imaplib** 零第三方依赖（与 SMTP 通道同构的 env 可选配置 `IMAP_HOST/IMAP_PORT/IMAP_USER/IMAP_PASS`，未配置即关闭）；ticker 线程轮询（I98 调度器同款，`scheduler_enabled` 开关复用）→ 每封未读邮件：`From` 邮箱匹配 `users.email` → 以该用户身份路由到**其可见的默认项目**（无匹配 → 降级 I99 intake 身份投公共表单项目）；主题=标题、正文=描述，复用 `create_item` 全校验链。与 I99 HTTP 端点互补：**HTTP 免登录入口 + 邮件被动入口**。多项目路由（subject 前缀 `[项目名]`）留 backlog。
+
+**AH.2 常用回复（GitHub Saved Replies 语义——高频回复一键盘出）**
+
+- GitHub：`Ctrl+.`（Mac `Cmd+.`）唤起 saved replies 面板、继续 `Ctrl+数字` 直选插入、输入即过滤（[官方文档](https://docs.github.com/en/get-started/writing-on-github/working-with-saved-replies/using-saved-replies)、[发布博客](https://github.blog/news-insights/saved-replies-keyboard-shortcuts/)）；社区实践把它当作 code review 标准化回复的核心效率工具（[Atomic Object](https://spin.atomicobject.com/github-saved-replies/)）。共同语义：**用户级常用语库 + 面板过滤 + 键位直选**。
+- 对本项目的映射：saved_replies 用户级运行态表（缺省空、不进 drop 清单——同 notification_prefs 语义）+ `GET/POST/DELETE /me/saved-replies`（own-data，标题+正文 ≤2000）+ CommentsModal 「⌨ 常用回复」按钮与 `Ctrl+.` 唤起面板（输入过滤、↑↓ 选择、Enter 插入光标处）+ 评论框工具条「存为常用回复」（选中文本一键入库）。存储纯文本，渲染走既有 Markdown 管线零改动。
+
+**AH.3 引用快捷键（I94 ❝ 的键位化——三轮 backlog 转正收尾）**
+
+- 现状：I94 已做「❝」按钮引用回复（@作者+blockquote 预填）；GitHub 的 quote reply 有按钮 + `r` 快捷键双入口（§AC.1 调研过、键位一直留 backlog）；I95 SHORTCUTS 注册表（单一真源+isTypingTarget 让路）已为键位化铺好路。
+- 对本项目的映射：看板 j/k 游标选中项后按 `R` → 直开 CommentsModal 并预填引用（复用 I94 引用预填函数）；CommentsModal 内 `Ctrl+Shift+R` 触发对原评论的 ❝；SHORTCUTS 注册表加条目 + `?` 浮层自动收录（零额外文案维护）。纯前端零后端。
+
+**AH.4 M35 设计映射与验证纪律（沿用）**
+
+- I107 IMAP 转任务：intake.py 或新 imap_in.py 域 + env 配置 + ticker 轮询 + 发件人匹配归账/降级 intake + 处理留痕（imap.seen 事件或邮件 Message-ID 幂等表）；单测（邮箱匹配归账/不匹配降级/Message-ID 幂等/未配置关闭/rebuild）。真实 IMAP 用 monkeypatch stub（同 I96 FakeSMTP 范式）。
+- I108 常用回复：saved_replies 表 + own-data CRUD + CommentsModal 面板（过滤/直选/插入）+ 存为常用；单测（CRUD own-data 边界/超长 422/rebuild 保留——运行态表语义）。
+- I109 引用快捷键：SHORTCUTS `R` 键位 + 游标联动 + 浮层自动收录；vitest 注册表断言 + **冒烟 41**（IMAP stub roundtrip/常用回复 CRUD+插入/引用快捷键预填 + rebuild 一致）并入 I109 + M35 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M35 审阅。
+
+**AH.5 M35 取舍**
+
+M35 = **通道与回复三件套**：I107 IMAP 邮件转任务（入口通道补全——Redmine/Jira 双先例，intake 邮箱版）/ I108 常用回复（回复效率——GitHub Saved Replies 语义）/ I109 引用快捷键+收尾（操作效率——I94 backlog 转正）+ docs/12 §32 + 冒烟 41 + M35 审阅，约 9 人日。多项目邮件路由、个人 Availability 休假层、AC 第三线、多基线并列对比留 backlog。
+
+
+
 
