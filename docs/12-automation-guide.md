@@ -688,6 +688,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **UI**：设置页「📮 外部收件」说明行提示 `[项目名] 主题` 前缀用法。
 - **测试**：test_imap_in +1 共 5 项（成员前缀命中剥离/非成员前缀落默认保留/不存在项目落默认）。
 
+### 34.2 邮件回复转评论（I114）
+
+- **语义**（Jira replies-become-comments，docs/01 §AJ.2）：邮件的 **In-Reply-To / References** 头指向本系统已处理过的 Message-ID（即由邮件建出的任务）时，该回复**不建新任务**而是给对应任务发一条评论——邮件线程与会话线合一；无命中保持建任务路径。
+- **实现**：`_fetch_messages` 补两个头 + `_find_thread_item` 用线程 Message-ID 集合查 imap_seen 的 message→item 归属；known sender 以其身份评论、unknown sender 走 intake 身份（routed=`reply` / `reply_intake` 留痕）；回复邮件自身的 Message-ID 同样入 imap_seen——幂等与线程链均可回溯。
+- **测试**：test_imap_in +1 共 6 项（回复命中 → 任务数不变 + 评论数增 + routed=reply）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
