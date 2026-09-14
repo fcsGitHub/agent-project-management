@@ -803,6 +803,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：risks.py 新域（risk.created/updated/closed 事件 + risks 投影表进 drop 清单）+ related_item_id 关联工作项（不存在 404）+ 「⚠ 风险登记册」页：3×3 矩阵热力（绿→琥珀→红按分）+ 列表按分降序 + 顶导航 ShieldAlert 入口。
 - **测试**：test_risks 2 项（打分 9/1+排序+越界 422+rebuild/生命周期跳级 422+关联 404+closed 后 409+rebuild 后登记册仍空）。
 
+### 40.2 项目收尾清单（I132）
+
+- **语义**（PMBOK Closing Process Group，docs/01 §AP.2）：收尾是**可检查的清单动作**——五项核对全绿才允许标记交付：活跃项=0、待决审批=0、待审工时单=0、未缓解风险=0、未达成里程碑=0（无里程碑空缺通过）。`completed` 是区别于 archived 的交付终态：同样冻结写（409，/reopen 恢复），但列表仍可见并带「✅ 已交付」徽标。
+- **实现**：`GET /projects/{id}/closure-checklist` 纯投影五项计数 + `POST /projects/{id}/complete`（`project.completed` 事件 → 状态 completed；清单不过 409 列出全部差项）；Dashboard「🏁 收尾清单」卡五格勾选 + 「标记交付」按钮。
+- **测试**：test_project_closure 2 项（差项列出→清空→全绿→complete→completed→写 409→reopen 恢复/rebuild 后 completed 存活）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
