@@ -1316,6 +1316,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 47 GREEN；审阅全绿。
 - 演示路径：Audit 页导出 → CSV 行数与页面对账。
 
+### M42 · 流量可见性三件套（看板阻塞徽标/速率对比卡/收尾打包，I128-I130，约 9 人日）
+
+> v2.9 新增（2026-09-14，M41 审阅通过后按目标协议调研）。调研结论见 docs/01 §AO。主题统一「流量可见性」：**阻塞上卡**（blocks 守卫的视觉半边）、**速率成图**（跨周期 committed vs completed）、**C 级清账**（三个留位小项一次收）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I128 | 看板阻塞徽标（board/list 载荷派生 `blocked` 布尔[SQL EXISTS 未完结 blocks 上游或 depends_on 前置] + 卡片/列表红色「🚧」徽标——Businessmap 阻塞旗标语义，I78 守卫的视觉半边，纯派生零新表） | 01 §AO.1 | I78 blocks/I101 CPM | 3d |
+| I129 | 速率对比卡（`GET /projects/{id}/velocity`：按周期 committed[承诺日 total]vs completed[窗口内 resolved]双柱 + 平均线 + 报表卡——Jira velocity chart 语义，事件重放零新表） | 01 §AO.2 | I125 燃尽重放 | 3d |
+| I130 | 收尾打包 + 冒烟 48（IntakePanel 非 owner 隐藏[M38 C 级] + 附件格式白名单 `attachment_allowed_ext`[Jira 9.15 语义] + 审批升级链[pending 超 reminder_days×2 升级提醒 admin——ServiceNow escalate 语义]）+ docs/12 §39 + **冒烟 48** + M42 审阅 | 01 §AO.3 | I126/I123 | 3d |
+
+#### I128 · 看板阻塞徽标（3d）
+
+- 任务：list_items/board 载荷每项派生 `blocked`（EXISTS：未完结 blocks 上游或未完结 depends_on 前置——与 I78 闭锁守卫同口径）+ 看板卡片/列表行红色「🚧 被阻塞」徽标（title 列出阻塞源）+ deps 页「只看被阻塞」与看板互链；单测（blocks/depends_on 两类阻塞派生/完成后自动解除/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：A blocks B → B 卡片出现 🚧 → A 完成 → 🚧 消失。
+
+#### I129 · 速率对比卡（3d）
+
+- 任务：`GET /projects/{id}/velocity`——按已完结周期聚合：committed=承诺日 total（I125 锚点同款）、completed=周期窗口内 resolved 数；双柱 SVG + 平均线 + 报表卡（与周期燃尽卡并列）；无周期/数据不足诚实空；单测（双柱手算/平均线/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：两个已完结周期不同完成量 → 报表卡双柱与平均线。
+
+#### I130 · 收尾打包 + 冒烟 48 + 收尾审阅（3d）
+
+- 任务：IntakePanel 非 owner 隐藏（owner 才渲染卡片）+ 附件格式白名单 `attachment_allowed_ext`（config 逗号分隔，空=全放行，命中白名单外 415）+ 审批升级链（pending 超 reminder_days×2 → `approval.pending_reminded` payload 加 escalated=true 同时提醒 admin）；docs/12 §39；**新增冒烟 48**（阻塞派生/速率手算/升级链 roundtrip + rebuild 一致）+ M42 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 48 GREEN；审阅全绿。
+- 演示路径：非 owner 不见收件卡；超 6 天审批同时提醒 owner+admin。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1497,6 +1525,10 @@ agent-project-management/
 | **M39 节奏与预测三件套（I119-I121）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AL + docs/10 §M39）：I119 Cycles 迭代最小面（cycle 事件+投影+看板过滤+sweep 显式结转 carryover——Plane Cycles/OpenProject 17.3 Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（MAILER-DAEMON 退信→email_notify 停投可恢复 + 忽略地址关键词清单——Jira suppression list 语义）/ I121 完成日预测+收尾（done 首达重放 4 周速率中位数外推 + 诚实 None + 报表预测卡——velocity chart 语义，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45；审阅全量 **297** 绿 + 冒烟 45 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；subject 正则全量路由/自动 leveling/digest 邮件留 backlog |
 | **M40 价值与可见性三件套（I122-I124）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AM + docs/10 §M40）：I122 工时成本与预算（users.hourly_rate + projects.budget_hours + cost-report 按人成本/预算消耗比/超支预警——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（attachment 事件+attachments 投影表+磁盘存储+10MB 钳制+抽屉附件区——Redmine 磁盘+元数据语义）/ I124 依赖图视图+收尾（分层布局+状态着色+关键链描边——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46；审阅全量 **302** 绿 + 冒烟 46 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；单元成本行项/多币种/附件格式白名单/跨项目依赖图留 backlog |
 | **M41 节奏治理三件套（I125-I127）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AN + docs/10 §M41）：I125 周期燃尽（`GET /cycles/{id}/burndown` 复用 I85 重放口径 + burnup 双线[剩余+总范围阶梯]——Plane Cycles 燃尽 + Jira burnup scope-change 教训）/ I126 审批超时提醒（sweep `_remind_pending_approvals` + `approval.pending_reminded` 当日幂等 + 双通道——ServiceNow timer→reminder 模式，sweep 家族第三员）/ I127 审计导出+收尾（`GET /projects/{id}/audit.csv` admin+days 过滤[流式 CSV] + Audit 页导出按钮——Jira 原生 CSV 语义）+ docs/12 §38 + 冒烟 47；审阅全量 **313** 绿 + 冒烟 47 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；审批升级链/SOC2 保留策略/全局审计导出留 backlog |
+| **M42 流量可见性三件套（I128-I130）** | 进行中（定义已出） | 2026-09-14 | — | 3 迭代 / 约 9 人日（docs/01 §AO + docs/10 §M42）：I128 看板阻塞徽标（board/list 派生 `blocked` + 卡片/列表「🚧」红徽标——Businessmap 阻塞旗标语义，I78 守卫的视觉半边，纯派生零新表）/ I129 速率对比卡（`GET /projects/{id}/velocity` 按周期 committed vs completed 双柱+平均线——Jira velocity chart 语义，事件重放零新表）/ I130 收尾打包+冒烟 48+审阅（IntakePanel 非 owner 隐藏[M38 C 级] + 附件格式白名单[Jira 9.15 语义] + 审批升级链[escalate 提醒 admin——ServiceNow 语义]）+ docs/12 §39 + 冒烟 48 + M42 审阅；跨项目依赖图[需跨项目关系模型，V2 级]/多币种/digest 邮件留 backlog |
+| I128 看板阻塞徽标 | 待开始 | 2026-09-14 | — | list_items/board 载荷每项派生 `blocked`[EXISTS 未完结 blocks 上游或 depends_on 前置——与 I78 闭锁同口径] + 看板卡片/列表行红色「🚧 被阻塞」徽标[title 列阻塞源] + deps 页互链；单测（两类阻塞派生/完成后解除/rebuild） |
+| I129 速率对比卡 | 待开始 | 2026-09-14 | — | `GET /projects/{id}/velocity`：按已完结周期聚合 committed[承诺日 total——I125 锚点同款]vs completed[窗口内 resolved]双柱 + 平均线 + 报表卡与周期燃尽卡并列；无周期/数据不足诚实空；单测（双柱手算/平均线/rebuild） |
+| I130 收尾打包+冒烟 48+收尾审阅 | 待开始 | 2026-09-14 | — | IntakePanel 非 owner 隐藏[owner 才渲染] + 附件格式白名单 `attachment_allowed_ext`[逗号分隔空=全放行、命中外 415] + 审批升级链[pending 超 reminder_days×2 → escalated=true 同提醒 admin]；docs/12 §39；**新增冒烟 48**（阻塞派生/速率手算/升级链 roundtrip + rebuild 一致）+ M42 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I125 周期燃尽 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /cycles/{id}/burndown`：单次有序重放（item.updated cycle_id 变迁=范围进出 + item.status_changed done/cancelled 首达=解决日）→ 每日 remaining + **burnup total 阶梯线**[范围漂移显性化——「完成 10+新增 10=燃尽线不动」Jira 教训] + 理想线锚定**首个有范围日** total[承诺日，晚挂载周期也有节奏参照]；窗口=start→min(today,end)、取消/未知 404；报表「🔁 周期燃尽」卡[周期下拉+SVG 三线：剩余绿/总范围橙虚/理想灰点]；test_cycle_burndown **3** 项（手算 3 挂 1 完成末点 3/2+加塞抬线+rebuild 相等/取消 404/未知 404）+ cycles 回归绿 + build/vitest 绿 |
 | I126 审批超时提醒 | 已完成 | 2026-09-14 | 2026-09-14 | config `approval_reminder_days` 默认 3 + sweep `_remind_pending_approvals`[SQL 直筛 pending 且 requested_at≤today-N、`approval.pending_reminded` 每审批每日一事件幂等——I105 同构、已决/无项目行跳过] → 提醒 owner：NOTIFY_EVENTS 挂第七事件 + NOTIFY_KINDS 第七类 `approval_reminder`「审批超时提醒」+ plan_notifications 分支 + @on 投影[两套名册都挂] + 偏好矩阵自动多一行[测试预期演进]；test_approval_reminder **3** 项（窗口+当日幂等/已决跳过/无项目跳过——回填 requested_at 用 INSERT+rebuild 重放范式）+ due_soon/偏好回归绿 |
 | I127 审计导出+冒烟 47+收尾 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/audit.csv`[admin only `is_instance_admin` 403、`?days=` 默认 90 钳 1-3650、StreamingResponse csv.writer 流式：id/ts/actor_type/actor_id/event_type/agg_type/agg_id/payload 截 200] + Audit 页「⬇ 全量导出」按钮[服务端 365 天窗口导出，区别于既有客户端当前页 50 行导出]；docs/12 §38 收尾；**新增冒烟 47**（燃尽末点 3/2+理想线锚定、提醒幂等+通知、导出类型覆盖 + rebuild）——冒烟基线 **47** GREEN + build/vitest 绿；**冒烟现形既有语义**：rebuild 丢 users.is_admin[安全列永不事件化]→进程内 admin 调用 403，按文档「重启重打」语义以 ensure_default_user() 等价重启收口 |
@@ -1857,6 +1889,7 @@ agent-project-management/
 | 2026-09-14 | I126 | 回填 requested_at 选「**INSERT 历史事件 + rebuild 重放**」而非 UPDATE 投影行——approvals 在 drop 清单里，UPDATE 的值下次 rebuild 就被真 ts 覆盖，且 UPDATE 绕过投影器等于手工造孤儿行；INSERT 历史事件让投影器自己跑一遍，投影行与事件流永远一致（I121 回填范式复用）。提醒幂等的日期锚点统一 UTC——测试传本地 date.today() 在 UTC 已跨天时第二跑不幂等（+1 幻觉），与 I122 成本测试同族教训第三次出现，**任何与 sweep/窗口比较的"今天"必须 events.utcnow()[:10]**。 |
 | 2026-09-14 | I127 | 冒烟 47 现形一个**文档里有、代码没落地**的语义缺口：users.is_admin 是「直接运行态列、永不事件化」（M8-I26 安全设计），rebuild 丢 users 表重放后 admin 标消失——文档写明「重启重打（ensure_default_user 每次启动执行）」，但进程内 rebuild（测试/运维工具）不触发启动逻辑 → admin 调用 403。处置：测试内按文档语义调 ensure_default_user() 等价重启；产品侧「rebuild 后 admin 静默降级」记 C 级（rebuild 是显式管理动作，重启即愈）。附件/成本/审批三件套的另一个共性浮出：**运行态 vs 事件态的分界线**（费率/时薪/is_admin 直写、工时/审批/挂载事件化）已成为设计时必答的第一问。 |
 | 2026-09-14 | M41 正式审阅 | 全量 **pytest 313** + 冒烟 **47** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m41-review-1~2）。**审阅即修 0 处**。复演现场二次验证 I127 登记的 rebuild-is_admin 语义（403→重启→200），文档、C 级登记、实际行为三者一致。 |
+| 2026-09-14 | M42 定义 | 新一轮三路并行调研（防重查：候选池 grep——阻塞徽标/blocked flag、速率对比图[§AL.3 仅项目级 forecast]、IntakePanel 隐藏与附件白名单[C 级/留位]均无完整调研记录）：①**看板阻塞徽标**——看板方法核心「让问题在卡片上可见」：物理看板红旗/贴纸标 blocker，数字看板 flag/阻塞徽标（Businessmap 看板指南/Planview LeanKit 词汇表），Jira 受阻工作项 flag 功能（视频教程）——**阻塞是一张卡的即时状态，必须看板上一眼可见** → AgentPM 有 I78 闭锁守卫与 I124 依赖图但卡片零阻塞视觉：board/list 载荷派生 blocked[EXISTS 未完结 blocks 上游或 depends_on 前置，与守卫同口径]+红「🚧」徽标，纯派生零新表；②**速率对比卡**——Jira velocity chart 每 sprint committed 灰柱 vs completed 绿柱+平均速率趋势线，sprint 越多预测越准（官方/Report of the Week/Tempo），跨团队聚合靠三方[BrokenBuild]；I121 forecast 有中位数速率但「哪个周期掉速了」不可见 → `GET /projects/{id}/velocity`：committed=承诺日 total[I125 锚点同款]/completed=窗口内 resolved，双柱+平均线，纯重放零新表；③**收尾打包**——IntakePanel 非 owner 隐藏[M38 C 级 403 噪声]、附件格式白名单[Jira 9.15 allowlist 语义]、审批升级链[I126 留位：超 reminder_days×2 escalated=true 同提醒 admin——ServiceNow escalate]三个留位小项一次清账。选定 **M42 = 流量可见性三件套**：I128 看板阻塞徽标 / I129 速率对比卡 / I130 收尾打包+冒烟 48+审阅 + docs/12 §39，估计 +9 人日。结论入 docs/01 §AO。跨项目依赖图[需跨项目关系模型，V2 级]留 backlog。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

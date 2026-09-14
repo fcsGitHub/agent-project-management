@@ -1166,6 +1166,36 @@ M40 = **价值与可见性三件套**：I122 工时成本与预算（价值面�
 
 M41 = **节奏治理三件套**：I125 周期燃尽（节奏面——Plane Cycles 燃尽 + burnup 范围线，I85 口径参数化）/ I126 审批超时提醒（治理面——ServiceNow timer→reminder→escalate 模式，sweep 家族第三员）/ I127 审计导出+收尾（合规面——Jira 原生 CSV 语义，事件流即审计的最后一公里）+ docs/12 §38 + 冒烟 47 + M41 审阅，约 9 人日。审批升级链（多级 owner）、SOC2 保留期策略、全局审计导出留 backlog。
 
+## AO. M42 前置调研：流量可见性——看板阻塞徽标 / 速率对比卡 / 收尾打包（2026-09-14）
+
+> 目标协议触发：M41 审阅通过后开启。防重查：候选池 grep——阻塞徽标/blocked flag（无调研记录，I78 闭锁守卫与 I124 依赖图均未覆盖看板即时视觉）、速率对比图（§AL.3 只做项目级 forecast，无跨周期对比）、IntakePanel 隐藏与附件白名单（C 级/backlog 小项）。
+
+**AO.1 看板阻塞徽标（Businessmap/Kanbanize 阻塞旗标 + LeanKit 可视化语义）**
+
+- 看板方法的核心是「让问题在卡片上可见」：物理看板用红旗/贴纸标记 blocker，数字看板用 **flag/阻塞徽标**（[Businessmap 看板指南](https://businessmap.io/kanban-resources/getting-started/what-is-kanban-board)、[Planview LeanKit 词汇表](https://www.planview.com/resources/articles/kanban-glossary/)）；Jira 为受阻工作项提供 **flag 功能**（[Jira 视频教程](https://www.youtube.com/watch?v=qqVzURP_jL8)）。共同语义：**阻塞是一张卡的即时状态，必须在看板上一眼可见，而不是点开详情才知道**。
+- 对本项目的映射：AgentPM 有 blocks 闭锁守卫（I78，422 拒绝）与依赖图（I124），但看板卡片上没有任何阻塞视觉——补齐：后端在 board/list 载荷派生 `blocked` 布尔（SQL EXISTS：存在未完结 blocks 上游或未完结 depends_on 前置），前端卡片/列表行红色「🚧」徽标。纯派生零新表。
+
+**AO.2 速率对比卡（Jira velocity chart：committed vs completed 双柱 + 平均线）**
+
+- Jira velocity chart：每个 sprint **committed（灰柱）vs completed（绿柱）**双柱对比 + 平均速率趋势线，sprint 越多预测越准（[官方文档](https://support.atlassian.com/jira-software-cloud/docs/view-and-understand-the-velocity-chart/)、[Report of the Week](https://community.atlassian.com/forums/App-Central-articles/3-Report-of-the-Week-Sprint-Velocity-Chart/ba-p/2836184)、[Tempo](https://www.tempo.io/blog/velocity-chart)）；跨团队聚合要三方工具（[BrokenBuild benchmarking](https://www.brokenbuild.net/examples/benchmarking-velocity-chart)）；I121 的 forecast 已用中位数速率做外推，但**没有按周期的速率对比视图**——「哪个周期掉速了」不可见。
+- 对本项目的映射：`GET /projects/{id}/velocity`——复用 I125/I121 的重放口径按周期聚合：committed=周期首个有范围日的 total（I125 承诺日锚点同款），completed=周期窗口内 resolved 数；已完结周期列表 + 双柱 SVG + 平均线；数据不足诚实空。纯事件重放零新表（报表族第九次免费）。
+
+**AO.3 收尾打包（C 级小项清账）**
+
+- IntakePanel 非 owner 隐藏（M38 审阅 C 级：渲染但 403 的 console 噪声）；附件格式白名单（M40-I123 留位：`attachment_allowed_ext` config，逗号分隔，空=全放行——Jira 9.15 allowlist 语义）；审批升级链最小面（M41-I126 留位：pending 超 reminder_days×2 → 同事件升级提醒 admin，ServiceNow escalate 语义）。
+- 对本项目的映射：三个小项一次清账——前两个是 config/UI 小改，升级链是 I126 事件的第二接收人扩展（payload 加 escalated 标记），零新表。
+
+**AO.4 M42 设计映射与验证纪律（沿用）**
+
+- I128 看板阻塞徽标：board/list 载荷派生 blocked + 卡片/列表「🚧」红徽标 + deps 页只看被阻塞互链；单测（blocked 派生矩阵/守卫联动）。
+- I129 速率对比卡：velocity 端点（按周期 committed/completed 双柱+平均线）+ 报表卡；单测（手算/空周期诚实/rebuild）。
+- I130 收尾打包 + 冒烟 48：IntakePanel 隐藏 + 附件白名单 + 审批升级链；**冒烟 48**（阻塞派生/速率手算/升级链 roundtrip + rebuild）并入 I130 + M42 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M42 审阅。
+
+**AO.5 M42 取舍**
+
+M42 = **流量可见性三件套**：I128 看板阻塞徽标（即时面——Businessmap 阻塞旗标语义，I78 守卫的视觉半边）/ I129 速率对比卡（趋势面——Jira velocity chart committed vs completed 双柱，跨周期对比）/ I130 收尾打包+冒烟 48+审阅（C 级清账：IntakePanel 隐藏+附件白名单+审批升级链）+ docs/12 §39 + 冒烟 48 + M42 审阅，约 9 人日。跨项目依赖图（需跨项目关系模型，V2 级）、多币种、digest 邮件留 backlog。
+
 
 
 
