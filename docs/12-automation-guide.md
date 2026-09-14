@@ -788,6 +788,13 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`GET /projects/{id}/velocity`（cycles.py，与燃尽同源重放）——只取已完结（end<today、未取消）周期逐个重放 scope/resolution；无已完结周期诚实空列表（SPI 先例）。报表「📈 速率对比」卡双柱 SVG 与周期燃尽卡并列。
 - **测试**：test_velocity 2 项（双周期手算 committed 3/2、completed 2/1、平均 1.5+rebuild 相等[仅 generated_at]/无已完结周期诚实空）。
 
+### 39.3 收尾打包（I130）
+
+- **IntakePanel 非 owner 隐藏**（M38 审阅 C 级清账）：设置页「📮 外部收件」卡仅 owner/实例管理员渲染（调用点条件渲染——hooks 规则下不能组件内 early-return），彻底消除贡献者的 403 console 噪声；服务端 owner-only 边界不变。
+- **附件格式白名单**：`attachment_allowed_ext`（逗号分隔，空=全放行，Jira 9.15 allowlist 语义）——白名单外 415，大小写不敏感、无扩展名按空处理；与 10MB 尺寸钳制并列。
+- **审批升级链**：pending 超 `reminder_days×2` → `approval.pending_reminded` payload 带 `escalated=true`，实例管理员与 owner 同收提醒；owner/admin 同人时**收件人去重**（确定性通知 id `n_{事件}_{用户}` 会因同事件同用户双行碰撞）。
+- **测试**：test_closing_sweep 3 项（白名单大小写+415+空配置全放行/升级链 5 天不升级 7 天升级+admin 收件/服务端 owner-only 403 合同不变）；**冒烟 48** 三段 roundtrip + rebuild（阻塞派生/速率手算/升级链 roundtrip）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
