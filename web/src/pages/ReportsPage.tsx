@@ -144,7 +144,69 @@ export function ReportsPage() {
 
       {/* baseline S-curve (M34-I106): EVM PV/EV dual line + SPI */}
       <SCurveCard pid={pid} />
+
+      {/* completion forecast (M39-I121): velocity median extrapolation */}
+      <ForecastCard pid={pid} />
     </div>
+  );
+}
+
+function ForecastCard({ pid }: { pid: string }) {
+  const fc = useQuery({ queryKey: ["forecast", pid], queryFn: () => api.getForecast(pid!) });
+  const d = fc.data;
+  const fmtDate = (s: string) => s;
+
+  return (
+    <Card className="col-span-1 p-4">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-sm font-semibold">🔮 完成预测</span>
+        {d?.rate_per_week != null && (
+          <Badge tone="indigo" title="近几完整周的周完成数中位数（velocity）">
+            速率 {d.rate_per_week}/周
+          </Badge>
+        )}
+      </div>
+      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {d?.forecast ? (
+        <>
+          <div className="mt-2 text-xs text-mut">
+            剩余 <span className="font-medium text-ink">{d.remaining}</span> 项 · 按近期速率预计
+            <span className="font-medium text-ink"> {fmtDate(d.forecast)}</span> 完成
+          </div>
+          <div className="mt-2 flex gap-1">
+            {[...d.weeks].reverse().map((w) => (
+              <div key={w.week_start} className="flex flex-1 flex-col items-center gap-0.5"
+                title={`${w.week_start} ~ ${w.week_end} 完成 ${w.done}`}>
+                <div className="flex h-14 w-full items-end justify-center">
+                  <div className="w-2/3 rounded-t bg-ag"
+                    style={{ height: `${(w.done / Math.max(1, ...d.weeks.map((x) => x.done))) * 100}%`, minHeight: w.done ? 2 : 0 }} />
+                </div>
+                <span className="text-[9px] text-mut">{w.done}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        d && <div className="mt-2 text-xs text-mut">
+          {d.reason === "no active items" ? "没有进行中的工作 ✓"
+            : d.reason === "no completion velocity" ? "近几周没有完成记录——速率未知，不做猜测"
+              : "历史不足两周——积累完成记录后给出预测"}
+        </div>
+      )}
+      {(d?.at_risk.length ?? 0) > 0 && (
+        <div className="mt-2 space-y-1">
+          {(d?.at_risk ?? []).slice(0, 3).map((r) => (
+            <div key={r.id} className="flex items-center gap-2 rounded-lg border border-line px-2 py-1 text-[11px]">
+              <span className="flex-1 truncate">{r.title}</span>
+              <Badge tone="red" title={`按速率预计 ${r.expected_by} 才轮到它完成`}>到期 {r.due_date}</Badge>
+            </div>
+          ))}
+          {(d?.at_risk.length ?? 0) > 3 && (
+            <div className="text-[10px] text-mut">还有 {d!.at_risk.length - 3} 项按当前速率赶不上期限</div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

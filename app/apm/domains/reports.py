@@ -850,6 +850,89 @@ def critical_path(project_id: str) -> dict:
             "float": float_days, "generated_at": _now().isoformat()}
 
 
+@router.get("/projects/{project_id}/forecast")
+def project_forecast(project_id: str) -> dict:
+    """M39-I121 (docs/01 §AL.3, Jira velocity chart + jira-agile-velocity):
+    completion forecast = recent throughput extrapolated. The rate is the
+    MEDIAN of weekly done-completions over the last complete ISO weeks inside
+    the project's history (first arrival of done replayed from the event
+    stream — the same caliber as the milestone burndown and the S-curve EV).
+    Median, not mean: one freak week must not bend the projection. Fewer than
+    two complete weeks of history, or a zero rate → honest null with the
+    reason (the SPI precedent), never a made-up date. Pure replay, zero new
+    tables — event-sourcing dividend #8."""
+    import statistics
+
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    today = _now().date()
+
+    active = conn.execute(
+        "SELECT id, title, due_date FROM items WHERE project_id = ?"
+        " AND status_group NOT IN ('done','cancelled') AND archived_at IS NULL"
+        " ORDER BY due_date IS NULL, due_date, id", (project_id,)).fetchall()
+
+    # first-arrival replay of done (I85 caliber): one date per item, earliest win
+    first_done: dict[str, str] = {}
+    for e in conn.execute(
+        "SELECT agg_id, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type = 'item.status_changed' ORDER BY id",
+        (project_id,),
+    ).fetchall():
+        if e["agg_id"] in first_done:
+            continue
+        if json.loads(e["payload"]).get("status_group") == "done":
+            first_done[e["agg_id"]] = e["ts"][:10]
+
+    created_row = conn.execute(
+        "SELECT MIN(ts) AS t FROM events WHERE project_id = ?", (project_id,)).fetchone()
+    created = (created_row["t"] or today.isoformat())[:10]
+
+    # the last complete Mon–Sun weeks fully inside the project's history
+    this_monday = today - timedelta(days=today.weekday())
+    weeks = []
+    for i in range(1, 5):
+        ws = this_monday - timedelta(days=7 * i)
+        we = ws + timedelta(days=6)
+        if ws.isoformat() < created:
+            break  # week starts before the project existed — stop counting
+        weeks.append((ws.isoformat(), we.isoformat()))
+
+    weekly = [{"week_start": ws, "week_end": we,
+               "done": sum(1 for d in first_done.values() if ws <= d <= we)}
+              for ws, we in weeks]
+
+    base = {"project_id": project_id, "today": today.isoformat(),
+            "weeks": weekly, "remaining": len(active)}
+    if len(weekly) < 2:
+        return {**base, "rate_per_week": None, "forecast": None,
+                "reason": "insufficient history", "at_risk": [],
+                "generated_at": _now().isoformat()}
+    rate = statistics.median(w["done"] for w in weekly)
+    if rate <= 0:
+        return {**base, "rate_per_week": 0, "forecast": None,
+                "reason": "no completion velocity", "at_risk": [],
+                "generated_at": _now().isoformat()}
+
+    from math import ceil
+    finish = today + timedelta(days=ceil(len(active) / rate * 7)) if active else None
+    # per-item risk: sorted by due date, item #k is projected to finish by
+    # day ceil((k+1)/rate*7); an earlier due date means the plan is broken
+    at_risk = []
+    for idx, r in enumerate(active):
+        if not r["due_date"]:
+            continue
+        expected = (today + timedelta(days=ceil((idx + 1) / rate * 7))).isoformat()
+        if r["due_date"] < expected:
+            at_risk.append({"id": r["id"], "title": r["title"],
+                            "due_date": r["due_date"], "expected_by": expected})
+    return {**base, "rate_per_week": rate, "forecast": finish.isoformat() if finish else None,
+            "reason": None if finish else "no active items",
+            "at_risk": at_risk, "generated_at": _now().isoformat()}
+
+
 @router.get("/projects/{project_id}/responsiveness")
 def project_responsiveness(project_id: str, days: int = 30) -> dict:
     """Responsiveness metrics (M31-I97, docs/01 §AD.3 — CHAOSS Time to First

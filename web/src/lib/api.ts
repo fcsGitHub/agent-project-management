@@ -693,6 +693,16 @@ export const api = {
     req<{ ok: boolean }>("/me/notification-prefs", { method: "PUT", body: JSON.stringify(body) }),
   // I97: responsiveness (CHAOSS Time to First Response semantics); slices are
   // null when the window has no samples — honest empty state, not zero.
+  // M39-I121: velocity-based completion forecast (honest nulls when unknown)
+  getForecast: (pid: string) =>
+    req<{
+      project_id: string; today: string;
+      weeks: { week_start: string; week_end: string; done: number }[];
+      remaining: number; rate_per_week: number | null;
+      forecast: string | null; reason: string | null;
+      at_risk: { id: string; title: string; due_date: string; expected_by: string }[];
+      generated_at: string;
+    }>(`/projects/${pid}/forecast`),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
