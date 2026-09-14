@@ -28,6 +28,7 @@ from apm.domains import (  # noqa: F401
     orchestrator_api,
     projects,
     runs,
+    risks,
     search,
     stream,
     system,

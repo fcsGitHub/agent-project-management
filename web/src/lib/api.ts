@@ -745,6 +745,15 @@ export const api = {
       average_completed: number | null;
       generated_at: string;
     }>(`/projects/${pid}/velocity`),
+  // M43-I131: risk register (PMBOK probability×impact scoring)
+  listRisks: (pid: string) =>
+    req<{ risks: { id: string; project_id: string; title: string; probability: number; impact: number; score: number; response: string | null; owner: string | null; review_date: string | null; related_item_id: string | null; status: string; created_at: string; updated_at: string }[] }>(`/projects/${pid}/risks`),
+  createRisk: (pid: string, body: { title: string; probability: number; impact: number; response?: string; owner?: string; review_date?: string; related_item_id?: string }) =>
+    req<{ id: string; score: number; status: string }>(`/projects/${pid}/risks`, { method: "POST", body: JSON.stringify(body) }),
+  updateRisk: (id: string, body: Record<string, unknown>) =>
+    req<Record<string, unknown>>(`/risks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  closeRisk: (id: string) =>
+    req<{ closed: string }>(`/risks/${id}/close`, { method: "POST" }),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;

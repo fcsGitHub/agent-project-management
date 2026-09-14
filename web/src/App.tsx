@@ -26,6 +26,7 @@ import { ActivityPage } from "./pages/ActivityPage";
 import { WorkloadPage } from "./pages/WorkloadPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { IntakePage } from "./pages/IntakePage";
+import { RisksPage } from "./pages/RisksPage";
 import { DependencyGraphPage } from "./pages/DependencyGraphPage";
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="board" element={<Board />} />
           <Route path="timeline" element={<TimelinePage />} />
           <Route path="deps" element={<DependencyGraphPage />} />
+          <Route path="risks" element={<RisksPage />} />
           <Route path="f/:fid" element={<FeaturePage />} />
           <Route path="c/:cid" element={<ConversationView />} />
           <Route path="conversations" element={<ConversationsPage />} />

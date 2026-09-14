@@ -498,6 +498,24 @@ CREATE TABLE IF NOT EXISTS attachments (
   removed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_attachments_item ON attachments(item_id);
+
+-- I131: risk register (projection of risk.* events — in drop_projections so
+-- rebuild reproduces them; PMBOK probability×impact scoring sorts the page).
+CREATE TABLE IF NOT EXISTS risks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  probability INTEGER NOT NULL,
+  impact INTEGER NOT NULL,
+  response TEXT,
+  owner TEXT,
+  review_date TEXT,
+  related_item_id TEXT,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_risks_project ON risks(project_id);
 """
 
 FTS_DDL = """
@@ -534,6 +552,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "user_time_off",
         "project_cycles",
         "attachments",
+        "risks",
         "extracted_tasks",
         "baselines",
         "project_members",
