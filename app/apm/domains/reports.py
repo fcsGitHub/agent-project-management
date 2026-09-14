@@ -490,9 +490,16 @@ def portfolio_workload() -> dict:
     on_leave = {r["user_id"] for r in conn.execute(
         "SELECT user_id FROM user_time_off WHERE cancelled_at IS NULL"
         " AND start_date <= ? AND end_date >= ?", (today_s, today_s)).fetchall()}
+    # I118: flag overloaded members — strictly more active items than the
+    # threshold. Detection only (the MS Project auto-leveling antipattern is
+    # deliberately not replicated; humans rebalance, the page just warns).
+    from apm import config as _cfg
+    threshold = max(1, _cfg.settings.workload_overload_threshold)
     for p in rows:
         p["on_leave"] = p["user_id"] in on_leave
-    return {"members": rows, "today": today_s, "generated_at": _now().isoformat()}
+        p["overloaded"] = p["active"] > threshold
+    return {"members": rows, "today": today_s, "generated_at": _now().isoformat(),
+            "overload_threshold": threshold}
 
 
 def _health_factors(project_id: str, conn) -> dict:

@@ -105,3 +105,29 @@ def test_workload_rebuild_and_sort(client, ctx):
     projections.rebuild()
     wl2 = client.get("/api/portfolio/workload").json()
     assert [m["user_id"] for m in wl2["members"]] == ["u_w1", "u_w2"]
+
+
+def test_workload_overload_flag(client, ctx):
+    """I118 (docs/01 §AK.3): strictly-more-than-threshold active items flag a
+    member as overloaded — detection only, threshold comes from config."""
+    pid, pid2, item = ctx["pid"], ctx["pid2"], ctx["item"]
+    for i in range(6):
+        item(pid, f"甲超载{i}", "u_w1")
+    for i in range(3):
+        item(pid2, f"乙正常{i}", "u_w2")
+
+    wl = client.get("/api/portfolio/workload").json()
+    by_user = {m["user_id"]: m for m in wl["members"]}
+    assert wl["overload_threshold"] == 5
+    assert by_user["u_w1"]["overloaded"] is True   # 6 > 5
+    assert by_user["u_w2"]["overloaded"] is False  # 3 ≤ 5
+
+    saved = config.settings.workload_overload_threshold
+    try:
+        config.settings.workload_overload_threshold = 2
+        wl2 = client.get("/api/portfolio/workload").json()
+        by2 = {m["user_id"]: m for m in wl2["members"]}
+        assert by2["u_w2"]["overloaded"] is True   # 3 > 2
+        assert by2["u_w1"]["overloaded"] is True
+    finally:
+        config.settings.workload_overload_threshold = saved

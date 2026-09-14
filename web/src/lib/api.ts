@@ -81,8 +81,9 @@ export type MemberWorkload = {
   active: number; overdue: number; minutes_7d: number;
   projects: Record<string, number>;
   on_leave?: boolean;
+  overloaded?: boolean;
 };
-export type WorkloadData = { members: MemberWorkload[]; today: string; generated_at: string };
+export type WorkloadData = { members: MemberWorkload[]; today: string; generated_at: string; overload_threshold?: number };
 export type MyScheduleItem = {
   id: string; title: string; status_group: string; priority?: string | null;
   start_date?: string | null; due_date?: string | null;

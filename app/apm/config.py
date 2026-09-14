@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     # I105 due-date reminder window (days ahead, inclusive of today).
     due_soon_days: int = 3
+    # I118 overload flag on the workload page: strictly more active items than
+    # this marks a member 「⚠ 超载」— detection only, never auto-rescheduling.
+    workload_overload_threshold: int = 5
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.
