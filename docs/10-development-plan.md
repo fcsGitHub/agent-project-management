@@ -1344,6 +1344,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 48 GREEN；审阅全绿。
 - 演示路径：非 owner 不见收件卡；超 6 天审批同时提醒 owner+admin。
 
+### M43 · 交付闭环三件套（风险登记册/项目收尾清单/完成自动重建，I131-I133，约 9 人日）
+
+> v2.9 新增（2026-09-14，M42 审阅通过后按目标协议调研）。调研结论见 docs/01 §AP。主题统一「交付闭环」：**风险一等公民**（概率×影响打分排序）、**收尾是清单动作**（completed 区别于 archived）、**节拍按完成计**（完成触发下一期生成）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I131 | 风险登记册（risk.identified/mitigated/closed 事件 + risks 投影表[probability 1-3 × impact 1-3 自动分排序、response/owner/review_date] + 「⚠ 风险登记册」页矩阵热力 + 工作项 risk_id 关联——PMBOK 概率×影响矩阵 + OpenProject 原生风险模块语义） | 01 §AP.1 | I119 域事件范式 | 3d |
+| I132 | 项目收尾清单（`GET /projects/{id}/closure-checklist` 五项核对[活跃项/pending 审批/Gate 达成/工时已审批/过期风险] + `project.completed` 事件与徽标 + 收尾报告数据——PMBOK Closing Process Group 语义，completed 区别于 archived） | 01 §AP.2 | I87/I92 投影 | 3d |
+| I133 | 完成自动重建 + 冒烟 48+收尾审阅（任务 `recurrence_days` 字段 + sweep respawn：完成日+N 重建同概念新卡[item.created payload 记 respawn_of 审计链]——YouTrack reset 语义，完成节拍而非日历节拍）+ docs/12 §40 + **新增冒烟 49** + M43 审阅 | 01 §AP.3 | I98 sweep | 3d |
+
+#### I131 · 风险登记册（3d）
+
+- 任务：risks.py 新域（risk.created/mitigated/closed 事件 + risks 投影表进 drop 清单 + 注册两处）+ probability/impact 枚举校验（low/medium/high→1/2/3，风险分=p×i 自动排序）+ response/owner/review_date 字段 + 「⚠ 风险登记册」页（矩阵热力+列表排序）+ 工作项 `risk_id` 关联；单测（打分/生命周期/校验 422/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：登记「供应商延期」风险 p=high i=high → 登记册置顶；缓解后降级。
+
+#### I132 · 项目收尾清单（3d）
+
+- 任务：`GET /projects/{id}/closure-checklist` 五项核对（活跃项=0/pending 审批=0/阶段 Gate 全达成/无未审批工时/无 open 风险）+ 全绿才允许 POST `/projects/{id}/complete`（`project.completed` 事件、项目状态 completed、看板徽标「✅ 已交付」）+ 收尾报告数据（工期/成本/吞吐/健康史汇总）+ 单测（差项列出/全绿放行/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：清空项目活动项 → 清单全绿 → complete → 项目列表徽标。
+
+#### I133 · 完成自动重建 + 冒烟 49 + 收尾审阅（3d）
+
+- 任务：任务 `recurrence_days` INTEGER（PATCH 承载、ALTER 迁移）+ sweep `_respawn_recurring`：recurrence_days 任务 done 后 N 天 emit respawn（同 concept 复用 create_item 全校验、payload 记 respawn_of 审计链、指派/周期继承）+ 卡片「🔄」徽标；docs/12 §40；**新增冒烟 49**（风险打分/收尾清单/重建 roundtrip + rebuild 一致）+ M43 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 49 GREEN；审阅全绿。
+- 演示路径：周会任务 recurrence_days=7 → 完成 → 7 天后 sweep 生成下一期卡（审计记 respawn_of）。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1526,6 +1554,10 @@ agent-project-management/
 | **M40 价值与可见性三件套（I122-I124）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AM + docs/10 §M40）：I122 工时成本与预算（users.hourly_rate + projects.budget_hours + cost-report 按人成本/预算消耗比/超支预警——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（attachment 事件+attachments 投影表+磁盘存储+10MB 钳制+抽屉附件区——Redmine 磁盘+元数据语义）/ I124 依赖图视图+收尾（分层布局+状态着色+关键链描边——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46；审阅全量 **302** 绿 + 冒烟 46 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；单元成本行项/多币种/附件格式白名单/跨项目依赖图留 backlog |
 | **M41 节奏治理三件套（I125-I127）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AN + docs/10 §M41）：I125 周期燃尽（`GET /cycles/{id}/burndown` 复用 I85 重放口径 + burnup 双线[剩余+总范围阶梯]——Plane Cycles 燃尽 + Jira burnup scope-change 教训）/ I126 审批超时提醒（sweep `_remind_pending_approvals` + `approval.pending_reminded` 当日幂等 + 双通道——ServiceNow timer→reminder 模式，sweep 家族第三员）/ I127 审计导出+收尾（`GET /projects/{id}/audit.csv` admin+days 过滤[流式 CSV] + Audit 页导出按钮——Jira 原生 CSV 语义）+ docs/12 §38 + 冒烟 47；审阅全量 **313** 绿 + 冒烟 47 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；审批升级链/SOC2 保留策略/全局审计导出留 backlog |
 | **M42 流量可见性三件套（I128-I130）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AO + docs/10 §M42）：I128 看板阻塞徽标（board/list 派生 `blocked` + 卡片/列表「🚧」红徽标——Businessmap 阻塞旗标语义，I78 守卫的视觉半边，纯派生零新表）/ I129 速率对比卡（`GET /projects/{id}/velocity` 按周期 committed vs completed 双柱+平均线——Jira velocity chart 语义，事件重放零新表）/ I130 收尾打包+冒烟 48+审阅（IntakePanel 非 owner 隐藏[M38 C 级] + 附件格式白名单[Jira 9.15 语义] + 审批升级链[escalate 提醒 admin——ServiceNow 语义]）+ docs/12 §39 + 冒烟 48；审阅全量 **321** 绿 + 冒烟 48 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；跨项目依赖图[需跨项目关系模型，V2 级]/多币种/digest 邮件留 backlog |
+| **M43 交付闭环三件套（I131-I133）** | 进行中（定义已出） | 2026-09-14 | — | 3 迭代 / 约 9 人日（docs/01 §AP + docs/10 §M43）：I131 风险登记册（risk 事件+risks 投影表[probability×impact 自动分排序]+「⚠ 风险登记册」页矩阵热力+工作项 risk_id 关联——PMBOK 概率×影响矩阵 + OpenProject 原生风险模块语义）/ I132 项目收尾清单（closure-checklist 五项核对 + project.completed 事件徽标[completed 区别于 archived] + 收尾报告数据——PMBOK Closing Process Group 语义）/ I133 完成自动重建+收尾审阅（recurrence_days + sweep respawn[完成日+N 重建、payload 记 respawn_of]——YouTrack reset 语义，sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + M43 审阅；定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog |
+| I131 风险登记册 | 待开始 | 2026-09-14 | — | risks.py 新域[risk.created/mitigated/closed 事件 + risks 投影表进 drop 清单 + 注册两处] + probability/impact 枚举校验[low/medium/high→1/2/3、风险分=p×i 自动排序] + response/owner/review_date 字段 + 「⚠ 风险登记册」页[矩阵热力+列表] + 工作项 risk_id 关联；单测（打分/生命周期/422/rebuild） |
+| I132 项目收尾清单 | 待开始 | 2026-09-14 | — | `GET /projects/{id}/closure-checklist` 五项核对[活跃项=0/pending 审批=0/Gate 全达成/无未审批工时/无 open 风险] + POST `/projects/{id}/complete`[全绿才放行、project.completed 事件、状态 completed、徽标「✅ 已交付」] + 收尾报告数据[工期/成本/吞吐/健康史汇总]；单测（差项列出/全绿放行/rebuild） |
+| I133 完成自动重建+冒烟 49+收尾审阅 | 待开始 | 2026-09-14 | — | 任务 recurrence_days INTEGER[ALTER 迁移、PATCH 承载] + sweep `_respawn_recurring`：done 后 N 天重建同概念新卡[复用 create_item 全校验、payload 记 respawn_of 审计链、指派/周期继承] + 卡片「🔄」徽标；docs/12 §40；**新增冒烟 49**（风险打分/收尾清单/重建 roundtrip + rebuild 一致）+ M43 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I128 看板阻塞徽标 | 已完成 | 2026-09-14 | 2026-09-14 | list_items 派生 `blocked` 布尔[两条 EXISTS：blocks 未完结阻塞者 JOIN / depends_on 未完结前置——I78 闭锁守卫同口径、上游 done/cancelled 自动解除] + 看板卡片红「🚧 被阻塞」Badge + 列表行 🚧 标记——纯派生零新表零事件；test_blocked_flag **2** 项（blocks 徽标+阻塞者不标+完成解除/depends_on 方向[from=后继]+rebuild 稳定）+ build 绿 |
 | I129 速率对比卡 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/velocity`[cycles.py：按已完结周期[end<today 未取消]逐个重放 scope/resolution——committed=窗口内首个非零 total[I125 承诺日锚点同款]、completed=in-scope 且首达 resolved 落在窗口内、average_completed 平均线、无已完结周期诚实空列表] + 报表「📈 速率对比」卡[双柱 SVG 承诺灰/完成绿+平均徽标，与周期燃尽卡并列]；test_velocity **2** 项（双周期手算 3/2、2/1 平均 1.5+rebuild 相等[仅 generated_at]/无已完结诚实空）+ build 绿 |
 | I130 收尾打包+冒烟 48+收尾审阅 | 已完成 | 2026-09-14 | 2026-09-14 | OntologyPage IntakePanel 仅 owner/admin 渲染[调用点条件渲染——hooks 规则下组件内 early-return 仍会跑查询] + config `attachment_allowed_ext`[逗号分隔空=全放行、大小写不敏感、白名单外/无扩展名 415] + 审批升级链[pending 超 reminder_days×2 → escalated=true 同提醒实例 admin；owner/admin 同人**收件人去重**防确定性通知 id 碰撞]；test_closing_sweep **3** 项（白名单/升级链/服务端 403 合同不变）+ attachments/reminder 回归绿 + build/vitest 绿 |
@@ -1793,6 +1825,7 @@ agent-project-management/
 
 | 日期 | 迭代/里程碑 | 意见 | 级 | 处置与落点 |
 | --- | --- | --- | --- | --- |
+| 2026-09-14 | M42 正式审阅 | 全量 **pytest 321** + 冒烟 **48** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m42-review-1~2）。**审阅即修 0 处**。M40 的 IntakePanel C 级意见、M41 的升级链留位在本轮全部清账——「C 级不清账就会一直滚」；sweep 内建动作至此五件（due_soon 提醒/休假转派/周期结转/审批提醒/升级标记），全部共享「事件事实幂等」同一防重范式，节拍引擎的形态稳定。 |
 | 2026-09-14 | M42 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 321** 项 0 失败 + 冒烟 **48** 条 GREEN + vitest **14**/build 绿）：**I128** 阻塞徽标（blocks 徽标+阻塞者不标+上游完成解除/depends_on 方向+rebuild 稳定，test_blocked_flag 2 项）✓；**I129** 速率（双周期手算 committed 3/2 vs 1、completed 2/1、平均 1.5+rebuild 相等/无周期诚实空，test_velocity 2 项）✓；**I130** 收尾（白名单大小写+415+空配置全放行/升级链 5 天不升级 7 天升级+admin 收件/服务端 403 合同不变，test_closing_sweep 3 项）✓。浏览器隔离复演（`data_demo_m42` 双隔离 + netstat 单监听 + preview 生产构建 + SW 清理[第十六次验证]；造数 python urllib 中文 JSON）：①看板阻塞徽标：「🚧 被阻塞」红 Badge 精确落在被阻塞者卡上、阻塞者无标（截图 m42-review-1）与 items API blocked 字段对账；②速率对比卡：「📈 速率对比」平均 0.5/周期徽标 + V1/V2 承诺灰柱与完成绿柱（截图 m42-review-2）与 API cycles 逐字段对账；sweep 顺带现场演示 I119 结转 carried=2（V1 未完成项结转入 V2 的下一周期不存在→V2 内结转）与 I126 提醒 reminded=1；③IntakePanel 隐藏与审批升级链由单测覆盖（服务端 403 合同 + escalated=true admin 收件）；console 192 条错误来源核对=旧演示后端死端口轮询（既有已知坑）。**审阅即修 0 处**。 | — | 里程碑通过 |
 | 2026-09-14 | M41 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 313** 项 0 失败 + 冒烟 **47** 条 GREEN + vitest **14**/build 绿）：**I125** 周期燃尽（3 挂 1 完成→末点 total 3/remaining 2+加塞抬线 3→4+理想线承诺日锚定/rebuild 相等/取消与未知 404，test_cycle_burndown 3 项）✓；**I126** 审批提醒（窗口边界 5 天前提醒+当日重扫幂等+今日不提醒/已决跳过/无项目跳过，test_approval_reminder 3 项）✓；**I127** 审计导出（admin roundtrip 表头+类型覆盖+payload 截断/非 admin 403/未知项目 404/days 钳制，test_audit_export 2 项）✓。浏览器隔离复演（`data_demo_m41` 双隔离 + netstat 单监听 + preview 生产构建 + SW 清理[第十五次验证]；造数 python urllib 中文 JSON）：①周期燃尽：「🔁 周期燃尽」卡选 Sprint A → 范围 3 · 剩余 2 + 三线图例（截图 m41-review-1）与 API series/ideal 逐字段对账；②审批提醒：回填 5 天前 approval.requested + rebuild 重放 → force sweep `reminded=1` → 铃面板「审批已挂起 5 天：code_review」approval_reminder 通知 + 当日重扫幂等=0；③审计导出：Audit 页「⬇ 全量导出」按钮（365 天窗口，仅管理员提示）+ `audit.csv?days=30` 200 text/csv 17 行（header+16 事件，中文 payload 转义正确）——**复演现场再次现形 I127 登记的 rebuild 丢 is_admin 语义**：rebuild 后 audit.csv 403，重启即愈（200 text/csv），处置与文档完全一致，验证了 C 级登记的准确性。**审阅即修 0 处**。 | — | 里程碑通过 |
 | 2026-09-14 | M40 正式审阅 | 各迭代 DoD 核对（审阅时点 HEAD 复跑全量 **pytest 302** 项 0 失败 + 冒烟 **46** 条 GREEN + vitest **14**/build 绿）：**I122** 成本预算（费率 roundtrip+负数 422/手算 2h×100+3h×60+1h×0=380、burn 0.6→1.2 超支翻转、rebuild 运行态重置对账、无预算 None，test_cost_report 3 项）✓；**I123** 附件（roundtrip 字节一致+rebuild 元数据存活+软删 404/超限 413+空文件 422/错挂 404，test_attachments 3 项）✓；**I124** 依赖图（数据契约=edges+critical chain 冒烟 46 覆盖）✓。浏览器隔离复演（`data_demo_m40` 双隔离 + netstat 单监听[本轮双服务 2 监听=uvicorn+preview 各一、符合预期] + preview 生产构建 + SW 清理[第十四次验证]；造数 python urllib 中文 JSON）：①成本卡：「💰 成本与预算」已投入 5h · 成本合计 420 · 预算 8h · 消耗 63% + 按人条（王工 3h·300 / 赵工 2h·120）+ 预算输入行（截图 m40-review-1）与 API total/burn 逐字段对账；②附件：卡片📎 Modal 上传 m40-review.txt → 列表 1KB + 下载链接（截图 m40-review-3）；③依赖图：「🔗 依赖图」页 6 节点/4 边、关键链琥珀描边（上游·关键链/测试就绪·关键链+被阻塞）、中游下游红色被阻塞着色（截图 m40-review-2）与 critical-path API chain 对账；console 192 条错误来源核对=旧演示后端死端口长命标签页轮询（既有已知坑），非 M40 缺陷。**审阅即修 0 处**。 | — | 里程碑通过 |
@@ -1895,6 +1928,7 @@ agent-project-management/
 | 2026-09-14 | I129 | 曾想把 burndown 的重放抽成 `_cycle_scope_replay` 共用——写到一半发现 burndown 需要逐日序列、velocity 只需要 committed/completed 两个标量，共用函数得带模式参数反而更绕；**回退为各自内联**（重放循环仅 15 行，同文件两份可接受）——过早抽象与复制粘贴同样有害，抽象要等第三个调用者。velocity 的 committed 用「窗口内首个非零 total」而非「窗口首日 total」——与 I125 理想线锚点完全同源（承诺日），两个数字在报表里并排出现时口径分歧会直接误导。 |
 | 2026-09-14 | I130 | IntakePanel 隐藏选「**调用点条件渲染**」而非组件内 early-return——hooks 规则下 early-return 前的 useQuery 照跑，403 噪声一点没少还多了个假分支；条件渲染让查询根本不挂载。附件白名单放**扩展名**而非 MIME——MIME 由客户端自报可伪造，扩展名是用户可见可理解的分类（Jira allowlist 同款），安全边界仍是尺寸钳制+下载 Content-Disposition。升级链的收件人**去重**是被确定性通知 id 逼出来的：owner 恰好也是 admin 时，同一事件两条通知的 id `n_{事件}_{用户}` 完全相同直接 UNIQUE 炸——收件人集合先去重，幂等性从 id 语义自然恢复。 |
 | 2026-09-14 | M42 正式审阅 | 全量 **pytest 321** + 冒烟 **48** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m42-review-1~2）。**审阅即修 0 处**。M40 的 IntakePanel C 级意见、M41 的升级链留位在本轮全部清账——「C 级不清账就会一直滚」；sweep 内建动作至此五件（due_soon 提醒/休假转派/周期结转/审批提醒/升级标记），全部共享「事件事实幂等」同一防重范式，节拍引擎的形态稳定。 |
+| 2026-09-14 | M43 定义 | 新一轮三路并行调研（防重查：候选池 grep——风险登记册/risk register、项目收尾/closure checklist、完成自动重建均无调研记录）：①**风险登记册**——PMBOK 风险登记册是识别→分析→应对→监控载体，**风险分=概率×影响**、概率/影响矩阵排序（PMI/PMBOK 六过程/7 步指南）；OpenProject 原生 risk 工作包类型+likelihood/impact 类别（官方文档）；Jira 靠 SoftComply 应用补（2025 对比）；SimpleRisk 开源独立实现——风险是一等公民条目：打分排序、应对措施与责任人、周期复审 → risks.py 新域：risk 事件+投影表[p/i 枚举 1-3、分=p×i 自动排序]+「⚠ 风险登记册」页[矩阵热力]+工作项 risk_id 关联——PMBOK 落地的最后一块核心知识域；②**项目收尾清单**——PMBOK Closing Process Group 常被忽略：确认交付、正式验收、合同收尾、经验教训、释放资源、收尾报告（PMI/ProjectManager 7 步/closeout checklist/Miro 6 步）——收尾是可检查的清单动作 → closure-checklist 五项核对[活跃项/pending 审批/Gate/未审批工时/open 风险]全绿才允许 project.completed[状态 completed 区别于 archived]+收尾报告数据；③**完成自动重建**——YouTrack workflow「完成后自动重置/重建下一期」（默认 workflows/workflow 示例）、n8n 社区同问——周期性任务以**完成**为节拍而非日历 → recurrence_days 字段+sweep respawn[完成日+N 重建同概念新卡、payload 记 respawn_of 审计链、复用 create_item 全校验]——sweep 家族第四员，与日历节拍互补。选定 **M43 = 交付闭环三件套**：I131 风险登记册 / I132 项目收尾清单 / I133 完成自动重建+收尾 + docs/12 §40 + 冒烟 49 予 I133 + 审阅，估计 +9 人日。结论入 docs/01 §AP。定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

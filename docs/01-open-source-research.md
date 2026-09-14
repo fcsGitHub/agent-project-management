@@ -1196,6 +1196,36 @@ M41 = **节奏治理三件套**：I125 周期燃尽（节奏面——Plane Cycle
 
 M42 = **流量可见性三件套**：I128 看板阻塞徽标（即时面——Businessmap 阻塞旗标语义，I78 守卫的视觉半边）/ I129 速率对比卡（趋势面——Jira velocity chart committed vs completed 双柱，跨周期对比）/ I130 收尾打包+冒烟 48+审阅（C 级清账：IntakePanel 隐藏+附件白名单+审批升级链）+ docs/12 §39 + 冒烟 48 + M42 审阅，约 9 人日。跨项目依赖图（需跨项目关系模型，V2 级）、多币种、digest 邮件留 backlog。
 
+## AP. M43 前置调研：交付闭环——风险登记册 / 项目收尾清单 / 完成自动重建（2026-09-14）
+
+> 目标协议触发：M42 审阅通过后开启。防重查：候选池 grep——风险登记册/risk register（无调研记录）、项目收尾/closure checklist（无调研记录）、完成自动重建（I98 recurring 是按日历建卡，「完成重开」语义无调研记录）。
+
+**AP.1 风险登记册（PMBOK 概率×影响矩阵 + OpenProject 原生风险模块）**
+
+- PMBOK：风险登记册是识别→分析→应对→监控的载体，**风险分 = 概率 × 影响**，用概率/影响矩阵可视化排序（[PMI](https://www.pmi.org/learning/library/risk-analysis-project-management-7070)、[PMBOK 六过程](https://www.projectengineer.net/project-risk-management-according-to-the-pmbok/)、[7 步指南](https://projectmanagementacademy.net/resources/blog/risk-register-in-project-management/)）；OpenProject 有**原生 risk 工作包类型**与 likelihood/impact 内建类别（[官方文档](https://www.openproject.org/docs/use-cases/risk-management/)）；Jira 靠 SoftComply 等应用补（[2025 对比](https://softcomply.com/best-jira-risk-register-plugins/)）；SimpleRisk 开源独立实现（[官网](https://www.simplerisk.com/blog/simplerisk-free-and-open-source-vs-fully-featured-platform)）。共同语义：**风险是一等公民条目：概率×影响打分排序、有应对措施与责任人、周期性复审**。
+- 对本项目的映射：`risk` 域事件（risk.identified/mitigated/closed）+ risks 投影表（title/probability[1-3]/impact[1-3]/response/owner/review_date，进 drop 清单）→ 风险分 = p×i 自动排序；「⚠ 风险登记册」页（矩阵热力 + 列表）+ 工作项可关联 risk_id；PMBOK 落地的最后一块核心知识域。
+
+**AP.2 项目收尾清单（PMBOK Closing Process Group + closeout checklist）**
+
+- PMBOK **Closing Process Group** 是常被忽略的第五过程组：确认交付达标、正式验收、合同/采购收尾、经验教训、释放资源、收尾报告（[PMI](https://www.pmi.org/learning/library/importance-of-closing-process-group-9949)、[7 步清单](https://www.projectmanager.com/blog/project-closure)、[closeout checklist](https://www.projectmanagement.com/checklists/268528/project-closeout-checklist)、[Miro 6 步](https://miro.com/project-management/project-closure-checklist/)）。共同语义：**收尾是可检查的清单动作，不是「大家散了吧」**。
+- 对本项目的映射：项目收尾清单端点 `GET /projects/{id}/closure-checklist`——纯投影核对：活跃项=0、pending 审批=0、全部 Gate 达成、工时已审批、无过期风险 → 全绿才允许 `project.completed` 事件（项目状态 completed，区别于 archived 归档）+ 收尾报告数据（工期/成本/吞吐汇总）+ 项目列表徽标。清单不过则逐项列差。
+
+**AP.3 完成自动重建（YouTrack reset workflow 语义）**
+
+- YouTrack 用 workflow 规则实现「任务完成后自动重置/重建下一期」（[默认 workflows](https://www.jetbrains.com/help/youtrack/cloud/default-workflows.html)、[workflow 示例](https://yt-cli.readthedocs.io/en/latest/workflows.html)）；n8n 社区同样在问「workflow 完成后自动重启」（[r/n8n](https://www.reddit.com/r/n8n/comments/1q2vrwj/how_to_automatically_restart_workflow_once/)）。共同语义：**周期性任务以「完成」为节拍而非「日历」——上一期完成触发下一期生成**。
+- 对本项目的映射：I98 recurring 已是日历节拍（create_recurring 按日建卡）；补「完成节拍」：任务带 `recurrence_days` 字段 → 完成时 sweep 内建动作在完成日+N 重建同概念新卡（item.created 真事件、payload 记 respawn_of 审计链）——sweep 家族第四员，与日历节拍互补（周会/月报/巡检类任务的真实节奏）。
+
+**AP.4 M43 设计映射与验证纪律（沿用）**
+
+- I131 风险登记册：risk 事件+投影+风险分排序+登记册页+项关联；单测（打分/生命周期/rebuild）。
+- I132 项目收尾清单：closure-checklist 端点（五项核对）+ project.completed 事件与徽标 + 收尾报告数据；单测（全绿才放行/差项列出/rebuild）。
+- I133 完成自动重建 + 收尾审阅：recurrence_days 字段 + sweep respawn（payload 记 respawn_of）+ 任务卡徽标；**冒烟 49**（风险打分/收尾清单/重建 roundtrip + rebuild）并入 I133 + M43 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M43 审阅。
+
+**AP.5 M43 取舍**
+
+M43 = **交付闭环三件套**：I131 风险登记册（风险面——PMBOK p×i 矩阵 + OpenProject 原生模块语义，核心知识域补缺）/ I132 项目收尾清单（闭环面——PMBOK Closing Process Group，completed 区别于 archived）/ I133 完成自动重建+收尾审阅（节拍面——YouTrack reset 语义，完成触发而非日历触发，sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + M43 审阅，约 9 人日。定量风险分析（EMV/蒙特卡洛）、风险升级链、跨项目风险留 backlog。
+
 
 
 
