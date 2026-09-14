@@ -782,6 +782,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：list_items 载荷每项派生 `blocked` 布尔（两条 EXISTS：未完结 blocks 阻塞者 / 未完结 depends_on 前置——与 I78 闭锁守卫同口径，上游 done/cancelled 自动解除）；看板卡片红「🚧 被阻塞」Badge + 列表行 🚧 标记。纯派生零新表零事件。
 - **测试**：test_blocked_flag 2 项（blocks 徽标+阻塞者自身不标+上游完成解除/depends_on 方向[from=后继]+rebuild 稳定）。
 
+### 39.2 速率对比卡（I129）
+
+- **语义**（Jira velocity chart，docs/01 §AO.2）：每个已完结周期两根柱——**committed**（承诺日 total，I125「首个有范围日」锚点同款）vs **completed**（窗口内 first-resolved 数）——再加 `average_completed` 平均线；「哪个周期掉速了」跨周期对比一眼可见（I121 forecast 只有中位数、无周期维度）。
+- **实现**：`GET /projects/{id}/velocity`（cycles.py，与燃尽同源重放）——只取已完结（end<today、未取消）周期逐个重放 scope/resolution；无已完结周期诚实空列表（SPI 先例）。报表「📈 速率对比」卡双柱 SVG 与周期燃尽卡并列。
+- **测试**：test_velocity 2 项（双周期手算 committed 3/2、completed 2/1、平均 1.5+rebuild 相等[仅 generated_at]/无已完结周期诚实空）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
