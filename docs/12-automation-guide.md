@@ -708,6 +708,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`rollup.ts` 新增 `weightedProgress` 纯函数——`childrenOf` 索引 + `fractionOf` 递归（`MAX_ROLLUP_DEPTH=10` 深度上限防环，超深按自身状态降级）+ `rollupCounts` **迭代式**显式栈 + visited 环防护（计数无深度损失）；叶子不进结果。看板卡片/列表视图「🧩」徽标升级为 `percent% · done/total`（满 100% 转绿）、时间线父条形进度条同口径。
 - **测试**：vitest +5 共 14 项（三层链上卷 80% 手算 / estimate 权重 67% / 无估算回退 50% / 15 层深链+真环防御 / parents only + 满完成）；build 绿。
 
+### 35.2 休假代理转派（I117）
+
+- **语义**（Atlassian「on leave until」自动转派 + 社区「销假转回」，docs/01 §AK.2）：休假登记带可选 `delegate`（须与休假人**同项目成员**——否则代办者看不到工作，自指 422）；I98 每日 sweep 代位——**段首日**把休假人的活跃未完成任务（仅限与代理人共享的项目，done/归档不动）转给代理人，**段末日**自动转回原人。
+- **实现**：转派/转回都是普通 `item.assigned` 事件——payload 记 `original_assignee` + `delegate_off`（审计与"哪些任务是这段休假的"标记），被转派人的 assigned 通知走既有双通道零改动；末日转回按 `delegate_off` 标记查事件流定位（**不劫持代理人自有任务**，且仅当任务仍在代理人手上）。幂等靠构造：两向移动都以「当前指派方=预期侧」为前提，force 重扫是 no-op，休假期间的人工改派永不被覆盖。存量库 `user_time_off.delegate` ALTER 迁移；设置页休假卡加「代理人（可选）」输入与 chip 展示。
+- **测试**：test_time_off_delegate 5 项（校验 422 矩阵/首日仅共享活跃移动+payload+通知+幂等/末日转回不劫持自有任务/无 delegate no-op/rebuild 重放代理态）；build/vitest 绿。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
