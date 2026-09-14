@@ -111,15 +111,25 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
             out.append((p["assignee_id"], "due_soon",
                         f"工作项「{p.get('title', '')}」将于 {p.get('due_date', '?')} 到期"))
     elif e.event_type == "approval.pending_reminded":
-        # I126: the daily sweep nudges owners about gate approvals that have
-        # been pending past the reminder window (ServiceNow timer→reminder).
+        # I126/I130: the daily sweep nudges owners about gate approvals that
+        # have been pending past the reminder window (ServiceNow
+        # timer→reminder); past 2× the window it escalates to instance admins.
         kind = e.payload.get("kind", "gate")
         days = e.payload.get("days_pending", "?")
+        escalated = bool(e.payload.get("escalated"))
+        label = f"审批已挂起 {days} 天：{kind}（{e.agg_id}）" + ("⚠ 已升级" if escalated else "")
+        recipients: dict[str, None] = {}
         for o in conn.execute(
                 "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
                 (e.project_id,)).fetchall():
-            out.append((o["user_id"], "approval_reminder",
-                        f"审批已挂起 {days} 天：{kind}（{e.agg_id}）"))
+            recipients[o["user_id"]] = None
+        if escalated:
+            for a in conn.execute("SELECT id FROM users WHERE is_admin = 1"):
+                recipients[a["id"]] = None
+        # an owner who is also the instance admin gets one copy, not two —
+        # the deterministic notification id would otherwise collide
+        for user_id in recipients:
+            out.append((user_id, "approval_reminder", label))
     return out
 
 

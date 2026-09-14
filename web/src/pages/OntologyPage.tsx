@@ -11,6 +11,10 @@ import { Badge, Button, Card, Input, Modal, cx } from "../components/ui";
 export function OntologyPage() {
   const { pid } = useParams();
   const qc = useQueryClient();
+  const me = useQuery({ queryKey: ["me"], queryFn: api.authMe });
+  const members = useQuery({ queryKey: ["members", pid], queryFn: () => api.listMembers(pid!), enabled: !!pid });
+  const myRole = (members.data?.members ?? []).find((m) => m.user_id === me.data?.user_id)?.role;
+  const isAdmin = !!me.data?.is_admin;
   const onto = useQuery({
     queryKey: ["ontology", pid],
     queryFn: () => api.getOntology(pid!, true),
@@ -196,7 +200,7 @@ export function OntologyPage() {
 
       <MembersPanel pid={pid!} />
 
-      <IntakePanel pid={pid!} />
+      {(myRole === "owner" || isAdmin) && <IntakePanel pid={pid!} />}
 
       <CalendarPanel />
 

@@ -427,11 +427,11 @@ def _delegate_time_off(conn, today: str) -> int:
 
 
 def _remind_pending_approvals(conn, today: str) -> int:
-    """I126 (docs/01 §AN.2, ServiceNow timer→reminder semantics): gate
-    approvals pending longer than approval_reminder_days get an owner nudge —
-    one `approval.pending_reminded` per approval per day (event-stream
-    idempotent, same shape as the due_soon reminder); decided approvals and
-    rows without a project are out of scope."""
+    """I126/I130 (docs/01 §AN.2/§AO.3, ServiceNow timer→reminder→escalate):
+    gate approvals pending longer than approval_reminder_days get an owner
+    nudge — one `approval.pending_reminded` per approval per day (event-stream
+    idempotent, same shape as the due_soon reminder). Past 2× the window the
+    event carries escalated=true so instance admins are pulled in too."""
     from datetime import date as _date, timedelta as _timedelta
 
     from apm import config
@@ -453,11 +453,12 @@ def _remind_pending_approvals(conn, today: str) -> int:
             continue
         days = (_date.fromisoformat(today)
                 - _date.fromisoformat(r["requested_at"][:10])).days
+        escalated = days >= window * 2
         events.emit(
             event_type="approval.pending_reminded", agg_type="approval", agg_id=r["id"],
             project_id=r["project_id"], actor_type="automation", actor_id="scheduler",
             payload={"kind": r["kind"], "requested_at": r["requested_at"][:10],
-                     "days_pending": days},
+                     "days_pending": days, "escalated": escalated},
         )
         reminded += 1
     return reminded

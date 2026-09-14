@@ -74,6 +74,15 @@ async def add_attachment(item_id: str, file: UploadFile = File(...)) -> dict:
             detail=f"file exceeds the {config.settings.attachment_max_mb} MB attachment limit")
     aid = new_id("at")
     filename = file.filename or "file.bin"
+    # I130 extension allowlist (Jira 9.15 semantics): empty config = all allowed
+    allowed = [e.strip().lower().lstrip(".") for e in
+               (config.settings.attachment_allowed_ext or "").split(",") if e.strip()]
+    if allowed:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if ext not in allowed:
+            raise HTTPException(
+                status_code=415,
+                detail=f"file type .{ext} is not allowed (allowed: {', '.join(allowed)})")
     stored = _store_path(item["project_id"], aid, filename)
     stored.write_bytes(data)
     events.emit(

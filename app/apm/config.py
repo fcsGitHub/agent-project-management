@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     imap_ignore_keywords: str = ""    # subject keywords
     # I123 item attachments: per-file size ceiling in MB (Redmine/Jira-DC style).
     attachment_max_mb: int = 10
+    # I130 allowed file extensions (comma-separated, e.g. "pdf,png,docx");
+    # empty means every extension is accepted (Jira 9.15 allowlist semantics).
+    attachment_allowed_ext: str = ""
     # I126 approval reminder: gates pending longer than this get an owner
     # nudge from the daily sweep (ServiceNow timer→reminder semantics).
     approval_reminder_days: int = 3
