@@ -1260,6 +1260,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 45 GREEN；审阅全绿。
 - 演示路径：4 周各完成若干项 → 报表卡显示速率与预计完成日；空项目诚实「数据不足」。
 
+### M40 · 价值与可见性三件套（工时成本与预算/工作项附件/依赖图视图，I122-I124，约 9 人日）
+
+> v2.9 新增（2026-09-14，M39 审阅通过后按目标协议调研）。调研结论见 docs/01 §AM。主题统一「价值与可见性」：**工时变成本**（费率派生不另记账）、**任务带文件**（磁盘+元数据）、**依赖成图**（谁挡着谁一眼可见）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I122 | 工时成本与预算（users.hourly_rate 运行态 + projects.budget_hours + `GET /projects/{id}/cost-report` 按人成本/预算消耗比/超支预警 + 报表卡 + 设置页费率输入——OpenProject Time and cost 语义） | 01 §AM.1 | I59 工时域 | 3d |
+| I123 | 工作项附件（item.attachment_added/removed + attachments 投影表 + data_dir 磁盘存储 + multipart 上传 10MB 钳制 + 下载 + 抽屉「📎 附件」区——Redmine 磁盘+元数据语义） | 01 §AM.2 | I103 归档事件范式 | 3d |
+| I124 | 依赖图视图 + 收尾审阅（「🔗 依赖图」页：分层布局 depends_on 边、done 灰/阻塞红、CPM 关键链琥珀描边——Jira Plans dependencies map 语义，纯前端读 relations/critical-path）+ docs/12 §37 + 冒烟 46 + M40 审阅 | 01 §AM.3 | I78 关系/I101 CPM | 3d |
+
+#### I122 · 工时成本与预算（3d）
+
+- 任务：users.hourly_rate REAL 运行态列（ALTER 迁移、设置页「💰 费率」输入 own-data）+ projects.budget_hours（项目设置 owner 可改）+ `GET /projects/{id}/cost-report`：按人 Σ(minutes)×rate 成本、合计、预算小时消耗比（spent_hours/budget_hours）、超支 409 式预警字段 + 报表「💰 成本与预算」卡 + CSV 同数；单测（成本手算/预算比/无费率用户按 0 计/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：设费率→记时→报表卡显示成本与预算消耗比。
+
+#### I123 · 工作项附件（3d）
+
+- 任务：attachments 投影表（drop 清单）+ `item.attachment_added/removed` 事件 + 文件落 `data_dir/attachments/{project_id}/`（大小钳制 config 默认 10MB→413、越权 404）+ `GET /items/{id}/attachments/{aid}` 下载 + 抽屉「📎 附件」上传/列表/删除；单测（roundtrip/超限/越权/rebuild 元数据存活）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：抽屉上传文件→列表出现→下载字节一致→删除消失。
+
+#### I124 · 依赖图视图 + 收尾审阅（3d）
+
+- 任务：`🔗 依赖图` 页（/p/{pid}/deps）：分层布局（拓扑层级纵排）、depends_on/blocks 边、节点按状态着色（done 灰/进行绿/未完成被阻塞红）、CPM 关键链琥珀描边（复用 critical-path API）+ 顶导航入口；docs/12 §37；**新增冒烟 46**（成本手算/附件 roundtrip/依赖图数据契约 + rebuild 一致）+ M40 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 46 GREEN；审阅全绿。
+- 演示路径：建依赖链+blocks→依赖图页分层着色一眼看出谁挡着谁。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1439,6 +1467,10 @@ agent-project-management/
 | **M37 通道收尾三件套（I113-I115）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AJ + docs/10 §M37）：I113 IMAP 主题路由（`[项目名]` 前缀 → 成员项目优先/非成员落默认——Jira Split Regex 轻量版）/ I114 邮件回复转评论（In-Reply-To + imap_seen 归属 → 回复发评论不建任务——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（`/portfolio/activity.atom?key=` feed_key 认证 + 手写 Atom XML——M11 全局活动版）+ docs/12 §34 + 冒烟 43；审阅全量 **277** 绿 + 冒烟 43 GREEN + 审阅即修 0 处（附录 B）；休假自动转派/subject 正则全量路由/退信模板留 backlog |
 | **M38 层级与代位三件套（I116-I118）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AK + docs/10 §M38）：I116 多级进度 rollup（weightedProgress estimate_hours 加权沿 parent 链逐级上卷——Jira Plans 逐级加权语义，I102 单层升维）/ I117 休假代理转派（time_off 加 delegate + sweep 首日转派/末日转回 + item.assigned 审计——Jira KB 转派/转回语义）/ I118 负载超载标记+收尾（workload `overloaded` 阈值徽标——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44；审阅全量 **286** 绿（一次偶发失败未在连续 3 次全量复现；附录 B）+ 冒烟 44 GREEN + 审阅即修 1 处（⟳ 手动扫描 force 4820567；附录 B）；subject 正则全量路由/退信模板/自动 leveling[明确不做]留 backlog |
 | **M39 节奏与预测三件套（I119-I121）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AL + docs/10 §M39）：I119 Cycles 迭代最小面（cycle 事件+投影+看板过滤+sweep 显式结转 carryover——Plane Cycles/OpenProject 17.3 Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（MAILER-DAEMON 退信→email_notify 停投可恢复 + 忽略地址关键词清单——Jira suppression list 语义）/ I121 完成日预测+收尾（done 首达重放 4 周速率中位数外推 + 诚实 None + 报表预测卡——velocity chart 语义，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45；审阅全量 **297** 绿 + 冒烟 45 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；subject 正则全量路由/自动 leveling/digest 邮件留 backlog |
+| **M40 价值与可见性三件套（I122-I124）** | 进行中（定义已出） | 2026-09-14 | — | 3 迭代 / 约 9 人日（docs/01 §AM + docs/10 §M40）：I122 工时成本与预算（users.hourly_rate + projects.budget_hours + cost-report 按人成本/预算消耗比/超支预警——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（attachment 事件+attachments 投影表+磁盘存储+10MB 钳制+抽屉附件区——Redmine 磁盘+元数据语义）/ I124 依赖图视图+收尾（分层布局+状态着色+关键链描边——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46 + M40 审阅；单元成本行项/多币种/附件格式白名单/跨项目依赖图留 backlog |
+| I122 工时成本与预算 | 待开始 | 2026-09-14 | — | users.hourly_rate REAL 运行态列[ALTER 迁移、设置页 own-data 输入] + projects.budget_hours[owner 可改] + `GET /projects/{id}/cost-report`[按人 Σminutes×rate、合计、预算小时消耗比、超支预警字段] + 报表「💰 成本与预算」卡 + CSV 同数；单测（成本手算/预算比/无费率按 0/rebuild） |
+| I123 工作项附件 | 待开始 | 2026-09-14 | — | attachments 投影表[drop 清单] + item.attachment_added/removed 事件 + 文件落 data_dir/attachments/{project_id}/[config 大小钳制默认 10MB→413、越权 404] + 下载端点 + 抽屉「📎 附件」上传/列表/删除；单测（roundtrip/超限/越权/rebuild 元数据存活） |
+| I124 依赖图视图+冒烟 46+收尾 | 待开始 | 2026-09-14 | — | 「🔗 依赖图」页 /p/{pid}/deps：分层布局[拓扑层级纵排]、depends_on/blocks 边、节点状态着色[done 灰/进行绿/未完成被阻塞红]、CPM 关键链琥珀描边[复用 critical-path API]+ 顶导航入口；docs/12 §37；**新增冒烟 46**（成本手算/附件 roundtrip/依赖图数据契约 + rebuild 一致）+ M40 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I119 Cycles 迭代最小面 | 已完成 | 2026-09-14 | 2026-09-14 | cycles.py 新域（cycle.created/updated/cancelled + project_cycles 投影表进 drop 清单 + 注册 main.py/domains/__init__ 两处 + CRUD 重叠 409/倒序与坏日期 422/取消后 404）+ items.cycle_id 存量 ALTER + 挂载走 item.updated 白名单[require_cycle 项目归属 422、未知 404、**空串=清除**——绕开 patch 的 None 值过滤] + 看板 `?cycle=` 过滤[get_board/get_items/list_items 三层贯通] + 前端「周期」下拉/「＋周期」Modal[创建即切过滤]/QuickEdit「迭代周期」选择 + sweep `carryover_finished_cycles`：周期结束次日未完成项改挂下一周期[start_date 最小者] emit cycle.carried_over[payload 记 from/to/items/count、完成项留在原周期、due 不动、事实幂等、无下一周期诚实 no-op]；test_cycles **4** 项 + test_scheduling 回归绿 + build/vitest 绿 |
 | I120 退信静默与邮件过滤 | 已完成 | 2026-09-14 | 2026-09-14 | `_is_bounce`[From parseaddr 本地部分 ∈ MAILER-DAEMON/POSTMASTER、域名不敏感] + `_bounce_recipient`[X-Failed-Recipients 头优先、回退正文引述正则、永不选自身收件箱] → 命中用户且通道仍开 → email_notify 置 0 routed=**suppress**[站内通知不动、恢复=既有邮件开关 POST /notifications/prefs——与 M11 运行态同族、审计由 imap.message_processed 承担]；未知/已关 routed=**bounce** 诚实无操作；`imap_ignore_addresses`[精确/@域名后缀]与 `imap_ignore_keywords`[标题大小写不敏感]逗号分隔命中即 **ignored** 留痕；poll 顺序 bounce→ignored→thread→route、_fetch_messages 补 x_failed_recipients 头；test_mail_bounce **3** 项（停投+站内照常+恢复+rebuild/边界三种/过滤三命中+正常零影响）+ mail 族回归 27 绿 |
 | I121 完成日预测+冒烟 45+收尾 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/forecast`：done 首达重放[I85/I106 同口径] → 最近**完整 ISO 周**周完成数**中位数**速率[抗毛刺、口径单一可解释] → 剩余项外推预计完成日 + 逐项 due 对比预计进度 at_risk[ceil((k+1)/rate*7)]；`<2` 完整周/零速率/无活跃项 → 诚实 null 带 reason[SPI 先例]——纯投影零新表，**事件溯源红利第八例**；报表「🔮 完成预测」卡[速率徽标+周柱+预计日+风险行] + api.getForecast；test_forecast **3** 项（insufficient null/median(3,1)=2 外推手算+rebuild 相等/零速率 null）+ **冒烟 45**（结转事实/退信 suppress 审计[运行态重置语义对账]/预测手算 + rebuild）——冒烟基线 **45** GREEN + build 绿 |
@@ -1781,6 +1813,7 @@ agent-project-management/
 | 2026-09-14 | I120 | 抑制语义选「**运行态直写**」而非调研定义里的 user.email_suppressed 事件——落地时发现 email_notify 是 M11 刻意的运行态家族（POST /notifications/prefs 直写、rebuild 重置），事件化会让同一列有两条写入语义（一半事件一半直写）且 rebuild 后「用户手动开的通道被旧抑制事件重新关掉」；审计需求由 imap.message_processed 的 routed=suppress 完整承担（imap_seen 进 drop 清单、rebuild 存活）——**定义与落地冲突时，跟既有语义家族走、审计链不丢即为诚实**。退信收件人定位「X-Failed-Recipients 头优先、正文引述回退、永不选自身」——正文正则对多收件人退信会抓到第一个非自身地址，单收件人场景（SaaS 逐发）足够；完整 DSN/MIME 解析留位不做。 |
 | 2026-09-14 | I121 | 周桶选「**最近 4 个完整 ISO 周且全部落在项目史内**」而非滚动 28 天——部分周会低估速率（Jira 只用已完成 sprint 的同款理由），"完整周 + 史深卫兵（MIN(events.ts)）"让 insufficient 的判定有唯一解释。速率取**中位数**而非均值——一条 12 完成的毛刺周不该把 1/1/12 抬成 4.7；中位数 1 与"多数周的体感"一致。回填历史用「**append-only INSERT + 紧跟真实 PATCH**」而非只插假事件——只插假事件会让 items 表与重放分叉（rebuild 后项目多了 N 个 done）；先插回溯 done 再 PATCH 真值，首达=回溯日、终态=真值、live==replay 不破。冒烟 45 曾断言「rebuild 后 email_notify 仍为 0」——写反了：抑制是运行态、rebuild 重置正是 I120 选型的推论，断言改成语义本身（审计存活+标志重置）。直写连接 INSERT 后必须 commit——TestClient 在其他线程取**另一条线程本地连接**，未提交的写锁直接 database is locked。 |
 | 2026-09-14 | M39 正式审阅 | 全量 **pytest 297** + 冒烟 **45** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m39-review-1~3）。**审阅即修 0 处**。复演中最有说服力的一幕：ticker 心跳扫描自然完成了 Sprint 1→2 结转（carried=1），随后人工 force 重扫 carried=0——**事实幂等不是测试断言而是现场行为**。M38 的 ⟳ force 审阅即修在本轮复演直接受益：ticker 先扫当日心跳后，force 仍能显式补扫并如实报告 carried=0。 |
+| 2026-09-14 | M40 定义 | 新一轮三路并行调研（防重查：候选池 grep——成本/预算/费率、附件/attachment、依赖图独立视图[M30 仅留 backlog]均无完整调研记录）：①**工时成本与预算**——OpenProject **Budgets 模块**规划 planned labor/unit costs 对比 available vs spent（Budgets 文档/预算控制博客），**Time and cost reporting** 人工成本 = logged time × hourly rates[费率全局/角色/用户]（cost reporting/time tracking/cost tracking 文档）——工时是事实、成本是派生、预算是阈值线 → AgentPM 已有 item_time_entries：补 users.hourly_rate[运行态] + projects.budget_hours[以小时计避货币纠缠] + cost-report 端点即得成本面，纯投影零新表；②**工作项附件**——Redmine 附件存 files/ 磁盘目录 DB 只存元数据[迁移痛点全在磁盘路径]、Jira DC 默认 10MB/文件可调 + 9.15 格式 allowlist/blocklist、API 两步式[先传文件得 token 再挂 issue]——二进制进磁盘、元数据进库、大小钳制保守 → attachment 事件 + attachments 投影表[drop 清单] + data_dir/attachments/{project}/ + multipart 直传[两步式对单机自托管过度设计]；③**依赖图视图**——Jira Plans **dependencies map**[图状]+dependencies report[只读]双视图、跨项目依赖过滤是已知痛点、OpenProject 走 Relations tab 列表式、Quirk 综述确认第三方都在补——依赖要一张「谁挡着谁」的图按状态着色 → M30 backlog 转正：已有 item_relations/CPM/时间线连线，缺专用分层图[done 灰/阻塞红/关键链描边]，纯前端零后端。选定 **M40 = 价值与可见性三件套**：I122 工时成本与预算 / I123 工作项附件 / I124 依赖图视图+收尾 + docs/12 §37 + 冒烟 46 予 I124 + 审阅，估计 +9 人日。结论入 docs/01 §AM。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

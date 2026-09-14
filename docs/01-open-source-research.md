@@ -1106,6 +1106,36 @@ M38 = **层级与代位三件套**：I116 多级进度 rollup（层级面——J
 
 M39 = **节奏与预测三件套**：I119 Cycles 迭代最小面（节奏面——Plane Cycles/OpenProject Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（通道健壮面——suppression list 语义，复用 I107 接缝）/ I121 完成日预测+收尾（预测面——velocity 外推 + 诚实 None，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45 + M39 审阅，约 9 人日。subject 正则全量路由（已有前缀版够用）、自动 leveling（明确不做）、digest 邮件（不做）留 backlog。
 
+## AM. M40 前置调研：价值与可见性——工时成本与预算 / 工作项附件 / 依赖图视图（2026-09-14）
+
+> 目标协议触发：M39 审阅通过后开启。防重查：候选池 grep——成本/预算/费率（无调研记录）、附件/attachment（无调研记录）、依赖图独立视图（M30 留 backlog，49 行仅 MVP 期「与依赖图联动」一句）均无完整调研记录。
+
+**AM.1 工时成本与预算（OpenProject Budgets + Time and cost reporting）**
+
+- OpenProject **Budgets 模块**：项目预算规划 planned labor/unit costs、对比 available vs spent（[Budgets 文档](https://www.openproject.org/docs/user-guide/budgets/)、[预算控制博客](https://www.openproject.org/blog/control-optimize-project-budget/)）；**Time and cost reporting**：人工成本 = **logged time × hourly rates**（费率按全局/角色/用户配置）， spent time 直接换算成本报表（[cost reporting](https://www.openproject.org/docs/user-guide/time-and-costs/reporting/)、[time tracking](https://www.openproject.org/collaboration-software-features/time-tracking/)、[cost tracking 单元成本](https://www.openproject.org/docs/user-guide/time-and-costs/cost-tracking/)）。共同语义：**工时是事实，成本是工时×费率的派生，预算是阈值线**——不另记一套"成本账"。
+- 对本项目的映射：AgentPM 已有 item_time_entries（分钟×人×日）——补三个可配项即得成本面：users.hourly_rate（运行态，设置页自维护）+ projects.budget_hours（预算以**小时**计，避免货币单位纠缠）+ `GET /projects/{id}/cost-report`（按人 Σminutes×rate + 预算消耗比 + 超支预警）。纯投影零新表（工时事实已存，成本是查询派生）——报表卡 + CSV 同数。
+
+**AM.2 工作项附件（Redmine 磁盘布局 + Jira DC 上传钳制）**
+
+- Redmine：附件存 **files/ 磁盘目录**（DB 只存元数据，迁移痛点全在磁盘路径——[迁移讨论](https://www.redmine.org/boards/2/topics/47599)）；Jira DC：默认 **10MB/文件**上限可调（[配置文档](https://confluence.atlassian.com/adminjiraserver/configuring-file-attachments-938847851.html)），9.15 起支持格式 **allowlist/blocklist**（[Atlassian](https://support.atlassian.com/jira-cloud-administration/docs/configure-file-attachments/)）；API 两步式：先传文件得 token 再挂 issue（[Redmine 论坛](https://www.redmine.org/boards/1/topics/13984)、[ikuteam 指南](https://ikuteam.com/blog/add-attachment-to-jira)）。共同语义：**二进制进磁盘、元数据进库、大小钳制默认保守**。
+- 对本项目的映射：工件仓（Git）之外补任务级文件——`item.attachment_added/removed` 事件 + attachments 投影表（drop 清单，rebuild 重建元数据；文件本体在 data_dir/attachments/{project}/ 事件之外，与工件 Git 仓同理）+ `POST /items/{id}/attachments`（multipart，默认 10MB 钳制）+ GET 下载 + 抽屉「📎 附件」区。两步式对单机自托管是过度设计，multipart 直传（Redmine 网页端同款）。
+
+**AM.3 依赖图视图（Jira Plans dependencies map + OpenProject Relations tab）**
+
+- Jira Advanced Roadmaps/Plans：**dependencies map**（图状）+ dependencies report（只读报表）双视图（[map](https://confluence.atlassian.com/jiraportfolioserver/displaying-the-dependencies-map-1005805794.html)、[report](https://confluence.atlassian.com/spaces/JIRASOFTWARESERVER/pages/1077915784/The+Dependencies+report+in+Advanced+Roadmaps)），跨项目依赖过滤是已知痛点（[社区](https://community.atlassian.com/forums/Advanced-Planning-in-Jira/Show-ONLY-cross-project-dependencies-in-Advanced-Roadmaps/td-p/2202699)）；OpenProject 走工作包 **Relations tab** 列表式（[官方](https://www.openproject.org/docs/user-guide/work-packages/work-package-relations-hierarchies/)）；[Quirk 综述](https://www.quirk.com.au/ultimate-guide-to-jira-dependency-graphs-reports-and-visualizations/)确认第三方都在补这块。共同语义：**依赖要一张"谁挡着谁"的图，阻塞关系按状态着色**。
+- 对本项目的映射：M30 backlog 转正——AgentPM 已有 item_relations（KERNEL 四类）+ CPM float + 时间线连线，缺专用图：`🔗 依赖图` 页（分层布局，depends_on 边指向、done 灰/进行绿/**阻塞红**[上游未完成]、CPM 关键链琥珀描边）——纯前端读既有 relations/critical-path API，零后端改动。
+
+**AM.4 M40 设计映射与验证纪律（沿用）**
+
+- I122 工时成本与预算：users.hourly_rate 运行态列 + projects.budget_hours + cost-report 端点（按人/预算消耗/超支）+ 报表卡 + 设置页费率输入；单测（成本手算/预算比/rebuild）。
+- I123 工作项附件：attachments 表 + multipart 上传钳制 + 下载 + 事件投影 + 抽屉 UI；单测（roundtrip/超限 413/越权 404/rebuild 元数据存活）。
+- I124 依赖图视图 + 收尾审阅：前端分层图 + 状态着色 + 关键链描边；**冒烟 46**（成本手算/附件 roundtrip/依赖图数据契约 + rebuild）并入 I124 + M40 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M40 审阅。
+
+**AM.5 M40 取舍**
+
+M40 = **价值与可见性三件套**：I122 工时成本与预算（价值面——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（载体面——Redmine 磁盘+元数据语义，multipart 直传）/ I124 依赖图视图+收尾（可见面——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46 + M40 审阅，约 9 人日。单元成本行项（差旅/设备）、多币种、附件格式白名单、跨项目依赖图留 backlog。
+
 
 
 
