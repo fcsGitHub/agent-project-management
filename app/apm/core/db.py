@@ -115,6 +115,13 @@ def init_db() -> None:
         # I119: 存量库补 items.cycle_id（Cycles 迭代时间盒）。
         if "cycle_id" not in icols2:
             conn.execute("ALTER TABLE items ADD COLUMN cycle_id TEXT")
+        # I122: 存量库补 users.hourly_rate / projects.budget_hours（成本与预算）。
+        ucols2 = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "hourly_rate" not in ucols2:
+            conn.execute("ALTER TABLE users ADD COLUMN hourly_rate REAL")
+        pcols2 = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
+        if "budget_hours" not in pcols2:
+            conn.execute("ALTER TABLE projects ADD COLUMN budget_hours REAL")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

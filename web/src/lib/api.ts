@@ -2,6 +2,7 @@
 export type Project = {
   id: string; name: string; description?: string; ontology: string; template: string;
   status: string; charter?: string; created_at: string; updated_at: string;
+  budget_hours?: number | null;
   features?: Feature[]; item_counts?: Record<string, number>; bootstrap?: Record<string, string>;
   disabled_fields?: string[]; gates_pending?: number;
 };
@@ -409,7 +410,7 @@ export const api = {
   deleteTimeEntry: (id: string) => req<{ deleted: string }>(`/time_entries/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
-  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter">>) =>
+  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter" | "budget_hours">>) =>
     req<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   getPhases: (id: string) =>
     req<{ phases: { id: string; name: string; gate?: string; gate_label?: string; status: string }[] }>(`/projects/${id}/phases`),
@@ -703,6 +704,18 @@ export const api = {
       at_risk: { id: string; title: string; due_date: string; expected_by: string }[];
       generated_at: string;
     }>(`/projects/${pid}/forecast`),
+  // M40-I122: labor cost & budget (cost = logged minutes × own hourly rate)
+  getHourlyRate: () => req<{ rate: number | null }>("/me/hourly-rate"),
+  setHourlyRate: (rate: number) =>
+    req<{ rate: number }>("/me/hourly-rate", { method: "POST", body: JSON.stringify({ rate }) }),
+  getCostReport: (pid: string) =>
+    req<{
+      project_id: string;
+      by_user: { user_id: string; user_name: string; hours: number; rate: number | null; cost: number }[];
+      spent_hours: number; total_cost: number;
+      budget_hours: number | null; burn_ratio: number | null; over_budget: boolean;
+      generated_at: string;
+    }>(`/projects/${pid}/cost-report`),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;

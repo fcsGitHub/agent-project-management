@@ -850,6 +850,46 @@ def critical_path(project_id: str) -> dict:
             "float": float_days, "generated_at": _now().isoformat()}
 
 
+@router.get("/projects/{project_id}/cost-report")
+def cost_report(project_id: str) -> dict:
+    """M40-I122 (docs/01 §AM.1, OpenProject Time and cost semantics): labor
+    cost = logged minutes × the member's hourly rate, derived on the fly from
+    the time-entry projection — never a second ledger. Members without a rate
+    contribute hours but zero cost (stated, not hidden). The budget is set in
+    hours; the burn ratio compares spent hours against it."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT t.user_id AS uid, u.name AS uname, u.hourly_rate AS rate,"
+        " SUM(t.minutes) AS minutes"
+        " FROM item_time_entries t LEFT JOIN users u ON u.id = t.user_id"
+        " WHERE t.project_id = ? AND t.deleted_at IS NULL"
+        " GROUP BY t.user_id ORDER BY minutes DESC", (project_id,)).fetchall()
+    by_user = [{
+        "user_id": r["uid"], "user_name": (r["uname"] or r["uid"]),
+        "hours": round((r["minutes"] or 0) / 60, 2),
+        "rate": r["rate"],
+        "cost": round((r["minutes"] or 0) / 60 * (r["rate"] or 0), 2),
+    } for r in rows]
+    spent_hours = round(sum(u["hours"] for u in by_user), 2)
+    total_cost = round(sum(u["cost"] for u in by_user), 2)
+    budget = conn.execute(
+        "SELECT budget_hours FROM projects WHERE id = ?", (project_id,)).fetchone()["budget_hours"]
+    burn_ratio = round(spent_hours / budget, 4) if budget else None
+    return {
+        "project_id": project_id,
+        "by_user": by_user,
+        "spent_hours": spent_hours,
+        "total_cost": total_cost,
+        "budget_hours": budget,
+        "burn_ratio": burn_ratio,
+        "over_budget": bool(budget and spent_hours > budget),
+        "generated_at": _now().isoformat(),
+    }
+
+
 @router.get("/projects/{project_id}/forecast")
 def project_forecast(project_id: str) -> dict:
     """M39-I121 (docs/01 §AL.3, Jira velocity chart + jira-agile-velocity):

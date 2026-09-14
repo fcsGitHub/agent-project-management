@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS projects (
   status TEXT NOT NULL,
   charter TEXT,
   field_overrides TEXT,
+  budget_hours REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -107,6 +108,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0,
   feed_key TEXT,
   email_notify INTEGER NOT NULL DEFAULT 1,
+  hourly_rate REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

@@ -4,7 +4,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, type AutomationRule, type DeliveryRecord, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
 import { Badge, Button, Card, Input, Modal, cx } from "../components/ui";
 
@@ -199,6 +199,8 @@ export function OntologyPage() {
       <IntakePanel pid={pid!} />
 
       <CalendarPanel />
+
+      <RatePanel />
 
       <TimeOffPanel />
 
@@ -482,6 +484,39 @@ function IntakePanel({ pid }: { pid: string }) {
 
 /** I111: personal time-off (Taiga capacity-pain / Jira PTO semantics) —
  *  own-data stretches; workload flags 🏖 and my-schedule overlays the bar. */
+function RatePanel() {
+  const qc = useQueryClient();
+  const cur = useQuery({ queryKey: ["hourly-rate"], queryFn: api.getHourlyRate });
+  const [rate, setRate] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (cur.data?.rate != null) setRate(String(cur.data.rate)); }, [cur.data]);
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">💰 我的时薪</span>
+        <span className="text-xs text-mut">成本报表用它把你的工时换算成成本（仅自己可见可改）</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input type="number" min="0" step="0.5" value={rate} onChange={(e) => setRate(e.target.value)}
+          placeholder="如：120" className="w-28 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <Button size="sm" variant="outline" disabled={busy || rate === ""}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await api.setHourlyRate(Number(rate));
+              toast.success("时薪已保存");
+              await qc.invalidateQueries({ queryKey: ["hourly-rate"] });
+            } catch (e) {
+              toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+            } finally { setBusy(false); }
+          }}>保存</Button>
+        {cur.data?.rate == null && <span className="text-[10px] text-mut">未设置——成本报表里你的工时按 0 成本计</span>}
+      </div>
+    </Card>
+  );
+}
+
 function TimeOffPanel() {
   const qc = useQueryClient();
   const offs = useQuery({ queryKey: ["time-off"], queryFn: api.listTimeOff });

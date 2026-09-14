@@ -3,9 +3,10 @@
  * API (docs/01 §K.1: OpenProject-style widget dashboards, zero ETL). */
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
-import { Badge, Card, Empty, PrintButton } from "../components/ui";
+import { Badge, Button, Card, Empty, PrintButton, cx } from "../components/ui";
 
 const BUCKET_LABEL: Record<string, string> = {
   backlog: "待办池", todo: "就绪", in_progress: "进行中", done: "已完成", cancelled: "已取消",
@@ -147,7 +148,81 @@ export function ReportsPage() {
 
       {/* completion forecast (M39-I121): velocity median extrapolation */}
       <ForecastCard pid={pid} />
+
+      {/* cost & budget (M40-I122): minutes × rate, burn ratio */}
+      <CostCard pid={pid} />
     </div>
+  );
+}
+
+function CostCard({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const cr = useQuery({ queryKey: ["cost-report", pid], queryFn: () => api.getCostReport(pid!) });
+  const [budget, setBudget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const d = cr.data;
+  const maxCost = Math.max(1, ...(d?.by_user ?? []).map((u) => u.cost));
+
+  return (
+    <Card className="col-span-1 p-4">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-sm font-semibold">💰 成本与预算</span>
+        {d?.over_budget && <Badge tone="red">已超预算</Badge>}
+      </div>
+      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {d && (
+        <>
+          <div className="mt-1 text-xs text-mut">
+            已投入 <span className="font-medium text-ink">{d.spent_hours}h</span> · 成本合计
+            <span className="font-medium text-ink"> {d.total_cost}</span>
+            {d.budget_hours != null && <> · 预算 {d.budget_hours}h · 消耗
+              <span className={cx("font-medium", d.over_budget ? "text-red-500" : "text-ink")}>
+                {Math.round((d.burn_ratio ?? 0) * 100)}%
+              </span></>}
+          </div>
+          {d.budget_hours != null && (
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-bg">
+              <div className={cx("h-full rounded-full", d.over_budget ? "bg-red-400" : "bg-acc")}
+                style={{ width: `${Math.min(100, (d.burn_ratio ?? 0) * 100)}%` }} />
+            </div>
+          )}
+          <div className="mt-2 space-y-1">
+            {d.by_user.map((u) => (
+              <div key={u.user_id} className="flex items-center gap-2 text-xs">
+                <span className="w-16 shrink-0 truncate">{u.user_name}</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg">
+                  <div className="h-full rounded-full bg-acc"
+                    style={{ width: `${(u.cost / maxCost) * 100}%` }} />
+                </div>
+                <span className="w-20 shrink-0 text-right text-mut">
+                  {u.hours}h{u.rate != null ? ` · ${u.cost}` : " · 未设费率"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
+            <span className="text-[10px] text-mut">预算（小时）</span>
+            <input type="number" min="0" value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder={d.budget_hours != null ? String(d.budget_hours) : "未设置"}
+              className="w-24 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+            <Button size="sm" variant="outline" disabled={busy || budget === ""}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await api.patchProject(pid, { budget_hours: Number(budget) });
+                  toast.success("预算已更新");
+                  setBudget("");
+                  await qc.invalidateQueries({ queryKey: ["cost-report", pid] });
+                } catch (e) {
+                  toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+                } finally { setBusy(false); }
+              }}>保存</Button>
+            <span className="ml-auto text-[10px] text-mut">成本 = 工时 × 各人时薪（设置页维护）</span>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

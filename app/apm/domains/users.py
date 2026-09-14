@@ -292,6 +292,32 @@ def add_time_off(body: TimeOffIn) -> dict:
             "delegate": body.delegate}
 
 
+# ---------------------------------------------------- hourly rate (I122)
+class RateIn(BaseModel):
+    rate: float
+
+
+@router.get("/me/hourly-rate")
+def get_hourly_rate() -> dict:
+    row = db.get_conn().execute(
+        "SELECT hourly_rate FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
+    return {"rate": row["hourly_rate"] if row else None}
+
+
+@router.post("/me/hourly-rate")
+def set_hourly_rate(body: RateIn) -> dict:
+    """Own-data runtime preference (same family as email_notify/feed_key):
+    the cost report derives labor cost from logged minutes × this rate."""
+    if body.rate < 0:
+        raise HTTPException(status_code=422, detail="rate must not be negative")
+    conn = db.get_conn()
+    conn.execute(
+        "UPDATE users SET hourly_rate = ?, updated_at = ? WHERE id = ?",
+        (body.rate, events.utcnow(), events.effective_actor()))
+    conn.commit()
+    return {"rate": body.rate}
+
+
 @router.delete("/me/time-off/{off_id}")
 def cancel_time_off(off_id: str) -> dict:
     conn = db.get_conn()
