@@ -720,6 +720,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：workload 端点在 on_leave 同一循环加 `overloaded` 布尔（`active > threshold`，纯投影零新表）；负载页红色「⚠ 超载」徽标与「🏖 休假中」并列。
 - **测试**：test_workload_overload_flag（6>5 默认阈值触发 / 3≤5 不触发 / 阈值改 2 后 3>2 翻转）；**冒烟 44** 三段 roundtrip + rebuild（三层链数据契约/转派转回+original_assignee+通知+幂等/超载标记+rebuild 重放）。
 
+## 36. 节奏与预测三件套（M39-I119/I120/I121）
+
+### 36.1 Cycles 迭代最小面（I119）
+
+- **语义**（Plane Cycles + OpenProject 17.3「Sprints 从 Versions 分家」，docs/01 §AL.1）：迭代是**按日期切片的工作容器**，与里程碑（发布点）正交——sprint 不是改名的 version；周期结束未完成项**显式结转**而非静默堆积。最小面：`cycle.created/updated/cancelled` 事件 + `project_cycles` 投影表（进 drop 清单，rebuild 可重放）+ 同项目周期日期重叠 409/倒序 422。
+- **实现**：工作项 `cycle_id` 挂载走 item.updated 白名单（PATCH 校验项目归属 422/未知 404，**空串=清除**——绕开 patch 的 None 过滤）；看板 `?cycle=` 过滤 + 「周期」下拉与「＋周期」Modal + QuickEdit「迭代周期」选择；sweep `_carryover`：周期结束次日把未完成项改挂下一周期（start_date 大于本周期 end_date 的最小者）并 emit `cycle.carried_over`（payload 记 from/to/items/count）——**只动归属不碰 start/due**，事实幂等（已 carried 的周期跳过；无下一周期诚实 no-op）。
+- **测试**：test_cycles 4 项（CRUD 409/422 矩阵+rebuild/挂载校验+看板过滤+重放/结转[完成项留在原周期、due 不动、payload 手算、幂等]/无下一周期 no-op）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
