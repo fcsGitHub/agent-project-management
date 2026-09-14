@@ -1076,6 +1076,36 @@ M37 = **通道收尾三件套**：I113 IMAP 主题路由（路由面——Jira S
 
 M38 = **层级与代位三件套**：I116 多级进度 rollup（层级面——Jira Plans 逐级 estimate 加权，I102 单层升维）/ I117 休假代理转派（代位面——Jira KB 转派/转回语义，sweep 节拍）/ I118 负载超载标记+收尾（预警面——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44 + M38 审阅，约 9 人日。subject 正则全量路由、退信模板、自动 leveling（明确不做）留 backlog。
 
+## AL. M39 前置调研：节奏与预测——Cycles 迭代 / 退信静默与过滤 / 完成日预测（2026-09-14）
+
+> 目标协议触发：M38 审阅通过后开启。防重查：候选池 grep——subject 正则全量路由（§AJ.1 已有轻量版落地）、退信处理/邮件过滤关键词（§AJ.1 仅一句提及无调研记录）、Cycles 迭代（M27 §Z 留 backlog「Cycles」无调研记录）——本轮对后两者做完整调研。
+
+**AL.1 Cycles 迭代时间盒（Plane Cycles + OpenProject 17.3 Sprints 与 Versions 分家）**
+
+- Plane **Cycles**：「一段团队专注完成特定工作项的设定周期」即敏捷 sprint（[Plane Docs](https://docs.plane.so/core-concepts/cycles)），自带**燃尽图与未完成工作自动结转（auto-transfer/carryover）**（[Plane vs OpenProject](https://plane.so/blog/plane-vs-openproject-which-should-you-choose-in-2026)）；OpenProject 17.3 起把 **Sprints 从 Versions 里拆出来**成为独立概念——社区明确「sprint 不是改名的 version」：**迭代（时间盒）≠ 版本（发布/里程碑）**（[r/openproject](https://www.reddit.com/r/openproject/comments/1tukh3z/sprint_vs_version_differences_after_upgrade/)、[17.3 发布](https://www.youtube.com/watch?v=5SY55YGEtVE)、[agile 特性页](https://www.openproject.org/collaboration-software-features/agile-project-management/)）。共同语义：**迭代是按日期切片的工作容器，与里程碑（发布点）正交；周期结束未完成项显式结转而非静默堆积**。
+- 对本项目的映射：AgentPM 有 milestone（发布点语义）但无迭代时间盒——补最小 Cycles 面：project.cycles 投影表（name/start/end 事件化）+ 工作项挂 cycle_id + 看板「周期」过滤下拉 + 周期结束次日 sweep 把未完成项**显式结转**到下一周期（cycle.carried_over 事件留审计——归属标记而非日期改排，与 I117/I118 检测式哲学一致，不碰 start/due）。
+
+**AL.2 退信静默与邮件过滤（Jira suppression list + 标准 bounce 发件人约定）**
+
+- Jira/JSM：收件服务器退信（bounce）后进入**抑制名单（suppression/bounce list）停止再投**，清除需人工介入（[Atlassian KB](https://support.atlassian.com/jira/kb/users-and-jsm-customers-not-getting-jira-cloud-emails-because-of-bounces/)、[Remove from bounce list](https://community.atlassian.com/forums/Jira-questions/Remove-email-address-from-the-bounce-list/qaq-p/2938434)、[Clear Bounce List](https://community.atlassian.com/forums/Jira-Service-Management/Clear-Bounce-List/qaq-p/2477365)）；ServiceNow 同构「监视/过滤已知退信地址」（[ServiceNow](https://www.servicenow.com/docs/r/xanadu/platform-administration/email-bounce.html)）；标准退信发件人约定 **MAILER-DAEMON@/POSTMASTER@**（[SuiteCRM 社区](https://community.suitecrm.com/t/email-bounce-handling/90499)）；Redmine 侧 rdm-mailhandler 的 email 关键词解析有已知局限（[论坛](https://www.redmine.org/boards/2/topics/18568)）、`--unknown-user=ignore` 即忽略式过滤（I107 已采）。共同语义：**退信是投递失败的既成事实 → 对该地址自动停投（可人工恢复），入站侧按地址/关键词可忽略**。
+- 对本项目的映射：复用 I107 imap_in 的轮询接缝——MAILER-DAEMON/POSTMASTER 发来的退信 → 解析原始收件人 → users.email_notify 置 0 并**邮件静默**（站内照常，事件留审计，设置页可一键恢复）；入站过滤 = 可配的忽略地址/关键词清单（config 逗号分隔，命中即 ignore）——通道族（I107-I114）就此闭环「进得来、回得去、坏地址停得掉」。
+
+**AL.3 完成日预测（Jira velocity chart + jira-agile-velocity 开源实现）**
+
+- Jira velocity chart：按已完成 sprint 展示平均完成量，团队用它「预测消化剩余工作的速度」（[Atlassian 官方](https://support.atlassian.com/jira-software-cloud/docs/view-and-understand-the-velocity-chart/)）；开源 **jira-agile-velocity**：拉 Jira 完成点数 → 算周速率 → **外推项目完成日期**（[fgerthoffert/jira-agile-velocity](https://github.com/fgerthoffert/jira-agile-velocity)）；GitHub Projects 原生缺燃尽/速率图（[Discussion #38840](https://github.com/orgs/community/discussions/38840)）；社区对 committed vs completed 口径漂移的不满（[Atlassian 社区](https://community.atlassian.com/forums/Jira-questions/Issues-with-Jira-Backlog-Insights-Points-Completed-vs-Velocity/qaq-p/2965692)）提示**预测口径必须单一且可解释**。共同语义：**完成预测 = 近期速率的外推，速率口径透明、数据不足时诚实说不足**。
+- 对本项目的映射：`GET /projects/{id}/forecast`——事件重放 done 首达（与 I85/I106 同一重放口径）算近 4 周周完成数**中位数**（抗毛刺）→ 剩余活跃项 ÷ 速率 = 预计完成日；活跃项逐条 due 对比预计进度给「风险」标记；数据不足（<2 周历史）诚实 None（SPI 先例）——纯投影零新表（事件溯源红利第八例），报表「🔮 完成预测」卡。
+
+**AL.4 M39 设计映射与验证纪律（沿用）**
+
+- I119 Cycles 迭代最小面：cycle 事件+投影（drop 清单）+ 项挂 cycle_id + 看板过滤下拉 + sweep 结转（carryover 事件审计）；单测（CRUD/挂载/结转/rebuild）。
+- I120 退信静默与过滤：imap_in bounce 分支（MAILER-DAEMON/POSTMASTER + 原始收件人解析）+ email_notify 自动停投/恢复 + 忽略地址关键词清单；单测（退信静默/恢复/过滤命中）。
+- I121 完成日预测 + 收尾审阅：forecast 端点（速率中位数外推 + 诚实 None）+ 报表预测卡；**冒烟 45**（结转 roundtrip/退信静默 roundtrip/预测手算 + rebuild 一致）并入 I121 + M39 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M39 审阅。
+
+**AL.5 M39 取舍**
+
+M39 = **节奏与预测三件套**：I119 Cycles 迭代最小面（节奏面——Plane Cycles/OpenProject Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（通道健壮面——suppression list 语义，复用 I107 接缝）/ I121 完成日预测+收尾（预测面——velocity 外推 + 诚实 None，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45 + M39 审阅，约 9 人日。subject 正则全量路由（已有前缀版够用）、自动 leveling（明确不做）、digest 邮件（不做）留 backlog。
+
 
 
 

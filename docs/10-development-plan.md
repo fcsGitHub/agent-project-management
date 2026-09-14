@@ -1232,6 +1232,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 44 GREEN；审阅全绿。
 - 演示路径：给成员建 6 个活跃任务 → 负载页出现「⚠ 超载」徽标。
 
+### M39 · 节奏与预测三件套（Cycles 迭代/退信静默与过滤/完成日预测，I119-I121，约 9 人日）
+
+> v2.9 新增（2026-09-14，M38 审阅通过后按目标协议调研）。调研结论见 docs/01 §AL。主题统一「节奏与预测」：**迭代时间盒**（与里程碑正交的周期容器+显式结转）、**通道健壮**（退信停投+入站过滤）、**完成可期**（速率外推+诚实 None）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I119 | Cycles 迭代最小面（cycle 事件+投影表 + 项挂 cycle_id + 看板「周期」过滤下拉 + sweep 周期结束次日未完成项显式结转 cycle.carried_over——Plane Cycles/OpenProject Sprints 分家语义，迭代≠里程碑） | 01 §AL.1 | I84 里程碑路线图/I98 sweep | 3d |
+| I120 | 退信静默与邮件过滤（imap_in bounce 分支 MAILER-DAEMON/POSTMASTER + 原始收件人解析 → email_notify 自动停投可恢复 + 可配忽略地址/关键词清单——Jira suppression list 语义） | 01 §AL.2 | I107 imap_in 接缝 | 3d |
+| I121 | 完成日预测 + 收尾审阅（`GET /projects/{id}/forecast` done 首达重放算近 4 周速率中位数外推 + 数据不足诚实 None + 报表「🔮 完成预测」卡——velocity chart 语义，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45 + M39 审阅 | 01 §AL.3 | I85 燃尽重放口径 | 3d |
+
+#### I119 · Cycles 迭代最小面（3d）
+
+- 任务：`cycle` 域事件（cycle.created/updated/cancelled + 投影表进 drop 清单）+ 工作项 `cycle_id` 挂载（item.updated 承载）+ 看板「周期」过滤下拉（与 feature 过滤同构）+ I98 sweep 周期结束次日把未完成项改挂下一周期并 emit `cycle.carried_over`（payload 记 from/to cycle）——只动归属不碰 start/due；单测（CRUD/挂载/结转审计/不碰日期/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：建「Sprint 1」周期挂任务 → 周期结束后 sweep → 未完成项出现在「Sprint 2」且审计留结转。
+
+#### I120 · 退信静默与邮件过滤（3d）
+
+- 任务：imap_in 轮询识别 MAILER-DAEMON/POSTMASTER 退信 → 解析原始收件人（References/正文 failed recipient）→ 该用户 email_notify 自动置 0（事件留审计）+ 设置页「恢复投递」；入站忽略清单 config（地址/关键词逗号分隔，命中即 ignore 留痕）；单测（退信静默/恢复/过滤命中/普通邮件不受影响/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：stub 一封 MAILER-DAEMON 退信 → poll 后该用户邮件通道停投（站内照常）→ 设置页一键恢复。
+
+#### I121 · 完成日预测 + 收尾审阅（3d）
+
+- 任务：`GET /projects/{id}/forecast`——事件重放 done 首达（I85/I106 同口径）算近 4 周周完成数中位数为速率 → 预计完成日 + 活跃项 due 风险标记；<2 周历史诚实 `forecast: null`（SPI 先例）；报表「🔮 完成预测」卡（速率/预计日/风险清单）；docs/12 §36；**新增冒烟 45**（结转 roundtrip/退信静默 roundtrip/预测手算 + rebuild 一致）+ M39 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 45 GREEN；审阅全绿。
+- 演示路径：4 周各完成若干项 → 报表卡显示速率与预计完成日；空项目诚实「数据不足」。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1410,6 +1438,10 @@ agent-project-management/
 | **M36 透明与容量三件套（I110-I112）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AI + docs/10 §M36）：I110 跨项目动态流（`GET /portfolio/activity` _visible 裁剪 + 事件白名单 + 「📰 项目动态」页——OpenProject My activity 语义，事件溯源红利第七例）/ I111 个人 Availability 休假（user_time_off_* 事件 + 投影表 + workload「🏖 休假中」+ my/schedule 休假条——Taiga 容量痛点/Jira PTO 插件语义）/ I112 S 曲线扩展+收尾（AC 第三线 spent 重放 + `?compare=` 多基线 PV 并列——MS Project 原生缺失的免费叠图）+ docs/12 §33 + 冒烟 42；审阅全量 **274** 绿 + 冒烟 42 GREEN + 审阅即修 1 处（动态流评论行标题空补 item_id 0e1000a；附录 B）；休假自动转派/IMAP 多项目路由/动态 RSS 留 backlog |
 | **M37 通道收尾三件套（I113-I115）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-06 | 3 迭代 / 约 9 人日（docs/01 §AJ + docs/10 §M37）：I113 IMAP 主题路由（`[项目名]` 前缀 → 成员项目优先/非成员落默认——Jira Split Regex 轻量版）/ I114 邮件回复转评论（In-Reply-To + imap_seen 归属 → 回复发评论不建任务——Jira replies-become-comments 语义）/ I115 动态流 Atom 订阅+收尾（`/portfolio/activity.atom?key=` feed_key 认证 + 手写 Atom XML——M11 全局活动版）+ docs/12 §34 + 冒烟 43；审阅全量 **277** 绿 + 冒烟 43 GREEN + 审阅即修 0 处（附录 B）；休假自动转派/subject 正则全量路由/退信模板留 backlog |
 | **M38 层级与代位三件套（I116-I118）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AK + docs/10 §M38）：I116 多级进度 rollup（weightedProgress estimate_hours 加权沿 parent 链逐级上卷——Jira Plans 逐级加权语义，I102 单层升维）/ I117 休假代理转派（time_off 加 delegate + sweep 首日转派/末日转回 + item.assigned 审计——Jira KB 转派/转回语义）/ I118 负载超载标记+收尾（workload `overloaded` 阈值徽标——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44；审阅全量 **286** 绿（一次偶发失败未在连续 3 次全量复现；附录 B）+ 冒烟 44 GREEN + 审阅即修 1 处（⟳ 手动扫描 force 4820567；附录 B）；subject 正则全量路由/退信模板/自动 leveling[明确不做]留 backlog |
+| **M39 节奏与预测三件套（I119-I121）** | 进行中（定义已出） | 2026-09-14 | — | 3 迭代 / 约 9 人日（docs/01 §AL + docs/10 §M39）：I119 Cycles 迭代最小面（cycle 事件+投影+看板过滤+sweep 显式结转 carryover——Plane Cycles/OpenProject 17.3 Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（MAILER-DAEMON 退信→email_notify 停投可恢复 + 忽略地址关键词清单——Jira suppression list 语义）/ I121 完成日预测+收尾（done 首达重放 4 周速率中位数外推 + 诚实 None + 报表预测卡——velocity chart 语义，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45 + M39 审阅；subject 正则全量路由/自动 leveling/digest 邮件留 backlog |
+| I119 Cycles 迭代最小面 | 待开始 | 2026-09-14 | — | cycle 域事件（created/updated/cancelled + 投影表进 drop 清单）+ 工作项 cycle_id 挂载 + 看板「周期」过滤下拉 + sweep 周期结束次日未完成项改挂下一周期 emit cycle.carried_over[payload 记 from/to、只动归属不碰 start/due]；单测（CRUD/挂载/结转审计/不碰日期/rebuild） |
+| I120 退信静默与邮件过滤 | 待开始 | 2026-09-14 | — | imap_in 轮询识别 MAILER-DAEMON/POSTMASTER 退信 → 解析原始收件人 → email_notify 自动停投（事件审计）+ 设置页恢复投递 + config 忽略地址/关键词清单[命中即 ignore 留痕]；单测（退信静默/恢复/过滤命中/普通邮件不受影响/rebuild） |
+| I121 完成日预测+冒烟 45+收尾 | 待开始 | 2026-09-14 | — | `GET /projects/{id}/forecast`（done 首达重放近 4 周周完成中位数为速率 → 预计完成日 + due 风险标记；<2 周诚实 null）+ 报表「🔮 完成预测」卡；docs/12 §36；**新增冒烟 45**（结转/退信静默 roundtrip/预测手算 + rebuild）+ M39 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I116 多级进度 rollup | 已完成 | 2026-09-06 | 2026-09-14 | rollup.ts `weightedProgress`：直接子级按 estimate_hours **加权**完成度沿 parent 链逐级上卷（孙→子→父，Jira Plans/%Work Complete 口径）、无估算回退 1.0 与 I106 同口径、fractionOf 递归 MAX_ROLLUP_DEPTH=10 防环超深降级、rollupCounts **迭代式**显式栈+visited 环防护（计数无深度损失——首版递归截断第 14 层被测试当场揪出）、叶子不进结果；看板卡片+列表视图「🧩」徽标升 `percent% · done/total`（满 100% 转绿）+ 时间线父条形同口径；vitest +5 共 **14** 项（三层链 80% 手算/权重 67%/回退 50%/深链+真环防御/parents only）+ build 绿 |
 | I117 休假代理转派 | 已完成 | 2026-09-06 | 2026-09-14 | time_off 可选 delegate[自指/非同项目成员 422——代理必须与休假人共享项目否则看不到工作] + sweep `_delegate_time_off`：**首日**把休假人活跃未完成任务转给代理人[仅限共享项目 JOIN project_members、done/归档不动、payload 记 original_assignee+delegate_off]、**末日**按 delegate_off 事件标记转回原人[不劫持代理人自有任务、仅当仍在代理人手上]——双向都是普通 item.assigned 事件：被转派人通知零改动、全程审计；幂等=「当前指派方=预期侧」构造性保证[force 重扫 no-op、休假期间人工改派永不被覆盖]；user_time_off.delegate 存量 ALTER 迁移 + 设置页休假卡代理人输入/chip；test_time_off_delegate **5** 项（422 矩阵/首日共享活跃+通知+幂等/末日转回/无 delegate no-op/rebuild 重放）+ build/vitest 绿 |
 | I118 负载超载标记+冒烟 44+收尾 | 已完成 | 2026-09-06 | 2026-09-14 | config `workload_overload_threshold` 默认 5 + workload 端点 `overloaded`[active 严格大于阈值]与 `overload_threshold` 响应字段——**检测式解法**：MS Project 自动 leveling 反模式[推出关键路径]明确不做，透明标记人工均衡（与 I104 手排期零感知同哲学）；负载页红色「⚠ 超载」徽标与 🏖 并列；test_workload_overload_flag（默认阈值触发/不触发/改 2 翻转）；docs/12 §35 收尾；**冒烟 44**（三层链数据契约/转派转回+payload+通知+幂等/超载标记 + rebuild 重放）——冒烟基线 **44** GREEN |
@@ -1743,6 +1775,7 @@ agent-project-management/
 | 2026-09-14 | I118 | 超载语义选「**严格大于**阈值」而非「大于等于」——阈值 5 的直觉读法是「5 项正常、第 6 项起超载」，边界语义写进 docstring 防后来者"顺手"改成 ≥。徽标放 on_leave **同一循环**赋值而非再扫一遍——members 列表已是过滤后的最终集，两次循环纯浪费。冒烟 44 的 rollup 段只验**数据契约**（parent_id/status_group/estimate_hours 经 API 完整可达）而非加权算术——算术在 vitest 里已三层手算覆盖，冒烟重复断言只会造出第二份会漂移的 80%。 |
 | 2026-09-14 | M38 审阅时修 | test_timelog 时间炸弹：硬编码 `spent_on="2026-09-01"` 同时踩两个日期窗——/my/work 的 **ISO 周窗**（09-06 周日还本周、09-14 周一即 0≠60）与 timelog_report 的 **14 天滚动窗**（首修只挪 b1 到今日又暴露 by_day 120≠180，因为 09-01/09-02 两周后也会滑出）。终修=三个造数日期全部锚定**服务器 UTC 今日**动态推算（reports._now 同源）——「测试造数的日期假设必须与被测窗口同源」是 I104 周一网格范式的窗口径版本。修后连续 3 次全量 0 失败；期间一次偶发失败（285+1）用例名因管道截断丢失、未复现，如实存档不加戏。 |
 | 2026-09-14 | M38 正式审阅 | 全量 **pytest 286** + 冒烟 **44** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m38-review-1~4）。**审阅即修 1 处（4820567）**：⟳ 手动扫描改 force:true——ticker 生产默认开，起服即扫当日心跳，此后人工点「手动扫描」被幂等静默跳过（swept:false toast「今日已扫描过」）——M34 复演就现场撞过 ticker 抢跑，M32 竞态同族第三验；心跳防重是为自动 ticker 设计的，人工显式意图应越过。复演路径因此全通：登记带代理 → 强扫 toast「转派 8 项」→ 看板指派变代理人 → 负载页 ⚠/🏖 并列。console 403 核对=IntakePanel owner-only 403（I99 既有边界），C 级观察入附录 C。 |
+| 2026-09-14 | M39 定义 | 新一轮三路并行调研（防重查：候选池 grep——subject 正则全量路由[§AJ.1 已有前缀版落地]/退信处理·邮件过滤[§AJ.1 仅一句提及]/Cycles 迭代[M27 §Z 留 backlog]，后两者无完整调研记录）：①**Cycles 迭代时间盒**——Plane Cycles「设定周期专注完成」自带燃尽+**未完成自动结转**（Plane Docs/vs OpenProject 博客），OpenProject 17.3 把 **Sprints 从 Versions 拆出**成独立概念、社区明言「sprint 不是改名的 version」——**迭代（时间盒）≠版本（发布点）**（r/openproject/17.3 发布/agile 页）→ AgentPM 有 milestone（发布点）无迭代时间盒：最小 Cycles 面=cycle 事件+投影+项挂 cycle_id+看板过滤+sweep 结束次日显式结转 carryover[只动归属不碰日期，与 I117/I118 检测式哲学一致]；②**退信静默与过滤**——Jira/JSM 退信进**抑制名单停止再投**、清除需人工（Atlassian KB/bounce list 两篇），ServiceNow 同构监视退信地址，标准退信发件人 **MAILER-DAEMON@/POSTMASTER@**（SuiteCRM），Redmine `--unknown-user=ignore` 即忽略式过滤（I107 已采）→ 复用 I107 轮询接缝：退信→解析原始收件人→email_notify 停投[站内照常、可恢复]+可配忽略地址/关键词清单——通道族闭环「进得来、回得去、坏地址停得掉」；③**完成日预测**——Jira velocity chart「平均完成量预测消化剩余工作速度」（官方），开源 **jira-agile-velocity** 周速率外推完成日（fgerthoffert），GitHub Projects 原生缺图（Discussion #38840），社区 committed vs completed 口径漂移不满 → 预测口径必须**单一且可解释**：done 首达重放[I85/I106 同口径]算近 4 周周完成**中位数**外推完成日+due 风险标记，<2 周诚实 None（SPI 先例）——纯投影零新表（事件溯源红利第八例）。选定 **M39 = 节奏与预测三件套**：I119 Cycles 迭代最小面 / I120 退信静默与邮件过滤 / I121 完成日预测+收尾 + docs/12 §36 + 冒烟 45 予 I121 + 审阅，估计 +9 人日。结论入 docs/01 §AL。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 
