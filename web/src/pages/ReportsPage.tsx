@@ -149,9 +149,74 @@ export function ReportsPage() {
       {/* completion forecast (M39-I121): velocity median extrapolation */}
       <ForecastCard pid={pid} />
 
+      {/* cycle burndown (M41-I125): remaining vs total-scope stair line */}
+      <CycleBurndownCard pid={pid} />
+
       {/* cost & budget (M40-I122): minutes × rate, burn ratio */}
       <CostCard pid={pid} />
     </div>
+  );
+}
+
+function CycleBurndownCard({ pid }: { pid: string }) {
+  const cycles = useQuery({ queryKey: ["cycles", pid], queryFn: () => api.listCycles(pid!) });
+  const [cid, setCid] = useState("");
+  const bd = useQuery({
+    queryKey: ["cycle-burndown", cid],
+    queryFn: () => api.getCycleBurndown(cid!),
+    enabled: !!cid,
+  });
+  const s = bd.data?.series ?? [];
+  const n = Math.max(s.length - 1, 1);
+  const maxV = Math.max(1, ...s.map((p) => Math.max(p.total, p.remaining)));
+  const pt = (arr: { date: string; remaining: number }[]) =>
+    arr.map((p, i) => {
+      const idx = s.findIndex((x) => x.date === p.date);
+      const x = (idx >= 0 ? idx : i) / n * 100;
+      return `${x.toFixed(1)},${(3 + (1 - p.remaining / maxV) * 80).toFixed(1)}`;
+    }).join(" ");
+  const remainingPts = s.map((p, i) =>
+    `${(i / n * 100).toFixed(1)},${(3 + (1 - p.remaining / maxV) * 80).toFixed(1)}`).join(" ");
+  const totalPts = s.map((p, i) =>
+    `${(i / n * 100).toFixed(1)},${(3 + (1 - p.total / maxV) * 80).toFixed(1)}`).join(" ");
+
+  return (
+    <Card className="col-span-1 p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">🔁 周期燃尽</span>
+        <select value={cid} onChange={(e) => setCid(e.target.value)}
+          className="ml-auto rounded-md border border-line bg-bg px-2 py-1 text-xs">
+          <option value="">（选周期）</option>
+          {(cycles.data?.cycles ?? []).map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      {!cid && <div className="text-xs text-mut">选一个周期看燃尽与范围线</div>}
+      {cid && bd.isLoading && <div className="text-xs text-mut">加载中…</div>}
+      {cid && s.length > 0 && (
+        <>
+          <svg viewBox="0 0 100 86" className="h-40 w-full" preserveAspectRatio="none">
+            <polyline points={pt(bd.data!.ideal)} fill="none" stroke="#94a3b8"
+              strokeWidth="1" strokeDasharray="2 2" />
+            <polyline points={totalPts} fill="none" stroke="#f59e0b"
+              strokeWidth="1.5" strokeDasharray="3 2" />
+            <polyline points={remainingPts} fill="none" stroke="#22c55e" strokeWidth="2" />
+          </svg>
+          <div className="mt-1 flex gap-3 text-[10px] text-mut">
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-green-500" />剩余</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-500" />总范围（加塞会上抬）</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-400" />理想节奏</span>
+          </div>
+          <div className="mt-1 text-[10px] text-mut">
+            末点：范围 {s[s.length - 1].total} · 剩余 {s[s.length - 1].remaining}
+          </div>
+        </>
+      )}
+      {cid && !bd.isLoading && s.length === 0 && (
+        <div className="text-xs text-mut">该周期还没有任何挂载记录</div>
+      )}
+    </Card>
   );
 }
 

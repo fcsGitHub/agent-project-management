@@ -147,6 +147,80 @@ def cancel_cycle(cycle_id: str) -> dict:
     return {"cancelled": cycle_id}
 
 
+# ---------------------------------------------------------------- burndown
+@router.get("/cycles/{cycle_id}/burndown")
+def cycle_burndown(cycle_id: str) -> dict:
+    """M41-I125 (docs/01 §AN.1, Plane Cycles burndown + Jira burnup lesson): a
+    burndown line alone hides scope change — finish 10 items while adding 10
+    and the line sits flat. So this returns the burnup pair: remaining work
+    per day PLUS the total-scope stair line (mounts/unmounts/carryovers all
+    move it). The done first-arrival replay is the same caliber as the
+    milestone burndown (I85). Pure event replay, zero new tables."""
+    import json
+
+    from datetime import date as _date, datetime as _datetime, timedelta as _timedelta
+
+    c = require_cycle(cycle_id)
+    conn = db.get_conn()
+    today = events.utcnow()[:10]
+
+    # single ordered replay: scope transitions (item.updated cycle_id) and
+    # resolution dates (first done/cancelled per item)
+    scope_events: dict[str, list[tuple[str, bool]]] = {}
+    resolved: dict[str, str] = {}
+    for e in conn.execute(
+        "SELECT agg_id, event_type, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type IN ('item.updated','item.status_changed')"
+        " ORDER BY id", (c["project_id"],),
+    ).fetchall():
+        if e["event_type"] == "item.updated":
+            p = json.loads(e["payload"])
+            if "cycle_id" in p:
+                scope_events.setdefault(e["agg_id"], []).append(
+                    (e["ts"][:10], p["cycle_id"] == cycle_id))
+        else:
+            if e["agg_id"] not in resolved:
+                p = json.loads(e["payload"])
+                if p.get("status_group") in ("done", "cancelled"):
+                    resolved[e["agg_id"]] = e["ts"][:10]
+
+    def in_scope_on(iid: str, day: str) -> bool:
+        state = False
+        for d, inside in scope_events.get(iid, []):
+            if d <= day:
+                state = inside
+        return state
+
+    def resolved_by(iid: str, day: str) -> bool:
+        d = resolved.get(iid)
+        return bool(d and d <= day)
+
+    all_items = set(scope_events) | set(resolved)
+    start = _date.fromisoformat(c["start_date"])
+    end = _date.fromisoformat(c["end_date"])
+    last = min(_date.fromisoformat(today), end)
+    series = []
+    if last >= start:
+        for i in range((last - start).days + 1):
+            day = (start + _timedelta(days=i)).isoformat()
+            in_scope = [iid for iid in all_items if in_scope_on(iid, day)]
+            remaining = sum(1 for iid in in_scope if not resolved_by(iid, day))
+            series.append({"date": day, "total": len(in_scope), "remaining": remaining})
+    window = (end - start).days
+    # ideal anchors at the first day anything was in scope (the commitment),
+    # not at the window start — a cycle whose items all arrive late still gets
+    # a meaningful pace line
+    initial_total = next((s["total"] for s in series if s["total"] > 0), 0)
+    ideal = [
+        {"date": (start + _timedelta(days=i)).isoformat(),
+         "remaining": round(initial_total * (1 - i / max(window, 1)))}
+        for i in range(window + 1)
+    ]
+    return {"cycle_id": cycle_id, "name": c["name"], "start": c["start_date"],
+            "end": c["end_date"], "series": series, "ideal": ideal,
+            "generated_at": events.utcnow()}
+
+
 # ---------------------------------------------------------------- sweep hook
 def carryover_finished_cycles(conn, today: str) -> int:
     """The day after a cycle ends, its unfinished items move to the project's

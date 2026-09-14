@@ -728,6 +728,14 @@ export const api = {
   removeAttachment: (itemId: string, attachmentId: string) =>
     req<{ removed: string }>(`/items/${itemId}/attachments/${attachmentId}`, { method: "DELETE" }),
   attachmentDownloadUrl: (itemId: string, attachmentId: string) => `${BASE}/items/${itemId}/attachments/${attachmentId}`,
+  // M41-I125: cycle burndown + burnup scope line (I85 replay caliber)
+  getCycleBurndown: (cycleId: string) =>
+    req<{
+      cycle_id: string; name: string; start: string; end: string;
+      series: { date: string; total: number; remaining: number }[];
+      ideal: { date: string; remaining: number }[];
+      generated_at: string;
+    }>(`/cycles/${cycleId}/burndown`),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
