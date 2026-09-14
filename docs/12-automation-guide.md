@@ -734,6 +734,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：命中用户且其邮件通道仍开 → `email_notify` 置 0（routed=`suppress`）——**站内通知不受影响**，恢复=用户自己拨既有邮件开关（POST /notifications/prefs，与 M11 运行态同族）；未知收件人/通道已关 → routed=`bounce` 诚实无操作。入站过滤 `imap_ignore_addresses`（精确地址或 @域名后缀）与 `imap_ignore_keywords`（标题关键词，大小写不敏感）逗号分隔、命中即 routed=`ignored` 留痕；普通邮件路由零影响。全部走 `imap.message_processed` 事件审计（rebuild 存活）。
 - **测试**：test_mail_bounce 3 项（退信停投+站内照常+恢复+审计 rebuild/未知与正文引述与已关幂等/三种过滤命中+正常来信不受影响）。
 
+### 36.3 完成日预测（I121）
+
+- **语义**（Jira velocity chart + jira-agile-velocity，docs/01 §AL.3）：完成预测 = 近期吞吐外推——速率取**最近完整 ISO 周的周完成数中位数**（中位数抗单周毛刺；Jira committed vs completed 口径漂移的社区不满提示口径必须单一可解释），剩余活跃项 ÷ 速率 = 预计完成日。`GET /projects/{id}/forecast` 纯事件重放零新表（**事件溯源红利第八例**）。
+- **实现**：done 首达重放与 I85 燃尽/I106 EV 同口径（逐项最早 done、按事件 id 序）；周桶=今天往前最多 4 个完整周一至周日、须全部落在项目史内（`MIN(events.ts)` 判史深）；`<2` 个完整周 → `forecast:null, reason:"insufficient history"`、速率 0 → `"no completion velocity"`、无活跃项 → `"no active items"`（SPI 诚实 None 先例）。逐项风险：按 due 升序第 k 项预计完成日 `ceil((k+1)/rate*7)`，due 早于它即 at_risk（速度配不上期限的诚实清单）。报表「🔮 完成预测」卡：速率徽标 + 周完成柱 + 预计日期 + 风险行。
+- **测试**：test_forecast 3 项（新项目 insufficient null/回填两周完成史 median(3,1)=2 外推手算+at_risk+rebuild 相等[仅 generated_at 漂移]/零速率诚实 null）；**冒烟 45** 三段 roundtrip + rebuild（结转事实/退信 suppress 审计+运行态重置/预测手算）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
