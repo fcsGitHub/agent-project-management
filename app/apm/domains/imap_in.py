@@ -80,6 +80,8 @@ def _fetch_messages() -> list[dict]:
                 "body": body.strip()[:2000],
                 "in_reply_to": str(msg.get("In-Reply-To") or "").strip(),
                 "references": str(msg.get("References") or "").strip(),
+                # I120: Exim/qmail-style bounce header quoting the failed recipient
+                "x_failed_recipients": " ".join(msg.get_all("X-Failed-Recipients") or []),
             })
             client.store(num, "+FLAGS", "\\Seen")
         return out
@@ -197,11 +199,31 @@ def poll_inbox() -> dict:
         ).fetchone():
             continue
 
+        normalized = email.utils.parseaddr(msg.get("from") or "")[1].lower()
+
+        # I120: bounces flip the failed recipient's email channel off; filter
+        # hits are silently ignored; both keep the message_processed audit.
+        if _is_bounce(msg):
+            result = _process_bounce(conn, msg)
+        else:
+            why = _ignored(conn, msg)
+            result = {"routed": "ignored", "reason": why} if why else None
+        if result is not None:
+            events.emit(
+                event_type="imap.message_processed", agg_type="imap_message",
+                agg_id=message_id, project_id=result.get("project_id", ""),
+                actor_type="automation", actor_id="imap",
+                payload={"message_id": message_id, "from_email": normalized,
+                         "subject": msg.get("subject"), **result},
+            )
+            processed += 1
+            continue
+
         # I114: a reply in a known thread becomes a comment on that item —
         # never a new task (Jira replies-become-comments semantics)
         thread = _find_thread_item(conn, msg)
         if thread is not None:
-            from_email = email.utils.parseaddr(msg.get("from") or "")[1].lower()
+            from_email = normalized
             sender = conn.execute(
                 "SELECT id, name FROM users WHERE LOWER(COALESCE(email, '')) = ?",
                 (from_email,)).fetchone()
@@ -227,7 +249,6 @@ def poll_inbox() -> dict:
             continue
 
         result = _route_message(conn, msg)
-        normalized = email.utils.parseaddr(msg.get("from") or "")[1].lower()
         events.emit(
             event_type="imap.message_processed", agg_type="imap_message",
             agg_id=message_id, project_id=result.get("project_id", ""),
@@ -237,6 +258,75 @@ def poll_inbox() -> dict:
         )
         processed += 1
     return {"enabled": True, "processed": processed}
+
+
+# ---------------------------------------------------------------- bounce & filters
+_ADDR = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
+
+
+def _is_bounce(msg: dict) -> bool:
+    """I120 (docs/01 §AL.2, the standard bounce-sender convention): delivery
+    failure notices come from MAILER-DAEMON or POSTMASTER. Only the sender's
+    local part must match — the domain varies (mailer-daemon@yahoo.com …)."""
+    addr = email.utils.parseaddr(msg.get("from") or "")[1].lower()
+    return addr.split("@", 1)[0] in ("mailer-daemon", "postmaster")
+
+
+def _bounce_recipient(msg: dict) -> str | None:
+    """The addressee the original mail failed for: the X-Failed-Recipients
+    header when present, else the first plausible address quoted in the body
+    (never the mailbox itself)."""
+    from apm import config
+
+    own = (config.settings.imap_user or "").lower()
+    m = _ADDR.search(msg.get("x_failed_recipients") or "")
+    if m and m.group(0).lower() != own:
+        return m.group(0).lower()
+    for m in _ADDR.finditer(msg.get("body") or ""):
+        if m.group(0).lower() != own:
+            return m.group(0).lower()
+    return None
+
+
+def _ignored(conn, msg: dict) -> str | None:
+    """I120 inbound filters — comma-separated addresses (exact or @domain),
+    and subject keywords. A hit means silently ignore, Redmine
+    --unknown-user=ignore style; the message_processed event records why."""
+    from apm import config
+
+    from_email = email.utils.parseaddr(msg.get("from") or "")[1].lower()
+    for entry in (config.settings.imap_ignore_addresses or "").split(","):
+        entry = entry.strip().lower()
+        if not entry:
+            continue
+        if from_email == entry or (entry.startswith("@") and from_email.endswith(entry)):
+            return f"ignored address {entry}"
+    subject = (msg.get("subject") or "").lower()
+    for kw in (config.settings.imap_ignore_keywords or "").split(","):
+        kw = kw.strip().lower()
+        if kw and kw in subject:
+            return f"ignored keyword '{kw}'"
+    return None
+
+
+def _process_bounce(conn, msg: dict) -> dict:
+    """A delivery failure for one of our users flips their email channel off —
+    the suppression-list semantics of keeping a dead address on a list being
+    spamming them forever. In-app notifications are untouched; the user turns
+    the channel back on via the regular email toggle (runtime preference, same
+    family as POST /notifications/prefs). routed=suppress means we acted,
+    routed=bounce means nothing to do (unknown or already-off recipient)."""
+    rcpt = _bounce_recipient(msg)
+    row = conn.execute(
+        "SELECT id, email_notify FROM users WHERE LOWER(COALESCE(email, '')) = ?",
+        (rcpt or "",)).fetchone()
+    if row is not None and row["email_notify"]:
+        conn.execute(
+            "UPDATE users SET email_notify = 0, updated_at = ? WHERE id = ?",
+            (events.utcnow(), row["id"]))
+        conn.commit()
+        return {"routed": "suppress", "recipient": rcpt, "user_id": row["id"]}
+    return {"routed": "bounce", "recipient": rcpt}
 
 
 # ---------------------------------------------------------------- admin API

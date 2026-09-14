@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # I118 overload flag on the workload page: strictly more active items than
     # this marks a member 「⚠ 超载」— detection only, never auto-rescheduling.
     workload_overload_threshold: int = 5
+    # I120 inbound-mail filters (comma-separated; a hit means silently ignore,
+    # with the imap.message_processed event as the audit trail).
+    imap_ignore_addresses: str = ""   # exact addresses or @domain suffixes
+    imap_ignore_keywords: str = ""    # subject keywords
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.
