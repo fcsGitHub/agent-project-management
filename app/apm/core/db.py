@@ -106,6 +106,12 @@ def init_db() -> None:
         icols2 = {r["name"] for r in conn.execute("PRAGMA table_info(items)").fetchall()}
         if "archived_at" not in icols2:
             conn.execute("ALTER TABLE items ADD COLUMN archived_at TEXT")
+        # I117: 存量库补 user_time_off.delegate（休假代理转派）。
+        if any(r[0] == "user_time_off" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            toff_cols = {r["name"] for r in conn.execute("PRAGMA table_info(user_time_off)").fetchall()}
+            if "delegate" not in toff_cols:
+                conn.execute("ALTER TABLE user_time_off ADD COLUMN delegate TEXT")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

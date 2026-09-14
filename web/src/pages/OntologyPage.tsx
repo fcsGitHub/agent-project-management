@@ -488,6 +488,7 @@ function TimeOffPanel() {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [reason, setReason] = useState("");
+  const [delegate, setDelegate] = useState("");
   const [busy, setBusy] = useState(false);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["time-off"] });
@@ -496,9 +497,9 @@ function TimeOffPanel() {
     if (!start || !end) return;
     setBusy(true);
     try {
-      await api.addTimeOff(start, end, reason);
+      await api.addTimeOff(start, end, reason, delegate || undefined);
       toast.success("休假已登记");
-      setStart(""); setEnd(""); setReason("");
+      setStart(""); setEnd(""); setReason(""); setDelegate("");
       await invalidate();
     } catch (e) {
       toast.error(`登记失败：${e instanceof Error ? e.message : e}`);
@@ -536,6 +537,9 @@ function TimeOffPanel() {
           className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="原因（如：年假）"
           className="w-32 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+        <input value={delegate} onChange={(e) => setDelegate(e.target.value)} placeholder="代理人（可选，用户 ID）"
+          title="休假期间活跃任务将临时转给该同项目成员，结束后自动转回"
+          className="w-40 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
         <Button size="sm" variant="outline" disabled={busy || !start || !end} onClick={add}>登记休假</Button>
       </div>
       {list.length > 0 && (
@@ -543,7 +547,7 @@ function TimeOffPanel() {
           {list.map((o) => (
             <span key={o.id}
               className="inline-flex items-center gap-1 rounded-full border border-line bg-bg px-2 py-0.5 text-[10px] text-ink">
-              🏖 {o.start_date} ~ {o.end_date}{o.reason ? ` · ${o.reason}` : ""}
+              🏖 {o.start_date} ~ {o.end_date}{o.reason ? ` · ${o.reason}` : ""}{o.delegate ? ` · 代理：${o.delegate}` : ""}
               <button disabled={busy} onClick={() => cancel(o.id)}
                 className="text-mut hover:text-dan" title="取消">✕</button>
             </span>
@@ -552,6 +556,7 @@ function TimeOffPanel() {
       )}
       <div className="mt-1 text-[10px] text-mut">
         登记后负载页会在休假期间给你标「🏖 休假中」，「我的日程」月历也会叠加休假条；日期段重叠会被拒绝。
+        填了代理人时，休假首日的每日扫描会把你的活跃任务临时转给TA（须与你同项目）、末日自动转回，全程留 item.assigned 审计。
       </div>
     </Card>
   );

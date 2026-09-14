@@ -481,9 +481,9 @@ export const api = {
     req<{ deleted: string }>(`/me/saved-replies/${id}`, { method: "DELETE" }),
   // I111: personal time-off stretches (evented; workload & schedule consume)
   listTimeOff: () =>
-    req<{ time_off: { id: string; start_date: string; end_date: string; reason: string | null; cancelled_at: string | null; created_at: string }[] }>("/me/time-off"),
-  addTimeOff: (start_date: string, end_date: string, reason?: string) =>
-    req<{ id: string; start_date: string; end_date: string; reason: string | null }>("/me/time-off", { method: "POST", body: JSON.stringify({ start_date, end_date, reason: reason || null }) }),
+    req<{ time_off: { id: string; start_date: string; end_date: string; delegate: string | null; reason: string | null; cancelled_at: string | null; created_at: string }[] }>("/me/time-off"),
+  addTimeOff: (start_date: string, end_date: string, reason?: string, delegate?: string) =>
+    req<{ id: string; start_date: string; end_date: string; reason: string | null; delegate: string | null }>("/me/time-off", { method: "POST", body: JSON.stringify({ start_date, end_date, reason: reason || null, delegate: delegate || null }) }),
   cancelTimeOff: (id: string) =>
     req<{ cancelled: string }>(`/me/time-off/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>

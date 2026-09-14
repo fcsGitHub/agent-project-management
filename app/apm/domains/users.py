@@ -207,9 +207,10 @@ def delete_saved_reply(reply_id: str) -> dict:
 def _proj_time_off_started(conn, e):
     p = e.payload
     conn.execute(
-        "INSERT INTO user_time_off (id, user_id, start_date, end_date, reason,"
-        " cancelled_at, created_at) VALUES (?,?,?,?,?,NULL,?)",
-        (e.agg_id, p["user_id"], p["start_date"], p["end_date"], p.get("reason"), e.ts),
+        "INSERT INTO user_time_off (id, user_id, start_date, end_date, delegate,"
+        " reason, cancelled_at, created_at) VALUES (?,?,?,?,?,?,NULL,?)",
+        (e.agg_id, p["user_id"], p["start_date"], p["end_date"],
+         p.get("delegate"), p.get("reason"), e.ts),
     )
 
 
@@ -240,12 +241,13 @@ class TimeOffIn(BaseModel):
     start_date: str
     end_date: str
     reason: str | None = None
+    delegate: str | None = None  # I117: stands in during the stretch
 
 
 @router.get("/me/time-off")
 def list_time_off() -> dict:
     rows = db.get_conn().execute(
-        "SELECT id, start_date, end_date, reason, cancelled_at, created_at"
+        "SELECT id, start_date, end_date, delegate, reason, cancelled_at, created_at"
         " FROM user_time_off WHERE user_id = ? ORDER BY start_date",
         (events.effective_actor(),)).fetchall()
     return {"time_off": [dict(r) for r in rows]}
@@ -263,6 +265,18 @@ def add_time_off(body: TimeOffIn) -> dict:
         raise HTTPException(status_code=422, detail="invalid date")
     if end < start:
         raise HTTPException(status_code=422, detail="end_date must not precede start_date")
+    if body.delegate:
+        if body.delegate == user_id:
+            raise HTTPException(status_code=422, detail="cannot delegate to yourself")
+        # I117: the delegate must share at least one project with the vacationer,
+        # otherwise the handoff would land work where the stand-in can't see it.
+        shared = db.get_conn().execute(
+            "SELECT 1 FROM project_members a JOIN project_members b"
+            " ON a.project_id = b.project_id"
+            " WHERE a.user_id = ? AND b.user_id = ? LIMIT 1",
+            (user_id, body.delegate)).fetchone()
+        if shared is None:
+            raise HTTPException(status_code=422, detail="delegate must share a project with you")
     if _overlaps(db.get_conn(), user_id, body.start_date, body.end_date):
         raise HTTPException(status_code=409, detail="overlaps an existing time-off stretch")
     off_id = new_id("off")
@@ -270,10 +284,12 @@ def add_time_off(body: TimeOffIn) -> dict:
         event_type="user.time_off_started", agg_type="time_off", agg_id=off_id,
         actor_type="human", actor_id=user_id,
         payload={"user_id": user_id, "start_date": body.start_date,
-                 "end_date": body.end_date, "reason": body.reason},
+                 "end_date": body.end_date, "reason": body.reason,
+                 "delegate": body.delegate},
     )
     return {"id": off_id, "start_date": body.start_date,
-            "end_date": body.end_date, "reason": body.reason}
+            "end_date": body.end_date, "reason": body.reason,
+            "delegate": body.delegate}
 
 
 @router.delete("/me/time-off/{off_id}")

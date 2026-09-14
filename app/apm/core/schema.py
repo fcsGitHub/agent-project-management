@@ -457,6 +457,7 @@ CREATE TABLE IF NOT EXISTS user_time_off (
   user_id TEXT NOT NULL,
   start_date TEXT NOT NULL,
   end_date TEXT NOT NULL,
+  delegate TEXT,
   reason TEXT,
   cancelled_at TEXT,
   created_at TEXT NOT NULL

@@ -378,6 +378,54 @@ def _notify_due_soon(conn, today: str) -> int:
     return notified
 
 
+def _delegate_time_off(conn, today: str) -> int:
+    """I117 (docs/01 §AK.2, Atlassian "on leave until" automation): on the
+    first day of a delegated time-off stretch the vacationer's active items in
+    shared projects move to the delegate; on the last day they move back. Both
+    moves are plain `item.assigned` events — the payload records
+    original_assignee/delegate_off for the audit trail, the assignee
+    notification fires through the existing channel. Idempotent by
+    construction: each move only fires while the current assignee still
+    matches the expected side, so force re-sweeps are no-ops and manual
+    re-assignments during the stretch are never yanked."""
+    moved = 0
+    for off in conn.execute(
+            "SELECT * FROM user_time_off WHERE delegate IS NOT NULL"
+            " AND cancelled_at IS NULL AND ? IN (start_date, end_date)",
+            (today,)).fetchall():
+        first_day = today == off["start_date"]
+        if first_day:
+            rows = conn.execute(
+                "SELECT i.id, i.project_id FROM items i"
+                " JOIN project_members pm ON pm.project_id = i.project_id AND pm.user_id = ?"
+                " WHERE i.assignee_id = ? AND i.status_group NOT IN ('done','cancelled')"
+                " AND i.archived_at IS NULL",
+                (off["delegate"], off["user_id"])).fetchall()
+            extra = {"original_assignee": off["user_id"], "delegate_off": off["id"]}
+        else:
+            # move back only what this stretch delegated — identified by the
+            # delegate_off marker on the first-day events, and only while the
+            # item still sits with the delegate
+            rows = conn.execute(
+                "SELECT DISTINCT e.agg_id AS id, i.project_id FROM events e"
+                " JOIN items i ON i.id = e.agg_id"
+                " WHERE e.event_type = 'item.assigned'"
+                " AND json_extract(e.payload, '$.delegate_off') = ?"
+                " AND i.assignee_id = ?",
+                (off["id"], off["delegate"])).fetchall()
+            extra = {"delegate_off": off["id"]}
+        for r in rows:
+            events.emit(
+                event_type="item.assigned", agg_type="item", agg_id=r["id"],
+                project_id=r["project_id"], actor_type="automation", actor_id="scheduler",
+                payload={"assignee_type": "human",
+                         "assignee_id": off["delegate"] if first_day else off["user_id"],
+                         **extra},
+            )
+            moved += 1
+    return moved
+
+
 def run_daily_sweep(force: bool = False) -> dict:
     """I98 (docs/01 §AE.1, YouTrack On-schedule semantics): evaluate every
     enabled `schedule:daily` rule once per day. Idempotency is a fact of the
@@ -390,9 +438,10 @@ def run_daily_sweep(force: bool = False) -> dict:
             "SELECT 1 FROM events WHERE event_type = 'automation.swept'"
             " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
         if seen:
-            return {"swept": False, "date": today, "fired": 0, "created": 0, "notified": 0}
+            return {"swept": False, "date": today, "fired": 0, "created": 0,
+                    "notified": 0, "delegated": 0}
 
-    fired = created = notified = 0
+    fired = created = notified = delegated = 0
     rules = conn.execute(
         "SELECT * FROM automation_rules WHERE trigger_event = ? AND enabled = 1",
         (SCHEDULE_TRIGGER,)).fetchall()
@@ -423,13 +472,15 @@ def run_daily_sweep(force: bool = False) -> dict:
                      "sweep_date": today, "result": result},
         )
     notified += _notify_due_soon(conn, today)
+    delegated += _delegate_time_off(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
-        payload={"date": today, "fired": fired, "created": created, "notified": notified},
+        payload={"date": today, "fired": fired, "created": created,
+                 "notified": notified, "delegated": delegated},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
-            "notified": notified}
+            "notified": notified, "delegated": delegated}
 
 
 def _scheduler_loop() -> None:
