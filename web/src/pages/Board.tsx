@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { isTypingTarget } from "../lib/shortcuts";
-import { subtaskProgress } from "../lib/rollup";
+import { weightedProgress } from "../lib/rollup";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
@@ -129,8 +129,8 @@ export function Board() {
   // M24-I74: hierarchy — parent titles, collapsible tree rows, descendant scope
   const allItems = useMemo(() => (board.data?.buckets ?? []).flatMap((b) => b.items), [board.data]);
   const titleMap = useMemo(() => Object.fromEntries(allItems.map((i) => [i.id, i.title])) as Record<string, string>, [allItems]);
-  // I102: per-parent subtask progress (GitHub sub-issue progress semantics)
-  const subProgress = useMemo(() => subtaskProgress(allItems), [allItems]);
+  // I102/I116: per-parent weighted progress (estimate_hours, recursive roll-up)
+  const wpProgress = useMemo(() => weightedProgress(allItems), [allItems]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [scopeDesc, setScopeDesc] = useState<{ id: string; title: string } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -591,9 +591,9 @@ export function Board() {
                                 }}>{collapsed.has(item.id) ? "▸" : "▾"}</button>
                             ) : <span className="w-3" />}
                             <span className="font-medium">{item.title}</span>
-                            {subProgress.get(item.id) && (
-                              <span className="text-[10px] text-mut" title="子任务完成进度">
-                                🧩 {subProgress.get(item.id)!.done}/{subProgress.get(item.id)!.total}
+                            {wpProgress.get(item.id) && (
+                              <span className="text-[10px] text-mut" title="子任务加权进度（estimate_hours 逐级上卷）">
+                                🧩 {wpProgress.get(item.id)!.percent}% · {wpProgress.get(item.id)!.done}/{wpProgress.get(item.id)!.total}
                               </span>
                             )}
                             <button title="添加子任务" className="text-[10px] text-mut hover:text-acc"
@@ -700,10 +700,10 @@ export function Board() {
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
                             {item.priority === "high" && <Badge tone="red">高优</Badge>}
-                            {subProgress.get(item.id) && (
-                              <Badge tone={subProgress.get(item.id)!.done === subProgress.get(item.id)!.total ? "green" : "neutral"}
-                                title="子任务完成进度">
-                                🧩 {subProgress.get(item.id)!.done}/{subProgress.get(item.id)!.total}
+                            {wpProgress.get(item.id) && (
+                              <Badge tone={wpProgress.get(item.id)!.percent >= 100 ? "green" : "neutral"}
+                                title="子任务加权完成进度（estimate_hours 加权，逐级上卷）">
+                                🧩 {wpProgress.get(item.id)!.percent}% · {wpProgress.get(item.id)!.done}/{wpProgress.get(item.id)!.total}
                               </Badge>
                             )}
                             {item.assignee_id && (
