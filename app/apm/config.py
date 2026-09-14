@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     imap_ignore_keywords: str = ""    # subject keywords
     # I123 item attachments: per-file size ceiling in MB (Redmine/Jira-DC style).
     attachment_max_mb: int = 10
+    # I126 approval reminder: gates pending longer than this get an owner
+    # nudge from the daily sweep (ServiceNow timer→reminder semantics).
+    approval_reminder_days: int = 3
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.

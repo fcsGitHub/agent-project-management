@@ -71,7 +71,9 @@ def test_matrix_shape_defaults_all_on(client, tmp_data, isolated_ontologies, pro
     body = client.get("/api/me/notification-prefs").json()
     assert body["email_enabled"] is True
     kinds = {k["kind"]: k for k in body["kinds"]}
-    assert set(kinds) == {"assigned", "approval", "comment", "item", "mention", "due_soon"}
+    # I126 joins approval_reminder as the seventh kind
+    assert set(kinds) == {"assigned", "approval", "comment", "item", "mention",
+                          "due_soon", "approval_reminder"}
     assert all(k["inapp"] and k["email"] for k in kinds.values())
 
 

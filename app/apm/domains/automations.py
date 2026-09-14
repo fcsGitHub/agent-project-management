@@ -426,6 +426,43 @@ def _delegate_time_off(conn, today: str) -> int:
     return moved
 
 
+def _remind_pending_approvals(conn, today: str) -> int:
+    """I126 (docs/01 §AN.2, ServiceNow timer→reminder semantics): gate
+    approvals pending longer than approval_reminder_days get an owner nudge —
+    one `approval.pending_reminded` per approval per day (event-stream
+    idempotent, same shape as the due_soon reminder); decided approvals and
+    rows without a project are out of scope."""
+    from datetime import date as _date, timedelta as _timedelta
+
+    from apm import config
+
+    window = max(1, config.settings.approval_reminder_days)
+    cutoff = (_date.fromisoformat(today) - _timedelta(days=window)).isoformat()
+    rows = conn.execute(
+        "SELECT id, project_id, kind, requested_at FROM approvals"
+        " WHERE status = 'pending' AND requested_at IS NOT NULL"
+        " AND project_id != '' AND substr(requested_at, 1, 10) <= ?",
+        (cutoff,)).fetchall()
+    reminded = 0
+    for r in rows:
+        already = conn.execute(
+            "SELECT 1 FROM events WHERE event_type = 'approval.pending_reminded'"
+            " AND agg_id = ? AND substr(ts, 1, 10) = ? LIMIT 1",
+            (r["id"], today)).fetchone()
+        if already:
+            continue
+        days = (_date.fromisoformat(today)
+                - _date.fromisoformat(r["requested_at"][:10])).days
+        events.emit(
+            event_type="approval.pending_reminded", agg_type="approval", agg_id=r["id"],
+            project_id=r["project_id"], actor_type="automation", actor_id="scheduler",
+            payload={"kind": r["kind"], "requested_at": r["requested_at"][:10],
+                     "days_pending": days},
+        )
+        reminded += 1
+    return reminded
+
+
 def run_daily_sweep(force: bool = False) -> dict:
     """I98 (docs/01 §AE.1, YouTrack On-schedule semantics): evaluate every
     enabled `schedule:daily` rule once per day. Idempotency is a fact of the
@@ -439,9 +476,9 @@ def run_daily_sweep(force: bool = False) -> dict:
             " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
         if seen:
             return {"swept": False, "date": today, "fired": 0, "created": 0,
-                    "notified": 0, "delegated": 0, "carried": 0}
+                    "notified": 0, "delegated": 0, "carried": 0, "reminded": 0}
 
-    fired = created = notified = delegated = 0
+    fired = created = notified = delegated = carried = reminded = 0
     rules = conn.execute(
         "SELECT * FROM automation_rules WHERE trigger_event = ? AND enabled = 1",
         (SCHEDULE_TRIGGER,)).fetchall()
@@ -476,14 +513,17 @@ def run_daily_sweep(force: bool = False) -> dict:
     carried = 0
     from apm.domains.cycles import carryover_finished_cycles
     carried += carryover_finished_cycles(conn, today)
+    reminded += _remind_pending_approvals(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
         payload={"date": today, "fired": fired, "created": created,
-                 "notified": notified, "delegated": delegated, "carried": carried},
+                 "notified": notified, "delegated": delegated, "carried": carried,
+                 "reminded": reminded},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
-            "notified": notified, "delegated": delegated, "carried": carried}
+            "notified": notified, "delegated": delegated, "carried": carried,
+            "reminded": reminded}
 
 
 def _scheduler_loop() -> None:

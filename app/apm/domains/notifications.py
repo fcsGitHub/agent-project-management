@@ -24,6 +24,7 @@ router = APIRouter(tags=["notifications"])
 NOTIFY_EVENTS = (
     "item.assigned", "approval.requested", "notification.sent",
     "comment.created", "item.status_changed", "item.due_soon_notified",
+    "approval.pending_reminded",
 )
 
 # I96 (docs/01 §AD.2, GitLab Custom level): per-kind delivery gates. mention is
@@ -35,6 +36,7 @@ NOTIFY_KINDS: dict[str, str] = {
     "item": "参与项状态变更",
     "mention": "@提及",
     "due_soon": "临近截止提醒",
+    "approval_reminder": "审批超时提醒",
 }
 
 
@@ -108,6 +110,16 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         if p.get("assignee_id"):
             out.append((p["assignee_id"], "due_soon",
                         f"工作项「{p.get('title', '')}」将于 {p.get('due_date', '?')} 到期"))
+    elif e.event_type == "approval.pending_reminded":
+        # I126: the daily sweep nudges owners about gate approvals that have
+        # been pending past the reminder window (ServiceNow timer→reminder).
+        kind = e.payload.get("kind", "gate")
+        days = e.payload.get("days_pending", "?")
+        for o in conn.execute(
+                "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
+                (e.project_id,)).fetchall():
+            out.append((o["user_id"], "approval_reminder",
+                        f"审批已挂起 {days} 天：{kind}（{e.agg_id}）"))
     return out
 
 
@@ -158,6 +170,12 @@ def _proj_notify_status(conn, e):
 
 @on("item.due_soon_notified")
 def _proj_notify_due_soon(conn, e):
+    for user_id, kind, summary in plan_notifications(conn, e):
+        _notify(conn, e, user_id, kind, summary)
+
+
+@on("approval.pending_reminded")
+def _proj_notify_approval_reminder(conn, e):
     for user_id, kind, summary in plan_notifications(conn, e):
         _notify(conn, e, user_id, kind, summary)
 
