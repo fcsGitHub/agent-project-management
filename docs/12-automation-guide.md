@@ -700,6 +700,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：手写 Atom XML（`xml.sax.saxutils` 转义、`request.base_url` 拼绝对链接）——零依赖（I67 iCal 先例）；动态页「🔗 Atom」按钮用 getFeedKey 组订阅地址一键复制。
 - **测试**：test_activity +1 共 4 项（错误 key 401 / content-type=atom+xml / feed xmlns 结构 / 条目摘要入文）；**冒烟 43** 三段 roundtrip + rebuild（主题路由剥离/回复转评论任务数不变/Atom 认证+XML）。
 
+## 35. 层级与代位三件套（M38-I116/I117/I118）
+
+### 35.1 多级进度 rollup（I116）
+
+- **语义**（Jira Plans「Roll up」+ MS Project %Work Complete 加权口径，docs/01 §AK.1）：父级进度不再是个数占比，而是直接子级按 `estimate_hours` **加权**的完成度沿 parent 链**逐级上卷**（孙→子→父）；无估算/零估算回退权重 1.0（与 I106 S 曲线同口径）。I102 单层「n/m 计数」升维：`percent`（加权百分比）+ `done/total/spent`（全后代迭代计数）。
+- **实现**：`rollup.ts` 新增 `weightedProgress` 纯函数——`childrenOf` 索引 + `fractionOf` 递归（`MAX_ROLLUP_DEPTH=10` 深度上限防环，超深按自身状态降级）+ `rollupCounts` **迭代式**显式栈 + visited 环防护（计数无深度损失）；叶子不进结果。看板卡片/列表视图「🧩」徽标升级为 `percent% · done/total`（满 100% 转绿）、时间线父条形进度条同口径。
+- **测试**：vitest +5 共 14 项（三层链上卷 80% 手算 / estimate 权重 67% / 无估算回退 50% / 15 层深链+真环防御 / parents only + 满完成）；build 绿。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
