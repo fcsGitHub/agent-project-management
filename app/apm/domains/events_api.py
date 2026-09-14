@@ -47,6 +47,47 @@ def rebuild_projections() -> dict:
     return {"status": "ok", "events_replayed": n}
 
 
+@router.get("/projects/{project_id}/audit.csv")
+def export_audit_csv(project_id: str, days: int = 90):
+    """M41-I127 (docs/01 §AN.3, Jira native audit-CSV semantics): the audit
+    page is for humans, the export is for auditors — admin-only, date-window
+    filtered, full event stream as streaming CSV. The event stream IS the
+    audit log (append-only), so this is a window over it, not a new ledger."""
+    import csv
+    import io
+    from datetime import timedelta
+
+    from apm.domains.members import is_instance_admin
+    from apm.domains.projects import require_project
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required for audit export")
+    require_project(project_id)
+    days = max(1, min(days, 3650))
+    from datetime import datetime, timedelta, timezone
+    cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT id, ts, actor_type, actor_id, event_type, agg_type, agg_id, payload"
+        " FROM events WHERE project_id = ? AND substr(ts, 1, 10) >= ? ORDER BY id",
+        (project_id, cutoff)).fetchall()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "ts", "actor_type", "actor_id", "event_type",
+                     "agg_type", "agg_id", "payload"])
+    for r in rows:
+        writer.writerow([r["id"], r["ts"], r["actor_type"], r["actor_id"],
+                         r["event_type"], r["agg_type"], r["agg_id"],
+                         r["payload"][:200]])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="audit-{project_id}.csv"'},
+    )
+
+
 @router.get("/projects/{project_id}/events/export")
 def export_events(project_id: str) -> StreamingResponse:
     """Supplementary data exit (docs/01 §L.3 — GitLab lesson: exports are a

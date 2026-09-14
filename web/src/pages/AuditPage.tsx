@@ -67,6 +67,11 @@ export function AuditPage() {
             <option value="ui_agent">⌨️ UI-Agent</option>
           </select>
           <Input className="w-40" placeholder="搜索 payload…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Button size="sm" variant="outline" onClick={() => {
+            // M41-I127: server-side full-window export (admin only) — the
+            // client-side button above only captures the current filtered page
+            window.open(`/api/projects/${pid}/audit.csv?days=365`, "_blank");
+          }} title="导出最近 365 天全量事件（仅管理员）">⬇ 全量导出</Button>
           <Button size="sm" variant="outline" onClick={exportCsv}>导出 CSV</Button>
         </div>
       </div>
