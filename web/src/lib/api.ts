@@ -754,6 +754,11 @@ export const api = {
     req<Record<string, unknown>>(`/risks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   closeRisk: (id: string) =>
     req<{ closed: string }>(`/risks/${id}/close`, { method: "POST" }),
+  // M43-I132: PMBOK closing checklist + project.completed
+  getClosureChecklist: (pid: string) =>
+    req<{ project_id: string; checks: { key: string; label: string; ok: boolean }[]; all_green: boolean }>(`/projects/${pid}/closure-checklist`),
+  completeProject: (pid: string) =>
+    req<Project>(`/projects/${pid}/complete`, { method: "POST" }),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;

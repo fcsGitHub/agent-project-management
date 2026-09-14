@@ -1,7 +1,9 @@
 /** Dashboard: milestone bar, approvals waiting, feature progress, activity feed.
  * M23-I72: cross-project portfolio overview card on top. */
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useState } from "react";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { fmtMinutes } from "../components/TimeLogModal";
@@ -158,7 +160,58 @@ export function Dashboard() {
           {!events.data?.events.length && <Empty title="暂无活动" hint="创建对话并发起一次 Agent 运行试试" />}
         </div>
       </Card>
+
+      {/* closure checklist (M43-I132): PMBOK closing process group */}
+      <ClosureCard pid={pid!} completed={project.data?.status === "completed"} />
     </div>
+  );
+}
+
+function ClosureCard({ pid, completed }: { pid: string; completed: boolean }) {
+  const qc = useQueryClient();
+  const cl = useQuery({ queryKey: ["closure-checklist", pid], queryFn: () => api.getClosureChecklist(pid) });
+  const [busy, setBusy] = useState(false);
+  const d = cl.data;
+
+  const complete = async () => {
+    setBusy(true);
+    try {
+      await api.completeProject(pid);
+      toast.success("项目已交付 🎉");
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`交付失败：${e instanceof Error ? e.message : e}`);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Card className="p-4 md:col-span-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">🏁 收尾清单</span>
+        {completed && <Badge tone="green">✅ 已交付</Badge>}
+        {d?.all_green && !completed && <Badge tone="green">清单全绿</Badge>}
+      </div>
+      {d && (
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-5">
+          {d.checks.map((c) => (
+            <div key={c.key}
+              className={cx("rounded-lg border px-2 py-1.5 text-[11px]",
+                c.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600")}>
+              {c.ok ? "✓" : "✗"} {c.label}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex items-center justify-between text-[10px] text-mut">
+        <span>五项全绿才允许标记交付（PMBOK Closing Process Group）；交付后项目只读，/reopen 可恢复</span>
+        {!completed && (
+          <Button size="sm" variant="primary" disabled={busy || !d?.all_green}
+            onClick={complete} title={d?.all_green ? "" : "清单未全绿"}>
+            标记交付
+          </Button>
+        )}
+      </div>
+    </Card>
   );
 }
 

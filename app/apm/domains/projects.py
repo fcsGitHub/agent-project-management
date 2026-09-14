@@ -27,6 +27,9 @@ def _archive_guard(event_type: str, project_id: str) -> None:
         "SELECT status FROM projects WHERE id = ?", (project_id,)).fetchone()
     if row and row["status"] == "archived":
         raise HTTPException(status_code=409, detail="project is archived (read-only)")
+    if row and row["status"] == "completed":
+        # I132: a delivered project is frozen the same way — /reopen revives it
+        raise HTTPException(status_code=409, detail="project is completed (reopen to continue)")
 
 
 events.add_emit_guard(_archive_guard)
@@ -93,6 +96,12 @@ def _proj_project_updated(conn, e):
 @on("project.reopened")
 def _proj_project_reopened(conn, e):
     conn.execute("UPDATE projects SET status = 'active', updated_at = ? WHERE id = ?",
+                 (e.ts, e.agg_id))
+
+
+@on("project.completed")
+def _proj_project_completed(conn, e):
+    conn.execute("UPDATE projects SET status = 'completed', updated_at = ? WHERE id = ?",
                  (e.ts, e.agg_id))
 
 
@@ -333,6 +342,62 @@ def reopen_project(project_id: str) -> dict:
         agg_id=project_id,
         project_id=project_id,
         payload={},
+    )
+    return get_project(project_id)  # type: ignore[return-value]
+
+
+# ---------------------------------------------------- closure (I132)
+@router.get("/projects/{project_id}/closure-checklist")
+def closure_checklist(project_id: str) -> dict:
+    """M43-I132 (docs/01 §AP.2, PMBOK Closing Process Group): closure is a
+    checkable list, not a shrug — five projections must all be green before
+    the project may be marked completed. Pure projection, zero new tables."""
+    conn = db.get_conn()
+    require_project(project_id)
+
+    def count(sql: str) -> int:
+        return conn.execute(sql, (project_id,)).fetchone()["c"]
+
+    checks = [
+        {"key": "active_items", "label": "无未完成工作项",
+         "ok": count("SELECT COUNT(*) AS c FROM items WHERE project_id = ?"
+                     " AND status_group NOT IN ('done','cancelled') AND archived_at IS NULL") == 0},
+        {"key": "pending_approvals", "label": "无待决审批",
+         "ok": count("SELECT COUNT(*) AS c FROM approvals WHERE project_id = ?"
+                     " AND status = 'pending'") == 0},
+        {"key": "unapproved_timesheets", "label": "无待审工时单",
+         "ok": count("SELECT COUNT(*) AS c FROM timesheets WHERE project_id = ?"
+                     " AND status = 'submitted'") == 0},
+        {"key": "open_risks", "label": "无未缓解风险",
+         "ok": count("SELECT COUNT(*) AS c FROM risks WHERE project_id = ?"
+                     " AND status = 'open'") == 0},
+        {"key": "pending_milestones", "label": "无未达成里程碑",
+         "ok": count("SELECT COUNT(*) AS c FROM milestones WHERE project_id = ?"
+                     " AND status IN ('planned','in_progress')") == 0},
+    ]
+    all_green = all(c["ok"] for c in checks)
+    return {"project_id": project_id, "checks": checks, "all_green": all_green}
+
+
+@router.post("/projects/{project_id}/complete")
+def complete_project(project_id: str) -> dict:
+    """Mark the project delivered — allowed only when the closure checklist is
+    fully green (409 with the failing items otherwise). completed is a distinct
+    terminal-ish status (frozen like archived, /reopen revives)."""
+    checklist = closure_checklist(project_id)
+    failing = [c for c in checklist["checks"] if not c["ok"]]
+    if failing:
+        raise HTTPException(status_code=409, detail={
+            "message": "closure checklist has failing items",
+            "items": [{"key": c["key"], "label": c["label"]} for c in failing]})
+    events.emit(
+        event_type="project.completed",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        actor_type="human",
+        actor_id=events.effective_actor(),
+        payload={"completed_at": events.utcnow()},
     )
     return get_project(project_id)  # type: ignore[return-value]
 
