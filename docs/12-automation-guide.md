@@ -774,6 +774,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：events_api.py StreamingResponse + csv 模块转义；Audit 页「⬇ 全量导出」按钮（服务端窗口导出，区别于既有的客户端「导出 CSV」——那只覆盖当前过滤页 50 行）。
 - **测试**：test_audit_export 2 项（admin roundtrip：表头/事件类型/截断+非 admin 403+未知项目 404/days 窗口钳制）。**冒烟 47** 三段 roundtrip + rebuild（燃尽末点 3/2+理想线/提醒幂等+通知/导出类型覆盖+rebuild 行数一致）。
 
+## 39. 流量可见性三件套（M42-I128/I129/I130）
+
+### 39.1 看板阻塞徽标（I128）
+
+- **语义**（Businessmap 阻塞旗标 + Jira flag，docs/01 §AO.1）：**阻塞是一张卡的即时状态，必须在看板上一眼可见**——物理看板的红旗/贴纸的数字版。I78 闭锁守卫只在「想完成时」422，用户在卡片上看不到自己被谁挡着。
+- **实现**：list_items 载荷每项派生 `blocked` 布尔（两条 EXISTS：未完结 blocks 阻塞者 / 未完结 depends_on 前置——与 I78 闭锁守卫同口径，上游 done/cancelled 自动解除）；看板卡片红「🚧 被阻塞」Badge + 列表行 🚧 标记。纯派生零新表零事件。
+- **测试**：test_blocked_flag 2 项（blocks 徽标+阻塞者自身不标+上游完成解除/depends_on 方向[from=后继]+rebuild 稳定）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
