@@ -613,6 +613,9 @@ export function Board() {
                                 }}>{collapsed.has(item.id) ? "▸" : "▾"}</button>
                             ) : <span className="w-3" />}
                             <span className="font-medium">{item.title}</span>
+                            {item.blocked && (
+                              <span className="text-[10px] text-red-500" title="存在未完成的阻塞上游">🚧</span>
+                            )}
                             {wpProgress.get(item.id) && (
                               <span className="text-[10px] text-mut" title="子任务加权进度（estimate_hours 逐级上卷）">
                                 🧩 {wpProgress.get(item.id)!.percent}% · {wpProgress.get(item.id)!.done}/{wpProgress.get(item.id)!.total}
@@ -721,6 +724,9 @@ export function Board() {
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
+                            {item.blocked && (
+                              <Badge tone="red" title="存在未完成的阻塞上游（blocks/depends_on）">🚧 被阻塞</Badge>
+                            )}
                             {item.priority === "high" && <Badge tone="red">高优</Badge>}
                             {wpProgress.get(item.id) && (
                               <Badge tone={wpProgress.get(item.id)!.percent >= 100 ? "green" : "neutral"}

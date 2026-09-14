@@ -284,7 +284,27 @@ def list_items(
     rows = db.get_conn().execute(
         f"SELECT * FROM items WHERE {' AND '.join(where)} ORDER BY created_at", params
     ).fetchall()
-    return [_parse_cf(_with_assignee_name(dict(r))) for r in rows]
+    items = [_parse_cf(_with_assignee_name(dict(r))) for r in rows]
+
+    # I128 (docs/01 §AO.1, Businessmap blocked-flag semantics): an item is
+    # blocked when an unfinished blocks-blocker or an unfinished depends_on
+    # prerequisite exists — the same caliber as the I78 closure guard, derived
+    # here so the board shows the flag without opening any drawer.
+    if items:
+        ids = [i["id"] for i in items]
+        marks = ",".join("?" for _ in ids)
+        unfinished = "u.status_group NOT IN ('done','cancelled')"
+        blocked = {r[0] for r in db.get_conn().execute(
+            f"SELECT r.to_item FROM item_relations r JOIN items u ON u.id = r.from_item"
+            f" WHERE r.relation_type = 'blocks' AND r.to_item IN ({marks}) AND {unfinished}",
+            ids).fetchall()}
+        blocked |= {r[0] for r in db.get_conn().execute(
+            f"SELECT r.from_item FROM item_relations r JOIN items u ON u.id = r.to_item"
+            f" WHERE r.relation_type = 'depends_on' AND r.from_item IN ({marks}) AND {unfinished}",
+            ids).fetchall()}
+        for it in items:
+            it["blocked"] = it["id"] in blocked
+    return items
 
 
 BUCKET_NAMES = {

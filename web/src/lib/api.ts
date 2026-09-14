@@ -25,6 +25,7 @@ export type Item = {
   assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
   milestone_id?: string | null; auto_scheduled?: number | boolean; parent_id?: string | null;
   cycle_id?: string | null;
+  blocked?: boolean;
   custom_fields?: Record<string, unknown> | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
