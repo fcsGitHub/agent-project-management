@@ -748,6 +748,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：users.hourly_rate REAL[ALTER 迁移 + GET/POST /me/hourly-rate own-data 直写] + projects.budget_hours[并入 ProjectPatch → project.updated 投影白名单] + `GET /projects/{id}/cost-report`：按人 Σ(minutes)/60×rate（无费率用户 hours 计入、cost 如实为 0）、total_cost、burn_ratio、over_budget 标记——纯投影零新表。报表「💰 成本与预算」卡（预算输入/消耗进度条/按人成本条）+ 设置页「💰 我的时薪」卡。
 - **测试**：test_cost_report 3 项（费率 roundtrip+负数 422/手算 2h×100+3h×60+1h×0=380、burn 0.6→预算 5h 翻 1.2 超支、rebuild 后 hours 存活+费率重置成本归 0[运行态语义对账]/无预算 ratio=None）。
 
+### 37.2 工作项附件（I123）
+
+- **语义**（Redmine files/ 目录 + Jira DC 上传钳制，docs/01 §AM.2）：**二进制进磁盘、元数据进库**——attachments 投影表（drop 清单，rebuild 从事件重建行）+ 文件本体落 `data_dir/attachments/{project_id}/`（事件之外，与工件 Git 仓同理）；存储名 `{附件id}_安全化文件名`（非 \w.- 字符转 _、截 80 字符）防覆盖与路径注入。每文件默认 **10MB** 钳制（Jira DC 同款默认，`attachment_max_mb` 可配）超限 413、空文件 422。
+- **实现**：`item.attachment_added/removed` 事件（stored_path 存相对 data_dir 的路径，不泄漏环境绝对路径）；multipart 直传（Redmine 网页端同款——两步式 token 上传对单机自托管是过度设计）；删除是**软删**（行打 removed_at、磁盘文件保留，与回收站家族一致）；req() 对 FormData 跳过 JSON Content-Type（multipart boundary 必须由浏览器生成）。卡片「📎」按钮 + 附件 Modal（上传/列表/下载/删除）。
+- **测试**：test_attachments 3 项（roundtrip 字节一致+rebuild 元数据存活+软删后列表空下载 404/超限 413+空文件 422/错挂与不存在 404）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
