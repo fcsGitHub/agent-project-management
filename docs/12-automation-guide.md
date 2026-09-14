@@ -754,6 +754,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`item.attachment_added/removed` 事件（stored_path 存相对 data_dir 的路径，不泄漏环境绝对路径）；multipart 直传（Redmine 网页端同款——两步式 token 上传对单机自托管是过度设计）；删除是**软删**（行打 removed_at、磁盘文件保留，与回收站家族一致）；req() 对 FormData 跳过 JSON Content-Type（multipart boundary 必须由浏览器生成）。卡片「📎」按钮 + 附件 Modal（上传/列表/下载/删除）。
 - **测试**：test_attachments 3 项（roundtrip 字节一致+rebuild 元数据存活+软删后列表空下载 404/超限 413+空文件 422/错挂与不存在 404）。
 
+## 38. 节奏治理三件套（M41-I125/I126/I127）
+
+### 38.1 周期燃尽（I125）
+
+- **语义**（Plane Cycles 燃尽 + Jira burnup 教训，docs/01 §AN.1）：**燃尽线会掩盖范围变化**——完成 10 项+新增 10 项=线不动；故返回 **burnup 对**：每日 remaining + total 范围阶梯线（挂载/移出/结转都会抬线）。理想线锚定**首个有范围日**的 total（承诺日）而非窗口首日——晚挂载的周期也有可用的节奏参照。
+- **实现**：`GET /cycles/{id}/burndown` 单次有序重放（item.updated 的 cycle_id 变迁=范围进出；item.status_changed 首达 done/cancelled=解决日，I85 同口径）；窗口=start→min(today,end)；已取消/未知 404。报表「🔁 周期燃尽」卡：周期下拉 + SVG 三线（剩余绿/总范围橙虚/理想灰点）。
+- **测试**：test_cycle_burndown 3 项（手算：3 挂 1 完成→末点 3/2+加塞抬线 3→4+rebuild 相等[仅 generated_at]/取消 404/未知 404——同日挂载使承诺范围不可拆分为 4 的语义入档）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
