@@ -127,15 +127,22 @@ def test_timelog_permission_network(client, pid):
 def test_timelog_report_reconciles_with_entries(client, pid):
     """M19-I61: the project report's per-user/per-day aggregation must equal
     the raw entry lists (Plane GH #8045 的反面——项目级聚合与条目对账)."""
+    from datetime import datetime, timedelta, timezone
+
+    # dates anchored to the server's UTC today (reports.py _now), all inside
+    # the by_day 14-day window and the my/work ISO week — a hardcoded date
+    # stops being "this week"/in-window once the calendar moves (M38 审阅修)
+    utc_today = datetime.now(timezone.utc).date()
+    d_a1, d_a2, d_b1 = ((utc_today - timedelta(days=k)).isoformat() for k in (2, 1, 0))
     item_a = _mk_item(client, pid, "报表甲")
     item_b = _mk_item(client, pid, "报表乙")
-    _log(client, item_a["id"], 90, spent_on="2026-09-01", note="a1")
-    _log(client, item_a["id"], 30, spent_on="2026-09-02", note="a2")
+    _log(client, item_a["id"], 90, spent_on=d_a1, note="a1")
+    _log(client, item_a["id"], 30, spent_on=d_a2, note="a2")
     client.post("/api/users", json={"id": "u_qa2", "name": "测试王"})
     saved = config.settings.user_id
     try:
         client.post("/api/session/identity", json={"user_id": "u_qa2"})
-        _log(client, item_b["id"], 60, spent_on="2026-09-01", note="b1")
+        _log(client, item_b["id"], 60, spent_on=d_b1, note="b1")
     finally:
         client.post("/api/session/identity", json={"user_id": saved})
 
