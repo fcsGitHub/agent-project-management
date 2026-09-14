@@ -112,6 +112,9 @@ def init_db() -> None:
             toff_cols = {r["name"] for r in conn.execute("PRAGMA table_info(user_time_off)").fetchall()}
             if "delegate" not in toff_cols:
                 conn.execute("ALTER TABLE user_time_off ADD COLUMN delegate TEXT")
+        # I119: 存量库补 items.cycle_id（Cycles 迭代时间盒）。
+        if "cycle_id" not in icols2:
+            conn.execute("ALTER TABLE items ADD COLUMN cycle_id TEXT")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

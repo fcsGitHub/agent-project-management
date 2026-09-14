@@ -22,6 +22,7 @@ export function Board() {
   const priority = params.get("priority") ?? "";
   const assignee = params.get("assignee") ?? "";
   const group = params.get("group") ?? "";
+  const cycleId = params.get("cycle") ?? "";
   const viewId = params.get("view") ?? "";
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -32,6 +33,10 @@ export function Board() {
   const [commentsFor, setCommentsFor] = useState<import("../lib/api").Item | null>(null);
   const [timelogFor, setTimelogFor] = useState<import("../lib/api").Item | null>(null);
   const [quickEditFor, setQuickEditFor] = useState<import("../lib/api").Item | null>(null);
+  const [cycleOpen, setCycleOpen] = useState(false);
+  const [cycleName, setCycleName] = useState("");
+  const [cycleStart, setCycleStart] = useState("");
+  const [cycleEnd, setCycleEnd] = useState("");
 
   const viewsQ = useQuery({
     queryKey: ["views", pid],
@@ -61,8 +66,14 @@ export function Board() {
   }, [viewId, viewsQ.data]);
 
   const board = useQuery({
-    queryKey: ["board", pid, featureId, group],
-    queryFn: () => api.getBoard(pid!, featureId, group || undefined),
+    queryKey: ["board", pid, featureId, group, cycleId],
+    queryFn: () => api.getBoard(pid!, featureId, group || undefined, cycleId || undefined),
+    enabled: !!pid,
+  });
+  // I119: iteration time boxes for the board filter dropdown
+  const cyclesQ = useQuery({
+    queryKey: ["cycles", pid],
+    queryFn: () => api.listCycles(pid!),
     enabled: !!pid,
   });
   const onto = useQuery({
@@ -431,6 +442,16 @@ export function Board() {
           )}
         </div>
         {/* 控件反映实际生效分组：显式 ?group= 优先，否则显示后端落的（默认视图）值 */}
+        <select value={cycleId} onChange={(e) => setFilter("cycle", e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
+          title="按迭代周期过滤（I119）">
+          <option value="">周期：全部</option>
+          {(cyclesQ.data?.cycles ?? []).map((c) => (
+            <option key={c.id} value={c.id}>周期：{c.name}</option>
+          ))}
+        </select>
+        <Button size="sm" variant="ghost" onClick={() => setCycleOpen(true)}
+          title="新建迭代周期（Plane Cycles 语义）">＋周期</Button>
         <select value={group || board.data?.group_by || ""} onChange={(e) => setFilter("group", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
           <option value="">分组：生命周期</option>
@@ -806,6 +827,36 @@ export function Board() {
       {trashOpen && pid && (
         <TrashDrawer pid={pid} onClose={() => setTrashOpen(false)} onRestored={() => qc.invalidateQueries()} />
       )}
+      {cycleOpen && pid && (
+        <Modal open onClose={() => setCycleOpen(false)} title="🔁 新建迭代周期">
+          <div className="space-y-3 text-xs">
+            <input value={cycleName} onChange={(e) => setCycleName(e.target.value)} placeholder="周期名称（如：Sprint 1）"
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2" />
+            <div className="flex items-center gap-2">
+              <input type="date" value={cycleStart} onChange={(e) => setCycleStart(e.target.value)}
+                className="rounded-lg border border-line bg-bg px-2 py-1.5" />
+              <span className="text-mut">至</span>
+              <input type="date" value={cycleEnd} onChange={(e) => setCycleEnd(e.target.value)}
+                className="rounded-lg border border-line bg-bg px-2 py-1.5" />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-mut">与其他周期重叠会被拒绝；周期结束后，未完成项由每日扫描显式结转到下一周期</span>
+              <Button size="sm" variant="primary" disabled={!cycleName.trim() || !cycleStart || !cycleEnd}
+                onClick={async () => {
+                  try {
+                    const c = await api.createCycle(pid, cycleName.trim(), cycleStart, cycleEnd);
+                    toast.success(`周期「${c.name}」已创建`);
+                    setCycleOpen(false); setCycleName(""); setCycleStart(""); setCycleEnd("");
+                    await qc.invalidateQueries({ queryKey: ["cycles", pid] });
+                    setFilter("cycle", c.id);
+                  } catch (e) {
+                    toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
+                  }
+                }}>创建</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {importOpen && (
         <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
           <div className="space-y-3 text-xs">
@@ -967,8 +1018,10 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
     item.assignee_type === "human" ? item.assignee_id ?? "" : item.assignee_id ? `agent:${item.assignee_id}` : "",
   );
   const [due, setDue] = useState(item.due_date ?? "");
+  const [cycle, setCycle] = useState(item.cycle_id ?? "");
   const [busy, setBusy] = useState(false);
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
+  const cyclesQ = useQuery({ queryKey: ["cycles", item.project_id], queryFn: () => api.listCycles(item.project_id) });
 
   const concept = concepts.find((c) => c.id === item.concept_id);
   const states = concept?.states ?? [];
@@ -983,6 +1036,7 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
       else { patch.assignee_type = "human"; patch.assignee_id = assignee; }
     }
     if (due !== (item.due_date ?? "")) patch.due_date = due || null;
+    if (cycle !== (item.cycle_id ?? "")) patch.cycle_id = cycle; // "" clears the mount
     if (!Object.keys(patch).length) { onClose(); return; }
     setBusy(true);
     try {
@@ -1030,6 +1084,15 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
           截止日
           <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
             className={`mt-0.5 ${selectCls}`} />
+        </label>
+        <label className="block text-[10px] text-mut">
+          迭代周期
+          <select value={cycle} onChange={(e) => setCycle(e.target.value)} className={`mt-0.5 ${selectCls}`}>
+            <option value="">（无周期）</option>
+            {(cyclesQ.data?.cycles ?? []).map((c) => (
+              <option key={c.id} value={c.id}>🔁 {c.name}</option>
+            ))}
+          </select>
         </label>
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-mut">变更走既有 PATCH——流转白名单/闭锁/WIP 全部生效</span>

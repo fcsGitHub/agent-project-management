@@ -56,7 +56,7 @@ def _proj_item_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
-                "start_date", "due_date", "auto_scheduled", "parent_id"):
+                "start_date", "due_date", "auto_scheduled", "parent_id", "cycle_id"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -250,6 +250,7 @@ def list_items(
     status: str | None = None,
     assignee_id: str | None = None,
     priority: str | None = None,
+    cycle_id: str | None = None,
     include_archived: bool = False,
 ) -> list[dict]:
     where, params = ["1=1"], []
@@ -262,6 +263,9 @@ def list_items(
     if feature_id:
         where.append("feature_id = ?")
         params.append(feature_id)
+    if cycle_id:  # I119: iteration filter
+        where.append("cycle_id = ?")
+        params.append(cycle_id)
     if concept_id:
         where.append("concept_id = ?")
         params.append(concept_id)
@@ -311,7 +315,7 @@ def _group_key(value) -> str:
 @router.get("/projects/{project_id}/board")
 def get_board(
     project_id: str, feature_id: str | None = None, group_by: str | None = None,
-    view_id: str | None = None,
+    view_id: str | None = None, cycle: str | None = None,
 ) -> dict:
     """Board projection: five lifecycle buckets, optionally re-grouped by a custom
     field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by).
@@ -350,6 +354,7 @@ def get_board(
         status=view_def.get("status"),
         assignee_id=view_def.get("assignee_id"),
         priority=view_def.get("priority"),
+        cycle_id=cycle,
     )
     if "cf" in view_def:
         items = [it for it in items if _cf_hit(it, view_def["cf"])]
@@ -639,6 +644,7 @@ class ItemPatch(BaseModel):
     auto_scheduled: bool | None = None
     custom_fields: dict | None = None
     parent_id: str | None = None  # re-parent (M24-I74); clearing not supported
+    cycle_id: str | None = None  # I119: iteration mount (mount/retarget only)
 
 
 class RelationIn(BaseModel):
@@ -701,6 +707,7 @@ def get_items(
     status_group: str | None = None,
     assignee_id: str | None = None,
     priority: str | None = None,
+    cycle: str | None = None,
     cf: str | None = None,
     view_id: str | None = None,
     parent: str | None = None,
@@ -730,6 +737,7 @@ def get_items(
         status=merged.get("status"),
         assignee_id=merged.get("assignee_id"),
         priority=merged.get("priority"),
+        cycle_id=cycle,
     )
     if merged.get("cf"):
         items = [it for it in items if _cf_hit(it, merged["cf"])]
@@ -830,6 +838,14 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
                              changes.get("due_date", item.get("due_date")))
     if "milestone_id" in changes:
         _validate_milestone(item["project_id"], changes["milestone_id"])
+    if "cycle_id" in changes:  # I119: cycle must exist and belong to this project
+        if changes["cycle_id"] == "":
+            changes["cycle_id"] = None  # empty string clears the mount
+        else:
+            from apm.domains.cycles import require_cycle
+            cyc = require_cycle(changes["cycle_id"])
+            if cyc["project_id"] != item["project_id"]:
+                raise HTTPException(status_code=422, detail="cycle belongs to another project")
     if "parent_id" in changes:
         _validate_parent(item["project_id"], changes["parent_id"], self_id=item_id)
     if "auto_scheduled" in changes:

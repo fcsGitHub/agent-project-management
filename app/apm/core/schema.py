@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS items (
   auto_scheduled INTEGER NOT NULL DEFAULT 0,
   custom_fields TEXT,
   milestone_id TEXT,
+  cycle_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
@@ -463,6 +464,20 @@ CREATE TABLE IF NOT EXISTS user_time_off (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_time_off_user ON user_time_off(user_id);
+
+-- I119: iteration time boxes (projection of cycle.* events — in
+-- drop_projections so rebuild reproduces them; orthogonal to milestones,
+-- which are release points, not date-sliced containers).
+CREATE TABLE IF NOT EXISTS project_cycles (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  cancelled_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cycles_project ON project_cycles(project_id);
 """
 
 FTS_DDL = """
@@ -497,6 +512,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "non_working_days",
         "imap_seen",
         "user_time_off",
+        "project_cycles",
         "extracted_tasks",
         "baselines",
         "project_members",

@@ -23,6 +23,7 @@ export type Item = {
   status: string; status_group: string; priority?: string; assignee_type?: string;
   assignee_id?: string; estimate_hours?: number; start_date?: string | null; due_date?: string | null;
   milestone_id?: string | null; auto_scheduled?: number | boolean; parent_id?: string | null;
+  cycle_id?: string | null;
   custom_fields?: Record<string, unknown> | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
@@ -489,13 +490,21 @@ export const api = {
     req<{ cancelled: string }>(`/me/time-off/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>
     req<{ project_id: string; baseline: null }>(`/projects/${pid}/baseline`, { method: "DELETE" }),
-  getBoard: (pid: string, featureId?: string, groupBy?: string) => {
+  getBoard: (pid: string, featureId?: string, groupBy?: string, cycleId?: string) => {
     const q = new URLSearchParams();
     if (featureId) q.set("feature_id", featureId);
     if (groupBy) q.set("group_by", groupBy);
+    if (cycleId) q.set("cycle", cycleId);
     const qs = q.toString();
     return req<BoardData>(`/projects/${pid}/board${qs ? `?${qs}` : ""}`);
   },
+  // I119: iteration time boxes (Plane Cycles semantics)
+  listCycles: (pid: string) =>
+    req<{ cycles: { id: string; project_id: string; name: string; start_date: string; end_date: string; cancelled_at: string | null; created_at: string }[] }>(`/projects/${pid}/cycles`),
+  createCycle: (pid: string, name: string, start_date: string, end_date: string) =>
+    req<{ id: string; name: string; start_date: string; end_date: string }>(`/projects/${pid}/cycles`, { method: "POST", body: JSON.stringify({ name, start_date, end_date }) }),
+  cancelCycle: (id: string) =>
+    req<{ cancelled: string }>(`/cycles/${id}`, { method: "DELETE" }),
   batchStart: (ids: string[]) =>
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
   batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>

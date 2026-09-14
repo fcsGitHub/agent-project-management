@@ -7,6 +7,7 @@ from apm.domains import (  # noqa: F401
     calendar,
     comments,
     conversations,
+    cycles,
     events_api,
     features,
     ical,

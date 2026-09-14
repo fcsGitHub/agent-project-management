@@ -439,7 +439,7 @@ def run_daily_sweep(force: bool = False) -> dict:
             " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
         if seen:
             return {"swept": False, "date": today, "fired": 0, "created": 0,
-                    "notified": 0, "delegated": 0}
+                    "notified": 0, "delegated": 0, "carried": 0}
 
     fired = created = notified = delegated = 0
     rules = conn.execute(
@@ -473,14 +473,17 @@ def run_daily_sweep(force: bool = False) -> dict:
         )
     notified += _notify_due_soon(conn, today)
     delegated += _delegate_time_off(conn, today)
+    carried = 0
+    from apm.domains.cycles import carryover_finished_cycles
+    carried += carryover_finished_cycles(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
         payload={"date": today, "fired": fired, "created": created,
-                 "notified": notified, "delegated": delegated},
+                 "notified": notified, "delegated": delegated, "carried": carried},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
-            "notified": notified, "delegated": delegated}
+            "notified": notified, "delegated": delegated, "carried": carried}
 
 
 def _scheduler_loop() -> None:
