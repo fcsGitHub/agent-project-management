@@ -616,10 +616,12 @@ export const api = {
     req<AutomationTestRun>(`/projects/${pid}/automations/${ruleId}/test`, { method: "POST" }),
   automationHistory: (pid: string, ruleId: string) =>
     req<{ runs: AutomationRun[]; total: number }>(`/projects/${pid}/automations/${ruleId}/runs`),
-  // I98: manual trigger of the daily sweep (heartbeat makes it idempotent)
-  sweepAutomations: () =>
-    req<{ swept: boolean; date: string; fired: number; created: number; notified: number }>(
-      "/automations/sweep", { method: "POST", body: JSON.stringify({}) }),
+  // I98: manual trigger of the daily sweep; force bypasses the heartbeat —
+  // a human clicking 「⟳ 手动扫描」 explicitly asks to scan now (M38 审阅即修:
+  // the ticker may already have swept today, and the silent skip read as a bug)
+  sweepAutomations: (force = false) =>
+    req<{ swept: boolean; date: string; fired: number; created: number; notified: number; delegated: number }>(
+      "/automations/sweep", { method: "POST", body: JSON.stringify({ force }) }),
   // I99: external intake — owner token management + public no-login submission
   getIntakeToken: (pid: string) =>
     req<{ issued: boolean; token?: string; concept_id?: string }>(`/projects/${pid}/intake-token`),

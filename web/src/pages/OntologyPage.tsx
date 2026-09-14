@@ -825,11 +825,11 @@ function AutomationsPanel({ pid, concepts }: {
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">自动化规则</span>
         <span className="text-xs text-mut">触发 → 条件 → 动作 · 事件溯源 · 动作按 automation 归账</span>
-        <Button size="sm" variant="ghost" className="ml-auto" title="立即运行每日扫描（当日幂等）"
+        <Button size="sm" variant="ghost" className="ml-auto" title="立即强制运行每日扫描（转派/提醒即时生效）"
           onClick={async () => {
             try {
-              const r = await api.sweepAutomations();
-              if (r.swept) toast.success(`扫描完成：动作 ${r.fired} 次 · 建卡 ${r.created} 张`);
+              const r = await api.sweepAutomations(true);
+              if (r.swept) toast.success(`扫描完成：动作 ${r.fired} 次 · 建卡 ${r.created} 张 · 转派 ${r.delegated} 项`);
               else toast.info(`今日（${r.date}）已扫描过——心跳幂等`);
             } catch (e) {
               toast.error(`扫描失败：${e instanceof Error ? e.message : e}`);
