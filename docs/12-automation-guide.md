@@ -795,6 +795,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **审批升级链**：pending 超 `reminder_days×2` → `approval.pending_reminded` payload 带 `escalated=true`，实例管理员与 owner 同收提醒；owner/admin 同人时**收件人去重**（确定性通知 id `n_{事件}_{用户}` 会因同事件同用户双行碰撞）。
 - **测试**：test_closing_sweep 3 项（白名单大小写+415+空配置全放行/升级链 5 天不升级 7 天升级+admin 收件/服务端 owner-only 403 合同不变）；**冒烟 48** 三段 roundtrip + rebuild（阻塞派生/速率手算/升级链 roundtrip）。
 
+## 40. 交付闭环三件套（M43-I131/I132/I133）
+
+### 40.1 风险登记册（I131）
+
+- **语义**（PMBOK 概率×影响矩阵 + OpenProject 原生风险模块，docs/01 §AP.1）：风险是一等公民条目——probability(1-3)×impact(1-3)=score 自动排序，response/owner/review_date 齐备，生命周期 **open→mitigated→closed 严格单向**（跳级 422、closed 终态 409）——PMBOK 落地的最后一块核心知识域。
+- **实现**：risks.py 新域（risk.created/updated/closed 事件 + risks 投影表进 drop 清单）+ related_item_id 关联工作项（不存在 404）+ 「⚠ 风险登记册」页：3×3 矩阵热力（绿→琥珀→红按分）+ 列表按分降序 + 顶导航 ShieldAlert 入口。
+- **测试**：test_risks 2 项（打分 9/1+排序+越界 422+rebuild/生命周期跳级 422+关联 404+closed 后 409+rebuild 后登记册仍空）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
