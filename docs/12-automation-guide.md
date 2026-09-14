@@ -754,6 +754,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`item.attachment_added/removed` 事件（stored_path 存相对 data_dir 的路径，不泄漏环境绝对路径）；multipart 直传（Redmine 网页端同款——两步式 token 上传对单机自托管是过度设计）；删除是**软删**（行打 removed_at、磁盘文件保留，与回收站家族一致）；req() 对 FormData 跳过 JSON Content-Type（multipart boundary 必须由浏览器生成）。卡片「📎」按钮 + 附件 Modal（上传/列表/下载/删除）。
 - **测试**：test_attachments 3 项（roundtrip 字节一致+rebuild 元数据存活+软删后列表空下载 404/超限 413+空文件 422/错挂与不存在 404）。
 
+### 37.3 依赖图视图（I124）
+
+- **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
+- **实现**：`/p/{pid}/deps` 新页（DependencyGraphPage + 顶导航入口）——纯前端零后端改动：列表 API 取节点、逐项详情取 relations（时间线同款 N+1 范式）、critical-path API 取链；SVG 直绘（零图依赖，SCurve 同款）；「只看被阻塞的」过滤。环防护：层级计算深度 50 上限。
+- **测试**：**冒烟 46** 三段 roundtrip + rebuild（成本手算 120/预算 0.75、附件字节一致+元数据 rebuild、依赖图数据契约：edges+critical chain 覆盖三节链——CPM 只计双日期项、方向约定 from=前置）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
