@@ -1288,6 +1288,34 @@ agent-project-management/
 - DoD（并入审阅）：冒烟 46 GREEN；审阅全绿。
 - 演示路径：建依赖链+blocks→依赖图页分层着色一眼看出谁挡着谁。
 
+### M41 · 节奏治理三件套（周期燃尽/审批超时提醒/审计导出，I125-I127，约 9 人日）
+
+> v2.9 新增（2026-09-14，M40 审阅通过后按目标协议调研）。调研结论见 docs/01 §AN。主题统一「节奏治理」：**周期要燃尽+范围线**（scope 漂移显性化）、**审批要超时提醒**（timer→reminder→escalate）、**审计要能带走**（admin CSV 导出）。
+
+| 迭代 | 主题 | 对应 01 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I125 | 周期燃尽（`GET /cycles/{id}/burndown` 复用 I85 done 首达重放口径 + burnup 双线[剩余递减 + 总范围阶梯] + 周期区展示——Plane Cycles 燃尽 + Jira burnup scope-change 教训） | 01 §AN.1 | I85 燃尽/I119 cycles | 3d |
+| I126 | 审批超时提醒（sweep `_remind_pending_approvals`：pending 超 config `approval_reminder_days` 默认 3 天 → `approval.pending_reminded` 提醒 owner[当日事件流幂等、双通道照常]——ServiceNow timer→reminder 模式，sweep 家族第三员） | 01 §AN.2 | I98 sweep/I105 幂等 | 3d |
+| I127 | 审计导出 + 收尾审阅（`GET /projects/{id}/audit.csv` admin only + `?days=` 过滤[流式 CSV：id/ts/actor/type/agg/payload] + Audit 页导出按钮——Jira 原生 CSV 语义）+ docs/12 §38 + 冒烟 47 + M41 审阅 | 01 §AN.3 | M12 CSV | 3d |
+
+#### I125 · 周期燃尽（3d）
+
+- 任务：`GET /cycles/{id}/burndown`——周期内项（cycle_id 挂载）done 首达重放（I85 同口径）算每日 remaining + **total scope 阶梯线**（挂载/移出/结转都会改变范围线——burnup 语义显性化 scope 漂移）+ 理想线；窗口=start→min(today,end)；已取消周期 404；单测（手算/范围变化/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：周期挂 3 项完成 1 项 → 燃尽双线与手算一致；中途加挂项范围线上抬。
+
+#### I126 · 审批超时提醒（3d）
+
+- 任务：config `approval_reminder_days` 默认 3 + sweep `_remind_pending_approvals`：approvals pending 且 requested_at 早于 N 天 → emit `approval.pending_reminded`（当日事件流幂等、payload 记 requested_at/days）→ 通知投影提醒 owner（NOTIFY_KINDS 第七类 approval_reminder、双通道同闸——I105 直接同构）；单测（窗口边界/当日幂等/决策后不提醒/rebuild）。
+- DoD：单测绿；build/vitest 绿。
+- 演示路径：造一条 pending 超期审批 → sweep → owner 铃面板收到提醒 → 当日重扫幂等。
+
+#### I127 · 审计导出 + 收尾审阅（3d）
+
+- 任务：`GET /projects/{id}/audit.csv`（admin only 403、`?days=` 默认 90、StreamingResponse CSV：事件 id/ts/actor/event_type/agg/payload 摘要截断）+ Audit 页「⬇ 导出 CSV」按钮 + api.exportAudit；docs/12 §38；**新增冒烟 47**（燃尽手算/提醒幂等/导出内容 + rebuild 一致）+ M41 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套）。
+- DoD（并入审阅）：冒烟 47 GREEN；审阅全绿。
+- 演示路径：Audit 页导出 → CSV 行数与页面对账。
+
 ---
 
 ### 4.6 冒烟脚本 × 迭代落点（续）
@@ -1468,6 +1496,10 @@ agent-project-management/
 | **M38 层级与代位三件套（I116-I118）** | 已完成（审阅通过） | 2026-09-06 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AK + docs/10 §M38）：I116 多级进度 rollup（weightedProgress estimate_hours 加权沿 parent 链逐级上卷——Jira Plans 逐级加权语义，I102 单层升维）/ I117 休假代理转派（time_off 加 delegate + sweep 首日转派/末日转回 + item.assigned 审计——Jira KB 转派/转回语义）/ I118 负载超载标记+收尾（workload `overloaded` 阈值徽标——MS Project leveling 反模式的检测式解法）+ docs/12 §35 + 冒烟 44；审阅全量 **286** 绿（一次偶发失败未在连续 3 次全量复现；附录 B）+ 冒烟 44 GREEN + 审阅即修 1 处（⟳ 手动扫描 force 4820567；附录 B）；subject 正则全量路由/退信模板/自动 leveling[明确不做]留 backlog |
 | **M39 节奏与预测三件套（I119-I121）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AL + docs/10 §M39）：I119 Cycles 迭代最小面（cycle 事件+投影+看板过滤+sweep 显式结转 carryover——Plane Cycles/OpenProject 17.3 Sprints 分家语义，迭代≠里程碑）/ I120 退信静默与邮件过滤（MAILER-DAEMON 退信→email_notify 停投可恢复 + 忽略地址关键词清单——Jira suppression list 语义）/ I121 完成日预测+收尾（done 首达重放 4 周速率中位数外推 + 诚实 None + 报表预测卡——velocity chart 语义，事件溯源红利第八例）+ docs/12 §36 + 冒烟 45；审阅全量 **297** 绿 + 冒烟 45 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；subject 正则全量路由/自动 leveling/digest 邮件留 backlog |
 | **M40 价值与可见性三件套（I122-I124）** | 已完成（审阅通过） | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AM + docs/10 §M40）：I122 工时成本与预算（users.hourly_rate + projects.budget_hours + cost-report 按人成本/预算消耗比/超支预警——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（attachment 事件+attachments 投影表+磁盘存储+10MB 钳制+抽屉附件区——Redmine 磁盘+元数据语义）/ I124 依赖图视图+收尾（分层布局+状态着色+关键链描边——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46；审阅全量 **302** 绿 + 冒烟 46 GREEN + vitest 14/build 绿 + 审阅即修 0 处（附录 B）；单元成本行项/多币种/附件格式白名单/跨项目依赖图留 backlog |
+| **M41 节奏治理三件套（I125-I127）** | 进行中（定义已出） | 2026-09-14 | — | 3 迭代 / 约 9 人日（docs/01 §AN + docs/10 §M41）：I125 周期燃尽（`GET /cycles/{id}/burndown` 复用 I85 重放口径 + burnup 双线[剩余+总范围阶梯]——Plane Cycles 燃尽 + Jira burnup scope-change 教训）/ I126 审批超时提醒（sweep `_remind_pending_approvals` + `approval.pending_reminded` 当日幂等 + 双通道——ServiceNow timer→reminder 模式，sweep 家族第三员）/ I127 审计导出+收尾（`GET /projects/{id}/audit.csv` admin+days 过滤 + Audit 页导出按钮——Jira 原生 CSV 语义）+ docs/12 §38 + 冒烟 47 + M41 审阅；审批升级链/SOC2 保留策略/全局审计导出留 backlog |
+| I125 周期燃尽 | 待开始 | 2026-09-14 | — | `GET /cycles/{id}/burndown`：周期内项 done 首达重放[I85 同口径]算每日 remaining + **total scope 阶梯线**[挂载/移出/结转抬线——burnup 语义显性化 scope 漂移] + 理想线；窗口=start→min(today,end)、已取消 404；单测（手算/范围变化/rebuild） |
+| I126 审批超时提醒 | 待开始 | 2026-09-14 | — | config `approval_reminder_days` 默认 3 + sweep `_remind_pending_approvals`：pending 超 N 天 → `approval.pending_reminded`[当日事件流幂等、payload 记 requested_at/days] → 通知投影提醒 owner[NOTIFY_KINDS 第七类 approval_reminder、双通道同闸——I105 同构]；单测（窗口边界/当日幂等/决策后不提醒/rebuild） |
+| I127 审计导出+冒烟 47+收尾 | 待开始 | 2026-09-14 | — | `GET /projects/{id}/audit.csv`[admin only 403、`?days=` 默认 90、流式 CSV：id/ts/actor/event_type/agg/payload 摘要] + Audit 页「⬇ 导出 CSV」按钮 + api.exportAudit；docs/12 §38；**新增冒烟 47**（燃尽手算/提醒幂等/导出内容 + rebuild 一致）+ M41 审阅（全量回归 + DoD 逐项 + 附录 B + 浏览器隔离复演三件套） |
 | I122 工时成本与预算 | 已完成 | 2026-09-14 | 2026-09-14 | users.hourly_rate REAL 运行态列[ALTER 迁移 + GET/POST /me/hourly-rate own-data 直写——M11 email_notify/feed_key 运行态家族、rebuild 重置属既有语义] + projects.budget_hours[ProjectPatch → project.updated 白名单] + `GET /projects/{id}/cost-report`[按人 Σminutes/60×rate 派生、无费率 hours 计入 cost=0 如实、burn_ratio=spent/budget、over_budget 标记——纯投影零新表] + 报表「💰 成本与预算」卡[预算输入/消耗进度条/按人成本条] + 设置页「💰 我的时薪」卡；test_cost_report **3** 项（roundtrip+负数 422/手算 2h×100+3h×60+1h×0=380、burn 0.6→预算 5h 翻 1.2 超支+rebuild 运行态重置对账/无预算 None）+ timelog 回归绿 + build/vitest 绿 |
 | I123 工作项附件 | 已完成 | 2026-09-14 | 2026-09-14 | attachments.py 新域[attachments 投影表进 drop 清单：id/project_id/item_id/filename/size/mime/stored_path/uploader/removed_at] + item.attachment_added/removed 事件 + 文件落 `data_dir/attachments/{project_id}/`[存储名 `{id}_安全化文件名` 防覆盖注入、stored_path 存相对路径不泄漏环境] + multipart 直传[req() FormData 跳过 JSON Content-Type、python-multipart 入 requirements、attachment_max_mb 默认 10MB→413、空文件 422] + 下载 FileResponse 字节一致 + **软删**[行打 removed_at、磁盘文件保留——回收站家族] + 卡片「📎」按钮与附件 Modal；test_attachments **3** 项（roundtrip+rebuild+软删/超限+空文件/错挂与不存在 404）+ cycles 回归绿 + build 绿 |
 | I124 依赖图视图+冒烟 46+收尾 | 已完成 | 2026-09-14 | 2026-09-14 | `🔗 依赖图`页 /p/{pid}/deps（DependencyGraphPage + AppShell 顶导航 GitBranch 入口）：拓扑分层 SVG 纵排[无前驱第一层、深度 50 环防护] + depends_on 灰虚/blocks 橙实边 + 节点状态着色[done 灰/进行绿/被未完成上游阻塞红] + CPM 关键链琥珀描边[critical-path API] + 「只看被阻塞的」过滤——**纯前端零后端改动**[节点=listItems、关系=逐项详情 N+1（时间线同款范式）、链=critical-path]；docs/12 §37 收尾；**新增冒烟 46**（成本 90min×80=120/预算 0.75、附件字节一致+元数据 rebuild、依赖图三节链数据契约[CPM 只计双日期项、方向 from=前置] + rebuild）——冒烟基线 **46** GREEN + build/vitest 绿 |
@@ -1819,6 +1851,7 @@ agent-project-management/
 | 2026-09-14 | I123 | 附件元数据的 stored_path 选「**相对 data_dir 的路径**」而非绝对路径——事件与投影会跨机器/跨目录迁移（测试 tmp_data 每次不同），绝对路径把环境泄漏进事件流，下载时以 `data_dir / stored_path` 拼接。删除选「**软删**」（removed_at 标记）而非 unlink 磁盘文件——与 I103 回收站家族一致，误删可人工捞回；磁盘文件本就是事件流之外的实物，删除元数据行已足够表达「用户视角不存在」。文件名安全化「`[^\w.-]`→_ + 截 80 + 前缀附件 id」三件套一次到位——原始文件名只活在元数据 filename 列里给下载时还原，存储名永不信任输入。 |
 | 2026-09-14 | I124 | 布局选「**分层拓扑纵排 + SVG 直绘**」而非力导向/引图库——依赖图的管理学语义是"上下游先后"（Jira Plans dependencies map 同款），分层恰好把关键链拉成对角线；引图库（d3/sigma）为一页引入大依赖违背最小内核。数据沿「**逐项详情 N+1**」（时间线同款范式）而非给列表端点加 relations 开关——relations 只在详情载荷是既有语义，为单页开洞会让两条列表路径载荷不一致。冒烟 46 踩两个既有语义坑当场入档：CPM 只计**双日期**项（I101 口径）、relations 方向**from=前置**（I78 约定）——造数前先读同域测试的 _link helper 是最快路径。 |
 | 2026-09-14 | M40 正式审阅 | 全量 **pytest 302** + 冒烟 **46** + vitest **14**/build 绿；DoD 逐项通过；浏览器隔离复演三件套全对账（截图 m40-review-1~3）。**审阅即修 0 处**。三轮验证基线连续演进（277→297→302、冒烟 43→45→46、vitest 9→14）全部只增不减；三个「诚实语义」家族（SPI None/forecast insufficient/运行态 rebuild 重置）在文档、测试、复演三处口径一致——诚实性纪律第一次形成完整闭环。 |
+| 2026-09-14 | M41 定义 | 新一轮三路并行调研（防重查：候选池 grep——周期燃尽/burnup、审批 SLA/超时提醒、审计导出均无调研记录）：①**周期燃尽+范围线**——Plane Cycles 自带燃尽「剩余 vs 理想节奏」（Cycles 文档），Atlassian burnup 用「已完成 vs 总范围」双线让 scope change 显性化、**燃尽线会掩盖范围变化**（完成 10+新增 10=线不动；burnup 文档/brokenbuild/Miro 对比/Azure DevOps 燃尽上翘提示）→ I119 cycles 补 burndown 端点：I85 done 首达重放口径 + **burnup 双线**[挂载/移出/结转都会抬范围线]——纯事件重放零新表；②**审批超时提醒**——ServiceNow Flow「pending 3 天发提醒」（社区）+ 审批 SLA 定时器升级（r/servicenow）、Jira JSM automation 审批提醒（Atlassian 社区）、SailPoint 90 天超时+提醒/升级、PeopleSoft notification/escalation manager——共同模式 **timer 检测 pending N 天 → 提醒 → 升级，幂等防骚扰** → sweep 家族第三员：`approval.pending_reminded`[当日事件流幂等、I105 同构]提醒 owner；③**审计导出**——Jira 原生 admin audit log CSV 按日期导出（Atlassian 安全文档/合规导出指南），Redmine 无内建靠插件[Login Audit 2 流式 CSV]，SOC2 保留 90 天起步/12 个月常见（Konfirmity/Safeguard）——审计页给人看、导出给审计员：`audit.csv` admin only + days 过滤，事件流即全量审计只差最后一公里，M12 CSV 同构。选定 **M41 = 节奏治理三件套**：I125 周期燃尽 / I126 审批超时提醒 / I127 审计导出+收尾 + docs/12 §38 + 冒烟 47 予 I127 + 审阅，估计 +9 人日。结论入 docs/01 §AN。 |
 
 ## 附录 C · Backlog（C 级意见与 V1.x 候选）
 

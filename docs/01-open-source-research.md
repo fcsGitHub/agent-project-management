@@ -1136,6 +1136,36 @@ M39 = **节奏与预测三件套**：I119 Cycles 迭代最小面（节奏面—�
 
 M40 = **价值与可见性三件套**：I122 工时成本与预算（价值面——OpenProject Time and cost 语义，成本=工时×费率派生不另记账）/ I123 工作项附件（载体面——Redmine 磁盘+元数据语义，multipart 直传）/ I124 依赖图视图+收尾（可见面——Jira Plans dependencies map 语义，M30 backlog 转正）+ docs/12 §37 + 冒烟 46 + M40 审阅，约 9 人日。单元成本行项（差旅/设备）、多币种、附件格式白名单、跨项目依赖图留 backlog。
 
+## AN. M41 前置调研：节奏治理——周期燃尽 / 审批超时提醒 / 审计导出（2026-09-14）
+
+> 目标协议触发：M40 审阅通过后开启。防重查：候选池 grep——周期燃尽/燃尽 vs 燃上游（无调研记录，I119 留位）、审批 SLA/超时提醒（无调研记录）、审计导出（无调研记录）。
+
+**AN.1 周期燃尽 + 范围线（Plane Cycles 燃尽 + Jira burnup 的 scope-change 教训）**
+
+- Plane Cycles 自带**燃尽图**：剩余 vs 理想节奏（[Cycles 文档](https://docs.plane.so/core-concepts/cycles)）；Atlassian 官方：burnup 用「已完成 vs **总范围**」双线让 scope change 显性化——**燃尽线会掩盖范围变化**（完成 10 点+新增 10 点=线不动，[burnup 文档](https://support.atlassian.com/jira-software-cloud/docs/view-and-understand-the-burnup-chart/)、[brokenbuild](https://www.brokenbuild.net/blog/jira-burndown-chart-explained-from-basics-to-advanced-forecasting)、[Miro 对比](https://miro.com/agile/burnup-chart-vs-burndown-chart/)）；Azure DevOps 同样提示"燃尽线上翘=中途加范围"（[Microsoft](https://learn.microsoft.com/en-us/azure/devops/report/dashboards/burndown-guidance?view=azure-devops)）。共同语义：**周期内剩余量要配一条总范围线，范围漂移才藏得住猫腻**。
+- 对本项目的映射：I119 的 cycles 补 `GET /cycles/{id}/burndown`——复用 I85 里程碑燃尽的 done 首达重放口径 + **burnup 双线**（remaining 递减线 + total scope 阶梯线[挂载/结转/新建都会抬线]）；周期卡/报表展示。纯事件重放零新表。
+
+**AN.2 审批超时提醒（ServiceNow/Jira 审批 SLA 的 timer→reminder→escalate 模式）**
+
+- ServiceNow：Flow Designer「pending 3 天发提醒」（[社区](https://www.servicenow.com/community/developer-forum/reminder-email-after-3-days-if-approval-is-still-pending-flow/m-p/3319392)）、审批 SLA 定时器+升级（[r/servicenow](https://www.reddit.com/r/servicenow/comments/12i615w/approval_sla_or_timer_for_reminders_escalations/)）；Jira JSM 用 automation 规则发审批提醒（[Atlassian 社区](https://community.atlassian.com/forums/Jira-Service-Management/How-to-create-the-automation-of-sending-an-approval-reminder/qaq-p/1579360)）；SailPoint 默认 90 天超时+可配提醒/升级（[文档](https://documentation.sailpoint.com/saas/help/requests/config_approval_settings.html)）；PeopleSoft 审批框架原生 notification/escalation manager（[Oracle](https://docs.oracle.com/en/applications/peoplesoft/peoplesoft-common/approval-framework/understanding-notification-escalation-manager.html)）。共同模式：**timer 检测 pending N 天 → 提醒审批人 → 超阈值升级 owner，全程幂等防骚扰**。
+- 对本项目的映射：I98 sweep 家族第三员——`approval.pending_reminded`（pending 超 config `approval_reminder_days` 默认 3 天 → 提醒 owner[既有 approval 通知通道]；事件流当日幂等与 I105 同构）；响应力指标（I97）正好消费这批数据。M18 教训沿用：提醒是收口、事件是事实。
+
+**AN.3 审计导出（Jira 原生 CSV + SOC2 保留基线）**
+
+- Jira 原生 admin audit log **CSV 导出**按日期过滤（[Atlassian](https://support.atlassian.com/security-and-access-policies/docs/export-audit-logs/)、[合规导出指南](https://community.atlassian.com/forums/App-Central-articles/How-to-Export-Jira-Logs-for-Compliance-Purposes/ba-p/3134933)）；Redmine 无内建全量审计，靠插件补（[Auditlog](https://www.redmine.org/plugins/redmine_auditlog)、[Login Audit 2 流式 CSV](https://www.redmine.org/plugins/redmine_login_audit2)）；SOC2 保留期无硬规定——**90 天起步、12 个月常见**（[Konfirmity](https://www.konfirmity.com/blog/soc-2-logging-and-monitoring)、[Safeguard](https://safeguard.sh/resources/blog/how-to-meet-soc-2-audit-logging-requirements)）。共同语义：**审计页是给人看的，导出是给审计员的——admin only + 日期过滤 + CSV**。
+- 对本项目的映射：AgentPM 事件流即全量审计（append-only、比 Redmine 插件还全），缺的只是导出——`GET /projects/{id}/audit.csv`（admin only、`?days=` 过滤、流式 CSV：id/ts/actor/type/agg/payload 摘要）。M12 CSV 导出同构，零新表。
+
+**AN.4 M41 设计映射与验证纪律（沿用）**
+
+- I125 周期燃尽：burndown 端点复用 I85 重放口径 + burnup 总范围线 + 周期区展示；单测（手算/rebuild）。
+- I126 审批超时提醒：sweep `_remind_pending_approvals` + `approval.pending_reminded` 事件（当日幂等）+ 双通道 + config 天数；单测（窗口/幂等/决策后不提醒/rebuild）。
+- I127 审计导出 + 收尾审阅：audit.csv admin 端点 + Audit 页导出按钮；**冒烟 47**（燃尽手算/提醒幂等/导出内容 + rebuild）并入 I127 + M41 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M41 审阅。
+
+**AN.5 M41 取舍**
+
+M41 = **节奏治理三件套**：I125 周期燃尽（节奏面——Plane Cycles 燃尽 + burnup 范围线，I85 口径参数化）/ I126 审批超时提醒（治理面——ServiceNow timer→reminder→escalate 模式，sweep 家族第三员）/ I127 审计导出+收尾（合规面——Jira 原生 CSV 语义，事件流即审计的最后一公里）+ docs/12 §38 + 冒烟 47 + M41 审阅，约 9 人日。审批升级链（多级 owner）、SOC2 保留期策略、全局审计导出留 backlog。
+
 
 
 
