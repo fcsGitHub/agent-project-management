@@ -762,6 +762,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`GET /cycles/{id}/burndown` 单次有序重放（item.updated 的 cycle_id 变迁=范围进出；item.status_changed 首达 done/cancelled=解决日，I85 同口径）；窗口=start→min(today,end)；已取消/未知 404。报表「🔁 周期燃尽」卡：周期下拉 + SVG 三线（剩余绿/总范围橙虚/理想灰点）。
 - **测试**：test_cycle_burndown 3 项（手算：3 挂 1 完成→末点 3/2+加塞抬线 3→4+rebuild 相等[仅 generated_at]/取消 404/未知 404——同日挂载使承诺范围不可拆分为 4 的语义入档）。
 
+### 38.2 审批超时提醒（I126）
+
+- **语义**（ServiceNow timer→reminder 模式，docs/01 §AN.2）：Gate 审批 pending 超 `approval_reminder_days`（默认 3，config 可配）→ 每日 sweep 给项目 owner 发**审批超时提醒**——timer 检测 pending、自动提醒、幂等防骚扰；已决审批与无项目行不在射程。
+- **实现**：`_remind_pending_approvals` 挂入每日 sweep（第四个内建动作：due_soon/转派/结转/本项）——SQL 直筛 `status='pending' AND requested_at ≤ today-N`，`approval.pending_reminded` 每审批每日一事件（事件流幂等与 I105 同构）；通知走 NOTIFY_EVENTS/NOTIFY_KINDS 第七类 `approval_reminder` + plan_notifications 分支（提醒 owner）+ @on 投影——**两套名册都挂**；偏好矩阵自动多一行。
+- **测试**：test_approval_reminder 3 项（窗口边界：5 天前提醒+当日重扫幂等+今日请求不提醒/已决跳过零通知/无项目行跳过）——回填 requested_at 用 append-only INSERT + rebuild 重放（投影行带历史日期）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
