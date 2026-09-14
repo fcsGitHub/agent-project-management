@@ -768,6 +768,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`_remind_pending_approvals` 挂入每日 sweep（第四个内建动作：due_soon/转派/结转/本项）——SQL 直筛 `status='pending' AND requested_at ≤ today-N`，`approval.pending_reminded` 每审批每日一事件（事件流幂等与 I105 同构）；通知走 NOTIFY_EVENTS/NOTIFY_KINDS 第七类 `approval_reminder` + plan_notifications 分支（提醒 owner）+ @on 投影——**两套名册都挂**；偏好矩阵自动多一行。
 - **测试**：test_approval_reminder 3 项（窗口边界：5 天前提醒+当日重扫幂等+今日请求不提醒/已决跳过零通知/无项目行跳过）——回填 requested_at 用 append-only INSERT + rebuild 重放（投影行带历史日期）。
 
+### 38.3 审计导出（I127）
+
+- **语义**（Jira 原生 audit CSV，docs/01 §AN.3）：审计页给人看、导出给审计员——`GET /projects/{id}/audit.csv` **admin only**（非 admin 403、未知项目 404）、`?days=` 日期窗口（默认 90、钳 1–3650），流式 CSV：id/ts/actor_type/actor_id/event_type/agg_type/agg_id/payload（截 200 字符防巨行）。事件流本身 append-only 即全量审计，导出只是它的一个窗口视图，绝非第二套账。
+- **实现**：events_api.py StreamingResponse + csv 模块转义；Audit 页「⬇ 全量导出」按钮（服务端窗口导出，区别于既有的客户端「导出 CSV」——那只覆盖当前过滤页 50 行）。
+- **测试**：test_audit_export 2 项（admin roundtrip：表头/事件类型/截断+非 admin 403+未知项目 404/days 窗口钳制）。**冒烟 47** 三段 roundtrip + rebuild（燃尽末点 3/2+理想线/提醒幂等+通知/导出类型覆盖+rebuild 行数一致）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
