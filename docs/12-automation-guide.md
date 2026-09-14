@@ -714,6 +714,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：转派/转回都是普通 `item.assigned` 事件——payload 记 `original_assignee` + `delegate_off`（审计与"哪些任务是这段休假的"标记），被转派人的 assigned 通知走既有双通道零改动；末日转回按 `delegate_off` 标记查事件流定位（**不劫持代理人自有任务**，且仅当任务仍在代理人手上）。幂等靠构造：两向移动都以「当前指派方=预期侧」为前提，force 重扫是 no-op，休假期间的人工改派永不被覆盖。存量库 `user_time_off.delegate` ALTER 迁移；设置页休假卡加「代理人（可选）」输入与 chip 展示。
 - **测试**：test_time_off_delegate 5 项（校验 422 矩阵/首日仅共享活跃移动+payload+通知+幂等/末日转回不劫持自有任务/无 delegate no-op/rebuild 重放代理态）；build/vitest 绿。
 
+### 35.3 负载超载标记（I118）
+
+- **语义**（MS Project 自动 leveling 反模式的**检测式解法**，docs/01 §AK.3）：自动 leveling「把任务后移解决超载」会推出关键路径、恶化完成日期（社区公认）——AgentPM 明确不做自动改排（与 I104 手排期零感知一脉相承），只做透明检测：成员活跃任务数**严格大于**阈值时负载页标红「⚠ 超载」，重新均衡由人决策。阈值 `config.workload_overload_threshold` 默认 5，响应携带 `overload_threshold` 供前端提示。
+- **实现**：workload 端点在 on_leave 同一循环加 `overloaded` 布尔（`active > threshold`，纯投影零新表）；负载页红色「⚠ 超载」徽标与「🏖 休假中」并列。
+- **测试**：test_workload_overload_flag（6>5 默认阈值触发 / 3≤5 不触发 / 阈值改 2 后 3>2 翻转）；**冒烟 44** 三段 roundtrip + rebuild（三层链数据契约/转派转回+original_assignee+通知+幂等/超载标记+rebuild 重放）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
