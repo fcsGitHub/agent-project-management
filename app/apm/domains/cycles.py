@@ -158,7 +158,7 @@ def cycle_burndown(cycle_id: str) -> dict:
     milestone burndown (I85). Pure event replay, zero new tables."""
     import json
 
-    from datetime import date as _date, datetime as _datetime, timedelta as _timedelta
+    from datetime import date as _date, timedelta as _timedelta
 
     c = require_cycle(cycle_id)
     conn = db.get_conn()
@@ -218,6 +218,67 @@ def cycle_burndown(cycle_id: str) -> dict:
     ]
     return {"cycle_id": cycle_id, "name": c["name"], "start": c["start_date"],
             "end": c["end_date"], "series": series, "ideal": ideal,
+            "generated_at": events.utcnow()}
+
+
+@router.get("/projects/{project_id}/velocity")
+def project_velocity(project_id: str) -> dict:
+    """M42-I129 (docs/01 §AO.2, Jira velocity chart): committed vs completed
+    per completed cycle — committed is the first non-zero scope total inside
+    the window (the I125 commitment-day anchor), completed is the number of
+    those items first resolved within the cycle window. Average line across
+    cycles. No completed cycles → honest empty (SPI precedent)."""
+    import json
+
+    from datetime import date as _date, timedelta as _timedelta
+
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    require_project(project_id)
+    today = events.utcnow()[:10]
+    cycles = conn.execute(
+        "SELECT * FROM project_cycles WHERE project_id = ? AND cancelled_at IS NULL"
+        " AND end_date < ? ORDER BY end_date", (project_id, today)).fetchall()
+    out = []
+    for c in cycles:
+        scope_events: dict[str, list[tuple[str, bool]]] = {}
+        resolved: dict[str, str] = {}
+        for e in conn.execute(
+            "SELECT agg_id, event_type, payload, ts FROM events"
+            " WHERE project_id = ? AND event_type IN ('item.updated','item.status_changed')"
+            " ORDER BY id", (project_id,),
+        ).fetchall():
+            if e["event_type"] == "item.updated":
+                p = json.loads(e["payload"])
+                if "cycle_id" in p:
+                    scope_events.setdefault(e["agg_id"], []).append(
+                        (e["ts"][:10], p["cycle_id"] == c["id"]))
+            elif e["agg_id"] not in resolved:
+                p = json.loads(e["payload"])
+                if p.get("status_group") in ("done", "cancelled"):
+                    resolved[e["agg_id"]] = e["ts"][:10]
+
+        def total_on(day: str) -> int:
+            return sum(1 for iid, hist in scope_events.items()
+                       if any(d <= day and inside for d, inside in hist))
+
+        days = []
+        cursor = _date.fromisoformat(c["start_date"])
+        last = _date.fromisoformat(min(c["end_date"], today))
+        while cursor <= last:
+            days.append(cursor.isoformat())
+            cursor += _timedelta(days=1)
+        committed = next((total_on(d) for d in days if total_on(d) > 0), 0)
+        in_scope = set(scope_events)
+        completed = sum(1 for iid, d in resolved.items()
+                        if iid in in_scope and c["start_date"] <= d <= c["end_date"])
+        out.append({"cycle_id": c["id"], "name": c["name"],
+                    "start_date": c["start_date"], "end_date": c["end_date"],
+                    "committed": committed, "completed": completed})
+    average = round(sum(o["completed"] for o in out) / len(out), 2) if out else None
+    return {"project_id": project_id, "cycles": out, "average_completed": average,
             "generated_at": events.utcnow()}
 
 

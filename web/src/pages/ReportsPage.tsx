@@ -152,9 +152,55 @@ export function ReportsPage() {
       {/* cycle burndown (M41-I125): remaining vs total-scope stair line */}
       <CycleBurndownCard pid={pid} />
 
+      {/* velocity comparison (M42-I129): committed vs completed per cycle */}
+      <VelocityCard pid={pid} />
+
       {/* cost & budget (M40-I122): minutes × rate, burn ratio */}
       <CostCard pid={pid} />
     </div>
+  );
+}
+
+function VelocityCard({ pid }: { pid: string }) {
+  const v = useQuery({ queryKey: ["velocity", pid], queryFn: () => api.getVelocity(pid!) });
+  const d = v.data;
+  const maxV = Math.max(1, ...(d?.cycles ?? []).map((c) => Math.max(c.committed, c.completed)));
+
+  return (
+    <Card className="col-span-1 p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">📈 速率对比</span>
+        {d?.average_completed != null && (
+          <Badge tone="indigo" title="各周期完成数的平均（Jira velocity 语义）">
+            平均 {d.average_completed}/周期
+          </Badge>
+        )}
+      </div>
+      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {d && !d.cycles.length && (
+        <div className="text-xs text-mut">还没有已完结的周期——周期结束后这里对比承诺与完成</div>
+      )}
+      {!!d?.cycles.length && (
+        <>
+          <div className="flex h-32 items-end gap-3">
+            {d.cycles.map((c) => (
+              <div key={c.cycle_id} className="flex flex-1 flex-col items-center justify-end gap-0.5"
+                title={`${c.name}：承诺 ${c.committed} · 完成 ${c.completed}`}>
+                <div className="flex h-24 w-full items-end justify-center gap-1">
+                  <div className="w-1/3 rounded-t bg-slate-300" style={{ height: `${(c.committed / maxV) * 100}%`, minHeight: c.committed ? 2 : 0 }} />
+                  <div className="w-1/3 rounded-t bg-ag" style={{ height: `${(c.completed / maxV) * 100}%`, minHeight: c.completed ? 2 : 0 }} />
+                </div>
+                <span className="text-[9px] text-mut">{c.name}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-300" />承诺</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-ag" />完成</span>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

@@ -737,6 +737,14 @@ export const api = {
       ideal: { date: string; remaining: number }[];
       generated_at: string;
     }>(`/cycles/${cycleId}/burndown`),
+  // M42-I129: committed vs completed per completed cycle (velocity chart)
+  getVelocity: (pid: string) =>
+    req<{
+      project_id: string;
+      cycles: { cycle_id: string; name: string; start_date: string; end_date: string; committed: number; completed: number }[];
+      average_completed: number | null;
+      generated_at: string;
+    }>(`/projects/${pid}/velocity`),
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
