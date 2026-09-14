@@ -740,6 +740,14 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：done 首达重放与 I85 燃尽/I106 EV 同口径（逐项最早 done、按事件 id 序）；周桶=今天往前最多 4 个完整周一至周日、须全部落在项目史内（`MIN(events.ts)` 判史深）；`<2` 个完整周 → `forecast:null, reason:"insufficient history"`、速率 0 → `"no completion velocity"`、无活跃项 → `"no active items"`（SPI 诚实 None 先例）。逐项风险：按 due 升序第 k 项预计完成日 `ceil((k+1)/rate*7)`，due 早于它即 at_risk（速度配不上期限的诚实清单）。报表「🔮 完成预测」卡：速率徽标 + 周完成柱 + 预计日期 + 风险行。
 - **测试**：test_forecast 3 项（新项目 insufficient null/回填两周完成史 median(3,1)=2 外推手算+at_risk+rebuild 相等[仅 generated_at 漂移]/零速率诚实 null）；**冒烟 45** 三段 roundtrip + rebuild（结转事实/退信 suppress 审计+运行态重置/预测手算）。
 
+## 37. 价值与可见性三件套（M40-I122/I123/I124）
+
+### 37.1 工时成本与预算（I122）
+
+- **语义**（OpenProject Budgets + Time and cost reporting，docs/01 §AM.1）：**工时是事实，成本是工时×费率的派生，预算是阈值线**——不另记第二套成本账。费率是用户自己的运行态偏好（M11 家族：email_notify/feed_key 同款，rebuild 重置属既有语义）；预算以**小时**计（避免货币单位纠缠），消耗比 = spent_hours/budget_hours。
+- **实现**：users.hourly_rate REAL[ALTER 迁移 + GET/POST /me/hourly-rate own-data 直写] + projects.budget_hours[并入 ProjectPatch → project.updated 投影白名单] + `GET /projects/{id}/cost-report`：按人 Σ(minutes)/60×rate（无费率用户 hours 计入、cost 如实为 0）、total_cost、burn_ratio、over_budget 标记——纯投影零新表。报表「💰 成本与预算」卡（预算输入/消耗进度条/按人成本条）+ 设置页「💰 我的时薪」卡。
+- **测试**：test_cost_report 3 项（费率 roundtrip+负数 422/手算 2h×100+3h×60+1h×0=380、burn 0.6→预算 5h 翻 1.2 超支、rebuild 后 hours 存活+费率重置成本归 0[运行态语义对账]/无预算 ratio=None）。
+
 ### 32.2 常用回复（I108）
 
 - **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
