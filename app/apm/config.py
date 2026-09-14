@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     # with the imap.message_processed event as the audit trail).
     imap_ignore_addresses: str = ""   # exact addresses or @domain suffixes
     imap_ignore_keywords: str = ""    # subject keywords
+    # I123 item attachments: per-file size ceiling in MB (Redmine/Jira-DC style).
+    attachment_max_mb: int = 10
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.

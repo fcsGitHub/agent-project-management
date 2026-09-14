@@ -2,6 +2,7 @@
 from apm.domains import (  # noqa: F401
     approvals,
     assets,
+    attachments,
     automations,
     baselines,
     calendar,

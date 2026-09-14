@@ -1,5 +1,6 @@
 # AgentPM backend dependencies (pinned to known-good versions)
 fastapi>=0.116
+python-multipart>=0.0.20
 uvicorn>=0.35
 sse-starlette>=1.8
 pydantic>=2.12

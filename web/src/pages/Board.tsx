@@ -32,6 +32,7 @@ export function Board() {
   const [newViewPublic, setNewViewPublic] = useState(false);
   const [commentsFor, setCommentsFor] = useState<import("../lib/api").Item | null>(null);
   const [timelogFor, setTimelogFor] = useState<import("../lib/api").Item | null>(null);
+  const [attachmentsFor, setAttachmentsFor] = useState<import("../lib/api").Item | null>(null);
   const [quickEditFor, setQuickEditFor] = useState<import("../lib/api").Item | null>(null);
   const [cycleOpen, setCycleOpen] = useState(false);
   const [cycleName, setCycleName] = useState("");
@@ -767,6 +768,12 @@ export function Board() {
                               ⏱
                             </button>
                             <button
+                              onClick={(e) => { e.stopPropagation(); setAttachmentsFor(item); }}
+                              className="text-[10px] text-mut hover:text-acc" title="附件"
+                            >
+                              📎
+                            </button>
+                            <button
                               onClick={(e) => { e.stopPropagation(); setCommentsFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="评论"
                             >
@@ -813,6 +820,10 @@ export function Board() {
       {timelogFor && (
         <TimeLogModal itemId={timelogFor.id} title={timelogFor.title}
           onClose={() => setTimelogFor(null)} />
+      )}
+      {attachmentsFor && (
+        <AttachmentModal itemId={attachmentsFor.id} title={attachmentsFor.title}
+          onClose={() => setAttachmentsFor(null)} />
       )}
       {quickEditFor && (
         <QuickEditModal item={quickEditFor} concepts={onto.data?.concepts ?? []}
@@ -1098,6 +1109,61 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
           <span className="text-[10px] text-mut">变更走既有 PATCH——流转白名单/闭锁/WIP 全部生效</span>
           <Button size="sm" variant="primary" disabled={busy} onClick={submit}>保存</Button>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+function AttachmentModal({ itemId, title, onClose }: { itemId: string; title: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const att = useQuery({ queryKey: ["attachments", itemId], queryFn: () => api.listAttachments(itemId) });
+  const [busy, setBusy] = useState(false);
+
+  const fmtSize = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`);
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await api.uploadAttachment(itemId, file);
+      toast.success(`已上传 ${file.name}`);
+      await qc.invalidateQueries({ queryKey: ["attachments", itemId] });
+    } catch (e) {
+      toast.error(`上传失败：${e instanceof Error ? e.message : e}`);
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (aid: string) => {
+    setBusy(true);
+    try {
+      await api.removeAttachment(itemId, aid);
+      toast.info("附件已删除");
+      await qc.invalidateQueries({ queryKey: ["attachments", itemId] });
+    } catch (e) {
+      toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`📎 附件 · ${title}`}>
+      <div className="space-y-2 text-xs">
+        {att.isLoading && <div className="text-mut">加载中…</div>}
+        {(att.data?.attachments ?? []).map((a) => (
+          <div key={a.id} className="flex items-center gap-2 rounded-lg border border-line px-2 py-1.5">
+            <span className="min-w-0 flex-1 truncate">{a.filename}</span>
+            <span className="shrink-0 text-[10px] text-mut">{fmtSize(a.size)}</span>
+            <a href={api.attachmentDownloadUrl(itemId, a.id)} className="shrink-0 text-acc hover:underline">下载</a>
+            <button disabled={busy} onClick={() => remove(a.id)} className="shrink-0 text-mut hover:text-dan" title="删除">✕</button>
+          </div>
+        ))}
+        {att.data && !att.data.attachments.length && (
+          <div className="text-mut">还没有附件——文件存在服务端磁盘，元数据进事件流</div>
+        )}
+        <label className="block cursor-pointer rounded-lg border border-dashed border-line px-2 py-3 text-center text-mut hover:border-acc hover:text-acc">
+          {busy ? "上传中…" : "＋ 选择文件上传（默认上限 10MB）"}
+          <input type="file" className="hidden" disabled={busy}
+            onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
       </div>
     </Modal>
   );

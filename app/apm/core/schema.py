@@ -480,6 +480,24 @@ CREATE TABLE IF NOT EXISTS project_cycles (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cycles_project ON project_cycles(project_id);
+
+-- I123: item attachment metadata (projection of item.attachment_* events —
+-- in drop_projections so rebuild reproduces the rows; the binaries live on
+-- disk under data_dir/attachments/{project_id}/, outside the event stream,
+-- same split as the artifacts git repo).
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  mime TEXT,
+  stored_path TEXT NOT NULL,
+  uploader TEXT,
+  created_at TEXT NOT NULL,
+  removed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_item ON attachments(item_id);
 """
 
 FTS_DDL = """
@@ -515,6 +533,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "imap_seen",
         "user_time_off",
         "project_cycles",
+        "attachments",
         "extracted_tasks",
         "baselines",
         "project_members",

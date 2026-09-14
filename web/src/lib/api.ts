@@ -292,9 +292,10 @@ export type Context = {
 const BASE = import.meta.env.VITE_API_BASE || "/api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const r = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: isForm ? init?.headers : { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (r.status === 401 && !path.startsWith("/auth/") && location.hash !== "#/login") {
     location.hash = "#/login"; // network 模式会话失效 → 登录页（M8-I28）
@@ -716,6 +717,17 @@ export const api = {
       budget_hours: number | null; burn_ratio: number | null; over_budget: boolean;
       generated_at: string;
     }>(`/projects/${pid}/cost-report`),
+  // M40-I123: item attachments (multipart, Redmine files/-directory semantics)
+  listAttachments: (itemId: string) =>
+    req<{ attachments: { id: string; filename: string; size: number; mime: string | null; uploader: string | null; created_at: string }[] }>(`/items/${itemId}/attachments`),
+  uploadAttachment: (itemId: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return req<{ id: string; filename: string; size: number; mime: string | null }>(`/items/${itemId}/attachments`, { method: "POST", body: fd });
+  },
+  removeAttachment: (itemId: string, attachmentId: string) =>
+    req<{ removed: string }>(`/items/${itemId}/attachments/${attachmentId}`, { method: "DELETE" }),
+  attachmentDownloadUrl: (itemId: string, attachmentId: string) => `${BASE}/items/${itemId}/attachments/${attachmentId}`,
   getResponsiveness: (pid: string) =>
     req<{ project_id: string; days: number;
       approvals: { count: number; avg_h: number; median_h: number; over_48h: number } | null;
