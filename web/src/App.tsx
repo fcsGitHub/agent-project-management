@@ -26,6 +26,7 @@ import { ActivityPage } from "./pages/ActivityPage";
 import { WorkloadPage } from "./pages/WorkloadPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { IntakePage } from "./pages/IntakePage";
+import { DependencyGraphPage } from "./pages/DependencyGraphPage";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="board" element={<Board />} />
           <Route path="timeline" element={<TimelinePage />} />
+          <Route path="deps" element={<DependencyGraphPage />} />
           <Route path="f/:fid" element={<FeaturePage />} />
           <Route path="c/:cid" element={<ConversationView />} />
           <Route path="conversations" element={<ConversationsPage />} />
