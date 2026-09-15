@@ -809,6 +809,12 @@ network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Auth
 - **实现**：`GET /projects/{id}/closure-checklist` 纯投影五项计数 + `POST /projects/{id}/complete`（`project.completed` 事件 → 状态 completed；清单不过 409 列出全部差项）；Dashboard「🏁 收尾清单」卡五格勾选 + 「标记交付」按钮。
 - **测试**：test_project_closure 2 项（差项列出→清空→全绿→complete→completed→写 409→reopen 恢复/rebuild 后 completed 存活）。
 
+### 40.3 完成自动重建（I133）
+
+- **语义**（YouTrack reset workflow，docs/01 §AP.3）：周期性任务有两类节拍——日历节拍（I98 recurring 按日建卡）与**完成节拍**（上一期完成 N 天后重建下一期，周会/月报/巡检的真实节奏）。任务 `recurrence_days=N` → done 首达后 N 天，sweep 重建一张同概念新卡。
+- **实现**：`_respawn_recurring`（sweep 第六个内建动作）——SQL 直接按「done 首达+recurrence_days ≤ 今天」筛源卡 → `create_item` 重建（全校验链）→ 继承指派/周期/递归本身（三条后续事件）→ `item.respawned` 事实（respawn_of 指回源卡）幂等防重复 + 审计链可查。卡片「🔄 N天」徽标。
+- **测试**：test_respawn 2 项（回填 done 首达 7 天→窗口到达 spawn 1 张[新卡 open+recurrence 继承+respawn_of 指回源卡+幂等 0]/未完成任务永不 respawn）；**冒烟 49** 三段 roundtrip + rebuild（风险打分+生命周期/收尾清单拒绝→全绿→交付→冻结→reopen/重建 roundtrip）。
+
 ### 37.3 依赖图视图（I124）
 
 - **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
