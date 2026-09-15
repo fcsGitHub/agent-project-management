@@ -464,6 +464,74 @@ def _remind_pending_approvals(conn, today: str) -> int:
     return reminded
 
 
+def _respawn_recurring(conn, today: str) -> int:
+    """I133 (docs/01 §AP.3, YouTrack reset-workflow semantics): a task with
+    recurrence_days=N respawns as a fresh copy N days after its completion —
+    completion-driven cadence, complementary to the calendar-driven
+    create_recurring. The respawn is a real item.created (full validation
+    chain) whose follow-up `item.respawned` fact makes re-sweeps idempotent;
+    assignee, cycle and the recurrence itself carry over to the new card."""
+    from datetime import date as _date, timedelta as _timedelta
+
+    from apm.domains.items import create_item
+
+    spawned = 0
+    rows = conn.execute(
+        "SELECT i.*, MIN(substr(h.ts, 1, 10)) AS done_day FROM items i"
+        " JOIN events h ON h.agg_id = i.id AND h.event_type = 'item.status_changed'"
+        " AND json_extract(h.payload, '$.status_group') = 'done'"
+        " WHERE i.recurrence_days IS NOT NULL AND i.recurrence_days > 0"
+        " AND i.status_group = 'done'"
+        " GROUP BY i.id HAVING MIN(substr(h.ts, 1, 10)) <= ?",
+        (today,)).fetchall()
+    for src in rows:
+        due_day = (_date.fromisoformat(src["done_day"])
+                   + _timedelta(days=src["recurrence_days"])).isoformat()
+        if due_day > today:
+            continue
+        already = conn.execute(
+            "SELECT 1 FROM events WHERE event_type = 'item.respawned'"
+            " AND json_extract(payload, '$.respawn_of') = ? LIMIT 1",
+            (src["id"],)).fetchone()
+        if already:
+            continue
+        new_item = create_item(
+            project_id=src["project_id"], concept_id=src["concept_id"],
+            title=src["title"], priority=src["priority"],
+            estimate_hours=src["estimate_hours"],
+            actor_type="automation", actor_id="scheduler",
+        )
+        if src["assignee_id"]:
+            events.emit(
+                event_type="item.assigned", agg_type="item", agg_id=new_item["id"],
+                project_id=src["project_id"], actor_type="automation",
+                actor_id="scheduler",
+                payload={"assignee_type": src["assignee_type"] or "human",
+                         "assignee_id": src["assignee_id"]},
+            )
+        if src["cycle_id"]:
+            events.emit(
+                event_type="item.updated", agg_type="item", agg_id=new_item["id"],
+                project_id=src["project_id"], actor_type="automation",
+                actor_id="scheduler", payload={"cycle_id": src["cycle_id"]},
+            )
+        if src["recurrence_days"]:
+            events.emit(
+                event_type="item.updated", agg_type="item", agg_id=new_item["id"],
+                project_id=src["project_id"], actor_type="automation",
+                actor_id="scheduler",
+                payload={"recurrence_days": src["recurrence_days"]},
+            )
+        events.emit(
+            event_type="item.respawned", agg_type="item", agg_id=new_item["id"],
+            project_id=src["project_id"], actor_type="automation", actor_id="scheduler",
+            payload={"respawn_of": src["id"], "title": src["title"],
+                     "recurrence_days": src["recurrence_days"]},
+        )
+        spawned += 1
+    return spawned
+
+
 def run_daily_sweep(force: bool = False) -> dict:
     """I98 (docs/01 §AE.1, YouTrack On-schedule semantics): evaluate every
     enabled `schedule:daily` rule once per day. Idempotency is a fact of the
@@ -477,7 +545,8 @@ def run_daily_sweep(force: bool = False) -> dict:
             " AND substr(ts, 1, 10) = ? LIMIT 1", (today,)).fetchone()
         if seen:
             return {"swept": False, "date": today, "fired": 0, "created": 0,
-                    "notified": 0, "delegated": 0, "carried": 0, "reminded": 0}
+                    "notified": 0, "delegated": 0, "carried": 0, "reminded": 0,
+                    "respawned": 0}
 
     fired = created = notified = delegated = carried = reminded = 0
     rules = conn.execute(
@@ -515,16 +584,17 @@ def run_daily_sweep(force: bool = False) -> dict:
     from apm.domains.cycles import carryover_finished_cycles
     carried += carryover_finished_cycles(conn, today)
     reminded += _remind_pending_approvals(conn, today)
+    respawned = _respawn_recurring(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
         payload={"date": today, "fired": fired, "created": created,
                  "notified": notified, "delegated": delegated, "carried": carried,
-                 "reminded": reminded},
+                 "reminded": reminded, "respawned": respawned},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
             "notified": notified, "delegated": delegated, "carried": carried,
-            "reminded": reminded}
+            "reminded": reminded, "respawned": respawned}
 
 
 def _scheduler_loop() -> None:

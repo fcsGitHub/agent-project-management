@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS items (
   custom_fields TEXT,
   milestone_id TEXT,
   cycle_id TEXT,
+  recurrence_days INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,

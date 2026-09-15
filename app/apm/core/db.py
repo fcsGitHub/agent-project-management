@@ -115,6 +115,9 @@ def init_db() -> None:
         # I119: 存量库补 items.cycle_id（Cycles 迭代时间盒）。
         if "cycle_id" not in icols2:
             conn.execute("ALTER TABLE items ADD COLUMN cycle_id TEXT")
+        # I133: 存量库补 items.recurrence_days（完成自动重建节拍）。
+        if "recurrence_days" not in icols2:
+            conn.execute("ALTER TABLE items ADD COLUMN recurrence_days INTEGER")
         # I122: 存量库补 users.hourly_rate / projects.budget_hours（成本与预算）。
         ucols2 = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
         if "hourly_rate" not in ucols2:

@@ -56,7 +56,8 @@ def _proj_item_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
-                "start_date", "due_date", "auto_scheduled", "parent_id", "cycle_id"):
+                "start_date", "due_date", "auto_scheduled", "parent_id", "cycle_id",
+                "recurrence_days"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -665,6 +666,7 @@ class ItemPatch(BaseModel):
     custom_fields: dict | None = None
     parent_id: str | None = None  # re-parent (M24-I74); clearing not supported
     cycle_id: str | None = None  # I119: iteration mount (mount/retarget only)
+    recurrence_days: int | None = None  # I133: respawn N days after completion
 
 
 class RelationIn(BaseModel):
