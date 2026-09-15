@@ -67,6 +67,18 @@ def _proj_run_failed(conn, e):
     )
 
 
+@on("run.tokens_recorded")
+def _proj_run_tokens(conn, e):
+    """Real-provider usage accumulates per generation node (M44). The replay
+    provider never emits this, so its honest zeros survive untouched."""
+    p = e.payload
+    conn.execute(
+        "UPDATE runs SET total_input_tokens = total_input_tokens + ?,"
+        " total_output_tokens = total_output_tokens + ? WHERE id = ?",
+        (int(p.get("input_tokens", 0)), int(p.get("output_tokens", 0)), e.agg_id),
+    )
+
+
 # ------------------------------------------------------------------- API
 class RunIn(BaseModel):
     conversation_id: str

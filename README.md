@@ -118,7 +118,7 @@ cd app && python -m pytest           # 单测 + 集成
 python tools/smoke/run_smoke.py      # 累积冒烟基线（只增不减）
 ```
 
-- **LLM 接入**：默认 `replay`（确定性回放，模板按 role+node 注入上下文）；`.env` 配 `APM_PROVIDER_MODE=openai`、`APM_LLM_API_BASE`、`APM_LLM_API_KEY` 后走真实模型（`record` 模式可录制 fixtures）。
+- **LLM 接入**：默认 `replay`（确定性回放，模板按 role+node 注入上下文，测试/冒烟零网络）。真实模型：复制 `.env.example` 为 `.env`，配 `APM_PROVIDER_MODE=openai` + `APM_LLM_API_BASE` + `APM_LLM_API_KEY`（`record` 模式可录制 fixtures）。OpenAI 兼容与 Anthropic messages 双协议，按 base URL 是否含 `/anthropic` 自动选择（可用 `APM_LLM_PROTOCOL` 强制）；推理模型需宽松 `APM_LLM_MAX_TOKENS`（默认 4096）。侧栏底部徽标显示当前模型，点击即真实 ping；`POST /api/system/llm/ping`（admin）返回延迟与 token 用量。NL 命令层 L1 规则未命中时自动回退 **L2 模型解析**（`APM_UI_AGENT_MODEL` 廉价模型，严格 JSON 契约 + 白名单校验，只读动作，`parser` 字段溯源）。
 - **存储**：`data/` 下 SQLite（事件真源 + 投影 + checkpoints）与内容/资产 Git 仓；`POST /api/system/rebuild-projections` 可全量重放校验。
 - **本体/角色**：`ontologies/*.yaml` 与 `agents/roles/*.yaml` 改文件后 `POST /api/system/reload-ontologies` 即生效。
 - **迭代记录**：开发日志与状态看板见 docs/10 附录 A/B 与 §7。

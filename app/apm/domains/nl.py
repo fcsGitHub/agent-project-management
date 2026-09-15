@@ -1,9 +1,14 @@
-"""NL command layer (UI-Agent L1): intent → app API actions (docs/06 §5).
+"""NL command layer (UI-Agent): intent → app API actions (docs/06 §5).
 
-L1 scope: navigation / filtering / selection / bulk approve. The parser is a
-deterministic rule engine over the ontology entity dictionary — the "replay"
-implementation of the UI-Agent; an openai_compat model path can replace it
-behind the same interface later (capability seam).
+L1 (default): a deterministic rule engine over the ontology entity dictionary —
+navigation / filtering / bulk approve, instant and free.
+
+L2 fallback (M44, real providers only): when the rules produce nothing and
+provider_mode != replay, the utterance goes to the LLM (cheap ui_agent_model)
+under a strict JSON contract; `_normalize_llm_actions` whitelists action types,
+param keys and path prefixes, forces read_only, and silently drops anything
+else — the model proposes, the deterministic validator disposes. Provenance
+(`parser: rules|llm`) rides the event payload and the API response.
 """
 from __future__ import annotations
 
@@ -53,14 +58,15 @@ class UICommandConfirm(BaseModel):
 def _proj_ui_command(conn, e):
     p = e.payload
     conn.execute(
-        "INSERT OR REPLACE INTO ui_commands (id, utterance, page_state, actions, status, created_at)"
-        " VALUES (?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO ui_commands (id, utterance, page_state, actions, status, parser, created_at)"
+        " VALUES (?,?,?,?,?,?,?)",
         (
             e.agg_id,
             p.get("utterance", ""),
             json.dumps(p.get("page_state") or {}, ensure_ascii=False),
             json.dumps(p.get("actions") or [], ensure_ascii=False),
             p.get("status", "executed"),
+            p.get("parser", "rules"),
             e.ts,
         ),
     )
@@ -126,6 +132,79 @@ def parse(utterance: str, page_state: dict | None) -> list[dict]:
     return actions
 
 
+# ------------------------------------------------------------------ L2 (LLM)
+_LLM_SYSTEM = """你是 Web 应用的 UI-Agent 解析器。把用户的中文指令解析为页面动作 JSON 数组。
+只允许这些动作类型：
+- navigate：{"action":"navigate","label":"...","params":{"path":"/p/<project_id>/board"}}，path 只能以 /p/ 或 /assets 或 /search 开头
+- set_filter：{"action":"set_filter","label":"...","params":{"priority":"high|medium|low"}} 或 {"assignee":"<用户ID或角色ID>"} 或 {"status":"todo|in_progress|done"}
+只输出 JSON 数组，不要 markdown 代码块，不要解释。每个动作的 read_only 固定为 true（L2 不提写操作）。
+无法解析时输出 []。"""
+
+
+_LLM_ACTION_TYPES = {"navigate", "set_filter"}
+_LLM_FILTER_KEYS = {"priority", "assignee", "status"}
+_LLM_PATH_PREFIXES = ("/p/", "/assets", "/search")
+_LLM_MAX_ACTIONS = 5
+
+
+def _normalize_llm_actions(raw: str) -> list[dict]:
+    """Strict contract enforcement: the model proposes, this disposes."""
+    text = (raw or "").strip()
+    m = re.search(r"\[.*\]", text, re.S)  # tolerate fences / prose around JSON
+    if not m:
+        return []
+    try:
+        data = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[dict] = []
+    for a in data[:_LLM_MAX_ACTIONS]:
+        if not isinstance(a, dict) or a.get("action") not in _LLM_ACTION_TYPES:
+            continue
+        params = a.get("params") or {}
+        if not isinstance(params, dict):
+            continue
+        if a["action"] == "navigate":
+            path = params.get("path")
+            if not isinstance(path, str) or not path.startswith(_LLM_PATH_PREFIXES):
+                continue
+        else:
+            params = {k: str(v) for k, v in params.items() if k in _LLM_FILTER_KEYS and v}
+            if not params:
+                continue
+        out.append({
+            "action": a["action"],
+            "label": str(a.get("label") or a["action"])[:80],
+            "params": params,
+            "read_only": True,
+        })
+    return out
+
+
+def parse_llm(utterance: str, page_state: dict | None) -> tuple[list[dict], str]:
+    """L2: real-provider intent parsing (ui_agent_model, falls back to llm_model).
+    Returns (actions, model); provider failures degrade to no actions."""
+    from apm.runtime.provider import LLMError, get_provider
+
+    model = config.settings.ui_agent_model or config.settings.llm_model
+    user = f"用户指令：{utterance.strip()}"
+    pid = (page_state or {}).get("project_id", "")
+    if pid:
+        user += f"\n当前项目 project_id：{pid}"
+    try:
+        c = get_provider().complete(
+            role="ui-agent",
+            node="parse",
+            messages=[{"role": "system", "content": _LLM_SYSTEM}, {"role": "user", "content": user}],
+            context={"model": model, "temperature": 0},
+        )
+    except LLMError:
+        return [], model
+    return _normalize_llm_actions(c.text), c.model
+
+
 def candidates() -> list[str]:
     return [
         "只看高优先级任务", "只看 dev-agent 的卡片", "打开看板", "打开审计页",
@@ -143,11 +222,16 @@ def post_ui_command(body: UICommandIn) -> dict:
         if m:
             page_state["project_id"] = m.group(1)
     actions = parse(body.utterance, page_state)
+    parser = "rules"
+    if not actions and config.settings.provider_mode != "replay":
+        actions, llm_model = parse_llm(body.utterance, page_state)
+        if actions:
+            parser = "llm"
     if not actions:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "无法解析该指令（L1 级：导航/过滤/批量审批）", "candidates": candidates()},
-        )
+        detail = {"message": "无法解析该指令（L1 规则" + (
+            " + L2 模型" if config.settings.provider_mode != "replay" else ""
+        ) + "：导航/过滤/批量审批）", "candidates": candidates()}
+        raise HTTPException(status_code=422, detail=detail)
     requires_confirmation = any(not a["read_only"] for a in actions)
     cmd_id = new_id("uic")
     status_value = "pending_confirm" if requires_confirmation else "executed"
@@ -163,22 +247,25 @@ def post_ui_command(body: UICommandIn) -> dict:
                 "utterance": body.utterance,
                 "page_state": page_state,
                 "actions": actions,
+                "parser": parser,
                 "status": status_value,
             },
         )
     else:
         db.get_conn().execute(
-            "INSERT INTO ui_commands (id, utterance, page_state, actions, status, created_at)"
-            " VALUES (?,?,?,?,?,datetime('now'))",
+            "INSERT INTO ui_commands (id, utterance, page_state, actions, status, parser, created_at)"
+            " VALUES (?,?,?,?,?,?,datetime('now'))",
             (cmd_id, body.utterance, json.dumps(page_state, ensure_ascii=False),
-             json.dumps(actions, ensure_ascii=False), status_value),
+             json.dumps(actions, ensure_ascii=False), status_value, parser),
         )
         db.get_conn().commit()
+    source = {"rules": "L1 规则解析", "llm": f"L2 模型解析（{config.settings.ui_agent_model or config.settings.llm_model}）"}[parser]
     return {
         "id": cmd_id,
         "actions": actions,
         "requires_confirmation": requires_confirmation,
-        "reply": f"已解析 {len(actions)} 个动作" + ("，写操作需确认" if requires_confirmation else ""),
+        "parser": parser,
+        "reply": f"{source}：{len(actions)} 个动作" + ("，写操作需确认" if requires_confirmation else ""),
     }
 
 
@@ -219,6 +306,7 @@ def confirm_ui_command(cmd_id: str) -> dict:
             "utterance": row["utterance"],
             "page_state": page_state,
             "actions": actions,
+            "parser": row["parser"] or "rules",
             "results": results,
             "status": "executed",
         },

@@ -315,6 +315,17 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => req<{ status: string; version: string; provider_mode: string }>("/health"),
+  // M44: real-LLM wiring status + live connectivity ping (admin)
+  llmStatus: () =>
+    req<{
+      provider_mode: string; protocol: string | null; api_base: string;
+      model: string; ui_agent_model: string; max_tokens: number; api_key_set: boolean;
+    }>("/system/llm"),
+  llmPing: () =>
+    req<{
+      ok: boolean; provider_mode?: string; model?: string; reply?: string;
+      usage?: { input: number; output: number }; latency_ms?: number; error?: string;
+    }>("/system/llm/ping", { method: "POST" }),
 
   listProjects: (includeArchived = false) =>
     req<{ projects: Project[] }>(`/projects${includeArchived ? "?include_archived=true" : ""}`),
@@ -797,11 +808,11 @@ export const api = {
       body: JSON.stringify({ asset_id: assetId, pack_name: packName }),
     }),
 
-  // NL commands (I10)
+  // NL commands (I10 rules; M44 L2 LLM fallback — parser: "rules" | "llm")
   uiCommand: (utterance: string, page_state: Record<string, unknown>) =>
     req<{
       id: string; actions: { action: string; params: Record<string, unknown>; read_only: boolean; status?: string }[];
-      requires_confirmation: boolean; reply?: string;
+      requires_confirmation: boolean; parser?: "rules" | "llm"; reply?: string;
     }>("/ui_commands", { method: "POST", body: JSON.stringify({ utterance, page_state }) }),
   confirmUiCommand: (id: string) => req<{ status: string }>(`/ui_commands/${id}/confirm`, { method: "POST" }),
 };

@@ -15,7 +15,7 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
   const qc = useQueryClient();
   const [mode, setMode] = useState<"command" | "nl">("command");
   const [q, setQ] = useState("");
-  const [nlResult, setNlResult] = useState<{ id: string; actions: ParsedAction[]; requires_confirmation: boolean; reply?: string } | null>(null);
+  const [nlResult, setNlResult] = useState<{ id: string; actions: ParsedAction[]; requires_confirmation: boolean; parser?: "rules" | "llm"; reply?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -151,12 +151,18 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
 
           {mode === "nl" && !nlResult && (
             <div className="px-3 py-4 text-xs text-mut">
-              UI-Agent 将解析为页面动作：只读动作直接执行；写操作需确认（L1 级：导航 / 过滤 / 选择 / 批量审批）。
+              UI-Agent 将解析为页面动作：只读动作直接执行；写操作需确认。L1 规则解析优先；真实模型模式下规则未命中时自动回退 L2 模型解析。
             </div>
           )}
 
           {mode === "nl" && nlResult && (
             <div className="space-y-2 p-2">
+              {nlResult.parser && (
+                <div className="px-1 text-[11px] text-mut">
+                  {nlResult.parser === "llm" ? "🤖 L2 模型解析（真实 LLM 调用）" : "📋 L1 规则解析"}
+                  {nlResult.reply ? ` · ${nlResult.reply}` : ""}
+                </div>
+              )}
               {nlResult.actions.map((a, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm">
                   <span className="flex items-center gap-2">

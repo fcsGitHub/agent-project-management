@@ -4,7 +4,7 @@ display_name: 本体策展 Agent
 concepts: []
 model:
   provider: openai_compat
-  name: gpt-4.1-mini
+  name: glm-5.3
   temperature: 0.2
 system_prompt_file: prompts/roles/ontology-curator.md
 tools: [read_artifact]

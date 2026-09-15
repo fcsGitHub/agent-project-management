@@ -14,7 +14,17 @@ class Settings(BaseSettings):
     provider_mode: str = "replay"
     llm_api_base: str = "http://localhost:8000/v1"
     llm_api_key: str = ""
-    llm_model: str = "gpt-4.1-mini"
+    llm_model: str = "glm-5.3"
+    # Wire protocol for the real provider: "openai" (OpenAI SDK chat/completions)
+    # or "anthropic" (messages API via httpx); "auto" picks anthropic when the
+    # base URL contains "/anthropic" (e.g. Zhipu's coding-plan endpoint).
+    llm_protocol: str = "auto"
+    # Reasoning models spend completion budget on invisible thinking, so the
+    # ceiling must be generous or `content` comes back empty (finish=length).
+    # GLM-5.x thinks in hundreds of tokens before answering; artifact-writing
+    # nodes need headroom — 16384 is a safe floor.
+    llm_max_tokens: int = 16384
+    llm_timeout_s: int = 180
     # UI-Agent (intent parsing) can use a cheaper model; falls back to llm_model.
     ui_agent_model: str = ""
     # Single-user MVP: the human actor behind every UI action.

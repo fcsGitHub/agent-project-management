@@ -54,6 +54,20 @@ export function AppShell() {
     enabled: !!pid,
     refetchInterval: 10_000,
   });
+  // M44: real-LLM chip — shows the wired model; click pings the provider live
+  const llm = useQuery({ queryKey: ["llm-status"], queryFn: api.llmStatus, staleTime: 60_000 });
+  const [pinging, setPinging] = useState(false);
+  const pingLlm = async () => {
+    setPinging(true);
+    toast.promise(api.llmPing(), {
+      loading: "正在 ping 真实模型…",
+      success: (r) => r.ok
+        ? `${r.model} 在线 · ${r.latency_ms}ms · tokens ${r.usage?.input}/${r.usage?.output}`
+        : `未联通：${r.error ?? "未知错误"}`,
+      error: (e) => `ping 失败：${String(e)}`,
+      finally: () => setPinging(false),
+    });
+  };
 
   useEffect(() => {
     if (!pid) return;
@@ -110,6 +124,26 @@ export function AppShell() {
           );
         })}
         <div className="mt-auto flex flex-col items-center gap-2 pb-1">
+          <button
+            onClick={pingLlm}
+            disabled={pinging}
+            title={
+              llm.data
+                ? `LLM：${llm.data.provider_mode} · ${llm.data.model}\n${llm.data.api_base}\n点击 ping 真实连通`
+                : "LLM 状态加载中…"
+            }
+            className={cx(
+              "flex h-11 w-11 flex-col items-center justify-center rounded-xl text-[10px] leading-none",
+              llm.data?.provider_mode === "replay"
+                ? "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                : "text-emerald-400 hover:bg-white/5",
+            )}
+          >
+            <span>{llm.data?.provider_mode === "replay" ? "↻" : "⚙"}</span>
+            <span className="mt-0.5 max-w-full truncate px-1">
+              {llm.data?.provider_mode === "replay" ? "replay" : (llm.data?.model ?? "…").replace(/^glm-/, "")}
+            </span>
+          </button>
           <Link to="/" title="项目列表" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-white/5 hover:text-zinc-200">
             <Library size={19} strokeWidth={1.8} />
           </Link>

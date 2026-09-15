@@ -379,6 +379,19 @@ class RunEngine:
         completion = get_provider().complete(
             role=self.role.id, node=node, messages=self._messages(state), context=ctx
         )
+        # M44: real usage lands on the run record (replay keeps its honest zeros)
+        if get_provider().mode != "replay":
+            events.emit(
+                event_type="run.tokens_recorded",
+                agg_type="run",
+                agg_id=self.run_id,
+                project_id=self.project_id,
+                actor_type="system",
+                actor_id=f"runtime:{self.run_id}",
+                payload={"input_tokens": completion.input_tokens,
+                         "output_tokens": completion.output_tokens,
+                         "model": completion.model, "node": node},
+            )
         spans.close_span(
             span_id=sid,
             run_id=self.run_id,

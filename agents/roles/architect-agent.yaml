@@ -4,7 +4,7 @@ display_name: 架构 Agent
 concepts: [task, requirement]
 model:
   provider: openai_compat
-  name: gpt-4.1-mini
+  name: glm-5.3
   temperature: 0.3
 system_prompt_file: prompts/roles/architect-agent.md
 tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]

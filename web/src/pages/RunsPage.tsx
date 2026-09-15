@@ -27,6 +27,8 @@ export function RunsPage() {
     enabled: !!pid,
     refetchInterval: 15_000,
   });
+  // M44: the zero-tokens caveat only applies to the replay provider
+  const llm = useQuery({ queryKey: ["llm-status"], queryFn: api.llmStatus, staleTime: 60_000 });
   const setOpen = (id: string | null) => {
     const usp = new URLSearchParams(params);
     if (id) usp.set("run", id); else usp.delete("run");
@@ -51,7 +53,7 @@ export function RunsPage() {
             <span>平均时长 <span className="font-medium text-ink">{rep.avg_duration_seconds != null ? `${rep.avg_duration_seconds}s` : "—"}</span></span>
             <span>Gate 挂起率 <span className="font-medium text-ink">{rep.gate_pending_rate != null ? `${Math.round(rep.gate_pending_rate * 100)}%` : "—"}</span></span>
             <span>平均步骤数 <span className="font-medium text-ink">{rep.avg_steps_per_run ?? "—"}</span></span>
-            <span title="replay provider 记零，接入真实 provider 后即有数">tokens <span className="font-medium text-ink">{rep.tokens.input}/{rep.tokens.output}</span></span>
+            <span title={llm.data?.provider_mode === "replay" ? "replay provider 记零，接入真实 provider 后即有数" : `真实模型 ${llm.data?.model ?? ""} 的实际 token 用量`}>tokens <span className="font-medium text-ink">{rep.tokens.input}/{rep.tokens.output}</span></span>
           </div>
           <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-bg">
             {Object.entries(rep.by_status).map(([k, n]) => (

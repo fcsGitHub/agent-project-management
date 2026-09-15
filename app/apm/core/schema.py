@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS ui_commands (
   page_state TEXT,
   actions TEXT NOT NULL,
   status TEXT NOT NULL,
+  parser TEXT NOT NULL DEFAULT 'rules',
   created_at TEXT NOT NULL
 );
 
