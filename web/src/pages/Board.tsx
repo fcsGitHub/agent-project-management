@@ -727,6 +727,11 @@ export function Board() {
                             {item.blocked && (
                               <Badge tone="red" title="存在未完成的阻塞上游（blocks/depends_on）">🚧 被阻塞</Badge>
                             )}
+                            {!!item.recurrence_days && (
+                              <Badge tone="indigo" title={`完成 ${item.recurrence_days} 天后自动重建下一期`}>
+                                🔄 {item.recurrence_days}天
+                              </Badge>
+                            )}
                             {item.priority === "high" && <Badge tone="red">高优</Badge>}
                             {wpProgress.get(item.id) && (
                               <Badge tone={wpProgress.get(item.id)!.percent >= 100 ? "green" : "neutral"}

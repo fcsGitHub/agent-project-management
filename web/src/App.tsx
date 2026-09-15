@@ -126,6 +126,7 @@ function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchive
                     待办 {c.backlog ?? 0} · 进行 {c.in_progress ?? 0} · 完成 {c.done ?? 0}
                   </span>
                   {gates > 0 && <Badge tone="amber">◆ {gates} 待审</Badge>}
+                  {p.status === "completed" && <Badge tone="green" title="收尾清单全绿后交付">✅ 已交付</Badge>}
                   {archived && <Badge tone="neutral">已归档</Badge>}
                   <Badge tone="violet">{p.ontology}</Badge>
                 </button>
