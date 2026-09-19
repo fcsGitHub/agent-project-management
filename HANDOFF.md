@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-15 更新 · M44 真实 LLM 接入 完成，下一步 M45 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-19 更新 · M45 安全加固与性能/显示优化 完成，下一步 M46 调研定义）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -24,7 +24,8 @@
 - **M25~M33（I77-I103，审阅全过）**：基线偏差表、blocks 闭锁 + 关系可视化、列表分页、WIP 限制、评论修订史、状态流转白名单、lag 排期联动、跨项目路线图、里程碑燃尽、工时锁定审批、成员负载、打印视图、个人排期月历、卡片快捷编辑、运行报表、健康评分/趋势、评论引用、键盘快捷键、通知偏好细分、响应力指标、定时自动化 sweep、外部 intake 收件、列表分组、关键路径、子任务进度、工作项归档回收站。
 - **M34~M37（I104-I115，审阅全过）**：工作日历跳休、到期提醒、基线 S 曲线（事件溯源红利第六例）、IMAP 邮件转任务、常用回复、引用快捷键、主题 `[项目名]` 路由、回复转评论、Atom 动态流。
 - **M38~M43（I116-I133，审阅全过，详情=docs/10 §M38-§M43 与看板行）**：多级加权 rollup（vitest+5）、休假代理转派、超载标记、Cycles 周期 + 结转、退信静默 + 邮件过滤、完成日预测（红利第八例）、时薪成本预算、附件域、跨项目依赖图、周期燃尽 burnup、审批超时提醒 + 升级链、审计 CSV 导出、看板阻塞徽标、速率对比卡、风险登记册、项目收尾清单、完成自动重建 respawn。**基线演进：pytest 277→328，冒烟 43→49。**
-- **M44 真实 LLM 接入（I134-I136，2026-09-15 完成，docs/10 §M44；用户指令转向轮「避免一切 mock，要看到真实调用 LLM 的效果」）**：**I134 Provider 真实化**——AnthropicCompatProvider（httpx 零新依赖、thinking 块跳过、429/5xx 退避重试、MockTransport 可测）+ openai SDK timeout/max_retries/max_tokens + `LLMError` 可读错误直通 run.failed + `resolve_protocol` auto（base 含 `/anthropic` 即 anthropic 协议）+ 角色 YAML×7 与默认模型 `glm-5.3` + `llm_max_tokens=16384`（**推理模型预算教训：GLM-5.x 思考吃预算，4096→长工件空内容 finish=length，可读错误当场指路**）+ `.env.example`。**I135 观测与控制面**——`GET /api/system/llm`（永不泄露 key）+ `POST /api/system/llm/ping`（admin；replay 诚实拒绝；真实回 usage/latency）+ engine 真实补全后 `run.tokens_recorded` 事件落账（**修 M29 遗留：runs token 列首次被写入**；replay 保持诚实零）+ 侧栏模型徽标（点击即 ping toast）+ Runs 页 tooltip 条件化。**I136 NL 命令层 L2**——rules 未命中且非 replay → `ui_agent_model`（glm-5.3-flash）严格 JSON 契约解析 + `_normalize_llm_actions` 白名单（模型提议、确定性校验裁决、强制只读）+ `parser: rules|llm` 全链路溯源（事件/投影列/API/命令栏徽标）+ **冒烟 50** + 浏览器真实复演（glm-5.3 PRD 全文→门禁批准→succeeded→编排器自动接力 planner/release 双门禁→runs 真实 tokens 1182/37695→L2 flash 解析跳转→ping toast，截图 `.demo-m44/m44-review-1~5`）。**当前验证基线：pytest 339 全绿；冒烟 50 条 GREEN；vitest 14/build 绿。**
+- **M44 真实 LLM 接入（I134-I136，2026-09-15 完成，docs/10 §M44）**：AnthropicCompat/OpenAI Provider 真实化 + `GET /api/system/llm`/ping 观测面 + run.tokens_recorded 落账 + NL 命令层 L2（`_normalize_llm_actions` 白名单 + parser 溯源 + 冒烟 50）+ 浏览器真实复演（glm-5.3）。
+- **M45 安全加固与性能/显示优化（I137，2026-09-19 完成，用户指令轮「检查项目漏洞并修复，优化迭代项目性能及显示效果」；详情=docs/10 §M45 与附录 A）**：双代理全库审计后收口。**后端高危×6**——network 模式 `effective_actor` 匿名回退 "anonymous"（不再继承默认管理员；GET 开放浏览保留，admin/owner/intake-token/SSE 门禁对匿名关闭）+ `/api/users` 剥 feed_key + 本体导入路径校验[子目录允许、../拒绝]+admin 门禁 + gitrepo `_safe_relpath` 逐级父目录比较[`?commit=` hex 白名单] + rebuild-projections admin 门禁+`ensure_default_user` 复跑 + webhook SSRF 默认拒私网[`APM_WEBHOOK_ALLOW_PRIVATE` 开关，测试 fixture 显式开]。**中低危**——SMTP 证书校验、畸形 cookie 容错、带密码账号仅 admin 可建[OIDC JIT 不受限]、SSE 会话门禁、归因修正×3、runs 重复查询+limit 上限、items 索引×4、db 连接泄漏、死变量。**前端**——7 处裸 fetch 收口 api.ts（新增 putArtifact/startRun/retryRun/getAsset/deposeAsset/submitAssetReview + API_BASE 导出）+ 11 处 async onClick 补 catch/toast + md.ts sanitize 后 href 转义 + LoginPage 去管理员预填 + Board matches/listed 备忘化[useCallback/useMemo]与 custom_fields 容错 + CommentsModal 按评论 id 渲染缓存 + 全局 invalidateQueries 收敛为定向[Board×9/CommentsModal/TimeLogModal/ConversationView] + MyTime Promise.all 并行 + GraphView 🔔 徽标接审批真数据 + Dashboard 功能进度条真实 % + Reports/Activity/MyWork/Runs/Feature 三态（加载/错误/空）+ aria-label。**顺手修 smoke_45 日期敏感缺陷**（`today-17` 锚点只在周一~周四成立 → `this_monday-15` 周对齐）。**当前验证基线：pytest 349 全绿（+8，实测 HEAD 收集 341：test_security_hardening ×7 + webhook SSRF 负向）；冒烟 50 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -32,8 +33,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M44 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M45 调研定义（下一步）**：先 `grep -n "候选\|AP\|AQ" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 §AR 新节 + docs/10 §M45 节 + 看板行 + 附录 A →「M45 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M45 审阅。**候选池**：①Cycles 多周期视图/燃尽对比（I125 留位）；②单元成本行项/多币种（I122 留）；③跨项目依赖图[需跨项目关系模型，V2 级]（I124 留）；④subject 正则全量路由（I113 前缀版已够用）；⑤digest 邮件[明确不做除非用户要求]；⑥LLM 深化：流式输出（SSE 逐 token）/ 对话多轮上下文压缩 / 角色 YAML 温度与模型分档 / record 模式录制真实 fixtures 供 CI 回放；⑦M45 调研新发现。
+1. ~~M24~M45 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M46 调研定义（下一步）**：M45 用户指令轮占用了原 M45 调研位——原候选池整体顺延为 M46 起点。先 `grep -n "候选\|AP\|AQ\|AR" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M46 节 + 看板行 + 附录 A →「M46 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M46 审阅。**候选池**：①Cycles 多周期视图/燃尽对比（I125 留位）；②单元成本行项/多币种（I122 留）；③跨项目依赖图[需跨项目关系模型，V2 级]（I124 留）；④subject 正则全量路由（I113 前缀版已够用）；⑤digest 邮件[明确不做除非用户要求]；⑥LLM 深化：流式输出（SSE 逐 token）/ 对话多轮上下文压缩 / 角色 YAML 温度与模型分档 / record 模式录制真实 fixtures 供 CI 回放；⑦M45 审计遗留 backlog：engine `_exec_lock` 全局串行（按 run 粒度细化）/_active_runs 内存清理/深色模式/硬编码调色板 token 化/看板列渐进渲染；⑧调研新发现。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
@@ -62,11 +63,14 @@
 - **功能提升使旧测试前提失效属正常演进**（I78）：换仍未注册的触发器保持断言强度，不是放宽断言。
 - **推理模型走真实 provider 必须给宽松 max_tokens**（M44）：GLM-5.x thinking 先吃预算，4096 会让长工件空返回；错误信息已自带「提高 APM_LLM_MAX_TOKENS」指路。
 - **演示密钥注入**：`export APM_LLM_API_KEY="$(python -c ...)"` 运行时读本机 ZCode 配置，永不 echo、不进仓库（.gitignore 第 24 行 `.env`）。
+- **日期敏感测试教训（M45/smoke_45）**：凡用 `today - N` 造历史数据的测试，先问「N 在任意星期几下语义是否一致」——forecast 只认「完全落入历史的完整周」，`today-17` 只在周一~周四成立；锚点一律按周对齐（`this_monday - N`）。**基线全绿的证明力受验证日期约束，周五跑一次全量是便宜的保险**。
+- **webhook 测试必须显式开 `APM_WEBHOOK_ALLOW_PRIVATE`（M45）**：SSRF 防护默认拒环回/私网，接收器跑 127.0.0.1 的套件要 monkeypatch `config.settings.webhook_allow_private=True`（test_webhooks autouse 已带）。
+- **前端「稳定函数引用」用 useCallback 而非 useMemo（M45）**：useMemo 工厂被当 predicate 传入时缓存的是布尔返回值，`filter(matches)` 直接类型爆炸——tsc 会当场揭穿，但要第一遍就写对。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 339 项，应全绿
+cd app && python -m pytest            # 349 项，应全绿
 python tools/smoke/run_smoke.py       # 冒烟基线 50 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 14 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
