@@ -71,25 +71,33 @@ export function GraphView() {
   const graph = useQuery({ queryKey: ["graph", pid], queryFn: () => api.getGraph(pid!), enabled: !!pid, refetchInterval: 5_000 });
   const phases = useQuery({ queryKey: ["phases", pid], queryFn: () => api.getPhases(pid!), enabled: !!pid });
   const runs = useQuery({ queryKey: ["runs", pid], queryFn: () => api.listRuns(pid!), enabled: !!pid });
+  const approvals = useQuery({
+    queryKey: ["approvals", pid, "pending"],
+    queryFn: () => api.listApprovals({ status: "pending", project_id: pid }),
+    enabled: !!pid,
+    refetchInterval: 10_000,
+  });
   const [selected, setSelected] = useState<GraphNode | null>(null);
 
-  const pendingGates = useMemo(() => {
-    const convWithPending = new Set(
-      (runs.data?.runs ?? []).filter((r) => r.status === "interrupted").map((r) => r.item_id),
-    );
-    return convWithPending;
-  }, [runs.data]);
+  // 🔔 徽标数据源：挂在门上的待审批数（按门名聚合，与审批中心同口径）
+  const pendingGateCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of approvals.data?.approvals ?? []) {
+      if (a.kind !== "gate") continue;
+      const g = String(a.payload_snapshot?.gate ?? "");
+      if (g) m.set(g, (m.get(g) ?? 0) + 1);
+    }
+    return m;
+  }, [approvals.data]);
 
   const { nodes, edges } = useMemo(() => {
     const phaseStatus = new Map((phases.data?.phases ?? []).map((p) => [p.id, p]));
-    const pendingByRun = new Map<string, number>();
     const itemRun = new Map<string, { conversation_id: string; status: string }>();
     for (const r of runs.data?.runs ?? []) {
       if (r.item_id) itemRun.set(r.item_id, { conversation_id: r.conversation_id, status: r.status });
     }
     const ns: Node[] = [];
     const es: Edge[] = [];
-    const phaseCount = (graph.data?.nodes ?? []).filter((n) => n.kind === "phase").length || 1;
     let phaseIdx = 0;
     for (const n of graph.data?.nodes ?? []) {
       if (n.kind === "phase") {
@@ -103,7 +111,11 @@ export function GraphView() {
         ns.push({
           id: n.id, type: "gate",
           position: { x: 60 + (phaseIdx - 1) * 210 + 130, y: 140 },
-          data: { label: String(n.label), pending: 0, passed: stOf(phaseStatus, String(n.phase)) },
+          data: {
+            label: String(n.label),
+            pending: pendingGateCounts.get(String(n.label)) ?? 0,
+            passed: stOf(phaseStatus, String(n.phase)),
+          },
         });
       } else {
         const idx = ns.filter((x) => x.type === "task").length;
@@ -124,13 +136,12 @@ export function GraphView() {
         source: e.source, target: e.target,
         animated: e.kind === "sequence",
         style: e.kind === "depends_on"
-          ? { stroke: "#dc2626", strokeDasharray: "4 3" }
-          : e.kind === "sequence" ? { stroke: "#a1a1aa" } : { stroke: "#d4d4d8" },
+          ? { stroke: "var(--color-dan, #dc2626)", strokeDasharray: "4 3" }
+          : e.kind === "sequence" ? { stroke: "var(--color-mut, #a1a1aa)" } : { stroke: "var(--color-line, #d4d4d8)" },
       });
     }
-    void phaseCount; void pendingGates; void pendingByRun;
     return { nodes: ns, edges: es };
-  }, [graph.data, phases.data, runs.data, pendingGates]);
+  }, [graph.data, phases.data, runs.data, pendingGateCounts]);
 
   if (!pid) return null;
 

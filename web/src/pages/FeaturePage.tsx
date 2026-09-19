@@ -25,6 +25,7 @@ export function FeaturePage() {
 
   if (!pid || !fid) return null;
   const f = feature.data;
+  if (feature.isError) return <div className="p-6 text-sm text-dan">功能加载失败，请刷新重试。</div>;
   if (!f) return <div className="p-6 text-sm text-mut">加载功能…</div>;
 
   return (
@@ -162,14 +163,15 @@ function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Arti
                   <span className="mr-auto text-xs text-mut">保存 = git commit（artifact.human_edited 入审计流）</span>
                   <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>取消</Button>
                   <Button size="sm" variant="primary" onClick={async () => {
-                    await fetch(`/api/projects/${pid}/artifacts/${openPath}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ content: draft, message: "human edit" }),
-                    });
-                    setEditing(false);
-                    qc.invalidateQueries({ queryKey: ["artifact", pid, openPath] });
-                    toast.success("已保存为新版本（commit）");
+                    if (!openPath) return;
+                    try {
+                      await api.putArtifact(pid, openPath, draft, "human edit");
+                      setEditing(false);
+                      await qc.invalidateQueries({ queryKey: ["artifact", pid, openPath] });
+                      toast.success("已保存为新版本（commit）");
+                    } catch (e) {
+                      toast.error("保存失败（内容未提交）", { description: String(e) });
+                    }
                   }}>保存 commit</Button>
                 </div>
               </div>
@@ -194,11 +196,9 @@ function ArtifactList({ artifacts, pid }: { artifacts: import("../lib/api").Arti
             <div className="text-xs text-mut">
               版本史：{art.data.history.map((h) => h.commit.slice(0, 7)).join(" ← ")}
             </div>
-            {art.data.path.includes("test") || true ? (
-              <Button variant="outline" onClick={() => setDeposit(artifacts.find((x) => x.path === openPath) ?? null)}>
-                📚 沉淀为资产
-              </Button>
-            ) : null}
+            <Button variant="outline" onClick={() => setDeposit(artifacts.find((x) => x.path === openPath) ?? null)}>
+              📚 沉淀为资产
+            </Button>
           </div>
         )}
       </Drawer>
@@ -217,9 +217,13 @@ function BriefDrawer({ open, onClose, feature }: {
       <Textarea rows={12} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="mt-3 flex justify-end">
         <Button variant="primary" onClick={async () => {
-          await api.patchFeature(feature.id, { brief: text });
-          await qc.invalidateQueries({ queryKey: ["feature", feature.id] });
-          onClose();
+          try {
+            await api.patchFeature(feature.id, { brief: text });
+            await qc.invalidateQueries({ queryKey: ["feature", feature.id] });
+            onClose();
+          } catch (e) {
+            toast.error("简报保存失败", { description: String(e) });
+          }
         }}>保存简报</Button>
       </div>
     </Drawer>
@@ -251,10 +255,14 @@ function NewConversationModal({ open, onClose, pid, fid }: {
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>取消</Button>
           <Button variant="primary" disabled={!title.trim()} onClick={async () => {
-            const c = await api.createConversation({ project_id: pid, feature_id: fid, kind, title, instruction });
-            await qc.invalidateQueries();
-            onClose();
-            navigate(`/p/${pid}/c/${c.id}`);
+            try {
+              const c = await api.createConversation({ project_id: pid, feature_id: fid, kind, title, instruction });
+              await qc.invalidateQueries({ queryKey: ["feature", fid] });
+              onClose();
+              navigate(`/p/${pid}/c/${c.id}`);
+            } catch (e) {
+              toast.error("创建对话失败", { description: String(e) });
+            }
           }}>创建并打开</Button>
         </div>
       </div>
@@ -293,16 +301,13 @@ function DepositModal({ artifact, onClose, pid }: {
           <Button variant="primary" disabled={!title.trim() || busy} onClick={async () => {
             setBusy(true);
             try {
-              const r = await fetch("/api/assets", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ source_project_id: pid, artifact_path: artifact.path, commit: artifact.commit, library, kind, title }),
+              const asset = await api.deposeAsset({
+                source_project_id: pid, artifact_path: artifact.path, commit: artifact.commit,
+                library, kind, title,
               });
-              const asset = await r.json();
-              const rr = await fetch(`/api/assets/${asset.id}/submit_review`, { method: "POST" });
-              const rev = await rr.json();
+              const rev = await api.submitAssetReview(asset.id);
               toast.success("已提交入库评审", { description: `审批 ${rev.approval_id?.slice(0, 10)}… 待批准后发布` });
-              await qc.invalidateQueries();
+              await qc.invalidateQueries({ queryKey: ["assets"] });
               onClose();
             } catch (e) {
               toast.error("沉淀失败", { description: String(e) });

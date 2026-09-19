@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import queue
 import smtplib
+import ssl
 import threading
 import time
 from email.message import EmailMessage
@@ -72,12 +73,14 @@ def _send(item: dict) -> tuple[bool, str, int | None]:
     msg.set_content(f"{item['summary']}\n\nkind: {item['kind']}\n")
     start = time.monotonic()
     try:
+        # 校验证书/主机名的默认 SSL 上下文：SMTP 凭据不得被中间人截获。
+        ssl_ctx = ssl.create_default_context()
         if s.smtp_port == 465:
-            server = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=10)
+            server = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=10, context=ssl_ctx)
         else:
             server = smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=10)
             if s.smtp_tls:
-                server.starttls()
+                server.starttls(context=ssl_ctx)
         try:
             if s.smtp_user:
                 server.login(s.smtp_user, s.smtp_pass)

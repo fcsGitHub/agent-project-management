@@ -59,6 +59,10 @@ def receiver():
 @pytest.fixture(autouse=True)
 def fast_retries(monkeypatch):
     monkeypatch.setattr(webhooks, "RETRY_DELAYS", (0.05, 0.05, 0.05))
+    # SSRF 防护（默认拒绝私网目标）在本套件显式放开：接收器跑在本机环回。
+    from apm import config
+
+    monkeypatch.setattr(config.settings, "webhook_allow_private", True)
 
 
 @pytest.fixture()
@@ -207,3 +211,13 @@ def test_replay_and_ping(client, project, receiver):
     # Unknown delivery id → 404.
     assert client.post(
         f"/api/projects/{pid}/webhooks/{wh['id']}/replay/dl_nope").status_code == 404
+
+
+def test_webhook_private_target_blocked_by_default(client, project, monkeypatch):
+    """SSRF 防护（默认拒绝）：环回/私网目标在未显式放开时注册即 422。"""
+    from apm import config
+
+    monkeypatch.setattr(config.settings, "webhook_allow_private", False)
+    r = client.post(f"/api/projects/{project['id']}/webhooks",
+                    json={"url": "http://127.0.0.1:9/hook", "events": ["item.created"]})
+    assert r.status_code == 422 and "public address" in r.json()["detail"]

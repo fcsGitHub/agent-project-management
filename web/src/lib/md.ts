@@ -68,7 +68,9 @@ export function renderCommentMd(body: string, names: string[], opts?: MdRenderOp
           const href = opts?.boardPath
             ? `${opts.boardPath}?item=${encodeURIComponent(itemId)}`
             : "#";
-          return `<li>${input} <a href="${href}" class="text-acc underline">🔗 ${escapeHtml(text)}</a>`
+          // boardPath 来自路由参数（pid），拼接发生在 sanitize 之后——必须整体
+          // 转义，防构造含引号的 pid 闭合属性注入事件处理器。
+          return `<li>${input} <a href="${escapeHtml(href)}" class="text-acc underline">🔗 ${escapeHtml(text)}</a>`
             + ` <span class="rounded bg-accbg px-1 text-[10px] font-medium text-acc">已提取</span></li>`;
         }
         if (opts?.extractable) {

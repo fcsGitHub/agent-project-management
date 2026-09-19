@@ -79,8 +79,12 @@ def test_network_mode_role_gate(client, tmp_data, isolated_ontologies, project):
                            json={"user_id": "dev-zhang", "password": "dev-pass"}).status_code == 200
         assert client.post(f"/api/projects/{pid}/items", json=item).status_code == 200
 
-        # Non-member: forbidden on pid.
-        client.post("/api/users", json={"id": "outsider", "name": "外人", "password": "out-pass"})
+        # Non-member: forbidden on pid.（安全收紧：network 模式下带密码账号
+        # 只能由管理员创建——先切回管理员建号，再以外人身份登录。）
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+        assert client.post("/api/users",
+                           json={"id": "outsider", "name": "外人", "password": "out-pass"}).status_code == 200
         assert client.post("/api/auth/login",
                            json={"user_id": "outsider", "password": "out-pass"}).status_code == 200
         r = client.post(f"/api/projects/{pid}/items", json=item)

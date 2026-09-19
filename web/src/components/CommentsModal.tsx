@@ -65,7 +65,7 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
     mutationFn: (v: { id: string; body: string }) => api.editComment(v.id, { body: v.body }),
     onSuccess: () => {
       setEditingId(null);
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["comments", itemId] });
     },
     onError: (e) => toast.error(`编辑失败：${e instanceof Error ? e.message : e}`),
   });
@@ -75,7 +75,9 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
     mutationFn: (v: { commentId: string; text: string }) => api.extractTask(v.commentId, { text: v.text }),
     onSuccess: (r) => {
       toast.success(`已转为子任务：${r.item.title}`);
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["comments", itemId] });
+      qc.invalidateQueries({ queryKey: ["board"] });
+      qc.invalidateQueries({ queryKey: ["feature"] });
     },
     onError: (e) => toast.error(`转换失败：${e instanceof Error ? e.message : e}`),
   });
@@ -92,6 +94,34 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
     if (typed.includes(" ")) return [];
     return (users.data?.users ?? []).filter((u) => u.name.includes(typed)).slice(0, 6);
   }, [draft, users.data]);
+
+  // 渲染缓存：marked+DOMPurify 解析按评论 id 记忆化（随评论/用户/提取表变化
+  // 才重建）——否则编辑框每敲一个字，全列表每条评论都重跑一遍解析净化。
+  const names = useMemo(() => (users.data?.users ?? []).map((u) => u.name), [users.data]);
+  const extractedByComment = useMemo(() => {
+    const m = new Map<string, Map<string, string>>();
+    for (const x of comments.data?.extracted ?? []) {
+      const cur = m.get(x.comment_id) ?? new Map<string, string>();
+      cur.set(x.text, x.item_id);
+      m.set(x.comment_id, cur);
+    }
+    return m;
+  }, [comments.data]);
+  const renderComment = useMemo(() => {
+    const cache = new Map<string, string>();
+    return (c: { id: string; body: string }) => {
+      let html = cache.get(c.id);
+      if (html === undefined) {
+        html = renderCommentMd(c.body, names, {
+          extracted: extractedByComment.get(c.id),
+          extractable: true,
+          boardPath: pid ? `#/p/${pid}/board` : undefined,
+        });
+        cache.set(c.id, html);
+      }
+      return html;
+    };
+  }, [extractedByComment, names, pid]);
 
   const applyMention = (name: string) => {
     const at = draft.lastIndexOf("@");
@@ -267,13 +297,7 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
               ) : (
                 <div className={MD_BODY}
                   onClick={onBodyClick(c.id)}
-                  dangerouslySetInnerHTML={{ __html: renderCommentMd(c.body, (users.data?.users ?? []).map((u) => u.name), {
-                    extracted: new Map((comments.data?.extracted ?? [])
-                      .filter((x) => x.comment_id === c.id)
-                      .map((x) => [x.text, x.item_id])),
-                    extractable: true,
-                    boardPath: pid ? `#/p/${pid}/board` : undefined,
-                  }) }} />
+                  dangerouslySetInnerHTML={{ __html: renderComment(c) }} />
               )}
               {historyId === c.id && (
                 <div className="mt-1 space-y-1 rounded-lg bg-bg px-2 py-1.5">

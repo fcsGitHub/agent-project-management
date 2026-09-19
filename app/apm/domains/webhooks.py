@@ -114,6 +114,28 @@ def _validate_url(url: str) -> None:
     parsed = urlparse(url or "")
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=422, detail="url must be an http(s) URL")
+    # SSRF 防护：服务器会主动 POST 事件 payload 到该地址，默认拒绝环回/
+    # 私网/链路本地/保留段目标（云元数据 169.254.169.254 亦被覆盖）。
+    from apm import config
+
+    if config.settings.webhook_allow_private:
+        return
+    import ipaddress
+    import socket
+
+    host = parsed.hostname or ""
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80),
+                                   proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise HTTPException(status_code=422, detail=f"cannot resolve webhook host '{host}'")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            raise HTTPException(
+                status_code=422,
+                detail="webhook host must be a public address (private/loopback/link-local blocked)")
 
 
 def _validate_events(events_sub: list[str]) -> None:

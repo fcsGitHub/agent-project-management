@@ -198,7 +198,7 @@ export function AppShell() {
           >
             <Command size={13} /> <span className="hidden sm:inline">⌘K 命令 / 自然语言</span>
           </button>
-          <Link to={`/p/${pid}/approvals`} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="审批中心">
+          <Link to={`/p/${pid}/approvals`} aria-label="审批中心" className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="审批中心">
             <Bell size={17} />
             {pendingCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-dan px-1 text-[10px] font-bold text-white">
@@ -338,26 +338,42 @@ function NotificationsBell() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["notifications"] });
 
   const markAll = async () => {
-    await api.markNotificationsRead({ all: true });
-    await invalidate();
+    try {
+      await api.markNotificationsRead({ all: true });
+      await invalidate();
+    } catch (e) {
+      toast.error("标记已读失败", { description: String(e) });
+    }
   };
 
   const toggleEmail = async () => {
     const next = !(notes.data?.email_enabled ?? true);
-    await api.setNotificationPrefs({ email_enabled: next });
-    await invalidate();
-    toast.info(next ? "邮件通知已开启" : "邮件通知已关闭（站内通知照常）");
+    try {
+      await api.setNotificationPrefs({ email_enabled: next });
+      await invalidate();
+      toast.info(next ? "邮件通知已开启" : "邮件通知已关闭（站内通知照常）");
+    } catch (e) {
+      toast.error("通知偏好保存失败", { description: String(e) });
+    }
   };
 
   const loadFeedKey = async () => {
-    const k = showKey ? null : (await api.getFeedKey()).feed_key;
-    setShowKey(k);
+    if (showKey) { setShowKey(null); return; }
+    try {
+      setShowKey((await api.getFeedKey()).feed_key);
+    } catch (e) {
+      toast.error("获取订阅密钥失败", { description: String(e) });
+    }
   };
 
   const rotateKey = async () => {
-    const r = await api.rotateFeedKey();
-    setShowKey(r.feed_key);
-    toast.success("feed key 已换发，旧 key 立即失效");
+    try {
+      const r = await api.rotateFeedKey();
+      setShowKey(r.feed_key);
+      toast.success("feed key 已换发，旧 key 立即失效");
+    } catch (e) {
+      toast.error("换发失败", { description: String(e) });
+    }
   };
 
   const copyLink = async () => {
@@ -370,7 +386,7 @@ function NotificationsBell() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="通知中心">
+      <button onClick={() => setOpen((v) => !v)} aria-label="通知中心" className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-mut hover:text-acc" title="通知中心">
         <BellRing size={17} />
         {unread > 0 && (
           <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-dan px-1 text-[10px] font-bold text-white">

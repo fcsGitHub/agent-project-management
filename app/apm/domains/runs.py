@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from apm.core import db, events
@@ -202,7 +202,7 @@ def list_runs(
     conversation_id: str | None = None,
     item_id: str | None = None,
     status: str | None = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
 ) -> dict:
     where, params = ["1=1"], []
     if project_id:
@@ -261,7 +261,6 @@ def get_run_timeline(run_id: str) -> dict:
                 "run_id": run_id,
             }
         )
-    _, total = events.query_events(project_id=run["project_id"], limit=1000)
     evts, _ = events.query_events(project_id=run["project_id"], limit=1000)
     for e in evts:
         relevant = (

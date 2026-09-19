@@ -169,7 +169,7 @@ def from_asset(body: FromAssetIn) -> dict:
         agg_type="ontology_pack",
         agg_id=body.pack_name,
         actor_type="human",
-        actor_id=config.settings.user_id,
+        actor_id=events.effective_actor(),
         payload={
             "source": "asset",
             "asset_id": body.asset_id,

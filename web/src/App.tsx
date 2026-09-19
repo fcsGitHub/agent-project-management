@@ -196,6 +196,8 @@ function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchive
                   const p = await api.createProject({ name, ontology, requirement: req });
                   await qc.invalidateQueries({ queryKey: ["projects"] });
                   navigate(`/p/${p.id}`);
+                } catch (e) {
+                  toast.error("创建失败", { description: String(e) });
                 } finally {
                   setBusy(false);
                 }

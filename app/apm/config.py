@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     smtp_pass: str = ""
     smtp_from: str = ""
     smtp_tls: bool = True
+    # Webhook SSRF 防护（默认开）：拒绝私网/环回/链路本地投递目标；测试或
+    # 内网集成场景显式放开（APM_WEBHOOK_ALLOW_PRIVATE=true）。
+    webhook_allow_private: bool = False
     # OIDC single sign-on (M17): entirely optional — issuer/client_id/secret all
     # set enables the feature, otherwise it stays off (same semantics as SMTP).
     # allowed_groups: comma-separated IdP group names; empty disables the group

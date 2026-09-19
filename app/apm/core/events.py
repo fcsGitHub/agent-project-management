@@ -58,8 +58,17 @@ def reset_current_actor(token) -> None:
 
 
 def effective_actor() -> str:
-    """The identity behind the current operation (session > local default)."""
-    return _actor_ctx.get() or config.settings.user_id
+    """The identity behind the current operation (session > local default).
+
+    network 模式下无会话的请求不再继承默认管理员身份（安全修复）：匿名即
+    "anonymous"，is_instance_admin / 成员检查自然拒绝；配置的本地身份仅
+    local 模式回退使用（后台线程的 emit 均显式传 actor_id，不依赖此回退）。"""
+    actor = _actor_ctx.get()
+    if actor:
+        return actor
+    if config.settings.auth_mode == "network":
+        return "anonymous"
+    return config.settings.user_id
 
 
 def utcnow() -> str:

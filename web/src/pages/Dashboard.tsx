@@ -3,7 +3,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { fmtMinutes } from "../components/TimeLogModal";
@@ -21,6 +21,12 @@ export function Dashboard() {
   const convs = useQuery({ queryKey: ["conversations", pid], queryFn: () => api.listConversations(pid!), enabled: !!pid });
   const portfolio = useQuery({ queryKey: ["portfolio"], queryFn: api.getPortfolioReport, refetchInterval: 15_000 });
   const health = useQuery({ queryKey: ["portfolio-health"], queryFn: api.portfolioHealth, refetchInterval: 15_000 });
+  // 功能进度条数据源：与看板同键（["board", pid, …]）复用缓存，避免额外口径
+  const board = useQuery({
+    queryKey: ["board", pid, undefined, undefined, undefined],
+    queryFn: () => api.getBoard(pid!),
+    enabled: !!pid,
+  });
 
   if (!pid) return null;
   const counts = project.data?.item_counts ?? {};
@@ -30,6 +36,19 @@ export function Dashboard() {
 
   const convCount = new Set(runs.data?.runs.map((r) => r.conversation_id)).size;
   const healthMap = new Map((health.data?.projects ?? []).map((h) => [h.project_id, h.score]));
+  const featureProg = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>();
+    for (const b of board.data?.buckets ?? []) {
+      for (const it of b.items) {
+        if (!it.feature_id) continue;
+        const cur = m.get(it.feature_id) ?? { done: 0, total: 0 };
+        cur.total++;
+        if (it.status_group === "done") cur.done++;
+        m.set(it.feature_id, cur);
+      }
+    }
+    return m;
+  }, [board.data]);
 
   return (
     <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
@@ -60,7 +79,7 @@ export function Dashboard() {
               <span title="项目健康评分（CHAOSS 多因子语义：超期/滞留/吞吐/Gate 四因子加权）">
                 {score != null ? (
                   <Badge tone={score >= 80 ? "green" : score >= 60 ? "amber" : "red"}>
-                    {score >= 80 ? "♥" : score >= 60 ? "♥" : "♥"} {score}
+                    {score >= 80 ? "♥" : score >= 60 ? "♡" : "✚"} {score}
                   </Badge>
                 ) : (
                   <Badge tone="neutral">♥ —</Badge>
@@ -102,23 +121,32 @@ export function Dashboard() {
           ))}
         </div>
         <div className="mt-4 space-y-1.5">
-          {(project.data?.features ?? []).map((f) => (
+          {(project.data?.features ?? []).map((f) => {
+            const prog = featureProg.get(f.id);
+            const fpct = prog && prog.total ? Math.round((prog.done / prog.total) * 100) : null;
+            return (
             <Link key={f.id} to={`/p/${pid}/f/${f.id}`} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-bg">
               <span className="w-28 truncate">{f.title}</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg">
-                <div className="h-full rounded-full bg-ag" style={{ width: "0%" }} />
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg" title={fpct != null ? `${prog!.done}/${prog!.total} 完成` : "暂无工作项"}>
+                <div className="h-full rounded-full bg-ag transition-all" style={{ width: `${fpct ?? 0}%` }} />
               </div>
+              <span className="w-14 shrink-0 text-right text-[10px] text-mut">{fpct != null ? `${fpct}%` : "—"}</span>
               <span className="text-[10px] text-mut">{timeAgo(f.updated_at)}</span>
             </Link>
-          ))}
+            );
+          })}
         </div>
         <div className="mt-3 flex gap-2">
           <Link to={`/p/${pid}/c/${firstDrafting(convs.data?.conversations ?? []) ?? ""}`}>
             <Button variant="primary" size="sm">和 PM-Agent 谈需求 →</Button>
           </Link>
           <Button size="sm" variant="outline" onClick={async () => {
-            const r = await api.deliver(pid);
-            location.hash = `#/p/${pid}/c/${r.conversation_id}`;
+            try {
+              const r = await api.deliver(pid);
+              location.hash = `#/p/${pid}/c/${r.conversation_id}`;
+            } catch (e) {
+              toast.error("发起交付失败", { description: String(e) });
+            }
           }}>
             生成交付（Release-Agent）
           </Button>

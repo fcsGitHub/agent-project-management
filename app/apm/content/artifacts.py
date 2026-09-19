@@ -118,6 +118,6 @@ def put_artifact(project_id: str, rel_path: str, body: ArtifactWrite) -> dict:
         rel_path,
         body.content,
         actor_type="human",
-        actor_id=config.settings.user_id,
+        actor_id=events.effective_actor(),
         message=body.message,
     )

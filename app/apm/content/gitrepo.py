@@ -5,6 +5,7 @@ write is a commit, so diffs, version history and rollback come for free.
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -61,9 +62,11 @@ def init_project_repo(project_id: str, charter: str, ontology_name: str) -> Path
 
 
 def _safe_relpath(project_id: str, rel_path: str) -> Path:
-    root = repo_path(project_id)
+    root = repo_path(project_id).resolve()
     target = (root / rel_path).resolve()
-    if not str(target).startswith(str(root.resolve())):
+    # 逐级父目录比较，杜绝字符串前缀绕过（p1 的 ../p1-evil/x 会解析成兄弟目录，
+    # startswith(".../p1") 却为 True）。
+    if target != root and root not in target.parents:
         raise GitError(f"path escapes content repo: {rel_path}")
     return target
 
@@ -99,6 +102,8 @@ def commit_all(project_id: str, *, message: str, actor_type: str, actor_id: str)
 def read_file(project_id: str, rel_path: str, commit: str | None = None) -> str:
     root = repo_path(project_id)
     _safe_relpath(project_id, rel_path)
+    if commit is not None and not re.fullmatch(r"[0-9a-fA-F]{4,40}", commit):
+        raise GitError(f"invalid commit ref: {commit}")  # 防 git 选项注入（--output 等）
     ref = f"{commit}:{rel_path}" if commit else f"HEAD:{rel_path}"
     try:
         out = _run(["show", ref], cwd=root)

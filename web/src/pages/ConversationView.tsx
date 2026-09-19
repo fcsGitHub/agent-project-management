@@ -34,23 +34,21 @@ export function ConversationView() {
   });
   const runs = useQuery({
     queryKey: ["runs", "conv", cid],
-    queryFn: async () => {
-      const r = await fetch(`/api/runs?conversation_id=${cid}`);
-      return (await r.json()).runs as import("../lib/api").Run[];
-    },
+    queryFn: () => api.listRunsByConversation(cid!).then((r) => r.runs),
     enabled: !!cid,
   });
 
   const startRun = async (role?: string) => {
     const kind = conv.data?.kind ?? "adhoc";
     const agentRole = role ?? roleForKind(kind);
-    await fetch("/api/runs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: cid, agent_role: agentRole, item_id: conv.data?.item_id }),
-    });
-    toast.success(`已启动 ${agentRole}`);
-    qc.invalidateQueries();
+    try {
+      await api.startRun({ conversation_id: cid!, agent_role: agentRole, item_id: conv.data?.item_id });
+      toast.success(`已启动 ${agentRole}`);
+    } catch (e) {
+      toast.error(`启动 ${agentRole} 失败`, { description: String(e) });
+    }
+    qc.invalidateQueries({ queryKey: ["runs", "conv", cid] });
+    qc.invalidateQueries({ queryKey: ["conversation", cid] });
   };
 
   const hasActiveRun = (runs.data ?? []).some((r) => ["running", "interrupted", "pending"].includes(r.status));
@@ -85,6 +83,7 @@ export function ConversationView() {
 
   if (!cid) return null;
   const c = conv.data;
+  if (conv.isError) return <div className="p-6 text-sm text-dan">对话加载失败，请刷新重试。</div>;
   if (!c) return <div className="p-6 text-sm text-mut">加载对话…</div>;
 
   const send = async () => {
@@ -102,7 +101,8 @@ export function ConversationView() {
     } catch (e) {
       toast.error("发送失败", { description: String(e) });
     }
-    qc.invalidateQueries();
+    qc.invalidateQueries({ queryKey: ["conversation", cid] });
+    qc.invalidateQueries({ queryKey: ["runs", "conv", cid] });
   };
 
   const status = CONV_STATUS[c.status] ?? { label: c.status, tone: "neutral" };

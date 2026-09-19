@@ -70,6 +70,10 @@ def session_user(token: str | None) -> str | None:
     ).hexdigest()
     if not hmac.compare_digest(expected, sig):
         return None
-    if int(exp) < time.time():
+    try:
+        exp_ts = int(exp)
+    except ValueError:
+        return None
+    if exp_ts < time.time():
         return None
     return user_id

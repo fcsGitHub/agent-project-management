@@ -109,16 +109,15 @@ function ToPackModal({ asset, onClose }: { asset: { id: string; title: string } 
 function AssetDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const asset = useQuery({
     queryKey: ["asset", id],
-    queryFn: async () => {
-      const r = await fetch(`/api/assets/${id}`);
-      return r.json();
-    },
+    queryFn: () => api.getAsset(id!),
     enabled: !!id,
   });
   if (!id) return null;
   const a = asset.data;
   return (
     <Drawer open onClose={onClose} title={a?.title ?? id} width="44%">
+      {asset.isError && <div className="text-sm text-dan">资产加载失败，请关闭重试。</div>}
+      {!a && !asset.isError && <div className="text-sm text-mut">加载资产…</div>}
       {a && (
         <div className="space-y-3 text-sm">
           <div className="flex flex-wrap gap-1.5">
@@ -134,13 +133,13 @@ function AssetDrawer({ id, onClose }: { id: string | null; onClose: () => void }
             <Card className="p-2">
               <div className="mb-1 font-semibold text-mut">来源链 provenance</div>
               {(a.provenance ?? []).length
-                ? (a.provenance).map((p: any, i: number) => <div key={i} className="text-mut">· {p.project_id ?? ""} {p.path ?? p.ref ?? ""}</div>)
+                ? (a.provenance ?? []).map((p, i) => <div key={i} className="text-mut">· {p.project_id ?? ""} {p.path ?? p.ref ?? ""}</div>)
                 : <div className="text-mut">—</div>}
             </Card>
             <Card className="p-2">
               <div className="mb-1 font-semibold text-mut">引用链 usage</div>
               {(a.usages ?? []).length
-                ? (a.usages).map((p: any, i: number) => <div key={i} className="text-mut">· {p.project_id ?? ""} {p.path ?? p.ref ?? ""}</div>)
+                ? (a.usages ?? []).map((p, i) => <div key={i} className="text-mut">· {p.project_id ?? ""} {p.path ?? p.ref ?? ""}</div>)
                 : <div className="text-mut">—</div>}
             </Card>
           </div>

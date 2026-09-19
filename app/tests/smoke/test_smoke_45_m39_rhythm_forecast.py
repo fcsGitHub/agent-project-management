@@ -83,8 +83,12 @@ def test_smoke_45_m39_rhythm_forecast(client, tmp_data, isolated_ontologies, mon
              '{"status": "done", "status_group": "done"}', row))
         db.get_conn().commit()  # release the write lock — TestClient runs on other threads
 
-    backdate(today - timedelta(days=17), "i_age")  # history depth, no completion
     this_monday = today - timedelta(days=today.weekday())
+    # 历史深度锚点必须按周对齐（两周期前的周日）：`today-17` 只在周一~周四
+    # 跑时才保证第二个完整周落入历史，周五~周日会误判 insufficient history。
+    # 锚在 this_monday-15 → 第二周（this_monday-14 起）必完整计入，且 i_age
+    # 的完成事件落在被排除的第三周，不参与中位数。
+    backdate(this_monday - timedelta(days=15), "i_age")  # history depth, no completion
     done_items = []
     for i in range(4):
         it = client.post(f"/api/projects/{pid}/items",

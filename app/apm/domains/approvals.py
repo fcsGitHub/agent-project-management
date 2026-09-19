@@ -259,7 +259,6 @@ def decide(approval_id: str, body: DecisionIn) -> dict:
         raise HTTPException(status_code=422, detail="decision must be approved|rejected|edit_and_resume")
     if body.decision == "rejected" and not (body.comment or "").strip():
         raise HTTPException(status_code=422, detail="rejection requires a comment (fail-closed)")
-    reviewer = config.settings.user_id
 
     from apm.runtime import spans
 

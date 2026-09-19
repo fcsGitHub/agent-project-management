@@ -165,19 +165,21 @@ function TimesheetPanel() {
     return [...m.entries()].map(([id, name]) => ({ id, name }));
   }, [feed.data]);
 
-  // pending approvals across projects where I can decide (owner/admin)
+  // pending approvals across projects where I can decide (owner/admin);
+  // Promise.all 并行拉取（原串行瀑布随 15s 轮询反复执行）
   const approvals = useQuery({
     queryKey: ["ts-approvals"],
     queryFn: async () => {
-      const out: { row: Timesheet; can: boolean }[] = [];
-      const seen = new Set<string>();
-      for (const t of mine.data?.timesheets ?? []) {
-        if (seen.has(t.project_id)) continue;
-        seen.add(t.project_id);
+      const pids = [...new Set((mine.data?.timesheets ?? []).map((t) => t.project_id))];
+      const results = await Promise.all(pids.map(async (p) => {
         try {
-          const r = await api.listTimesheets(t.project_id);
-          for (const row of r.timesheets) out.push({ row, can: r.can_approve });
-        } catch { /* viewer on a project — skip */ }
+          return await api.listTimesheets(p);
+        } catch { return null; } // viewer on a project — skip
+      }));
+      const out: { row: Timesheet; can: boolean }[] = [];
+      for (const r of results) {
+        if (!r) continue;
+        for (const row of r.timesheets) out.push({ row, can: r.can_approve });
       }
       return out;
     },

@@ -28,10 +28,10 @@ class FakeSMTP:
     fail: bool = False
     stall: float = 0.0
 
-    def __init__(self, host, port, timeout=None, ssl=False):
+    def __init__(self, host, port, timeout=None, ssl=False, context=None):
         pass
 
-    def starttls(self):
+    def starttls(self, context=None):
         pass
 
     def login(self, user, passwd):

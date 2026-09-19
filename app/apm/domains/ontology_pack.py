@@ -29,6 +29,25 @@ def _check_name(name: str) -> None:
         raise HTTPException(status_code=422, detail=f"invalid ontology name '{name}'")
 
 
+def _check_fs_component(value: str, what: str) -> None:
+    """导入包里会被拼进文件路径的单段名（角色 id）必须不含分隔符与 ..，
+    防路径穿越写任意文件。"""
+    if ("/" in value or "\\" in value or ".." in value or value in ("", ".")
+            or value.startswith(".")):
+        raise HTTPException(status_code=422, detail=f"invalid {what} '{value}'")
+
+
+def _check_rel_path(value: str) -> None:
+    """提示词相对路径允许子目录（如 prompts/roles/x.md），但必须相对且
+    落在 agents/ 内：拒绝绝对路径、.. 与反斜杠（穿越向量）。"""
+    from pathlib import PurePosixPath
+
+    if not value or "\\" in value or ".." in PurePosixPath(value).parts:
+        raise HTTPException(status_code=422, detail=f"invalid path '{value}'")
+    if PurePosixPath(value).is_absolute() or value.startswith("/"):
+        raise HTTPException(status_code=422, detail=f"invalid path '{value}'")
+
+
 def _read_role_asset(rid: str) -> tuple[dict, str | None]:
     base = config.settings.agents_dir
     cfg = yaml.safe_load((base / "roles" / f"{rid}.yaml").read_text(encoding="utf-8")) or {}
@@ -91,6 +110,12 @@ def import_pack(body: dict) -> dict:
     if errors:
         raise HTTPException(status_code=422, detail={"invalid_pack": errors})
 
+    # 导入=向源码树 agents/ 写文件 + 立即加载为 agent 配置，必须管理员。
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required to import packs")
+
     roles_out: list[dict[str, str]] = []
     base = config.settings.agents_dir
     for r in pack.get("roles", []):
@@ -98,6 +123,7 @@ def import_pack(body: dict) -> dict:
         rid = cfg.get("id") or r.get("id")
         if not rid:
             continue
+        _check_fs_component(rid, "role id")
         role_path = base / "roles" / f"{rid}.yaml"
         action = "reused"
         if not role_path.exists():  # 存在即复用，绝不覆盖既有角色
@@ -107,6 +133,7 @@ def import_pack(body: dict) -> dict:
             prompt = r.get("prompt")
             pf = cfg.get("system_prompt_file")
             if pf and prompt is not None:
+                _check_rel_path(pf)
                 ppath = base / pf
                 ppath.parent.mkdir(parents=True, exist_ok=True)
                 if not ppath.exists():
@@ -122,7 +149,7 @@ def import_pack(body: dict) -> dict:
         agg_type="ontology",
         agg_id=as_name,
         actor_type="human",
-        actor_id=config.settings.user_id,
+        actor_id=events.effective_actor(),
         payload={"version": version, "source_format": pack.get("format"),
                  "roles": roles_out,
                  "summary": f"导入本体模板包 → {as_name}（v{version}）"},

@@ -232,7 +232,12 @@ export type Artifact = {
 };
 export type Asset = {
   id: string; library_id: string; kind: string; title: string; status: string;
-  tags?: string; version: number; citation_count: number; updated_at: string;
+  tags?: string | string[]; version: number; citation_count: number; updated_at: string;
+  /** 详情端点（GET /assets/{id}）附加字段 */
+  content?: string | null;
+  excerpt?: string | null;
+  provenance?: { project_id?: string; path?: string; ref?: string }[];
+  usages?: { project_id?: string; path?: string; ref?: string }[];
 };
 export type TemplatePack = {
   name: string; display_name: string; version: number; source: string; valid: boolean;
@@ -292,6 +297,8 @@ export type Context = {
 };
 
 const BASE = import.meta.env.VITE_API_BASE || "/api";
+/** 导出/直链用（CSV、NDJSON 等浏览器原生跳转不走 req()）。 */
+export const API_BASE = BASE;
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
@@ -530,6 +537,12 @@ export const api = {
     req<{ created: number; failed: number; results: { line: number; title: string; ok: boolean; error?: string; item_id?: string }[] }>(`/projects/${pid}/items/import`, { method: "POST", body: JSON.stringify({ csv }) }),
 
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
+  listRunsByConversation: (cid: string) =>
+    req<{ runs: Run[] }>(`/runs?conversation_id=${encodeURIComponent(cid)}`),
+  startRun: (body: { conversation_id: string; agent_role: string; item_id?: string | null }) =>
+    req<Run>("/runs", { method: "POST", body: JSON.stringify(body) }),
+  retryRun: (rid: string) =>
+    req<Run>(`/runs/${encodeURIComponent(rid)}/retry`, { method: "POST" }),
   getHealthHistory: (pid: string, days = 30) =>
     req<{ project_id: string; days: number;
           series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] }>(
@@ -561,6 +574,10 @@ export const api = {
   getArtifact: (pid: string, path: string) =>
     req<{ path: string; content: string; history: { commit: string; date: string; message: string }[]; diff_vs_previous: string }>(
       `/projects/${pid}/artifacts/${path}`),
+  putArtifact: (pid: string, path: string, content: string, message?: string) =>
+    req<{ path: string; commit: string }>(
+      `/projects/${pid}/artifacts/${path.split("/").map(encodeURIComponent).join("/")}`,
+      { method: "PUT", body: JSON.stringify({ content, message }) }),
 
   listEvents: (params: { project_id?: string; event_type?: string; actor_type?: string; agg_type?: string; agg_id?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams();
@@ -793,9 +810,14 @@ export const api = {
   // Assets (I12)
   listAssets: (params?: { library?: string; kind?: string; q?: string }) => {
     const q = new URLSearchParams();
-    Object.entries(params ?? {}).forEach(([k, v]) => v && q.set(k, v));
+    Object.entries(params ?? {}).forEach(([k, v]) => v && q.set(k, String(v)));
     return req<{ assets: Asset[] }>(`/assets?${q.toString()}`);
   },
+  getAsset: (id: string) => req<Asset>(`/assets/${encodeURIComponent(id)}`),
+  deposeAsset: (body: { source_project_id: string; artifact_path: string; commit: string; library: string; kind: string; title: string }) =>
+    req<Asset>("/assets", { method: "POST", body: JSON.stringify(body) }),
+  submitAssetReview: (id: string) =>
+    req<{ approval_id: string }>(`/assets/${encodeURIComponent(id)}/submit_review`, { method: "POST" }),
 
   // Template packs (M7-I23/I24)
   listTemplatePacks: () => req<{ packs: TemplatePack[] }>("/template-packs"),

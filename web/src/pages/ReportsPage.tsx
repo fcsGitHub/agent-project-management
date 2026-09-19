@@ -64,7 +64,8 @@ export function ReportsPage() {
           {Object.entries(r?.concepts ?? {}).map(([c, n]) => (
             <Badge key={c} tone="neutral">{c} × {n}</Badge>
           ))}
-          {!r && <span className="text-xs text-mut">加载中…</span>}
+          {!r && !report.isError && <span className="text-xs text-mut">加载中…</span>}
+          {report.isError && <span className="text-xs text-dan">加载失败，请刷新重试</span>}
         </div>
       </Card>
 
@@ -123,7 +124,8 @@ export function ReportsPage() {
               </div>
             </div>
           ))}
-          {!r && <span className="text-xs text-mut">加载中…</span>}
+          {!r && !report.isError && <span className="text-xs text-mut">加载中…</span>}
+          {report.isError && <span className="text-xs text-dan">吞吐加载失败</span>}
         </div>
         <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
           <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-acc" />新建</span>
@@ -176,7 +178,8 @@ function VelocityCard({ pid }: { pid: string }) {
           </Badge>
         )}
       </div>
-      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {v.isError && <div className="text-xs text-dan">速率加载失败，请刷新重试</div>}
+      {!d && !v.isError && <div className="text-xs text-mut">加载中…</div>}
       {d && !d.cycles.length && (
         <div className="text-xs text-mut">还没有已完结的周期——周期结束后这里对比承诺与完成</div>
       )}
@@ -280,7 +283,8 @@ function CostCard({ pid }: { pid: string }) {
         <span className="text-sm font-semibold">💰 成本与预算</span>
         {d?.over_budget && <Badge tone="red">已超预算</Badge>}
       </div>
-      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {cr.isError && <div className="text-xs text-dan">成本数据加载失败，请刷新重试</div>}
+      {!d && !cr.isError && <div className="text-xs text-mut">加载中…</div>}
       {d && (
         <>
           <div className="mt-1 text-xs text-mut">
@@ -352,7 +356,8 @@ function ForecastCard({ pid }: { pid: string }) {
           </Badge>
         )}
       </div>
-      {!d && <div className="text-xs text-mut">加载中…</div>}
+      {fc.isError && <div className="text-xs text-dan">预测加载失败，请刷新重试</div>}
+      {!d && !fc.isError && <div className="text-xs text-mut">加载中…</div>}
       {d?.forecast ? (
         <>
           <div className="mt-2 text-xs text-mut">

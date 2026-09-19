@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { api, API_BASE } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { Button, Card, Empty, Input, cx } from "../components/ui";
 
@@ -70,7 +70,7 @@ export function AuditPage() {
           <Button size="sm" variant="outline" onClick={() => {
             // M41-I127: server-side full-window export (admin only) — the
             // client-side button above only captures the current filtered page
-            window.open(`/api/projects/${pid}/audit.csv?days=365`, "_blank");
+            window.open(`${API_BASE}/projects/${pid}/audit.csv?days=365`, "_blank");
           }} title="导出最近 365 天全量事件（仅管理员）">⬇ 全量导出</Button>
           <Button size="sm" variant="outline" onClick={exportCsv}>导出 CSV</Button>
         </div>

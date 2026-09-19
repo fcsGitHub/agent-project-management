@@ -92,6 +92,10 @@ export function ActivityPage() {
               </div>
             ))}
           </div>
+        ) : feed.isError ? (
+          <div className="py-6 text-center text-xs text-dan">动态流加载失败，请刷新重试。</div>
+        ) : feed.isLoading ? (
+          <div className="py-6 text-center text-xs text-mut">加载动态…</div>
         ) : (
           <Empty title="暂无动态" hint="你可见的项目里有新动作后，这里会按时间倒序流出" />
         )}

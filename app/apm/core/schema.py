@@ -149,6 +149,10 @@ CREATE TABLE IF NOT EXISTS items (
 );
 CREATE INDEX IF NOT EXISTS idx_items_project ON items(project_id);
 CREATE INDEX IF NOT EXISTS idx_items_feature ON items(feature_id);
+CREATE INDEX IF NOT EXISTS idx_items_assignee ON items(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_items_due ON items(due_date);
+CREATE INDEX IF NOT EXISTS idx_items_milestone ON items(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_items_cycle ON items(cycle_id);
 
 CREATE TABLE IF NOT EXISTS item_relations (
   id TEXT PRIMARY KEY,

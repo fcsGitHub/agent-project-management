@@ -17,7 +17,7 @@ class StubSMTP:
     def __init__(self, *a, **k):
         pass
 
-    def starttls(self):
+    def starttls(self, context=None):
         pass
 
     def login(self, *a):

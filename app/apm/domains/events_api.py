@@ -42,8 +42,15 @@ def list_events(
 
 @router.post("/system/rebuild-projections")
 def rebuild_projections() -> dict:
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required for projection rebuild")
     projections.ensure_handlers_registered()
     n = projections.rebuild()
+    from apm.domains.users import ensure_default_user
+
+    ensure_default_user()  # 重建后恢复引导管理员（凭据/admin 列不进事件流）
     return {"status": "ok", "events_replayed": n}
 
 

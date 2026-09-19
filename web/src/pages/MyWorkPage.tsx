@@ -49,7 +49,9 @@ export function MyWorkPage() {
                 <span className="shrink-0 text-mut">{timeAgo(it.updated_at)}</span>
               </Link>
             ))}
-            {!work.data?.items.length && (
+            {work.isError && <Empty title="加载失败" hint="我的工作项拉取失败，请刷新重试" />}
+            {!work.isError && work.isLoading && <div className="py-6 text-center text-xs text-mut">加载中…</div>}
+            {!work.isError && !work.isLoading && !work.data?.items.length && (
               <Empty title="暂无指派给我的工作项" hint="在看板卡片上被指派后会出现在这里" />
             )}
           </div>

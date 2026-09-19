@@ -1,7 +1,8 @@
 /** Runs browser: list + drawer with span tree, gantt and human-machine timeline. */
 import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api } from "../lib/api";
 import { clockOf, timeAgo } from "../lib/fmt";
 import { Badge, Button, Card, Drawer, Empty, KV, cx } from "../components/ui";
@@ -90,7 +91,8 @@ export function RunsPage() {
             <span className="text-xs text-mut">{timeAgo(r.started_at)}</span>
           </Card>
         ))}
-        {!runs.data?.runs.length && <Empty icon="🪵" title="暂无运行" hint="从看板或对话发起一次 Agent 运行" />}
+        {runs.isLoading && <div className="py-6 text-center text-sm text-mut">加载运行…</div>}
+        {!runs.isLoading && !runs.data?.runs.length && <Empty icon="🪵" title="暂无运行" hint="从看板或对话发起一次 Agent 运行" />}
       </div>
       <RunDrawer runId={openRun} onClose={() => setOpen(null)} pid={pid} />
     </div>
@@ -98,6 +100,7 @@ export function RunsPage() {
 }
 
 function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () => void; pid?: string }) {
+  const qc = useQueryClient();
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => api.getRun(runId!), enabled: !!runId });
   const spans = useQuery({ queryKey: ["spans", runId], queryFn: () => api.getSpans(runId!), enabled: !!runId });
   const timeline = useQuery({ queryKey: ["timeline", runId], queryFn: () => api.getTimeline(runId!), enabled: !!runId });
@@ -128,7 +131,14 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
             {r.error && <KV k="错误" v={<span className="text-dan">{r.error}</span>} />}
             <div className="mt-2 flex gap-2">
               <Button size="sm" variant="outline" onClick={async () => {
-                await fetch(`/api/runs/${runId}/retry`, { method: "POST" });
+                try {
+                  await api.retryRun(runId);
+                  toast.success("已从检查点重试");
+                  qc.invalidateQueries({ queryKey: ["runs"] });
+                  qc.invalidateQueries({ queryKey: ["run", runId] });
+                } catch (e) {
+                  toast.error("重试失败", { description: String(e) });
+                }
               }}>↺ 从检查点重试</Button>
             </div>
           </Card>

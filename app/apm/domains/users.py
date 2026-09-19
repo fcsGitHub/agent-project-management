@@ -51,9 +51,12 @@ def _require_user(uid: str) -> dict:
 
 
 def _safe_user(row) -> dict:
-    """Projection row without credential material (M8-I26)."""
+    """Projection row without credential material (M8-I26).
+    feed_key 是持久读凭据（feed/ical 订阅），只允许本人经 /me/feed-key 查看，
+    列表/详情一律剔除。"""
     d = dict(row)
     d.pop("password_hash", None)
+    d.pop("feed_key", None)
     if "is_admin" in d:
         d["is_admin"] = bool(d["is_admin"])
     return d
@@ -111,6 +114,13 @@ def register_user(body: UserIn) -> dict:
     uid = (body.id or "").strip() or _derive_id(body.name)
     if not _ID_RE.match(uid):
         raise HTTPException(status_code=422, detail="user id must match ^[a-z0-9][a-z0-9_-]{0,63}$")
+    if body.password:
+        # 带密码=可登录凭据，仅管理员可发放（OIDC JIT 无密码走此端点不受限）。
+        from apm.domains.members import is_instance_admin
+
+        if not is_instance_admin(events.effective_actor()):
+            raise HTTPException(
+                status_code=403, detail="admin role required to create accounts with passwords")
     if db.get_conn().execute("SELECT 1 FROM users WHERE id = ?", (uid,)).fetchone():
         raise HTTPException(status_code=409, detail=f"user '{uid}' already exists")
     events.emit(

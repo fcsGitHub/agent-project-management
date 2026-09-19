@@ -44,6 +44,10 @@ class HookReceiver(BaseHTTPRequestHandler):
 @pytest.mark.smoke
 def test_smoke_16_webhooks(client, tmp_data, isolated_ontologies, monkeypatch):
     monkeypatch.setattr(wh_mod, "RETRY_DELAYS", (0.05, 0.05, 0.05))
+    # SSRF 防护默认拒绝环回目标；冒烟接收器跑在本机，显式放开。
+    from apm import config
+
+    monkeypatch.setattr(config.settings, "webhook_allow_private", True)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), HookReceiver)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_address[1]}"

@@ -52,7 +52,7 @@ def reset_for_tests(data_dir: Path) -> None:
             except sqlite3.Error:
                 pass
             _local.conn = None
-        _open(data_dir / "apm.db")  # create the file for this thread
+        _open(data_dir / "apm.db").close()  # create the file for this thread
         _local.conn = None  # reopened lazily per thread at new generation
 
 

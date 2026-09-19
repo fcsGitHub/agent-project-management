@@ -63,10 +63,14 @@ export function ApprovalsPage() {
         <Badge tone="amber">{list.length} 待处理</Badge>
         {selected.size > 0 && (
           <Button size="sm" variant="primary" className="ml-auto" onClick={async () => {
-            await api.bulkDecide([...selected]);
-            toast.success(`批量批准 ${selected.size} 项`);
-            setSelected(new Set());
-            refresh();
+            try {
+              await api.bulkDecide([...selected]);
+              toast.success(`批量批准 ${selected.size} 项`);
+              setSelected(new Set());
+              refresh();
+            } catch (e) {
+              toast.error("批量批准失败", { description: String(e) });
+            }
           }}>⏭ 批量批准（{selected.size}）</Button>
         )}
       </div>

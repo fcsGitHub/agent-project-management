@@ -40,9 +40,13 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
       { id: "nav-approvals", label: "打开审批中心", run: () => navigate(`/p/${pid}/approvals`) },
       { id: "new-feature", label: "新建功能", run: () => navigate(`/p/${pid}?new=feature`) },
       { id: "deliver", label: "生成交付（Release-Agent）", run: async () => {
-        const r = await api.deliver(pid);
-        toast.success("已启动 Release-Agent", { description: "发布说明起草中，请到审批中心查看" });
-        navigate(`/p/${pid}/c/${r.conversation_id}`);
+        try {
+          const r = await api.deliver(pid);
+          toast.success("已启动 Release-Agent", { description: "发布说明起草中，请到审批中心查看" });
+          navigate(`/p/${pid}/c/${r.conversation_id}`);
+        } catch (e) {
+          toast.error("发起交付失败", { description: String(e) });
+        }
       } },
     ];
   }, [pid, navigate]);

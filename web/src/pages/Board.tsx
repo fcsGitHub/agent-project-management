@@ -1,17 +1,27 @@
 /** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start.
  * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns.
  * M25-I79: list view renders progressively (LIST_PAGE rows per page + load more). */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "../lib/api";
+import { api, API_BASE } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { isTypingTarget } from "../lib/shortcuts";
 import { weightedProgress } from "../lib/rollup";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
+
+/** 看板写操作后的定向失效：覆盖条目投影的读方（board/feature/project/
+ * events/milestones/trash），替代无差别全量失效——后者会连带 portfolio、
+ * ontology、runs、conversations 等全应用 active query 一起 refetch。 */
+const invalidateItemData = (qc: QueryClient) => {
+  for (const k of ["board", "feature", "project", "events", "milestones", "trash"]) {
+    qc.invalidateQueries({ queryKey: [k] });
+  }
+};
 
 const LIST_PAGE = 20;
 
@@ -132,11 +142,19 @@ export function Board() {
     return m;
   }, [runs.data]);
 
-  const matches = (item: { priority?: string; assignee_id?: string }) =>
-    (!priority || item.priority === priority) && (!assignee || item.assignee_id === assignee);
+  // 备忘化过滤：matches/listed 依赖 board.data 与过滤参数，避免勾选/键盘等
+  // 任意重渲染都重跑全量 O(n) 过滤（下游 scopedListed/listRows 全链失效）。
+  const matches = useCallback(
+    (item: { priority?: string; assignee_id?: string }) =>
+      (!priority || item.priority === priority) && (!assignee || item.assignee_id === assignee),
+    [priority, assignee],
+  );
 
   // M22-I70: the flat list currently shown in list view (select-all scope)
-  const listed = (board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches));
+  const listed = useMemo(
+    () => (board.data?.buckets ?? []).flatMap((b) => b.items.filter(matches)),
+    [board.data, matches],
+  );
 
   // M24-I74: hierarchy — parent titles, collapsible tree rows, descendant scope
   const allItems = useMemo(() => (board.data?.buckets ?? []).flatMap((b) => b.items), [board.data]);
@@ -253,9 +271,13 @@ export function Board() {
     if (listGroup === "assignee")
       return item.assignee_id ? `${item.assignee_type === "agent" ? "🤖 " : "👤 "}${item.assignee_id}` : "未指派";
     if (listGroup) {
-      const cf = typeof item.custom_fields === "string"
-        ? JSON.parse(item.custom_fields || "{}")
-        : item.custom_fields ?? {};
+      // 坏 JSON 容错：custom_fields 是外部导入可写的自由文本，不得让列表整页崩
+      let cf: Record<string, unknown> = {};
+      if (typeof item.custom_fields === "string" && item.custom_fields) {
+        try { cf = JSON.parse(item.custom_fields); } catch { cf = {}; }
+      } else if (item.custom_fields && typeof item.custom_fields === "object") {
+        cf = item.custom_fields as Record<string, unknown>;
+      }
       const v = cf[listGroup];
       return Array.isArray(v) ? v.join("、") : v != null ? String(v) : "—";
     }
@@ -268,7 +290,7 @@ export function Board() {
     try {
       await api.createItem(parent.project_id, { concept_id: parent.concept_id, title, parent_id: parent.id });
       toast.success("已创建子任务");
-      qc.invalidateQueries();
+      invalidateItemData(qc);
     } catch (e) {
       toast.error(`创建失败：${e instanceof Error ? e.message : e}`);
     }
@@ -338,7 +360,7 @@ export function Board() {
       description: r.skipped.length ? `${r.skipped.length} 个跳过：${r.skipped[0].reason}` : undefined,
     });
     setSelected(new Set());
-    qc.invalidateQueries();
+    invalidateItemData(qc);
   };
 
   // M22-I70: bulk edit — one PATCH per item server-side, per-item results
@@ -350,7 +372,7 @@ export function Board() {
       if (fails.length) toast.error(`${r.updated} 项成功，${fails.length} 项失败`, { description: fails[0].error });
       else toast.success(`已批量更新 ${r.updated} 项`);
       setBatchStatus(""); setBatchPriority(""); setBatchAssignee("");
-      qc.invalidateQueries();
+      invalidateItemData(qc);
     } catch (e) {
       toast.error(`批量更新失败：${e instanceof Error ? e.message : e}`);
     }
@@ -753,6 +775,7 @@ export function Board() {
                             <button
                               onClick={(e) => { e.stopPropagation(); setQuickEditFor(item); }}
                               className="text-[10px] text-mut hover:text-acc" title="快捷编辑（状态/优先级/执行者/截止日）"
+                              aria-label="快捷编辑"
                             >
                               ⚡
                             </button>
@@ -763,30 +786,34 @@ export function Board() {
                                 try {
                                   await api.archiveItem(item.id);
                                   toast.success("已归档——回收站可恢复");
-                                  qc.invalidateQueries();
+                                  invalidateItemData(qc);
                                 } catch (err) {
                                   toast.error(`归档失败：${err instanceof Error ? err.message : err}`);
                                 }
                               }}
                               className="text-[10px] text-mut hover:text-acc" title="归档（回收站可恢复）"
+                              aria-label="归档工作项"
                             >
                               🗄
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setTimelogFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="工时"
+                              aria-label="记录工时"
                             >
                               ⏱
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setAttachmentsFor(item); }}
                               className="text-[10px] text-mut hover:text-acc" title="附件"
+                              aria-label="附件"
                             >
                               📎
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setCommentsFor(item); }}
                               className="ml-auto text-[10px] text-mut hover:text-acc" title="评论"
+                              aria-label="评论"
                             >
                               💬
                             </button>
@@ -805,7 +832,7 @@ export function Board() {
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 await api.decide(pendingByItem.get(item.id)!.id, "approved", "看板内联批准");
-                                qc.invalidateQueries();
+                                invalidateItemData(qc);
                               }}
                               className="mt-1.5 rounded-md bg-acc px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-500"
                             >
@@ -839,12 +866,12 @@ export function Board() {
       {quickEditFor && (
         <QuickEditModal item={quickEditFor} concepts={onto.data?.concepts ?? []}
           onClose={() => setQuickEditFor(null)}
-          onSaved={() => { setQuickEditFor(null); qc.invalidateQueries(); }} />
+          onSaved={() => { setQuickEditFor(null); invalidateItemData(qc); }} />
       )}
       {createOpen && pid && (
         <CreateTaskModal pid={pid}
           onClose={() => setCreateOpen(false)}
-          onCreated={() => { setCreateOpen(false); qc.invalidateQueries(); }} />
+          onCreated={() => { setCreateOpen(false); invalidateItemData(qc); }} />
       )}
       {trashOpen && pid && (
         <TrashDrawer pid={pid} onClose={() => setTrashOpen(false)} onRestored={() => qc.invalidateQueries()} />
@@ -883,8 +910,8 @@ export function Board() {
         <Modal open onClose={() => setImportOpen(false)} title="⬆ 导入工作项 CSV">
           <div className="space-y-3 text-xs">
             <div className="flex items-center gap-2">
-              <a href={`/api/projects/${pid}/items/import-template`} className="text-acc hover:underline">下载模板</a>
-              <a href={`/api/projects/${pid}/items.csv`} className="text-acc hover:underline">导出当前工作项</a>
+              <a href={`${API_BASE}/projects/${pid}/items/import-template`} className="text-acc hover:underline">下载模板</a>
+              <a href={`${API_BASE}/projects/${pid}/items.csv`} className="text-acc hover:underline">导出当前工作项</a>
               <label className="ml-auto cursor-pointer rounded-lg border border-line px-2 py-1 hover:border-acc">
                 选择文件…
                 <input type="file" accept=".csv,text/csv" className="hidden"
@@ -908,7 +935,7 @@ export function Board() {
                   try {
                     const r = await api.importItems(pid!, importCsv);
                     setImportResult(r);
-                    qc.invalidateQueries();
+                    invalidateItemData(qc);
                     toast.success(`导入完成：成功 ${r.created} · 失败 ${r.failed}`);
                   } catch (e) {
                     toast.error(`导入失败：${e instanceof Error ? e.message : e}`);
@@ -947,7 +974,7 @@ function TrashDrawer({ pid, onClose, onRestored }: {
     setRestoring(id);
     try {
       await api.restoreItem(id);
-      await qc.invalidateQueries();
+      await invalidateItemData(qc);
       onRestored();
     } catch (e) {
       toast.error(`恢复失败：${e instanceof Error ? e.message : e}`);

@@ -4,17 +4,23 @@ from __future__ import annotations
 import asyncio
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
+from apm import config
 from apm.core import events, projections
 from apm.core.bus import event_bus
+from apm.core.security import SESSION_COOKIE, session_user
 
 router = APIRouter(tags=["stream"])
 
 
 @router.get("/stream")
 async def stream(request: Request, since_id: int = 0, project_id: str | None = None) -> EventSourceResponse:
+    # SSE 广播全量事件 payload：network 模式必须有会话（匿名不得订阅）。
+    if config.settings.auth_mode == "network":
+        if not session_user(request.cookies.get(SESSION_COOKIE)):
+            raise HTTPException(status_code=401, detail="login required")
     projections.ensure_handlers_registered()
 
     async def gen():

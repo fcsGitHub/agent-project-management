@@ -29,8 +29,10 @@ export function TimeLogModal({ itemId, title, onClose }: {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["time_entries", itemId] });
-    // spent totals ride on board/list queries too
-    qc.invalidateQueries();
+    // spent totals ride on board/list queries too（定向，不全量失效）
+    for (const k of ["board", "feature", "project", "events", "milestones"]) {
+      qc.invalidateQueries({ queryKey: [k] });
+    }
   };
 
   const submit = async () => {
