@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-20 更新 · M46 流式与主题三件套 完成，下一步 M47 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M47 深度与协同三件套 完成，下一步 M48 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -26,7 +26,8 @@
 - **M38~M43（I116-I133，审阅全过，详情=docs/10 §M38-§M43 与看板行）**：多级加权 rollup（vitest+5）、休假代理转派、超载标记、Cycles 周期 + 结转、退信静默 + 邮件过滤、完成日预测（红利第八例）、时薪成本预算、附件域、跨项目依赖图、周期燃尽 burnup、审批超时提醒 + 升级链、审计 CSV 导出、看板阻塞徽标、速率对比卡、风险登记册、项目收尾清单、完成自动重建 respawn。**基线演进：pytest 277→328，冒烟 43→49。**
 - **M44 真实 LLM 接入（I134-I136，2026-09-15 完成，docs/10 §M44）**：AnthropicCompat/OpenAI Provider 真实化 + `GET /api/system/llm`/ping 观测面 + run.tokens_recorded 落账 + NL 命令层 L2（`_normalize_llm_actions` 白名单 + parser 溯源 + 冒烟 50）+ 浏览器真实复演（glm-5.3）。
 - **M45 安全加固与性能/显示优化（I137，2026-09-19 完成，用户指令轮；详情=docs/10 §M45 与附录 A）**：双代理全库审计收口——后端高危×6（匿名不继承管理员/feed_key/导入穿越/git 前缀绕过/rebuild 门禁/SSRF）+ 中低危一批；前端裸 fetch 收口/补 catch/href 转义/备忘化/渲染缓存/失效收敛/三态。
-- **M46 流式与主题三件套（I138-I140，2026-09-20 完成，docs/01 §AQ + docs/10 §M46）**：**I138 LLM 流式输出**——双 provider 流式（OpenAI stream=True+include_usage[兼容退化估算]；Anthropic `client.stream()` SSE 解析）+ engine `event_bus.publish` 瞬态广播 `run.token_delta`（**publish 不 emit 零落库**——完整消息是唯一落库真相，逐 token 入库会炸事件表破坏 live==replay）+ ConversationView streamBuf 逐字气泡（▍光标、messages 变化即清、切对话清零防串流）+ sse.ts `onStreamEvent` 订阅口（token_delta 免 query 失效）+ replay/record 诚实语义。**I139 多币种**——`APM_BASE_CURRENCY`+`APM_FX_RATES` 手工汇率表（Tempo 语义零外呼）+ users.currency[ISO 校验] + cost-report 折算披露 fx_rate、未配汇率原值计入+`unconverted` 显式「未折算」。**I140 深色模式**——Tailwind v4 `@theme` 变量即 CSS 自定义属性：`.dark`/media 双通道重写 17 变量**组件零改动全局换肤** + ThemeToggle 三态循环（`apm-theme` 与 index.html 防 FOUC 引导脚本键名一致）+ theme-color 双值 + 硬编码语义色归位 26 处（图表配对色/rail zinc 保留）。**当前验证基线：pytest 360 全绿（+11：test_llm_stream ×5 + test_currency ×5 + smoke51；非 smoke 309 全绿 EXIT=0 + smoke runner 51 GREEN 对账）；冒烟 51 条 GREEN；vitest 14/build 绿。**
+- **M46 流式与主题三件套（I138-I140，2026-09-20 完成，docs/01 §AQ + docs/10 §M46）**：LLM 流式（`run.token_delta` 瞬态广播零落库 + 逐字渲染）+ 多币种（`APM_FX_RATES` 汇率表 + cost-report 折算披露）+ 深色模式（Tailwind v4 `@theme` 变量双通道重写组件零改动 + ThemeToggle 三态 + 硬编码色归位 26 处）。基线 360/51/14。
+- **M47 深度与协同三件套（I141-I143，2026-09-21 完成，docs/01 §AR + docs/10 §M47）**：**I141 上下文压缩**——prompt 组装读路径字符预算（`APM_CONTEXT_BUDGET_CHARS` 默认 8000，0=禁用）+ `fold_constraints` 纯函数折叠早期约束[最近保原文] + role.yaml `summarize` 开关走廉价模型摘要[失败退规则摘要不 fail run] + span `apm.context_*` 观测（**存储原文不动、压缩不落库**）。**I142 单元成本行项**——expense 域（`expense.recorded/deleted` + expense_entries 投影 + 软删 rebuild 复现）+ cost-report 双轨（labor_cost/expense_cost/total=两轨和，budget 仍小时口径不混算）+ I139 汇率延续。**I143 跨项目依赖**——放开 422[双方可读 403 门禁、事件聚合 from 侧] + **修 propagate_reschedule 跨项目归因缺陷**（rescheduled 事件改归被移动项项目——同项目 M14 以来未暴露）+ graph 端点跨项目占位节点（不可读只给 🔒）+ 传播/lag 跨项目天然生效。**当前验证基线：pytest 374 全绿（非 smoke 322 EXIT=0 + smoke runner 52 GREEN 对账；+14：test_context_compression ×5 + test_expense ×4 + test_cross_project ×4 + 冒烟 52）；冒烟 52 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -34,8 +35,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M46 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M47 前置调研（下一步）**：先 `grep -n "候选\|A[Q-R]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M47 节 + 看板行 →「M47 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M47 审阅。**候选池**：①跨项目依赖图[需跨项目关系模型，V2 级]；②单元成本行项（差旅/设备，I122 留）；③LLM 深化二阶：对话多轮上下文压缩 / 角色 YAML 温度与模型分档 / record 录制件上下文指纹；④subject 正则全量路由（I113 前缀版已够用，除非用户要求）；⑤digest 邮件[明确不做除非用户要求]；⑥M45/M46 工程债：engine `_exec_lock` 全局串行（按 run 粒度细化）/_active_runs 内存清理/看板列渐进渲染/剩余硬编码色（图表配对色/rail）；⑦调研新发现。
+1. ~~M24~M47 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M48 前置调研（下一步）**：先 `grep -n "候选\|A[R-S]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M48 节 + 看板行 →「M48 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M48 审阅。**候选池**：①角色 YAML 温度与模型分档（廉价/标准/推理三档）；②record 录制件上下文指纹；③Cycles 多周期并列视图 revisit；④subject 正则全量路由（除非用户要求）；⑤digest 邮件[明确不做除非用户要求]；⑥工程债：engine `_exec_lock` run 粒度化/_active_runs 清理/看板列渐进渲染/剩余图表配对色；⑦调研新发现。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
@@ -70,12 +71,15 @@
 - **流式的 Event-Sourcing 纪律（M46-I138）**：token 增量走 `event_bus.publish`（瞬态），**绝不 events.emit**——逐 token 入库会造数千事件/run；完整文本仍是 message.created 唯一真相。engine 的 provider stub 测试若签名不带 `on_delta`，mode 设为 replay 或加 `**kwargs`（streaming 分支只在 mode∈(openai,record) 时传回调）。
 - **Tailwind v4 主题换肤（M46-I140）**：`@theme` 变量就是普通 CSS 自定义属性，`html.theme-dark`/media 下重写 `--color-*` 即全局换肤，无需 dark: 前缀；两组暗变量（media 块与 .theme-dark 类）必须同步维护；手动切换的 localStorage 键 `apm-theme` 与 index.html 引导脚本类名 `theme-dark`/`theme-light` 三处（css/html/AppShell）必须一致。
 - **httpx 流式测试**：MockTransport 配 `client.stream()` 官方高层 API 可用；手写 `client.send(request, stream=True)` 的 Response 上下文管理器在 mock 下会炸（'Response' object does not support the context manager protocol）。
+- **排期测试日期必须锚周一网格（M47 再证）**：`_day(offset)` 锚下一个周一——任意日期会撞周末被 advance_to_workday 吞掉；且 I44 传播语义是「**移动**才传播」——上游首次设 due（old=None）不触发，必须先设旧值再改。
+- **跨项目链上事件归属（M47-I143）**：关系/传播沿链触达别的项目时，emit 的 project_id 用**被操作项自己的项目**（原 propagate_reschedule 记调用者项目，同项目场景二者相同故潜伏 M14 以来）。
+- **pytest 全量已超 10 分钟**（360+ 项）：后台命令 timeout 上限 600s 会把进程杀掉（退出码 1 + 日志截断的假失败）——用 `--ignore=tests/smoke` 分片跑 pytest + 冒烟 runner 对账。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 360 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 51 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 374 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 52 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 14 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
