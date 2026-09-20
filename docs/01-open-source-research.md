@@ -1263,3 +1263,35 @@ M46 = **流式与主题三件套**：I138 LLM 流式输出（体验面——Lang
 
 
 
+
+
+## AR. M47 前置调研：上下文压缩 / 单元成本行项 / 跨项目依赖（2026-09-21）
+
+> 目标协议触发：M46 完成后开启。防重查：候选池 grep——跨项目依赖（§AM.4 仅项目内依赖图 + §AM.5/§AO.5 两次留 backlog「需跨项目关系模型 V2 级」，无建模调研）、单元成本行项（§AM.5 仅一句留 backlog）、上下文压缩（§B 69 行仅 AgentScope「三事件锁」一句语义，无落地调研）、温度/模型分档（无调研记录）。本轮三路新调研（LLM 上下文压缩 / 单元成本行项 / 跨项目依赖），选定 **M47 = 深度与协同三件套**。
+
+**AR.1 LLM 对话上下文压缩（LangGraph SummarizationNode 语义）**
+
+- 行业：长对话超上下文窗口的通行解是**压缩而非丢弃**——LangGraph `SummarizationNode`/pre-model hook：超限前用一次 LLM 调用把旧消息折叠成摘要，原存储不动（[LangChain short-term memory 文档](https://docs.langchain.com)、[Context Management for Deep Agents](https://www.langchain.com)、[memory 深度文](https://pub.towardsai.net)、[分层策略：trim→summarize→retrieve](https://www.dailydoseofds.com)）；AgentScope 2.0 把 compaction 做成**可选能力缝**：`start/summary/end` 三事件锁进轨迹，压缩不产生「假完成」（§B）。共同语义：**压缩是读路径（prompt 组装）优化——存储原文永不改，压缩产物可观测、可审计**。
+- 对本项目的映射：M46 实测 prompt 组装的 `_context` 把 run 起后的**全部注入约束无限制列举**（多轮打断→注入场景线性膨胀，真实 glm-5.3 一次 run 已 37k output tokens）——这就是爆炸点。落点=读路径：constraints/instruction 超过字符预算（配置化，默认约 8k chars≈2k tokens）时，早期约束折叠为一行摘要（保底**规则摘要**：计数+首尾条原文；配置了真实模型时可选 LLM 摘要，走 ui_agent_model 廉价档）；span 记 `apm.context_chars/budget/compressed` 观测。**存储原文一字不动**——压缩产物不落事件库（与 I138 瞬态广播同一纪律），rebuild 永不复制压缩。
+
+**AR.2 单元成本行项（OpenProject Budget 双轨语义）**
+
+- 行业：OpenProject Budget 模块把项目成本分**双轨**——labor（工时×费率，I122 已有）与 **material/unit costs**（行项：自定义成本类型×单价，如差旅/设备/采购；[官方预算文档](https://www.openproject.org)、[TechRepublic 配置指南](https://www.techrepublic.com)）；两轨同池进预算对比（planned vs actual 分 labor/material 列）。共同语义：**行项是一等记录（谁/何时/多少/花在哪个工作项），不是工时的附属品**。
+- 对本项目的映射：新 expense 域——`expense.recorded/deleted` 事件 + expense_entries 投影表（description/qty/unit_price/currency/spent_on/vendor/可选 item_id，进 drop 清单）+ 金额不锁币种（I139 汇率表折算基准币，同一口径）；cost-report 合并双轨：labor 与 expense 分区小计 + 合计与 budget_hours 预算消耗并排（预算仍以小时计，费用行以基准币并列展示，不混算——诚实披露两口径）；前端报表卡分区 + 工作项详情费用行列表。
+
+**AR.3 跨项目依赖（OpenProject 跨项目 relations 语义）**
+
+- 行业：OpenProject **原生支持跨项目 relations**——管理设置开关（Administration → Work packages）允许跨项目建关系，关系类型同集（relates/blocks/precedes-follows/derived），**跨项目 Gantt** 靠 follows/precedes 在多项目时间线上联动排期（[work package relations 文档](https://www.openproject.org)、[跨项目引用](https://www.openproject.org)、[跨项目里程碑依赖](https://workspace.pm)）；Jira Plans dependencies map 同样以跨项目过滤为核心场景（§AM.4）。共同语义：**关系跟着工作项走、不跟着项目走；可见性由双方项目共同决定；排期传播跨项目沿关系链生效**。
+- 对本项目的映射：现状 `post_relation` 对跨项目显式 422（「cross-project relations not supported」）+ item_relations 投影单 project_id。落点三层——①建模：放开 422，事件仍聚合在 from_item 项目（append-only 单写者不变），投影 to_item 允许跨项目 id；②可见性：建关系需双方项目可读（viewer 亦可读不可写，写仍是 from 侧项目门禁），依赖图/关系列表渲染时过滤对当前用户不可见的一侧（退化为「外部依赖」占位节点）；③排期：I44 传播与 I83 lag 对齐跨项目沿关系生效（工作日历取各自项目配置）。依赖图（I124）与关键路径（I102）跨项目渲染。
+
+**AR.4 M47 设计映射与验证纪律（沿用）**
+
+- I141 上下文压缩：预算配置+规则折叠保底+可选 LLM 摘要+span 观测；单测（阈值折叠/原文不动/rebuild 无影响/预算内零行为）。
+- I142 单元成本行项：expense 域事件+投影+校验（qty>0/price≥0/ISO 币种）+cost-report 双轨+前端分区；单测（CRUD/币种折算/双轨合计/rebuild）。
+- I143 跨项目依赖：放开 422+可见性双检+排期传播跨项目+依赖图跨项目渲染（不可见侧占位）；单测（跨项目建链/可见性过滤/传播联动/rebuild）。
+- **冒烟 52**（压缩预算/双轨成本/跨项目依赖链）并入 I143 收尾 + M47 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M47 审阅。
+
+**AR.5 M47 取舍**
+
+M47 = **深度与协同三件套**：I141 LLM 对话上下文压缩（深度面——LangGraph SummarizationNode 语义，「压缩是读路径优化，存储原文永不改」）/ I142 单元成本行项（价值面——OpenProject Budget 双轨，expense 一等记录+I139 汇率口径延续）/ I143 跨项目依赖+收尾审阅（协同面——OpenProject 跨项目 relations，「关系跟着工作项走」）+ docs/12 §42 + 冒烟 52 + M47 审阅，约 9 人日。角色温度/模型分档、record 录制件上下文指纹、跨项目关系类型扩展（derived/includes）、M45/M46 工程债（engine `_exec_lock` run 粒度化/_active_runs 清理/看板列渐进渲染）留 backlog。

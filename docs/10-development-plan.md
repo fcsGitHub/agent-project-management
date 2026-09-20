@@ -1450,6 +1450,36 @@ agent-project-management/
 
 ---
 
+### M47 · 深度与协同三件套（I141-I143，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AR 前置调研）。三个方向各补一块「深度」：真实 LLM 多轮对话的**上下文无限制膨胀**（M46 实测 prompt 组装把注入约束全量列举，真实模型一次 run 已 37k tokens）是体验与成本的双重隐患；I122 成本只有 labor 单轨，缺 OpenProject Budget 语义的 material/unit costs 行项；依赖被显式锁死在项目内（`cross-project relations not supported` 422），跨项目协同是 M30 以来的头号 backlog。三件共通：都严格遵守既有不变量（压缩不改存储/行项是事件一等记录/关系跟着工作项走）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I141 | LLM 对话上下文压缩（prompt 组装读路径加字符预算[配置化默认≈8k chars] + 超限折叠：早期约束收敛为一行规则摘要[计数+首尾条原文]，可选真实模型摘要走 ui_agent_model 廉价档 + span 记 `apm.context_chars/budget/compressed` 观测 + **存储原文一字不动、压缩产物不落事件库**——与 I138 同纪律 + 预算内零行为向后兼容） | — | M44 ui_agent_model、M46 span 观测 | 2.5d |
+| I142 | 单元成本行项（expense 域：`expense.recorded/deleted` 事件 + expense_entries 投影表进 drop 清单[description/qty/unit_price/currency/spent_on/vendor/可选 item_id] + 校验 qty>0/price≥0/ISO 币种 + cost-report 双轨[labor 与 expense 分区小计，预算仍小时口径不混算] + I139 汇率折算基准币延续 + 前端报表卡分区+工作项费用列表） | — | I122/I139 成本口径 | 3d |
+| I143 | 跨项目依赖+收尾（放开 `cross-project relations not supported` 422：事件仍聚合 from 侧项目、投影允许跨项目 to_item + 建链需双方可读/写仍 from 侧门禁 + 依赖图/关键路径跨项目渲染[不可见侧退化为「外部依赖」占位节点] + I44 排期传播与 I83 lag 对齐跨项目生效 + **冒烟 52** + docs/12 §42 + M47 审阅） | — | I44/I83/I102/I124 | 3.5d |
+
+#### I141 · LLM 对话上下文压缩（2.5d）
+
+- 任务：config `context_budget_chars`（默认 8000）；engine `_context` 组装处统计 constraints+instruction 字符量，超预算时保留最近约束原文、早期约束折叠为一行「前 N 条约束已折叠（首条：… / 末条：…）」；`role.yaml` 可选 `summarize: true` 时用 ui_agent_model 真实摘要（失败退回规则摘要，不 fail run）；span extra_attrs 记 `apm.context_chars/context_budget/context_compressed`；replay 模板不受影响（预算内路径零变化，向后兼容）。
+- DoD：单测（阈值折叠/预算内零行为/原文不动/rebuild 无影响/LLM 摘要失败降级）。
+- 演示路径：20 条注入约束的对话 → span 显示 context_compressed=true、prompt 字符量受控。
+
+#### I142 · 单元成本行项（3d）
+
+- 任务：expense.py 新域（POST/GET/DELETE `/projects/{pid}/expenses` + 可选 `?item_id=` 关联）+ 事件 `expense.recorded/deleted`[软删] + 投影表进 drop 清单与注册表 + 校验（qty>0/unit_price≥0/currency 三字母 ISO/spent_on ISO）+ cost-report 响应加 `expenses` 分区（by 行项明细+基准币小计[经 I139 汇率]）+ `labor_cost`/`expense_cost` 双字段与 `total_cost` 语义变更披露[合计=两轨之和；budget_hours 仍小时口径，费用行并排展示不混算] + 前端 CostCard 分区与工作项详情费用行。
+- DoD：单测（CRUD 软删 rebuild/校验矩阵/币种折算/双轨合计）。
+- 演示路径：记一笔 2×350 USD 差旅挂在工作项 → 报表双轨显示 + 汇率折算 CNY 小计。
+
+#### I143 · 跨项目依赖+收尾审阅（3.5d）
+
+- 任务：post_relation 放开跨项目（关系事件聚合 from 侧项目；目标项存在性校验保留）+ 投影表 to_item 允许跨项目 id（列不变，语义扩展）+ 可见性：建链要求双方项目当前用户可读（403），渲染时对单侧不可见的关系显示「🔒 外部依赖」占位节点 + I44 propagate_reschedule 与 I83 lag 对齐跨项目链生效（工作日历按各自项目）+ DependencyGraphPage/关键路径跨项目 + **冒烟 52**（压缩预算/双轨成本/跨项目依赖链 roundtrip）+ docs/12 §42 + M47 审阅。
+- DoD：冒烟 52 GREEN；单测（跨项目建链/可见性 403/传播跨项目/rebuild）；全量 pytest 收敛绿。
+- 演示路径：项目 A 的任务 depends_on 项目 B 的任务 → B 改期 → A 自动顺延；依赖图跨项目连线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1641,6 +1671,8 @@ agent-project-management/
 | I138 LLM 流式输出 | 已完成 | 2026-09-19 | 2026-09-19 | 双 provider 流式：OpenAI `stream=True` + `stream_options include_usage`[兼容端 TypeError 退化纯流式、usage 估算] + Anthropic `client.stream()` SSE 解析[message_start→input / content_block_delta→on_delta / message_delta→output] + RecordProvider 透传回调 + ReplayProvider 诚实非流式直返；engine `_provider_complete` 流式分支[provider.mode∈(openai,record)]经 `event_bus.publish` 瞬态广播 `run.token_delta`[**publish 不 emit 零落库**，payload 带 conversation_id/node/delta] + span `apm.stream` 属性；前端 sse.ts `onStreamEvent` 订阅口[token_delta 免 query 失效]+ConversationView `streamBuf` 逐字气泡[▍光标+node 标注、messages 变化即清缓冲防残影、对话切换清零防串流]；test_llm_stream **5** 项[openai 假流/兼容退化/anthropic SSE/replay 非流式/瞬态零落库集成] |
 | I139 多币种轻量版 | 已完成 | 2026-09-19 | 2026-09-19 | config `base_currency`[默认 CNY] + `fx_rates` 手工汇率表[env JSON、零外呼可审计] + users.currency 列[存量迁移+ISO 三字母校验] + `/me/hourly-rate` 带币种设置 + cost-report 折算[费率币种≠基准币按表换算披露 fx_rate；未配汇率原值计入+`unconverted` 显式披露「未折算」——不假装精确] + CostCard 基准币标注/汇率 tooltip/未折算 ⚠ + 顺手 token 归位 red-500→dan 等；test_currency **5** 项[roundtrip/换算/未配披露/基准币原样/迁移列] |
 | I140 深色模式+主题 token 化+收尾 | 已完成 | 2026-09-19 | 2026-09-19 | Tailwind v4 `@theme` 变量即 CSS 自定义属性——`.dark`/media 双通道重写 token 全局换肤**组件零改动**[17 变量暗色组，双通道同步维护] + `prefers-color-scheme` 跟随[被 .theme-light 排除] + ThemeToggle 三态循环[system→light→dark、localStorage `apm-theme`、与 index.html 引导脚本键名一致] + index.html 防 FOUC 引导脚本+theme-color 双值[修复深色值配亮色内容的割裂] + 硬编码语义色归位 **26 处**[Board/MyTime/Dashboard/Workload/Roadmap/Risks/Timeline/Ontology/ui.tsx——red→dan/green→ok/amber→warn 系；图表配对色/装饰多色/rail zinc 保留] + 滚动条 token 化 + **冒烟 51**[流式瞬态零落库/币种换算与披露/主题源码+dist 深检] |
+| **M47 深度与协同三件套（I141-I143）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AR + docs/10 §M47）：I141 LLM 对话上下文压缩（LangGraph SummarizationNode 语义：prompt 组装读路径字符预算+超限折叠规则摘要/可选廉价模型摘要+span 观测——**存储原文不改、压缩不落库**）/ I142 单元成本行项（OpenProject Budget 双轨：expense 事件+投影+校验+cost-report 双轨分区+I139 汇率延续）/ I143 跨项目依赖+收尾（放开 422+双方可读+I44/I83 传播跨项目+依赖图占位节点+冒烟 52+审阅）；温度分档/record 指纹/关系类型扩展/exec_lock 细化/看板渐进渲染留 backlog |
+| 2026-09-21 M47 调研定义（§AR） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：跨项目依赖[两次留 backlog 无建模调研]、单元成本行项[仅一句]、上下文压缩[§B 仅三事件锁一句]均无完整记录。三路 WebSearch：OpenProject 原生跨项目 relations+跨项目 Gantt（关系跟着工作项走、可见性双方共决、排期跨项目传播）、OpenProject Budget 双轨（labor 与 material/unit costs 分区同池对比）、LangGraph SummarizationNode（压缩是读路径优化非存储变更）。定案 M47=深度与协同三件套（I141/I142/I143） |
 | **M43 交付闭环三件套（I131-I133）** | 已完成 | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AP + docs/10 §M43）：I131 风险登记册（risk 事件+risks 投影表[probability×impact 自动分排序]+「⚠ 风险登记册」页矩阵热力+工作项 risk_id 关联）/ I132 项目收尾清单（closure-checklist 五项核对 + project.completed 事件徽标[completed 区别于 archived] + 收尾报告数据）/ I133 完成自动重建+收尾审阅（recurrence_days + sweep respawn[完成日+N 重建、payload 记 respawn_of]——sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + 审阅通过（d67374c）；定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog |
 | I131 风险登记册 | 已完成 | 2026-09-14 | 2026-09-14 | risks.py 新域[risk.created/updated/closed 事件 + risks 投影表进 drop 清单 + 注册两处] + probability/impact 枚举 1-3 校验[越界 422、score=p×i 自动排序] + response/owner/review_date/related_item_id 字段[关联项不存在 404] + 生命周期 **open→mitigated→closed 严格单向**[跳级 422、closed 终态 PATCH 409] + 「⚠ 风险登记册」页[3×3 矩阵热力绿→琥珀→红+列表分降序+顶导航 ShieldAlert 入口]；test_risks **2** 项（打分 9/1+排序+越界 422+rebuild/生命周期+关联 404+closed 终态+rebuild 后登记册空）+ build 绿 |
 | I132 项目收尾清单 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/closure-checklist` 五项核对[活跃项=0/pending 审批=0/submitted 工时单=0/open 风险=0/planned+in_progress 里程碑=0——纯投影零新表] + `POST /projects/{id}/complete`[清单不全绿 409 列全部差项；全绿 emit `project.completed` → 状态 completed] + **guard 扩展**：completed 项目冻结写 409（/reopen 恢复——与 archived 同构）+ 项目列表「✅ 已交付」徽标 + Dashboard「🏁 收尾清单」卡[五格勾选+标记交付按钮]；test_project_closure **2** 项（差项列出→清空→全绿→complete→写 409→reopen 恢复/rebuild 后 completed 存活）+ build 绿 |
