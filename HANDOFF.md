@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M50 周期性自动状态报告 完成，下一步 M51 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M51 调研定义完成，下一步迭代 I153）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -37,7 +37,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M50 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M51 前置调研（下一步）**：先 `grep -n "候选\|A[A-U]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M51 节 + 看板行 →「M51 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M51 审阅。**候选池**：①AI 评论抓取周报摘要（Lark 式「从任务评论抓取生成」增强档——I148/I150 报告骨架已备，补评论语料段）；②周报多渠道分发（SMTP 已有 I105/I107 通道，把 report_weekly 通知走 email 通道+附件直发）；③Cycles 多周期并列（维持降级）；④derived 进度上卷（M50 已裁决：原生 Jira 都不做写时上卷，除非用户要求）；⑤调研新发现（新特性扫描）。
+2. **M51 周报深化与分发三件套（进行中，调研定义已提交）**：docs/01 §AV + docs/10 §M51 已落（三路调研：activity digest 三步范式——语料层/叙事层两层定性；邮件正文自含结论链接只管取证；2026 自托管 AI 无新缺口）。**迭代序**：I153 评论语料段+AI 叙事开关（`_activity_lines` comment.created 近 7 天按项分组 ≤8 条+溢出 + `weekly_report_ai` 默认关失败降级）→ I154 digest 邮件（notification.sent payload 加 digest 字段 + mailer enqueue 透传、`_send` body 分支）→ I155 **冒烟 56** + M51 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

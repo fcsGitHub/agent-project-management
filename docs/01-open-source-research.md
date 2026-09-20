@@ -1386,3 +1386,33 @@ M49 = **闭环与表达三件套**：I147 回顾行动项落地（闭环面—�
 **AU.5 M50 取舍**
 
 M50 = **周期性自动状态报告**：I150 sweep 周期报告 pass（节律面——「报告的价值在准时发生」，幂等心跳零新表）/ I151 通知与前端入口（分发面——owner 通知 + 最近报告列表）/ I152 环比对比 + **冒烟 55** + M50 审阅，约 9 人日。derived 进度派生传播（本轮裁决维持 backlog：连原生 Jira 都不做写时上卷，读时聚合已覆盖主场景）、AI 评论抓取摘要（增强档）、Cycles 多周期并列（维持降级）留 backlog。
+
+
+## AV. M51 前置调研：评论语料段 / 周报 digest 邮件 / 2026 自托管 AI 扫描（2026-09-21）
+
+> 目标协议触发：M50 完成后开启。防重查：候选池 grep——AI 评论抓取周报摘要（§AU.3/AU.5 仅留 backlog「增强档」一句，无落地调研）、周报 email 分发（**无任何调研记录**——M11 email 通道已有但正文单行 summary，report_weekly 走两通道，报告正文从未进邮件）、Cycles 多周期并列（维持降级）、derived 进度上卷（M50 已裁决维持）、subject 正则全量路由（维持不做除非要求）。本轮三路新调研（评论语料摘要 / 邮件分发模式 / 2026 自托管 AI 扫描），选定 **M51 = 周报深化与分发三件套**。
+
+**AV.1 评论语料→周报摘要（activity digest 语义）**
+
+- 行业实现范式收敛为三步：**拉活动数据 → LLM 汇总 → 定时分发**（[Asana 论坛需求帖](https://forum.asana.com)：按日/周汇总我被指派/我更新/我完成的；[DailyBot](https://www.dailybot.com)：从工具已发出的信号起草站会，**人是编辑**；[oscorm](https://oscorm.com)：成员签到由 AI 汇成周报）。关键定性：**语料段（谁在做什么）与叙事段（AI 润色判断）是两层——语料层确定可测、零模型；叙事层才需要 LLM，且失败必须可降级**。
+- 对本项目的映射：I150 周报已有指标骨架、缺「人话素材」——补**「本期动态」确定语料段**（comment.created 近 7 天按工作项分组：作者+摘要预览，最多 8 条+计数溢出行，纯投影零模型）；AI 叙事段走 config `weekly_report_ai`（默认关——延续 I150「定时任务不花没人要的 token」纪律），失败降级纯语料版（同 I148 降级纪律）。
+
+**AV.2 周报邮件分发（scheduled delivery 混合模式）**
+
+- 行业主流=定时生成+邮件分发，形态三分：附件（Workday/Ninja Forms/Bluerithm 的 PDF/Excel）、内联 HTML 摘要、链接；[Google Data Studio](https://docs.cloud.google.com/data-studio/schedule-automatic-report-delivery) 的混合式（PDF 附件+首页内联预览）最完整；[Asana 论坛](https://forum.asana.com)用户请求把超期聚合进一封周 digest（[AnnounceKit](https://announcekit.app) digest 语义：一封定时邮件捆住多批更新）。共同语义：**邮件正文必须自含结论（不必点开也知道好坏），链接只负责取证**。
+- 对本项目的映射：M11 email 通道对 report_weekly **已天然生效**（NOTIFY_EVENTS 含 notification.sent + per-kind email 偏好门 + FakeSMTP 测试件齐全）——增量只在正文：`notification.sent` payload 加 `digest` 纯文本字段，mailer `enqueue` 透传、`_send` 有 body 用 body（对非周报事件零影响）——digest=总体健康三行+环比一行+工件路径，正文自含结论。
+
+**AV.3 2026 自托管 AI 扫描（新发现方向）**
+
+- [Plane vs OpenProject 2026 对比](https://plane.so)：OpenProject 截至 2026-02 **无任何生产级 AI 特性**；Plane AI 商业自托管版按 M50 调研 2026-03 发布（BYO OpenAI/Anthropic key），并主打 air-gapped 部署——AgentPM 的「自托管+BYO-key+事件溯源审计」路线与 Plane 商业化方向一致且在开源侧领先（[Orangescrum 2026 综述](https://blog.orangescrum.com)佐证两强格局）。**无新功能缺口**；Plane 渐进闭源化趋势不改 AgentPM 路线。
+
+**AV.4 M51 设计映射与验证纪律（沿用）**
+
+- I153 评论语料段：`_activity_lines`（comment.created 近 7 天按项分组+计数溢出）+ `weekly_report_ai` 开关+AI 失败降级；单测（语料分组/溢出行/降级/开关关时零外呼）。
+- I154 digest 邮件：payload.digest 字段+mailer enqueue 透传+_send body 分支；单测（FakeSMTP 正文断言/非周报单行不变/email 偏好门仍生效）。
+- I155 冒烟 56+审阅：评论→周报语料段→digest 邮件→偏好门 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M51 审阅 + **冒烟 56**。
+
+**AV.5 M51 取舍**
+
+M51 = **周报深化与分发三件套**：I153 评论语料段（素材面——语料/叙事两层，语料层确定可测）/ I154 digest 邮件（分发面——正文自含结论，链接只管取证）/ I155 冒烟 56+审阅，约 9 人日。Cycles 多周期并列（维持降级）、derived 进度上卷（M50 裁决维持）、subject 正则全量路由（不做除非要求）留 backlog。

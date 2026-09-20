@@ -1570,6 +1570,36 @@ agent-project-management/
 
 ---
 
+### M51 · 周报深化与分发三件套（I153-I155，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AV 前置调研）。M50 把报告变成节律，M51 补「素材与分发」：**语料/叙事两层**——语料段给周报人话素材（确定可测零模型），叙事层才用 LLM 且可降级；邮件正文从单行摘要升级为**自含结论的 digest**（不必点开也知道好坏，链接只管取证）。都站在 I150 汇编核与 M11 邮件通道骨架上，零新表。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I153 | 评论语料段+AI 叙事开关（`write_weekly_status_report` 加「本期动态」确定语料段[comment.created 近 7 天按工作项分组：作者+摘要预览，≤8 条+溢出计数行，纯投影零模型] + config `weekly_report_ai`=0 默认关的 AI 叙事段[走廉价模型，失败降级纯语料版——I148 纪律]） | — | I150 汇编核、comment.created 事件 | 3d |
+| I154 | digest 邮件（`notification.sent` payload 加 `digest` 纯文本字段[总体健康三行+环比一行+工件路径] + mailer `enqueue` 透传 body、`_send` 有 body 用 body[非周报事件零影响]——email 通道/per-kind 偏好门/FakeSMTP 件全部复用） | — | M11 邮件通道、I96 偏好门 | 3d |
+| I155 | 冒烟 56+收尾审阅（评论→周报语料段→digest 邮件→偏好门 roundtrip + docs 收口 + M51 审阅） | — | 冒烟范式 | 3d |
+
+#### I153 · 评论语料段+AI 叙事开关（3d）
+
+- 任务：reports.py `_activity_lines(conn, project_id, today)`——comment.created 近 7 天（ts ≥ today-6）JOIN items 取标题，按项分组列「作者：摘要 ≤60 字」，最多 8 条+「另有 N 条」溢出行；`write_weekly_status_report` 在环比后插入语料段；config `weekly_report_ai: bool = False`——开启时把 metrics+语料喂 ui_agent_model 生成 ≤120 字叙事段（异常降级）。
+- DoD：单测（语料按项分组正确/溢出行/AI 失败降级/开关默认关零外呼/手动端点无语料段）。
+- 演示路径：卡片评论几条 → 周一 sweep → 周报「本期动态」列出到评论 → 开 weekly_report_ai 后含叙事段。
+
+#### I154 · digest 邮件（3d）
+
+- 任务：`write_weekly_status_report` 的 notification.sent payload 加 `digest`（纯文本：漏斗行/超期 Gate 风险行/工时费用行/环比首行/工件路径）；mailer.enqueue 对 notification.sent 读 `e.payload.get("digest")` 放入队列项；`_send` 当 body 存在时 `msg.set_content(body)`（否则原单行——对既有邮件零影响）。
+- DoD：单测（FakeSMTP 断言正文含指标行/非周报邮件仍单行/email 偏好关不发包）。
+- 演示路径：SMTP 配置后 sweep → owner 收到的邮件正文含总体健康三行与工件路径，非单行。
+
+#### I155 · 冒烟 56+收尾审阅（3d）
+
+- 任务：**冒烟 56**（评论→sweep 周报语料段→digest 邮件正文→偏好关断 roundtrip）+ docs 收口 + M51 审阅。
+- DoD：冒烟 56 GREEN；单测全绿；全量 pytest 分片收敛绿。
+- 演示路径：完整走一遍「评论→周一→邮箱里看见带结论的周报」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1769,6 +1799,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M51 周报深化与分发三件套（I153-I155）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AV + docs/10 §M51）：I153 评论语料段+AI 叙事开关（本期动态确定语料层[comment.created 近 7 天按项分组 ≤8 条+溢出] + `weekly_report_ai` 默认关的叙事层[失败降级]）/ I154 digest 邮件（notification.sent payload 加 digest 字段 + mailer 透传 body——正文自含结论，email 通道/偏好门全复用）/ I155 冒烟 56+审阅；Cycles 多周期[维持降级]、derived 上卷[M50 裁决维持]、subject 正则[不做除非要求]留 backlog。基线：pytest 405（非 smoke 350 全绿 EXIT=0 + smoke 55 GREEN 对账）+ vitest 14 + build 绿 |
+| 2026-09-21 M51 调研定义（§AV） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：AI 评论抓取摘要[仅留 backlog 一句无调研]、周报 email 分发[无记录——M11 通道已有但正文单行]、Cycles 多周期[维持降级]、derived[M50 已裁决]。三路 WebSearch：activity digest 三步范式（拉活动→LLM→定时分发；DailyBot「人是编辑」；语料层/叙事层两层定性——语料确定可测叙事才用模型）、邮件分发混合模式（Google Data Studio 附件+内联预览；正文自含结论链接只管取证）、2026 自托管 AI 扫描（OpenProject 无生产级 AI、Plane AI 商业自托管 BYO-key——AgentPM 路线开源侧领先无新缺口）。定案 M51=周报深化与分发三件套（I153/I154/I155） |
 | **M50 周期性自动状态报告（I150-I152）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AU + docs/10 §M50）：I150 sweep 周期报告 pass（generate_status_report 重构汇编核 `_collect_status_metrics`/`_render_status_lines`/`_commit_report` 三层——手动端点行为不变 + 第七员 `_report_status_weekly`[ISO 周一触发 `weekly_report_day`=1、0 关闭；payload source/week 按项目按周幂等零新表；`automation.swept` 加 `reported` 计数；单项目异常不杀 sweep]）/ I151 通知与前端入口（owner 通知 notification.sent 新 kind `report_weekly` 入 NOTIFY_KINDS 白名单[I96 偏好门自然生效] + `GET /projects/{id}/reports` 列表[manual/weekly source 区分] + ReportsPage 最近报告卡点击抽屉 Markdown 预览）/ I152 环比对比+收尾（首期诚实标注 + 上期 payload 指标 Δ 完成度 pp·超期·费用·工时环比分区 + 冒烟 55 + 审阅）；derived 进度上卷[本轮裁决维持 backlog——原生 Jira 亦不做写时上卷]、AI 评论抓取摘要留 backlog。基线：pytest **405** 全绿（非 smoke 350 EXIT=0 + smoke runner 55 GREEN 对账）+ 冒烟 **55** + vitest **14** + build 绿 |
 | 2026-09-21 M50 调研定义（§AU） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：周期性自动状态报告[§AT.2 留 backlog 无落地调研]、derived 进度上卷[留 backlog 本轮裁决]、Cycles 多周期[维持降级]、subject 正则/digest[维持不做除非要求]。三路 WebSearch：Plane #5861「每日更新+每周状态报告」请求（digest=节律非功能——幂等调度+事实化心跳）、原生 Jira 不做父子 %done 写时上卷[插件按估算加权——derived 维持 backlog]、2026 三件套标配（自动状态更新/AI 摘要/风险预测——AgentPM 三面已对齐）。定案 M50=周期性自动状态报告（I150/I151/I152） |
 | I150 sweep 周期报告 pass | 已完成 | 2026-09-21 | 2026-09-21 | 汇编核分层重构[collect/render/commit_report 三层——手动 POST 行为回归原样，顺手清掉未用的 list_approvals 导入] + 第七员 `_report_status_weekly`[ISO weekday 对齐 `weekly_report_day` 才触发；心跳=`artifact.report_generated` payload source=weekly+ISO 周键；`write_weekly_status_report` 复用汇编核 actor=automation] + reported 计数进 swept payload/返回值。坑：automations 域 config 为函数内局部导入（NameError）；sweep 用 UTC 今天而测试初版用本地 date（时区差一天致 weekday 不匹配）——测试改从 events.utcnow() 取 |
