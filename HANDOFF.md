@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M48 调度与治理三件套 完成，下一步 M49 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M49 闭环与表达三件套 完成，下一步 M50 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -29,6 +29,7 @@
 - **M46 流式与主题三件套（I138-I140，2026-09-20 完成，docs/01 §AQ + docs/10 §M46）**：LLM 流式（`run.token_delta` 瞬态广播零落库 + 逐字渲染）+ 多币种（`APM_FX_RATES` 汇率表 + cost-report 折算披露）+ 深色模式（Tailwind v4 `@theme` 变量双通道重写组件零改动 + ThemeToggle 三态 + 硬编码色归位 26 处）。基线 360/51/14。
 - **M47 深度与协同三件套（I141-I143，2026-09-21 完成，docs/01 §AR + docs/10 §M47）**：**I141 上下文压缩**——prompt 组装读路径字符预算（`APM_CONTEXT_BUDGET_CHARS` 默认 8000，0=禁用）+ `fold_constraints` 纯函数折叠早期约束[最近保原文] + role.yaml `summarize` 开关走廉价模型摘要[失败退规则摘要不 fail run] + span `apm.context_*` 观测（**存储原文不动、压缩不落库**）。**I142 单元成本行项**——expense 域（`expense.recorded/deleted` + expense_entries 投影 + 软删 rebuild 复现）+ cost-report 双轨（labor_cost/expense_cost/total=两轨和，budget 仍小时口径不混算）+ I139 汇率延续。**I143 跨项目依赖**——放开 422[双方可读 403 门禁、事件聚合 from 侧] + **修 propagate_reschedule 跨项目归因缺陷**（rescheduled 事件改归被移动项项目——同项目 M14 以来未暴露）+ graph 端点跨项目占位节点（不可读只给 🔒）+ 传播/lag 跨项目天然生效。**当前验证基线：pytest 374 全绿（非 smoke 322 EXIT=0 + smoke runner 52 GREEN 对账；+14：test_context_compression ×5 + test_expense ×4 + test_cross_project ×4 + 冒烟 52）；冒烟 52 条 GREEN；vitest 14/build 绿。**
 - **M48 调度与治理三件套（I144-I146，2026-09-21 完成，docs/01 §AS + docs/10 §M48）**：**I144 模型分档**——`APM_MODEL_CHEAP/STANDARD/REASONING` 三档 + 角色 YAML `model.tier` 解析（显式 name 最高优先）+ **cascade 降级**（主档 LLMError 向上一档重试一次，span `apm.model_tier/model_degraded` 留痕；显式 name 角色不参与——不静默替换）+ record 录制件 key 加 context 指纹（replay 端精确匹配回落裸 key）。**I145 周期回顾包**——`GET /cycles/{id}/retrospective`（完成率 I129 口径/拖入显性化/超期新增/run 参与/blocks top[from 阻塞 to]/prev 速率对比，空周期诚实）+ Board「📋 回顾」抽屉。**I146 并发治理**——`_exec_lock` 全局串行 → **per-conversation 锁**（跨对话并行）+ `_active_runs` 终态 pop（修内存泄漏；awaiting_review 保留）+ **修并行 run git 竞争**（gitrepo per-project 写锁 + commit_file 容忍 nothing to commit——确定性模板同内容重写会空提交）+ 看板列渐进渲染（12/页）。**当前验证基线：pytest 387 全绿（非 smoke 334 EXIT=0 + smoke runner 53 GREEN 对账）；冒烟 53 条 GREEN；vitest 14/build 绿。**
+- **M49 闭环与表达三件套（I147-I149，2026-09-21 完成，docs/01 §AT + docs/10 §M49）**：**I147 回顾行动项落地**——`POST /cycles/{id}/action-items` 走 create_item 全校验链批量转换（item.created payload 记 `retro_of` 审计链[同 I133 模式]，create_item 加 `extra_payload` 通用通道）+ 同名幂等跳过 + retrospective 带出 `open_actions/prev_open_actions`[开场过账] + RetroDrawer 行动项表单。**I148 状态报告自动生成**——`POST /projects/{id}/status-report` 纯投影汇编 Markdown落 `artifacts/reports/`[随机短尾防同名覆盖]入 git + `artifact.report_generated` 审计+ 可选 ai_summary[失败降级纯数据版] + Reports 页一键按钮。**I149 关系类型扩展**——KERNEL_RELATIONS 补 duplicates/includes 标注型[无排期/闭锁副作用；software-dev.yaml 删与内核重叠的 duplicates 声明] + 图表配对色 token 化[SVG stroke 走 var]。**当前验证基线：pytest 394 全绿（非 smoke 340 EXIT=0 + smoke runner 54 GREEN 对账）；冒烟 54 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -36,8 +37,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M48 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M49 前置调研（下一步）**：先 `grep -n "候选\|A[S-T]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M49 节 + 看板行 →「M49 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M49 审阅。**候选池**：①Cycles 多周期并列视图 revisit（维持降级中，除非有新证据）；②改进项转任务（retro action item → item）；③subject 正则全量路由（除非用户要求）；④digest 邮件[明确不做除非用户要求]；⑤工程债：剩余图表配对色 token 化/关系类型扩展（derived/includes）；⑥调研新发现。
+1. ~~M24~M49 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M50 前置调研（下一步）**：先 `grep -n "候选\|A[T-U]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M50 节 + 看板行 →「M50 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M50 审阅。**候选池**：①周期性自动状态报告（sweep 家族第五员，I148 手动版已落地）；②derived 进度派生传播（与 I116 rollup 语义重叠需论证）；③Cycles 多周期并列（维持降级）；④subject 正则全量路由/digest 邮件（维持不做除非要求）；⑤调研新发现（AI 字段/自动摘要类新特性扫描）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
@@ -79,8 +80,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 387 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 53 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 394 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 54 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 14 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
