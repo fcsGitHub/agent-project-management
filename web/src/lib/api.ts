@@ -116,6 +116,11 @@ export type AEvent = {
   id: number; ts: string; actor_type: string; actor_id: string; project_id: string;
   agg_type: string; agg_id: string; event_type: string; payload: Record<string, unknown>;
 };
+export type StatusReportEntry = {
+  path: string; commit: string; ts: string; actor_type: string;
+  source: string; week: string | null; ai_summary: boolean;
+  metrics: Record<string, number> | null; summary: string;
+};
 export type ProjectReport = {
   project_id: string;
   funnel: Record<string, number>;
@@ -545,6 +550,10 @@ export const api = {
   generateStatusReport: (pid: string, aiSummary = false) =>
     req<{ path: string; commit: string; ai_summary: string | null }>(
       `/projects/${pid}/status-report${aiSummary ? "?ai_summary=true" : ""}`, { method: "POST" }),
+  // M50-I151: report list behind the Reports page card (manual + weekly
+  // share the artifact.report_generated event; `source` tells them apart)
+  listStatusReports: (pid: string) =>
+    req<{ reports: StatusReportEntry[] }>(`/projects/${pid}/reports`),
   // M49-I147: convert retro action items to tracked work items
   createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
     req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];

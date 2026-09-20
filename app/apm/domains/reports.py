@@ -1340,6 +1340,31 @@ def generate_status_report(project_id: str, ai_summary: bool = False) -> dict:
     return out
 
 
+def _weekly_comparison_lines(prev_week: str | None, prev: dict | None,
+                             cur: dict) -> list[str]:
+    """M50-I152: period-over-period section — first issue honestly says so,
+    later issues diff the structured metrics the sweep payloads carry."""
+    if not prev:
+        return ["", "## 环比", "", "- 首期报告，无上期数据可比"]
+
+    def _arrow(n: float) -> str:
+        return "↑" if n > 0 else ("↓" if n < 0 else "→")
+
+    d_pct = cur["done_pct"] - prev.get("done_pct", 0)
+    d_overdue = cur["overdue"] - prev.get("overdue", 0)
+    d_cost = round(cur["expense_cost"] - prev.get("expense_cost", 0), 2)
+    d_hours = round(cur["timelog_h"] - prev.get("timelog_h", 0), 1)
+    return ["", f"## 环比（vs {prev_week}）", "",
+            f"- 完成度 {prev.get('done_pct', 0)}% → {cur['done_pct']}%"
+            f"（{_arrow(d_pct)}{abs(d_pct)}pp）",
+            f"- 超期 {prev.get('overdue', 0)} → {cur['overdue']}"
+            f"（{_arrow(d_overdue)}{abs(d_overdue)} 项）",
+            f"- 费用 {prev.get('expense_cost', 0)} → {cur['expense_cost']}"
+            f"（{_arrow(d_cost)}{abs(d_cost)}）",
+            f"- 工时 {prev.get('timelog_h', 0)}h → {cur['timelog_h']}h"
+            f"（{_arrow(d_hours)}{abs(d_hours)}h）"]
+
+
 def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
     """M50-I150 (docs/01 §AU.1): the sweep's weekly pass entry — same assembly
     core as the manual endpoint, automation actor, and the payload carries
@@ -1351,15 +1376,65 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
     if project is None:
         return {}
     m = _collect_status_metrics(conn, project, today)
-    lines = _render_status_lines(project, today, m)
     metrics = {"done_pct": m["done_pct"], "overdue": m["overdue"],
                "gates": m["gates_pending"], "risks": m["risks_open"],
                "expense_cost": round(m["expense_cost"], 2),
                "timelog_h": round(m["timelog"] / 60, 1)}
+    lines = _render_status_lines(project, today, m)
+    # I152: at generation time the latest weekly fact IS the previous period
+    # (the heartbeat guarantees this one isn't written yet)
+    prev = conn.execute(
+        "SELECT payload FROM events"
+        " WHERE event_type = 'artifact.report_generated' AND project_id = ?"
+        " AND json_extract(payload, '$.source') = 'weekly'"
+        " AND json_extract(payload, '$.week') IS NOT NULL"
+        " ORDER BY id DESC LIMIT 1", (project_id,)).fetchone()
+    if prev:
+        p = json.loads(prev["payload"])
+        lines += _weekly_comparison_lines(p.get("week"), p.get("metrics"), metrics)
+    else:
+        lines += _weekly_comparison_lines(None, None, metrics)
     out = _commit_report(project_id, lines, prefix="status",
                          actor_type="automation", actor_id="scheduler",
                          payload={"source": "weekly", "week": week,
                                   "metrics": metrics,
                                   "summary": f"周报已生成 → 第 {week} 期"})
     out["metrics"] = metrics
+    # I151: notify project owners (notification.sent is the automation
+    # channel — the projector applies the per-kind pref gate for us)
+    for o in conn.execute(
+            "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
+            (project_id,)).fetchall():
+        events.emit(
+            event_type="notification.sent", agg_type="project", agg_id=project_id,
+            project_id=project_id, actor_type="automation", actor_id="scheduler",
+            payload={"user_id": o["user_id"], "kind": "report_weekly",
+                     "summary": f"周报已生成（第 {week} 期）→ {out['path']}"},
+        )
     return out
+
+
+@router.get("/projects/{project_id}/reports")
+def list_status_reports(project_id: str) -> dict:
+    """M50-I151: the report list behind the Reports page card — every
+    artifact.report_generated fact for this project (manual and weekly
+    share the event type; `source` tells them apart)."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT id, ts, actor_type, payload FROM events"
+        " WHERE project_id = ? AND event_type = 'artifact.report_generated'"
+        " ORDER BY id DESC LIMIT 50", (project_id,)).fetchall()
+    reports = []
+    for r in rows:
+        p = json.loads(r["payload"])
+        reports.append({
+            "path": p.get("path", ""), "commit": p.get("commit", ""),
+            "ts": r["ts"], "actor_type": r["actor_type"],
+            "source": p.get("source", "manual"), "week": p.get("week"),
+            "ai_summary": bool(p.get("ai_summary")),
+            "metrics": p.get("metrics"), "summary": p.get("summary", ""),
+        })
+    return {"reports": reports}

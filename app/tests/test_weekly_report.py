@@ -137,3 +137,81 @@ def test_rebuild_preserves_weekly_facts(client, project):
     after = client.get("/api/events",
                        params={"event_type": "artifact.report_generated"}).json()["events"]
     assert len(after) == len(before)
+
+
+def test_weekly_report_notifies_owner_and_list(client, project):
+    """I151：周报生成后 owner 收通知（kind=report_weekly，I96 偏好白名单），
+    GET /reports 列表手动与周报可区分；手动生成不发通知。"""
+    # creator is already owner (409 if re-added); the row is what the notify
+    # query needs — verify it rather than asserting on the POST
+    conn = db.get_conn()
+    assert conn.execute(
+        "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = 'u_admin'"
+        " AND role = 'owner'", (project,)).fetchone()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    client.post(f"/api/projects/{project}/status-report")  # 手动版不发通知
+
+    notes = client.get("/api/notifications").json()["notifications"]
+    weekly = [n for n in notes if n["kind"] == "report_weekly"]
+    assert len(weekly) == 1
+    assert "2026-W" in weekly[0]["summary"] and weekly[0]["summary"].endswith(".md")
+
+    lst = client.get(f"/api/projects/{project}/reports").json()["reports"]
+    assert len(lst) == 2
+    assert {r["source"] for r in lst} == {"manual", "weekly"}
+    weekly_row = [r for r in lst if r["source"] == "weekly"][0]
+    assert weekly_row["week"].startswith("2026-W")
+    assert set(weekly_row["metrics"]) == {"done_pct", "overdue", "gates",
+                                          "risks", "expense_cost", "timelog_h"}
+    assert all(r["path"].startswith("artifacts/reports/status-") for r in lst)
+
+
+def test_weekly_notification_pref_gate_holds(client, project):
+    """I96 偏好关断：owner 关掉 report_weekly 的 inapp 后投影不发（事件照发）。"""
+    assert client.put("/api/me/notification-prefs", json={
+        "prefs": [{"kind": "report_weekly", "inapp": False, "email": False}]}).status_code == 200
+    conn = db.get_conn()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    notes = client.get("/api/notifications").json()["notifications"]
+    assert not [n for n in notes if n["kind"] == "report_weekly"]  # in-app gate held
+    sent = client.get("/api/events",
+                      params={"event_type": "notification.sent"}).json()["events"]
+    assert any(e["payload"].get("kind") == "report_weekly" for e in sent)  # fact still evented
+
+
+def _latest_weekly_path(client, project) -> str:
+    evs = [e for e in client.get("/api/events", params={
+        "event_type": "artifact.report_generated"}).json()["events"]
+        if e["project_id"] == project and e["payload"].get("source") == "weekly"]
+    return max(evs, key=lambda e: e["id"])["payload"]["path"]
+
+
+def test_weekly_comparison_first_period_then_delta(client, project):
+    """I152：首期报告环比分区诚实标注「首期」；第二期 Δ 与指标对齐。"""
+    # 首期（W38）：2 项任务，1 项完成 → done_pct 50
+    its = [client.post(f"/api/projects/{project}/items",
+                       json={"concept_id": "task", "title": f"项{i}"}).json()
+           for i in range(2)]
+    client.patch(f"/api/items/{its[0]['id']}", json={"status": "done"})
+    conn = db.get_conn()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-14") == 1  # W38 周一
+    art1 = client.get(f"/api/projects/{project}/artifacts/{_latest_weekly_path(client, project)}").json()
+    assert "## 环比" in art1["content"] and "首期报告，无上期数据可比" in art1["content"]
+
+    # 第二期（W39）：再完成 1 项 → done_pct 100，Δ +50pp
+    client.patch(f"/api/items/{its[1]['id']}", json={"status": "done"})
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    art2 = client.get(f"/api/projects/{project}/artifacts/{_latest_weekly_path(client, project)}").json()
+    assert "## 环比（vs 2026-W38）" in art2["content"]
+    assert "完成度 50% → 100%（↑50pp）" in art2["content"]
+    assert "超期 0 → 0（→0 项）" in art2["content"]
+
+    # 两期 payload 指标可对账（I152 差值来源）
+    lst = client.get(f"/api/projects/{project}/reports").json()["reports"]
+    m38 = [r for r in lst if r["week"] == "2026-W38"][0]["metrics"]
+    m39 = [r for r in lst if r["week"] == "2026-W39"][0]["metrics"]
+    assert m38["done_pct"] == 50 and m39["done_pct"] == 100
+    assert m39["done_pct"] - m38["done_pct"] == 50

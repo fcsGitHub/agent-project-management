@@ -5,8 +5,9 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import Markdown from "react-markdown";
 import { api } from "../lib/api";
-import { Badge, Button, Card, Empty, PrintButton, cx } from "../components/ui";
+import { Badge, Button, Card, Drawer, Empty, PrintButton, cx } from "../components/ui";
 
 const BUCKET_LABEL: Record<string, string> = {
   backlog: "待办池", todo: "就绪", in_progress: "进行中", done: "已完成", cancelled: "已取消",
@@ -15,6 +16,7 @@ const BUCKET_ORDER = ["backlog", "todo", "in_progress", "done", "cancelled"];
 
 export function ReportsPage() {
   const { pid } = useParams();
+  const qc = useQueryClient();
   const report = useQuery({
     queryKey: ["report", pid],
     queryFn: () => api.getProjectReport(pid!),
@@ -38,12 +40,25 @@ export function ReportsPage() {
     try {
       const out = await api.generateStatusReport(pid);
       toast.success("状态报告已生成", { description: `${out.path}（已入 git 版本史）` });
+      qc.invalidateQueries({ queryKey: ["status-reports", pid] });
     } catch (e) {
       toast.error("报告生成失败", { description: String(e) });
     } finally {
       setGenerating(false);
     }
   };
+  // M50-I151: 最近报告列表（手动 + sweep 周报同一事件流）+ 点开预览
+  const reports = useQuery({
+    queryKey: ["status-reports", pid],
+    queryFn: () => api.listStatusReports(pid!),
+    enabled: !!pid,
+  });
+  const [openReport, setOpenReport] = useState<string | null>(null);
+  const preview = useQuery({
+    queryKey: ["artifact", pid, openReport],
+    queryFn: () => api.getArtifact(pid!, openReport!),
+    enabled: !!pid && !!openReport,
+  });
 
   return (
     <div className="grid grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
@@ -85,6 +100,43 @@ export function ReportsPage() {
           {report.isError && <span className="text-xs text-dan">加载失败，请刷新重试</span>}
         </div>
       </Card>
+
+      {/* M50-I151: 最近报告（手动 + sweep 周报同一事件流） */}
+      <Card className="p-4 md:col-span-2">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold">📜 最近报告</span>
+          <span className="text-xs text-mut">手动生成与 sweep 周报同一事件流 · 点击看全文</span>
+        </div>
+        <div className="space-y-1.5">
+          {(reports.data?.reports ?? []).map((rp) => (
+            <button key={rp.path} onClick={() => setOpenReport(rp.path)}
+              className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-left text-xs hover:border-acc">
+              <span className="flex-1 truncate font-medium">{rp.path.split("/").pop()}</span>
+              {rp.source === "weekly" ? (
+                <Badge tone="acc">周报{rp.week ? ` · ${rp.week}` : ""}</Badge>
+              ) : (
+                <Badge tone="neutral">手动</Badge>
+              )}
+              {rp.ai_summary && <Badge tone="violet">AI 摘要</Badge>}
+              <span className="shrink-0 text-mut">{rp.ts.slice(0, 16).replace("T", " ")}</span>
+            </button>
+          ))}
+          {!reports.data?.reports.length && !reports.isError && (
+            <Empty title="还没有报告" hint="点右上「📝 生成状态报告」，或等周一 sweep 自动出周报" />
+          )}
+          {reports.isError && <span className="text-xs text-dan">报告列表加载失败，请刷新重试</span>}
+        </div>
+      </Card>
+      <Drawer open={!!openReport} onClose={() => setOpenReport(null)} title={openReport ?? ""} width="50%">
+        {preview.data ? (
+          <div className="prose prose-zinc prose-sm max-w-none">
+            <Markdown>{preview.data.content}</Markdown>
+          </div>
+        ) : (
+          <span className="text-xs text-mut">加载中…</span>
+        )}
+        {preview.isError && <span className="text-xs text-dan">工件读取失败</span>}
+      </Drawer>
 
       {/* pending gates */}
       <Card className="p-4">
