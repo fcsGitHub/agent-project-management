@@ -1540,6 +1540,36 @@ agent-project-management/
 
 ---
 
+### M50 · 周期性自动状态报告（I150-I152，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AU 前置调研）。I148 手动报告的「最后一公里」是节律：报告的价值在**准时发生**而非「手动可触发」（Plane #5861 请求证据 + 2026 自动状态更新成为各家标配）。三件共通：都站在 I148 汇编核与 I98 sweep 幂等心跳骨架上，零新表零新通道。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I150 | sweep 周期报告 pass（`generate_status_report` 重构出 `_collect_status_metrics`/`_render_status_lines` 汇编核——手动端点行为不变 + `run_daily_sweep` 第七员 `report_status_weekly`：ISO 周一触发[config `weekly_report_day`=1，0 关闭]、活跃项目逐一生成、`artifact.report_generated` payload 记 `source:"weekly"`+ISO 周键按项目按周幂等 + `automation.swept` 加 `reported` 计数） | — | I148 汇编核、I98 sweep 心跳 | 3d |
+| I151 | 通知与前端入口（weekly 生成后向 owner 发 `notification.sent`[新 kind `report_weekly` 入 NOTIFY_KINDS 白名单] + ReportsPage「最近报告」列表[artifact.report_generated 事件过滤] + 直开工件） | — | I96 偏好白名单、I34 通知投影 | 3d |
+| I152 | 环比对比+收尾（weekly payload 携带结构化指标 → 下期读上期算 Δ[完成度/超期/费用] 报告加「环比」分区 + **冒烟 55**[sweep→报告→通知→环比 roundtrip] + M50 审阅） | — | I148 分区、事件指标 | 3d |
+
+#### I150 · sweep 周期报告 pass（3d）
+
+- 任务：reports.py `generate_status_report` 重构为 `_collect_status_metrics`（数据收集返回 metrics dict）+ `_render_status_lines`（渲染返回 lines）——手动端点行为不变；automations.py 加 `report_status_weekly(conn, today)` 第七员：ISO weekday == config.weekly_report_day 时对每个活跃项目检查本周心跳（`artifact.report_generated` + payload source=weekly + week=ISO 周键）→ 未生成则调汇编核 + gitrepo.write_file（actor_type=automation）+ emit 事件（payload 带 source/week/metrics）；`automation.swept` payload 与返回 dict 加 `reported` 计数。
+- DoD：单测（重构后手动端点行为回归/周一触发生成/同周二次 sweep 跳过/weekly_report_day=0 关闭/非活跃项目跳过/reported 计数对账）。
+- 演示路径：POST /automations/sweep（force 模拟周一）→ 每个活跃项目 artifacts/reports/ 多出周报工件 → 事件流可见 source=weekly。
+
+#### I151 · 通知与前端入口（3d）
+
+- 任务：weekly 生成后对 project owner 发 `notification.sent`（kind=report_weekly，summary 含工件路径）+ NOTIFY_KINDS 加 `report_weekly: "周报已生成"`（I96 偏好白名单自然生效）+ ReportsPage「最近报告」卡片（本项目 artifact.report_generated 事件过滤：时间/文件名/AI 摘要标记，点击直开工件）。
+- DoD：单测（owner 收通知/偏好关时不发/手动生成不发通知）+ 前端三态（加载/错误/空）。
+- 演示路径：sweep 生成 → owner 通知铃铛出现「周报已生成」→ Reports 页最近报告列表点开全文。
+
+#### I152 · 环比对比+收尾审阅（3d）
+
+- 任务：weekly payload 增补结构化 metrics（done_pct/overdue/gates/risks/expense_cost/timelog_h）→ 生成时查上期 weekly 事件 payload → 报告加「环比」分区（Δ 完成度 pp/Δ 超期/Δ 费用，上期缺失显示「首期」）+ **冒烟 55**（sweep 周报 roundtrip：生成→通知→两周对比）+ docs/12 §45 + M50 审阅。
+- DoD：冒烟 55 GREEN；单测（首期无环比/第二期 Δ 正确/rebuild 后 payload 指标一致）；全量 pytest 分片收敛绿。
+- 演示路径：连续两周 sweep（日期模拟）→ 第二份周报含环比分区 → 打印。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1739,6 +1769,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M50 周期性自动状态报告（I150-I152）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AU + docs/10 §M50）：I150 sweep 周期报告 pass（汇编核 collect/render 分层重构 + 第七员 `report_status_weekly`[ISO 周一触发、payload source/week 按项目按周幂等、reported 计数]）/ I151 通知与前端入口（owner 通知 kind=report_weekly 入白名单 + ReportsPage 最近报告列表直开工件）/ I152 环比对比+收尾（上期指标 Δ 分区 + 冒烟 55 + 审阅）；derived 进度上卷[本轮裁决维持 backlog]、AI 评论抓取摘要留 backlog。基线：pytest 394（非 smoke 340 全绿 EXIT=0 + smoke 54 GREEN 对账）+ vitest 14 + build 绿 |
+| 2026-09-21 M50 调研定义（§AU） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：周期性自动状态报告[§AT.2 留 backlog 无落地调研]、derived 进度上卷[留 backlog 本轮裁决]、Cycles 多周期[维持降级]、subject 正则/digest[维持不做除非要求]。三路 WebSearch：Plane #5861「每日更新+每周状态报告」请求（digest=节律非功能——幂等调度+事实化心跳）、原生 Jira 不做父子 %done 写时上卷[插件按估算加权——derived 维持 backlog]、2026 三件套标配（自动状态更新/AI 摘要/风险预测——AgentPM 三面已对齐）。定案 M50=周期性自动状态报告（I150/I151/I152） |
 | **M49 闭环与表达三件套（I147-I149）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AT + docs/10 §M49）：I147 回顾行动项落地（immediate conversion：action_items 填写+批量转工作项[item.created+retro_of 审计链——同 I133 模式]+已转回标防重+上届带出）/ I148 状态报告自动生成（POST 汇编 Markdown 工件入 git[继承版本史/diff/审计零新表]+健康/Gate/完成/超期/双轨预算/风险分区+可选 AI 摘要降级）/ I149 关系类型扩展+收尾（duplicates/includes 标注型枚举+渲染透传+图表配对色 token 化+冒烟 54+审阅）；derived 进度派生传播/周期性自动报告[sweep 第五员]/Cycles 多周期[维持降级]留 backlog。基线：pytest **394**（非 smoke 340 全绿 EXIT=0 + smoke runner 54 GREEN 对账）+ 冒烟 **54** + vitest **14** + build 绿 |
 | 2026-09-21 M49 调研定义（§AT） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：改进项转任务[两次留 backlog 有痛点证据无落地调研]、状态报告自动生成[全新方向无记录]、关系类型扩展[仅受控枚举一句]。三路 WebSearch：retro immediate conversion（会不散场直到 top 项转 issue+单一 owner+due+每周期 1-3 项防疲劳）、状态报告两路线（模板化 Monday/TeamGantt 与 AI 草稿 Dart——「平台数据自动汇编成草稿，人只做润色」）、OpenProject 关系族（relates/duplicates/blocks/precedes/derived/includes——标注型与派生型分档）。定案 M49=闭环与表达三件套（I147/I148/I149） |
 | I147 回顾行动项落地 | 已完成 | 2026-09-21 | 2026-09-21 | `POST /cycles/{id}/action-items` 走 create_item 全校验链[本体初始状态/assignee/日期]批量转换 + item.created payload 记 `retro_of/retro_title` 审计链[同 I133 模式] + 同名幂等跳过防重复 + create_item 加 `extra_payload` 通用通道[调用方附加审计键的最小侵入] + retrospective 响应带 `open_actions/prev_open_actions`[开场过账，empty scope 分支同样带出] + RetroDrawer 行动项表单[title/owner/due 三列动态行+一键转换]；test_action_items **4** 项[转换审计链/幂等去重/上届带出/rebuild] |

@@ -1357,3 +1357,32 @@ M48 = **调度与治理三件套**：I144 角色模型分档与 cascade 降级�
 **AT.5 M49 取舍**
 
 M49 = **闭环与表达三件套**：I147 回顾行动项落地（闭环面——immediate conversion，「行动项是受追踪工作项不是纪要字」）/ I148 状态报告自动生成（表达面——报告=平台数据汇编入 git，可选 AI 润色）/ I149 关系类型扩展+图表色收尾审阅（表达面——受控枚举低风险扩档）+ docs/12 §44 + 冒烟 54 + M49 审阅，约 9 人日。derived 进度派生传播、Cycles 多周期并列（维持降级）、subject 正则全量路由/digest 邮件（维持不做除非要求）、周期性自动状态报告（sweep 第五员）留 backlog。
+
+## AU. M50 前置调研：周期性自动状态报告 / 父子进度上卷裁决 / 2026 AI 报告特性（2026-09-21）
+
+> 目标协议触发：M49 完成后开启。防重查：候选池 grep——周期性自动状态报告（§AT.2 明确留 backlog「sweep 家族第五员」且 I148 手动版已落地，无落地调研）、derived 进度派生传播（§AT.3 留 backlog「与 I116 rollup 重叠需论证」，本轮补行业调研后裁决）、Cycles 多周期并列（维持降级）、subject 正则全量路由/digest 邮件（维持不做除非要求）。本轮三路新调研（周期性报告调度 / 父子进度上卷 / 2026 AI 报告特性扫描），选定 **M50 = 周期性自动状态报告**。
+
+**AU.1 周期性自动状态报告（scheduled digest 语义）**
+
+- 需求证据：Plane GitHub issue #5861 明确请求「每日更新 + 每周状态报告仪表盘」——周期性 digest 是开源工具被反复要而普遍没有的能力（[Plane](https://plane.so)、[GitHub #5861](https://github.com/makeplane/plane/issues/5861)）；OpenProject 以「一段时间内项目发生了什么变化」为总览核心卖点（[OpenProject](https://www.openproject.org)）；2026 年「自动状态更新」成为各家内核能力（[Tommaso Ricci 2026 综述](https://www.tommasomariaricci.com/blog/ai-for-project-management-guide)：AI 监控任务完成/识别延迟/自动更新状态；[Microsoft Planner](https://www.microsoft.com/en-us/microsoft-365/planner/project-management-ai) AI 跟踪状态并发提醒；[Lark](https://www.larksuite.com/en_us/blog/ai-project-management-tools) AI 从任务评论自动生成周度干系人更新）。共同语义：**报告的价值在「准时发生」而非「手动可触发」——digest 与其说是一个功能，不如说是一个节律；节律的正确实现 = 幂等调度 + 事实化心跳**。
+- 对本项目的映射：I148 手动版已落地，M50 把它变成 sweep 第七员——`run_daily_sweep` 加 `report_status_weekly` pass：ISO 周一（config `weekly_report_day`，0 关闭）对每个活跃项目生成状态报告；幂等 = `artifact.report_generated` 事件 payload 记 `source:"weekly"` + ISO 周键，扫到本周已生成即跳过（同 `automation.swept` 心跳模式，零新表）；重构 `generate_status_report` 出 `_collect_status_metrics`（数据收集）+ `_render_status_lines`（渲染）两层，手动端点与 sweep pass 共用同一汇编核；`automation.swept` payload 加 `reported` 计数。AI 摘要 sweep 版默认关（成本纪律），手动版不受影响。
+
+**AU.2 父子进度上卷（derived 语义裁决）**
+
+- 行业：原生 Jira **不做**父子 %done 上卷——Atlassian 生态靠插件补位：Ricksoft WBS Gantt-Chart 按子任务估算加权计算父进度、ProSchedule 用「Jira Field 法」从链路字段自动计算（[Atlassian 社区](https://community.atlassian.com)、[Ricksoft 文档](https://ricksoft-support.atlassian.net)）；OpenProject 把 derived 列为关系族最重一档。共同语义：**进度上卷不是「读个数字」，是加权策略（子任务均权 vs 估算加权 vs 工时加权）+ 重算时机（子项变更即传播 vs 读时计算）+ 环路治理三件事一起**。
+- 裁决：**维持 backlog 不立项**。理由：I116 已有 contains 聚合、I149 includes 计数展示，读时聚合覆盖「父项看子项进度」八成场景；写时传播（derived）与 I116 rollup 语义重叠、加权策略无用户输入前属过度设计——本轮证据（连原生 Jira 都不做写时上卷、留给插件层）反而支持维持 backlog 的行业选择。
+
+**AU.3 2026 AI 报告特性扫描（新发现方向）**
+
+- 2026 趋势三件套收敛为标配：自动状态更新 / AI 生成摘要 / 风险预测（[ClickUp 综述](https://clickup.com)、[Lark](https://www.larksuite.com/en_us/blog/ai-project-management-tools)、[Microsoft Planner](https://www.microsoft.com/en-us/microsoft-365/planner/project-management-ai)、[Productive](https://productive.io/blog/ai-project-management-tools) 全部捆绑）；AgentPM 对应现状：手动报告 AI 摘要段（I148）✓、周期性自动报告（本轮 I150）✓、风险登记册（M42）+ 速率 forecast（M41）✓——三件套对齐后无新缺口；Lark 式「从评论抓取生成」属增强档留 backlog。
+
+**AU.4 M50 设计映射与验证纪律（沿用）**
+
+- I150 sweep 周期报告 pass：汇编核重构（collect/render 分层）+ 第七员 pass + 按项目按 ISO 周幂等 + payload 指标与 `reported` 计数；单测（重构后手动版不变/周一触发/同周幂等/开关关闭/非活跃跳过/计数对账）。
+- I151 通知与前端入口：owner 通知（新 kind `report_weekly` 入 NOTIFY_KINDS 白名单）+ ReportsPage「最近报告」列表（artifact.report_generated 事件过滤）+ 直开工件；单测（通知白名单/owner 定向/偏好关时不发）。
+- I152 环比对比：weekly payload 携带结构化指标，下期读上期算 Δ（完成度/超期/费用），报告加「环比」分区；单测（首期无环比/第二期 Δ 正确/rebuild 一致）。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M50 审阅 + **冒烟 55**（周期报告 roundtrip：sweep→报告工件→通知→环比）。
+
+**AU.5 M50 取舍**
+
+M50 = **周期性自动状态报告**：I150 sweep 周期报告 pass（节律面——「报告的价值在准时发生」，幂等心跳零新表）/ I151 通知与前端入口（分发面——owner 通知 + 最近报告列表）/ I152 环比对比 + **冒烟 55** + M50 审阅，约 9 人日。derived 进度派生传播（本轮裁决维持 backlog：连原生 Jira 都不做写时上卷，读时聚合已覆盖主场景）、AI 评论抓取摘要（增强档）、Cycles 多周期并列（维持降级）留 backlog。
