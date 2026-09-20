@@ -10,6 +10,7 @@ import pytest
 
 from apm import config
 from apm.core import db
+from apm.runtime import provider as provider_mod
 
 
 @pytest.fixture(autouse=True)
@@ -215,3 +216,72 @@ def test_weekly_comparison_first_period_then_delta(client, project):
     m39 = [r for r in lst if r["week"] == "2026-W39"][0]["metrics"]
     assert m38["done_pct"] == 50 and m39["done_pct"] == 100
     assert m39["done_pct"] - m38["done_pct"] == 50
+
+
+def test_weekly_activity_corpus_section(client, project):
+    """I153：周报「本期动态」语料段——近 7 天评论按项分组 ≤8 条+溢出行；
+    手动端点不含该段（点态语义）；默认开关关时无 AI 叙事。"""
+    its = [client.post(f"/api/projects/{project}/items",
+                       json={"concept_id": "task", "title": f"任务{i}"}).json()
+           for i in range(2)]
+    for i in range(3):
+        assert client.post(f"/api/items/{its[0]['id']}/comments",
+                           json={"body": f"评论A{i}"}).status_code == 200
+    for i in range(7):
+        client.post(f"/api/items/{its[1]['id']}/comments", json={"body": f"评论B{i}"})
+    conn = db.get_conn()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    art = client.get(f"/api/projects/{project}/artifacts/"
+                     f"{_latest_weekly_path(client, project)}").json()
+    assert "## 本期动态（评论）" in art["content"]
+    assert "「任务1」" in art["content"] and "评论B6" in art["content"]
+    assert "（另有 2 条评论未列出）" in art["content"]  # 10 条 → 显示 8 + 溢出 2
+    assert "AI 叙事" not in art["content"]  # weekly_report_ai 默认关
+
+    man = client.post(f"/api/projects/{project}/status-report").json()
+    man_art = client.get(f"/api/projects/{project}/artifacts/{man['path']}").json()
+    assert "本期动态" not in man_art["content"]  # 手动版是点态快照，不带周期语料
+
+
+def test_weekly_ai_narrative_failure_degrades(client, project, monkeypatch):
+    """weekly_report_ai 开启但 provider 挂 → 纯语料版照常交付（降级不失败）。"""
+    class _Boom:
+        mode = "openai"
+
+        def complete(self, **kw):
+            raise RuntimeError("provider down")
+
+    monkeypatch.setattr(provider_mod, "get_provider", lambda: _Boom())
+    monkeypatch.setattr(config.settings, "provider_mode", "openai")
+    monkeypatch.setattr(config.settings, "weekly_report_ai", True)
+    it = client.post(f"/api/projects/{project}/items",
+                     json={"concept_id": "task", "title": "任务"}).json()
+    client.post(f"/api/items/{it['id']}/comments", json={"body": "本周动了"})
+    conn = db.get_conn()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    art = client.get(f"/api/projects/{project}/artifacts/"
+                     f"{_latest_weekly_path(client, project)}").json()
+    assert "## 本期动态（评论）" in art["content"] and "AI 叙事" not in art["content"]
+
+
+def test_weekly_ai_narrative_success(client, project, monkeypatch):
+    """weekly_report_ai 开启 + provider 正常 → AI 叙事段进报告正文。"""
+    class _Ok:
+        mode = "openai"
+
+        def complete(self, **kw):
+            class _C:
+                text = "整体健康，关注超期。"
+            return _C()
+
+    monkeypatch.setattr(provider_mod, "get_provider", lambda: _Ok())
+    monkeypatch.setattr(config.settings, "provider_mode", "openai")
+    monkeypatch.setattr(config.settings, "weekly_report_ai", True)
+    conn = db.get_conn()
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(conn, "2026-09-21") == 1
+    art = client.get(f"/api/projects/{project}/artifacts/"
+                     f"{_latest_weekly_path(client, project)}").json()
+    assert "## AI 叙事" in art["content"] and "整体健康" in art["content"]

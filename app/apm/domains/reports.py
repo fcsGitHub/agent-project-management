@@ -1365,6 +1365,32 @@ def _weekly_comparison_lines(prev_week: str | None, prev: dict | None,
             f"（{_arrow(d_hours)}{abs(d_hours)}h）"]
 
 
+def _activity_lines(conn, project_id: str, today: str, limit: int = 8) -> list[str]:
+    """M51-I153 (docs/01 §AV.1): the deterministic corpus section — what
+    people actually said this period, newest first, capped with an overflow
+    line. Zero model calls: the corpus layer is testable on its own; the
+    narrative layer is optional and separately gated by weekly_report_ai."""
+    since = (date.fromisoformat(today) - timedelta(days=6)).isoformat()
+    where = (" FROM events e JOIN items i ON i.id = json_extract(e.payload, '$.item_id')"
+             " WHERE e.event_type = 'comment.created' AND e.project_id = ?"
+             " AND substr(e.ts, 1, 10) >= ?")
+    rows = conn.execute(
+        "SELECT i.title AS t,"
+        " COALESCE(json_extract(e.payload, '$.author_name'), e.actor_id) AS who,"
+        " json_extract(e.payload, '$.body') AS body" + where +
+        " ORDER BY e.id DESC LIMIT ?", (project_id, since, limit)).fetchall()
+    if not rows:
+        return []
+    lines = ["", "## 本期动态（评论）", ""]
+    for r in rows:
+        body = (r["body"] or "").replace(chr(10), " ").strip()[:60]
+        lines.append(f"- 「{r['t']}」{r['who']}：{body}")
+    total = conn.execute("SELECT COUNT(*) c" + where, (project_id, since)).fetchone()["c"]
+    if total > limit:
+        lines.append(f"-（另有 {total - limit} 条评论未列出）")
+    return lines
+
+
 def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
     """M50-I150 (docs/01 §AU.1): the sweep's weekly pass entry — same assembly
     core as the manual endpoint, automation actor, and the payload carries
@@ -1394,12 +1420,33 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
         lines += _weekly_comparison_lines(p.get("week"), p.get("metrics"), metrics)
     else:
         lines += _weekly_comparison_lines(None, None, metrics)
+    lines += _activity_lines(conn, project_id, today)
+    ai_note = None
+    if config.settings.weekly_report_ai and config.settings.provider_mode != "replay":
+        try:
+            from apm.runtime.provider import get_provider
+
+            c = get_provider().complete(
+                role="pm-agent", node="summarize",
+                messages=[
+                    {"role": "system", "content": "根据项目周报数据写一段不超过 120 字的中文叙事总结，"
+                     "先给总体判断，再点出本周最值得注意的一件事。"},
+                    {"role": "user", "content": chr(10).join(lines)},
+                ],
+                context={"model": config.settings.ui_agent_model},
+            )
+            if c.text:
+                lines += ["", "## AI 叙事", "", c.text.strip()]
+                ai_note = c.text.strip()[:60] + "…"
+        except Exception:
+            ai_note = None  # 降级：纯语料版照常交付
     out = _commit_report(project_id, lines, prefix="status",
                          actor_type="automation", actor_id="scheduler",
                          payload={"source": "weekly", "week": week,
-                                  "metrics": metrics,
+                                  "metrics": metrics, "ai_summary": bool(ai_note),
                                   "summary": f"周报已生成 → 第 {week} 期"})
     out["metrics"] = metrics
+    out["ai_summary"] = ai_note
     # I151: notify project owners (notification.sent is the automation
     # channel — the projector applies the per-kind pref gate for us)
     for o in conn.execute(

@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     # M50-I150 weekly status report cadence: ISO weekday on which the daily
     # sweep generates one report per active project (1=Monday; 0 disables).
     weekly_report_day: int = 1
+    # M51-I153 AI narrative paragraph in the weekly report (cheap-tier model).
+    # Default off: scheduled reports must not spend tokens nobody asked for;
+    # the deterministic corpus section is always there.
+    weekly_report_ai: bool = False
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.
