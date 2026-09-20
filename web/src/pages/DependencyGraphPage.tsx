@@ -186,9 +186,9 @@ export function DependencyGraphPage() {
       </Card>
       <div className="flex gap-3 text-[10px] text-mut">
         <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-200" />已完成</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-green-200" />进行中</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-okln" />进行中</span>
         <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-red-200" />被阻塞</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-400" />关键链</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-warnln" />关键链</span>
         <span className={cx(critical.size ? "" : "hidden")}>链长 {critical.size}</span>
       </div>
     </div>

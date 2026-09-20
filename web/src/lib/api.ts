@@ -537,8 +537,19 @@ export const api = {
       runs: { count: number; succeeded: number; input_tokens: number; output_tokens: number } | null;
       top_blockers: { id: string; title: string; blocks: number }[];
       prev_completed: number | null;
+      open_actions: { id: string; title: string; owner: string | null; due_date: string | null }[];
+      prev_open_actions: { id: string; title: string; owner: string | null; due_date: string | null }[];
       reason?: string;
     }>(`/cycles/${encodeURIComponent(cycleId)}/retrospective`),
+  // M49-I148: auto-assembled status report committed as a git artifact
+  generateStatusReport: (pid: string, aiSummary = false) =>
+    req<{ path: string; commit: string; ai_summary: string | null }>(
+      `/projects/${pid}/status-report${aiSummary ? "?ai_summary=true" : ""}`, { method: "POST" }),
+  // M49-I147: convert retro action items to tracked work items
+  createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
+    req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];
+          skipped: { title: string; reason: string }[] }>(
+      `/cycles/${encodeURIComponent(cycleId)}/action-items`, { method: "POST", body: JSON.stringify({ items }) }),
   batchStart: (ids: string[]) =>
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
   batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>

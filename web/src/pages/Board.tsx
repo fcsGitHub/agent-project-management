@@ -1286,11 +1286,85 @@ function RetroDrawer({ cycleId, onClose }: { cycleId: string; onClose: () => voi
                 <div key={x.id} className="text-xs text-mut">· {x.title}——阻塞 {x.blocks} 项</div>))
               : <div className="text-xs text-mut">无阻塞记录</div>}
           </div>
+          {d.prev_open_actions.length > 0 && (
+            <div>
+              <div className="mb-1 text-xs font-semibold text-warn">上届未结行动项（开场过账 · {d.prev_open_actions.length}）</div>
+              {d.prev_open_actions.map((x) => (
+                <div key={x.id} className="text-xs text-mut">· {x.title}{x.owner ? ` @${x.owner}` : ""}{x.due_date ? `（${x.due_date} 前）` : ""}</div>
+              ))}
+            </div>
+          )}
+          {d.open_actions.length > 0 && (
+            <div>
+              <div className="mb-1 text-xs font-semibold text-mut">本周期行动项（未结 {d.open_actions.length}）</div>
+              {d.open_actions.map((x) => (
+                <div key={x.id} className="text-xs text-mut">· {x.title}{x.owner ? ` @${x.owner}` : ""}</div>
+              ))}
+            </div>
+          )}
+          <ActionItemsForm cycleId={cycleId} onConverted={() => retro.refetch()} />
           <div className="text-[10px] text-mut">
             🤖 Run 参与：{d.runs ? `${d.runs.count} 次（成功 ${d.runs.succeeded}）· tokens ${d.runs.input_tokens}/${d.runs.output_tokens}` : "—"}
           </div>
         </div>
       )}
     </Drawer>
+  );
+}
+
+
+/** M49-I147 行动项表单：回顾现场立即转换（title/owner/due ×3 行）——
+ * 转换后走 create_item 全校验链，payload 记 retro_of 审计链。 */
+function ActionItemsForm({ cycleId, onConverted }: { cycleId: string; onConverted: () => void }) {
+  const [rows, setRows] = useState([
+    { title: "", owner: "", due_date: "" },
+    { title: "", owner: "", due_date: "" },
+  ]);
+  const [busy, setBusy] = useState(false);
+  const valid = rows.filter((r) => r.title.trim());
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const r = await api.createActionItems(cycleId, valid.map((r) => ({
+        title: r.title.trim(),
+        owner: r.owner.trim() || undefined,
+        due_date: r.due_date.trim() || undefined,
+      })));
+      toast.success(`已转换 ${r.created.length} 条行动项`,
+        { description: r.skipped.length ? `${r.skipped.length} 条重复跳过` : undefined });
+      setRows([{ title: "", owner: "", due_date: "" }, { title: "", owner: "", due_date: "" }]);
+      onConverted();
+    } catch (e) {
+      toast.error("行动项转换失败", { description: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="rounded-lg border border-line p-2">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-semibold text-mut">行动项（立即转为任务）</span>
+        <button className="text-[10px] text-acc hover:underline"
+          onClick={() => setRows((r) => [...r, { title: "", owner: "", due_date: "" }])}>
+          ＋ 加一行
+        </button>
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} className="mb-1 flex gap-1">
+          <input className="min-w-0 flex-1 rounded border border-line bg-bg px-2 py-1 text-xs"
+            placeholder="行动项标题" value={r.title}
+            onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+          <input className="w-20 rounded border border-line bg-bg px-2 py-1 text-xs"
+            placeholder="负责人" value={r.owner}
+            onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, owner: e.target.value } : x)))} />
+          <input className="w-32 rounded border border-line bg-bg px-2 py-1 text-xs" type="date"
+            value={r.due_date}
+            onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, due_date: e.target.value } : x)))} />
+        </div>
+      ))}
+      <Button size="sm" variant="primary" className="mt-1 w-full" disabled={!valid.length || busy} onClick={submit}>
+        {busy ? "转换中…" : `转为任务（${valid.length}）`}
+      </Button>
+    </div>
   );
 }

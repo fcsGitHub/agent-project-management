@@ -31,6 +31,19 @@ export function ReportsPage() {
   const r = report.data;
   const maxBucket = r ? Math.max(1, ...BUCKET_ORDER.map((b) => r.funnel[b] ?? 0)) : 1;
   const maxDay = r ? Math.max(1, ...r.throughput.series.map((d) => Math.max(d.created, d.done))) : 1;
+  // M49-I148: 一键汇编 Markdown 状态报告（工件入 git，版本史可查）
+  const [generating, setGenerating] = useState(false);
+  const generateReport = async () => {
+    setGenerating(true);
+    try {
+      const out = await api.generateStatusReport(pid);
+      toast.success("状态报告已生成", { description: `${out.path}（已入 git 版本史）` });
+    } catch (e) {
+      toast.error("报告生成失败", { description: String(e) });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
@@ -39,6 +52,10 @@ export function ReportsPage() {
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold">阶段漏斗</span>
           <span className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" disabled={generating} onClick={generateReport}
+              title="汇编健康/Gate/完成/超期/预算等投影数据为 Markdown 报告，工件入 git（M49-I148）">
+              {generating ? "生成中…" : "📝 生成状态报告"}
+            </Button>
             <PrintButton />
             <span className="text-xs text-mut">按五桶状态机计数 · 实时投影</span>
           </span>
@@ -190,7 +207,7 @@ function VelocityCard({ pid }: { pid: string }) {
               <div key={c.cycle_id} className="flex flex-1 flex-col items-center justify-end gap-0.5"
                 title={`${c.name}：承诺 ${c.committed} · 完成 ${c.completed}`}>
                 <div className="flex h-24 w-full items-end justify-center gap-1">
-                  <div className="w-1/3 rounded-t bg-slate-300" style={{ height: `${(c.committed / maxV) * 100}%`, minHeight: c.committed ? 2 : 0 }} />
+                  <div className="w-1/3 rounded-t bg-line" style={{ height: `${(c.committed / maxV) * 100}%`, minHeight: c.committed ? 2 : 0 }} />
                   <div className="w-1/3 rounded-t bg-ag" style={{ height: `${(c.completed / maxV) * 100}%`, minHeight: c.completed ? 2 : 0 }} />
                 </div>
                 <span className="text-[9px] text-mut">{c.name}</span>
@@ -198,7 +215,7 @@ function VelocityCard({ pid }: { pid: string }) {
             ))}
           </div>
           <div className="mt-1 flex justify-center gap-3 text-[10px] text-mut">
-            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-300" />承诺</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-line" />承诺</span>
             <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-ag" />完成</span>
           </div>
         </>
@@ -248,13 +265,13 @@ function CycleBurndownCard({ pid }: { pid: string }) {
           <svg viewBox="0 0 100 86" className="h-40 w-full" preserveAspectRatio="none">
             <polyline points={pt(bd.data!.ideal)} fill="none" stroke="#94a3b8"
               strokeWidth="1" strokeDasharray="2 2" />
-            <polyline points={totalPts} fill="none" stroke="#f59e0b"
+            <polyline points={totalPts} fill="none" stroke="var(--color-warn)"
               strokeWidth="1.5" strokeDasharray="3 2" />
-            <polyline points={remainingPts} fill="none" stroke="#22c55e" strokeWidth="2" />
+            <polyline points={remainingPts} fill="none" stroke="var(--color-ok)" strokeWidth="2" />
           </svg>
           <div className="mt-1 flex gap-3 text-[10px] text-mut">
-            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-green-500" />剩余</span>
-            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-500" />总范围（加塞会上抬）</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-ok" />剩余</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-warn" />总范围（加塞会上抬）</span>
             <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-400" />理想节奏</span>
           </div>
           <div className="mt-1 text-[10px] text-mut">

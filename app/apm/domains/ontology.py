@@ -23,7 +23,8 @@ router = APIRouter(tags=["ontology"])
 # relation semantics. blocked_by is deliberately absent: stored one-way as
 # blocks (the reverse view), never a separate type.
 KERNEL_RELATIONS = ("contains", "depends_on", "produces", "consumes",
-                    "blocks", "precedes", "relates")
+                    "blocks", "precedes", "relates",
+                    "duplicates", "includes")  # M49-I149: 标注型（无排期/闭锁副作用）
 BUCKETS = ("backlog", "todo", "in_progress", "done", "cancelled")
 # CQ support surfaces (docs/08 §8.1, I16): projections/event types that can answer a CQ.
 CQ_SOURCES = ("items", "relations", "approvals", "assets", "runs", "events", "artifacts")

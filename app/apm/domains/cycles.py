@@ -272,10 +272,15 @@ def cycle_retrospective(cycle_id: str) -> dict:
         (day for day in sorted({d for hist in scope_events.values() for d, inside in hist})
          if any(in_scope_on(iid, day) for iid in all_items)), None)
     if commitment_day is None:
+        prev0 = conn.execute(
+            "SELECT id FROM project_cycles WHERE project_id = ? AND cancelled_at IS NULL"
+            " AND end_date < ? ORDER BY end_date DESC LIMIT 1", (c["project_id"], start)).fetchone()
         return {"cycle_id": cycle_id, "name": c["name"], "start": start, "end": end,
                 "committed": 0, "completed": 0, "completion_rate": None,
                 "carried_in": [], "overdue_new": [], "runs": None,
                 "top_blockers": [], "prev_completed": None,
+                "open_actions": _open_action_items(conn, cycle_id),
+                "prev_open_actions": _open_action_items(conn, prev0["id"]) if prev0 else [],
                 "reason": "empty scope", "generated_at": events.utcnow()}
     committed_ids = [iid for iid in all_items if in_scope_on(iid, commitment_day)]
     completed = sum(1 for iid in committed_ids if resolved_by(iid, end))
@@ -323,6 +328,9 @@ def cycle_retrospective(cycle_id: str) -> dict:
         "SELECT id FROM project_cycles WHERE project_id = ? AND cancelled_at IS NULL"
         " AND end_date < ? ORDER BY end_date DESC LIMIT 1", (c["project_id"], start)).fetchone()
     prev_completed = _completed_count(conn, c["project_id"], prev["id"]) if prev else None
+    # M49-I147「开场过账」：本周期与上一周期未结的行动项（retro_of 审计链）
+    open_actions = _open_action_items(conn, cycle_id)
+    prev_open_actions = _open_action_items(conn, prev["id"]) if prev else []
     return {
         "cycle_id": cycle_id, "name": c["name"], "start": start, "end": end,
         "committed": len(committed_ids), "completed": completed,
@@ -330,8 +338,63 @@ def cycle_retrospective(cycle_id: str) -> dict:
         "carried_in": carried_in, "overdue_new": overdue_new,
         "runs": runs_stat, "top_blockers": top_blockers,
         "prev_completed": prev_completed,
+        "open_actions": open_actions, "prev_open_actions": prev_open_actions,
         "generated_at": events.utcnow(),
     }
+
+
+def _open_action_items(conn, cycle_id: str) -> list[dict]:
+    """M49-I147: 本周期经行动项转换生成、仍未完成的工作项（retro_of 审计链
+    反查）——下届回顾开场过账用。"""
+    rows = conn.execute(
+        "SELECT i.id, i.title, i.assignee_id, i.due_date FROM items i"
+        " WHERE i.status_group NOT IN ('done','cancelled') AND i.id IN ("
+        "  SELECT agg_id FROM events WHERE event_type = 'item.created'"
+        "  AND json_extract(payload, '$.retro_of') = ?)"
+        " ORDER BY i.due_date IS NULL, i.due_date, i.id", (cycle_id,)).fetchall()
+    return [{"id": r["id"], "title": r["title"], "owner": r["assignee_id"],
+             "due_date": r["due_date"]} for r in rows]
+
+
+@router.post("/cycles/{cycle_id}/action-items")
+def create_action_items(cycle_id: str, body: dict) -> dict:
+    """M49-I147 (docs/01 §AT.1, immediate conversion semantics): 回顾现场把
+    行动项立即转成受追踪的工作项——走 create_item 全校验链（本体初始状态/
+    assignee 校验/日期格式），item.created payload 记 `retro_of` 审计链
+    （同 I133 respawn 模式）；同名标题（本周期已转）幂等跳过防重复。"""
+    from apm.domains.items import create_item
+
+    c = require_cycle(cycle_id)
+    items_in = body.get("items")
+    if not isinstance(items_in, list) or not items_in:
+        raise HTTPException(status_code=422, detail="items must be a non-empty list")
+    if len(items_in) > 10:
+        raise HTTPException(status_code=422, detail="limit 10 action items per call")
+    # 防重：本周期已转换的行动项标题（大小写不敏感）
+    existing = {r["t"].lower() for r in db.get_conn().execute(
+        "SELECT json_extract(payload, '$.title') AS t FROM events"
+        " WHERE event_type = 'item.created'"
+        " AND json_extract(payload, '$.retro_of') = ?", (cycle_id,)).fetchall()}
+    created, skipped = [], []
+    for raw in items_in:
+        if not isinstance(raw, dict) or not str(raw.get("title") or "").strip():
+            raise HTTPException(status_code=422, detail="each action item needs a title")
+        title = str(raw["title"]).strip()
+        owner = str(raw["owner"]).strip() if raw.get("owner") else None
+        due = str(raw["due_date"]).strip() if raw.get("due_date") else None
+        if title.lower() in existing:
+            skipped.append({"title": title, "reason": "already converted"})
+            continue
+        it = create_item(
+            project_id=c["project_id"], concept_id="task", title=title,
+            assignee_type="human" if owner else None, assignee_id=owner,
+            due_date=due,
+            extra_payload={"retro_of": cycle_id, "retro_title": title,
+                           "summary": f"回顾行动项：{title}"},
+        )
+        created.append({"id": it["id"], "title": title, "owner": owner, "due_date": due})
+        existing.add(title.lower())
+    return {"cycle_id": cycle_id, "created": created, "skipped": skipped}
 
 
 def _item_title(conn, item_id: str) -> str:

@@ -166,6 +166,7 @@ def create_item(
     custom_fields: dict | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
+    extra_payload: dict | None = None,
 ) -> dict:
     onto = project_ontology(project_id)
     _validate_custom_fields(onto, concept_id, custom_fields, project_id=project_id)
@@ -178,6 +179,24 @@ def create_item(
         raise HTTPException(status_code=422, detail=str(e))
     _validate_parent(project_id, parent_id)
     iid = new_id("i")
+    payload = {
+        "concept_id": concept_id,
+        "title": title,
+        "feature_id": feature_id,
+        "parent_id": parent_id,
+        "status": status,
+        "status_group": group,
+        "priority": priority,
+        "custom_fields": custom_fields,
+        "assignee_type": assignee_type,
+        "assignee_id": assignee_id,
+        "estimate_hours": estimate_hours,
+        "start_date": start_date,
+        "due_date": due_date,
+        "milestone_id": milestone_id,
+    }
+    if extra_payload:
+        payload.update(extra_payload)  # M49-I147: 审计链等调用方附加键
     events.emit(
         event_type="item.created",
         agg_type="item",
@@ -185,22 +204,7 @@ def create_item(
         project_id=project_id,
         actor_type=actor_type,
         actor_id=actor_id,
-        payload={
-            "concept_id": concept_id,
-            "title": title,
-            "feature_id": feature_id,
-            "parent_id": parent_id,
-            "status": status,
-            "status_group": group,
-            "priority": priority,
-            "custom_fields": custom_fields,
-            "assignee_type": assignee_type,
-            "assignee_id": assignee_id,
-            "estimate_hours": estimate_hours,
-            "start_date": start_date,
-            "due_date": due_date,
-            "milestone_id": milestone_id,
-        },
+        payload=payload,
     )
     return get_item(iid)  # type: ignore[return-value]
 
