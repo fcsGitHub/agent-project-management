@@ -12,7 +12,7 @@ import { isTypingTarget } from "../lib/shortcuts";
 import { weightedProgress } from "../lib/rollup";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
-import { Badge, Button, Card, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
+import { Badge, Button, Card, Drawer, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
 
 /** 看板写操作后的定向失效：覆盖条目投影的读方（board/feature/project/
  * events/milestones/trash），替代无差别全量失效——后者会连带 portfolio、
@@ -22,6 +22,9 @@ const invalidateItemData = (qc: QueryClient) => {
     qc.invalidateQueries({ queryKey: [k] });
   }
 };
+
+/** M48-I146: 看板列渐进渲染页大小（与列表视图 LIST_PAGE 同思路）。 */
+const COLUMN_PAGE = 12;
 
 const LIST_PAGE = 20;
 
@@ -45,6 +48,9 @@ export function Board() {
   const [attachmentsFor, setAttachmentsFor] = useState<import("../lib/api").Item | null>(null);
   const [quickEditFor, setQuickEditFor] = useState<import("../lib/api").Item | null>(null);
   const [cycleOpen, setCycleOpen] = useState(false);
+  const [retroCycle, setRetroCycle] = useState<string | null>(null);
+  // M48-I146: 看板列渐进渲染计数（列 id → 已显示卡片数）
+  const [colVisible, setColVisible] = useState<Record<string, number>>({});
   const [cycleName, setCycleName] = useState("");
   const [cycleStart, setCycleStart] = useState("");
   const [cycleEnd, setCycleEnd] = useState("");
@@ -475,6 +481,10 @@ export function Board() {
         </select>
         <Button size="sm" variant="ghost" onClick={() => setCycleOpen(true)}
           title="新建迭代周期（Plane Cycles 语义）">＋周期</Button>
+        {cycleId && (
+          <Button size="sm" variant="ghost" onClick={() => setRetroCycle(cycleId)}
+            title="周期回顾包（完成率/拖入/超期/阻塞 top —— M48-I145）">📋 回顾</Button>
+        )}
         <select value={group || board.data?.group_by || ""} onChange={(e) => setFilter("group", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
           <option value="">分组：生命周期</option>
@@ -702,6 +712,10 @@ export function Board() {
         ).map((col) => {
           const items = col.items.filter(matches);
           if (priority && !items.length) return null;
+          // M48-I146: 看板列渐进渲染——默认 12 张，列尾「显示更多」递增；
+          // 列表视图（I79）同思路，避免几百项的列全量渲染卡顿。
+          const visible = colVisible[col.id] ?? COLUMN_PAGE;
+          const shown = items.slice(0, visible);
           // M26-I80: WIP limit badge (Kanboard soft signal) — lifecycle buckets
           // only; the count shown here is the project-wide one from the API
           // (unfiltered, per Kanboard's "count all open tasks" fix).
@@ -724,7 +738,7 @@ export function Board() {
                 )}
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-3">
-                {items.map((item) => {
+                {shown.map((item) => {
                   const run = runByItem.get(item.id);
                   return (
                     <Card
@@ -845,6 +859,14 @@ export function Board() {
                   );
                 })}
                 {!items.length && <div className="px-2 py-4 text-center text-[11px] text-mut">空</div>}
+                {items.length > shown.length && (
+                  <button
+                    onClick={() => setColVisible((m) => ({ ...m, [col.id]: visible + COLUMN_PAGE }))}
+                    className="w-full rounded-lg border border-dashed border-line py-1.5 text-[11px] text-mut hover:border-acc hover:text-acc"
+                  >
+                    显示更多（{items.length - shown.length}）
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -876,6 +898,7 @@ export function Board() {
       {trashOpen && pid && (
         <TrashDrawer pid={pid} onClose={() => setTrashOpen(false)} onRestored={() => qc.invalidateQueries()} />
       )}
+      {retroCycle && <RetroDrawer cycleId={retroCycle} onClose={() => setRetroCycle(null)} />}
       {cycleOpen && pid && (
         <Modal open onClose={() => setCycleOpen(false)} title="🔁 新建迭代周期">
           <div className="space-y-3 text-xs">
@@ -1204,5 +1227,70 @@ function AttachmentModal({ itemId, title, onClose }: { itemId: string; title: st
         </label>
       </div>
     </Modal>
+  );
+}
+
+
+/** M48-I145 周期回顾包抽屉：一页看完成率/拖入/超期/阻塞 top/速率对比。 */
+function RetroDrawer({ cycleId, onClose }: { cycleId: string; onClose: () => void }) {
+  const retro = useQuery({
+    queryKey: ["retro", cycleId],
+    queryFn: () => api.getCycleRetrospective(cycleId),
+  });
+  const d = retro.data;
+  const pct = d?.completion_rate != null ? `${Math.round(d.completion_rate * 100)}%` : "—";
+  return (
+    <Drawer open onClose={onClose} title={d ? `📋 回顾 · ${d.name}` : "📋 周期回顾"} width="44%">
+      {retro.isError && <div className="text-sm text-dan">回顾数据加载失败，请关闭重试。</div>}
+      {!d && !retro.isError && <div className="text-sm text-mut">加载回顾…</div>}
+      {d && (
+        <div className="space-y-3 text-sm print-card">
+          {d.reason === "empty scope" && (
+            <div className="rounded-lg border border-line bg-bg px-3 py-2 text-xs text-mut">
+              本周期没有挂入任何工作项——无数据可回顾。
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Card className="p-2">
+              <div className="text-lg font-bold text-ink">{d.completed}/{d.committed}</div>
+              <div className="text-[10px] text-mut">承诺完成</div>
+            </Card>
+            <Card className="p-2">
+              <div className="text-lg font-bold text-ink">{pct}</div>
+              <div className="text-[10px] text-mut">完成率</div>
+            </Card>
+            <Card className="p-2">
+              <div className="text-lg font-bold text-ink">
+                {d.prev_completed != null ? `${d.completed > d.prev_completed ? "↑" : d.completed < d.prev_completed ? "↓" : "→"} ${d.prev_completed}` : "—"}
+              </div>
+              <div className="text-[10px] text-mut">vs 上周期完成</div>
+            </Card>
+          </div>
+          <div>
+            <div className="mb-1 text-xs font-semibold text-mut">晚到拖入（{d.carried_in.length}）</div>
+            {d.carried_in.length
+              ? d.carried_in.map((x) => <div key={x.id} className="text-xs text-mut">· {x.title}</div>)
+              : <div className="text-xs text-mut">无——scope 纪律良好</div>}
+          </div>
+          <div>
+            <div className="mb-1 text-xs font-semibold text-mut">周期内新增且已超期（{d.overdue_new.length}）</div>
+            {d.overdue_new.length
+              ? d.overdue_new.map((x) => (
+                <div key={x.id} className="text-xs text-dan">· {x.title}（到期 {x.due_date}）</div>))
+              : <div className="text-xs text-mut">无</div>}
+          </div>
+          <div>
+            <div className="mb-1 text-xs font-semibold text-mut">Top 阻塞依赖（{d.top_blockers.length}）</div>
+            {d.top_blockers.length
+              ? d.top_blockers.map((x) => (
+                <div key={x.id} className="text-xs text-mut">· {x.title}——阻塞 {x.blocks} 项</div>))
+              : <div className="text-xs text-mut">无阻塞记录</div>}
+          </div>
+          <div className="text-[10px] text-mut">
+            🤖 Run 参与：{d.runs ? `${d.runs.count} 次（成功 ${d.runs.succeeded}）· tokens ${d.runs.input_tokens}/${d.runs.output_tokens}` : "—"}
+          </div>
+        </div>
+      )}
+    </Drawer>
   );
 }

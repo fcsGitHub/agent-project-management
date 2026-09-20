@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # I141 上下文压缩：prompt 组装的约束+指令字符预算，超限折叠早期约束
     # （读路径优化，存储原文不动）。0 = 不限制。
     context_budget_chars: int = 8000
+    # I144 模型三档（routing/cascade 语义）：角色 YAML `model.tier` 解析到
+    # 具体模型名；显式 model.name 仍最高优先。STANDARD 缺省回落 llm_model。
+    model_cheap: str = ""
+    model_standard: str = ""
+    model_reasoning: str = ""
     # OIDC single sign-on (M17): entirely optional — issuer/client_id/secret all
     # set enables the feature, otherwise it stays off (same semantics as SMTP).
     # allowed_groups: comma-separated IdP group names; empty disables the group

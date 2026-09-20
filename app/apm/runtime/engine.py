@@ -24,6 +24,28 @@ from apm import config
 from apm.core import db, events
 from apm.core.ids import new_id
 from apm.runtime import roles, spans, tools
+from apm.runtime.provider import LLMError
+
+_TIER_ORDER = ["cheap", "standard", "reasoning"]
+
+
+def _tier_model_name(tier: str) -> str:
+    """I144 档位 → 模型名（cheap 缺省回落 ui_agent_model，standard 回落
+    llm_model，reasoning 回落 standard 再回落 llm_model）。"""
+    if tier == "cheap":
+        return config.settings.model_cheap or config.settings.ui_agent_model
+    if tier == "reasoning":
+        return (config.settings.model_reasoning or config.settings.model_standard
+                or config.settings.llm_model)
+    return config.settings.model_standard or config.settings.llm_model
+
+
+def _next_tier(tier: str | None) -> str | None:
+    """cascade 升档：cheap→standard→reasoning；reasoning/未知档到底。"""
+    if tier not in _TIER_ORDER:
+        return None
+    i = _TIER_ORDER.index(tier)
+    return _TIER_ORDER[i + 1] if i + 1 < len(_TIER_ORDER) else None
 
 
 class RunState(TypedDict, total=False):
@@ -51,8 +73,27 @@ class InterruptRequested(Exception):
 
 _saver: SqliteSaver | None = None
 _saver_lock = threading.Lock()
-_exec_lock = threading.Lock()  # serialize graph executions (SQLite single writer)
 _active_runs: dict[str, "RunEngine"] = {}
+# M48-I146: per-conversation execution locks——同一对话的 run 互斥（防并发写
+# 会话状态），不同对话并行。全局 _exec_lock 会把所有 run 串行化（一个挂起
+# 的 LLM 调用阻塞全实例）；SQLite 写已由 db.tx 全局锁保护、LLM 长 IO 不持
+# 锁，per-conversation 粒度安全。锁字典随对话数增长但每锁极小（对话数 << 事件数）。
+_conv_locks: dict[str, threading.Lock] = {}
+_conv_locks_guard = threading.Lock()
+
+
+def _conversation_lock(conversation_id: str) -> threading.Lock:
+    with _conv_locks_guard:
+        lock = _conv_locks.get(conversation_id)
+        if lock is None:
+            lock = threading.Lock()
+            _conv_locks[conversation_id] = lock
+        return lock
+
+
+def _release_active_run(run_id: str) -> None:
+    """M48-I146: run 落入终态后从注册表移除——修复只进不出的内存泄漏。"""
+    _active_runs.pop(run_id, None)
 _resume_requests: dict[str, str | None] = {}  # run_id -> instruction
 _active_execs = 0
 _active_execs_lock = threading.Lock()
@@ -384,6 +425,7 @@ class RunEngine:
             "item_id": self.run.get("item_id"),
             "item_title": item_title,
             "model": self.role.model.get("name"),
+            "model_tier": self.role.model.get("tier") if self.role.model.get("_tier_resolved") else None,
             "temperature": self.role.model.get("temperature", 0.3),
             "draft": state.get("draft", ""),
         }
@@ -454,12 +496,30 @@ class RunEngine:
                 "apm.context_chars": ctx.get("context_chars"),
                 "apm.context_budget": ctx.get("context_budget"),
                 "apm.context_compressed": ctx.get("context_compressed"),
+                "apm.model_tier": ctx.get("model_tier"),
+                "apm.model_degraded": False,
             },
         )
-        completion = provider.complete(
-            role=self.role.id, node=node, messages=self._messages(state), context=ctx,
-            on_delta=_on_delta if streaming else None,
-        )
+        # M48-I144 cascade：tier 声明的角色在主档 LLMError（限流/5xx/超时）时
+        # 向上一档重试一次——降级只在错误路径，正常路由永不静默换模型；显式
+        # model.name 的角色不参与（用户明确指定，不静默替换）。reasoning 档
+        # 到底不再升级，两档皆败仍 fail（可读错误进 run.failed.error）。
+        degraded = False
+        try:
+            completion = provider.complete(
+                role=self.role.id, node=node, messages=self._messages(state), context=ctx,
+                on_delta=_on_delta if streaming else None,
+            )
+        except LLMError:
+            upgraded = _next_tier(ctx.get("model_tier"))
+            if upgraded is None:
+                raise
+            ctx = {**ctx, "model": _tier_model_name(upgraded), "model_tier": upgraded}
+            completion = provider.complete(
+                role=self.role.id, node=node, messages=self._messages(state), context=ctx,
+                on_delta=_on_delta if streaming else None,
+            )
+            degraded = True
         # M44: real usage lands on the run record (replay keeps its honest zeros)
         if provider.mode != "replay":
             events.emit(
@@ -486,6 +546,8 @@ class RunEngine:
                 "apm.conversation_id": self.conversation_id,
                 "apm.item_id": self.run.get("item_id"),
                 "apm.graph_node_id": self.run["graph_node_id"],
+                "apm.model_tier": ctx.get("model_tier"),
+                "apm.model_degraded": degraded,
             },
             span_kind="generation",
             name=f"{self.role.id}.{node}",
@@ -779,7 +841,7 @@ class RunEngine:
         )
 
     def execute(self) -> None:
-        with _ExecTracker(), _exec_lock:
+        with _ExecTracker(), _conversation_lock(self.conversation_id):
             try:
                 result = self.graph.invoke(
                     self._initial_state(), {"configurable": {"thread_id": self.run_id}}
@@ -788,6 +850,7 @@ class RunEngine:
                 self._interrupted_midrun = True
                 self._emit_status("run.interrupted", {"reason": "user_interrupt"})
                 self._set_conversation("interrupted")
+                _release_active_run(self.run_id)
                 return
             except Exception as e:
                 traceback.print_exc()
@@ -795,6 +858,7 @@ class RunEngine:
                 self._set_conversation("active")
                 if self.run.get("item_id"):
                     _move_item(self.run["item_id"], self.project_id, "backlog")
+                _release_active_run(self.run_id)
                 return
             self._handle_result(result, resumed=False)
 
@@ -803,7 +867,7 @@ class RunEngine:
         interrupt), a decision dict answers a gate/tool interrupt."""
         from langgraph.types import Command
 
-        with _ExecTracker(), _exec_lock:
+        with _ExecTracker(), _conversation_lock(self.conversation_id):
             self.stop_requested = False
             self._emit_status("run.resumed", {"decision": (decision or {}).get("decision")})
             try:
@@ -817,12 +881,14 @@ class RunEngine:
                 traceback.print_exc()
                 self._emit_status("run.failed", {"error": str(e)})
                 self._set_conversation("active")
+                _release_active_run(self.run_id)
                 return
             self._handle_result(result, resumed=True)
 
     def _handle_result(self, result: dict, resumed: bool) -> None:
         if result and "__interrupt__" in result:
             # suspended at gate or dangerous tool: approval already requested
+            # （可恢复态——run 保留在 _active_runs 等 resume）
             self._emit_status("run.interrupted", {"reason": "awaiting_approval"})
             self._set_conversation("awaiting_review")
             return
@@ -833,6 +899,7 @@ class RunEngine:
             self._set_conversation("active")
             if self.run.get("item_id"):
                 _move_item(self.run["item_id"], self.project_id, "backlog")
+            _release_active_run(self.run_id)
             return
         self._emit_status(
             "run.succeeded",
@@ -846,6 +913,7 @@ class RunEngine:
         if self.run.get("item_id"):
             _move_item(self.run["item_id"], self.project_id, "done")
         _notify_orchestrator(self.run_id, decision)
+        _release_active_run(self.run_id)
 
 
 def _notify_orchestrator(run_id: str, decision: dict) -> None:

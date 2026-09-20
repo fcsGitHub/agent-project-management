@@ -7,12 +7,26 @@ from __future__ import annotations
 
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 from apm import config
 
 GIT_NAME = "AgentPM"
 GIT_EMAIL = "agentpm@local"
+
+# M48-I146: per-project git write locks（index.lock 冲突防护）
+_git_locks: dict[str, threading.Lock] = {}
+_git_locks_guard = threading.Lock()
+
+
+def _project_git_lock(project_id: str) -> threading.Lock:
+    with _git_locks_guard:
+        lock = _git_locks.get(project_id)
+        if lock is None:
+            lock = threading.Lock()
+            _git_locks[project_id] = lock
+        return lock
 
 
 class GitError(Exception):
@@ -85,18 +99,26 @@ def commit_file(
     project_id: str, rel_path: str, *, message: str, actor_type: str, actor_id: str
 ) -> str:
     root = repo_path(project_id)
-    _run(["add", "--", rel_path], cwd=root)
-    trailer = f"Actor: {actor_type}({actor_id})"
-    _run(["commit", "-q", "-m", message, "-m", trailer], cwd=root)
-    return latest_commit(project_id, rel_path)
+    # M48-I146: git 工作仓非并发安全（index.lock 冲突）——并行 run 写同一
+    # 项目仓时按项目互斥；跨项目仓互不阻塞。
+    with _project_git_lock(project_id):
+        _run(["add", "--", rel_path], cwd=root)
+        trailer = f"Actor: {actor_type}({actor_id})"
+        # 并行 run 可能写入与上一次提交完全相同的内容（确定性模板）——
+        # nothing to commit 不是错误（status 已干净）；仍有变更 = 真失败。
+        _run(["commit", "-q", "-m", message, "-m", trailer], cwd=root, check=False)
+        if _run(["status", "--porcelain", "--", rel_path], cwd=root).strip():
+            raise GitError(f"git commit failed for {rel_path}")
+        return latest_commit(project_id, rel_path)
 
 
 def commit_all(project_id: str, *, message: str, actor_type: str, actor_id: str) -> str:
     root = repo_path(project_id)
-    _run(["add", "-A"], cwd=root)
-    _run(["commit", "-q", "-m", message, "-m", f"Actor: {actor_type}({actor_id})"], cwd=root,
-         check=False)
-    return latest_commit(project_id, None)
+    with _project_git_lock(project_id):
+        _run(["add", "-A"], cwd=root)
+        _run(["commit", "-q", "-m", message, "-m", f"Actor: {actor_type}({actor_id})"], cwd=root,
+             check=False)
+        return latest_commit(project_id, None)
 
 
 def read_file(project_id: str, rel_path: str, commit: str | None = None) -> str:

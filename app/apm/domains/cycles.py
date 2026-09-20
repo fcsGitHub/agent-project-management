@@ -221,6 +221,168 @@ def cycle_burndown(cycle_id: str) -> dict:
             "generated_at": events.utcnow()}
 
 
+# ---------------------------------------------------------------- retrospective
+@router.get("/cycles/{cycle_id}/retrospective")
+def cycle_retrospective(cycle_id: str) -> dict:
+    """M48-I145 (docs/01 §AS.2, retrospective data pack): one page for the
+    cycle review ritual — commitment vs completion (the I129 caliber), late
+    joiners (scope mounted after the commitment day), overdue newcomers, agent
+    run participation, top blocking dependencies and the velocity delta vs
+    the previous completed cycle. Pure projection replay, zero new tables;
+    an empty cycle states its emptiness honestly instead of faking numbers."""
+    import json
+
+    from datetime import date as _date
+
+    c = require_cycle(cycle_id)
+    conn = db.get_conn()
+    start, end = c["start_date"], c["end_date"]
+
+    scope_events: dict[str, list[tuple[str, bool]]] = {}
+    resolved: dict[str, str] = {}
+    for e in conn.execute(
+        "SELECT agg_id, event_type, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type IN ('item.updated','item.status_changed')"
+        " ORDER BY id", (c["project_id"],),
+    ).fetchall():
+        if e["event_type"] == "item.updated":
+            p = json.loads(e["payload"])
+            if "cycle_id" in p:
+                scope_events.setdefault(e["agg_id"], []).append(
+                    (e["ts"][:10], p["cycle_id"] == cycle_id))
+        else:
+            if e["agg_id"] not in resolved:
+                p = json.loads(e["payload"])
+                if p.get("status_group") in ("done", "cancelled"):
+                    resolved[e["agg_id"]] = e["ts"][:10]
+
+    def in_scope_on(iid: str, day: str) -> bool:
+        state = False
+        for d, inside in scope_events.get(iid, []):
+            if d <= day:
+                state = inside
+        return state
+
+    def resolved_by(iid: str, day: str) -> bool:
+        d = resolved.get(iid)
+        return bool(d and d <= day)
+
+    all_items = set(scope_events) | set(resolved)
+    commitment_day = next(
+        (day for day in sorted({d for hist in scope_events.values() for d, inside in hist})
+         if any(in_scope_on(iid, day) for iid in all_items)), None)
+    if commitment_day is None:
+        return {"cycle_id": cycle_id, "name": c["name"], "start": start, "end": end,
+                "committed": 0, "completed": 0, "completion_rate": None,
+                "carried_in": [], "overdue_new": [], "runs": None,
+                "top_blockers": [], "prev_completed": None,
+                "reason": "empty scope", "generated_at": events.utcnow()}
+    committed_ids = [iid for iid in all_items if in_scope_on(iid, commitment_day)]
+    completed = sum(1 for iid in committed_ids if resolved_by(iid, end))
+    # 拖入：commitment 日之后才进入 scope 的项（晚到者显性化）
+    carried_in = [
+        {"id": iid, "title": _item_title(conn, iid)}
+        for iid in sorted(all_items)
+        if iid not in committed_ids
+        and any(inside for d, inside in scope_events.get(iid, []))
+    ]
+    # 周期内创建且到期未结的新增超期
+    overdue_new = [
+        {"id": r["id"], "title": r["title"], "due_date": r["due_date"]}
+        for r in conn.execute(
+            "SELECT id, title, due_date FROM items WHERE project_id = ?"
+            " AND substr(created_at, 1, 10) BETWEEN ? AND ?"
+            " AND due_date IS NOT NULL AND due_date < ?"
+            " AND status_group NOT IN ('done','cancelled') AND archived_at IS NULL",
+            (c["project_id"], start, end, end)).fetchall()
+    ]
+    # run 参与（started_at 落在窗口内）
+    runs_row = conn.execute(
+        "SELECT COUNT(*) AS n,"
+        " SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END) AS ok,"
+        " COALESCE(SUM(total_input_tokens), 0) AS tin,"
+        " COALESCE(SUM(total_output_tokens), 0) AS tout"
+        " FROM runs WHERE project_id = ? AND substr(started_at, 1, 10) BETWEEN ? AND ?",
+        (c["project_id"], start, end)).fetchone()
+    runs_stat = {"count": runs_row["n"], "succeeded": runs_row["ok"] or 0,
+                 "input_tokens": runs_row["tin"], "output_tokens": runs_row["tout"]}
+    # top 阻塞者：被周期内 items 的 blocks 关系指名最多的前置项
+    cycle_items = [iid for iid in all_items
+                   if any(inside for d, inside in scope_events.get(iid, []))]
+    top_blockers = []
+    if cycle_items:
+        marks = ",".join("?" * len(cycle_items))
+        for r in conn.execute(
+            f"SELECT from_item AS blocker, COUNT(*) AS n FROM item_relations"
+            f" WHERE relation_type = 'blocks' AND to_item IN ({marks})"
+            f" GROUP BY from_item ORDER BY n DESC LIMIT 5", cycle_items).fetchall():
+            top_blockers.append({"id": r["blocker"], "title": _item_title(conn, r["blocker"]),
+                                 "blocks": r["n"]})
+    # 速率对比：上一个已完成周期的 completed 数（同口径）
+    prev = conn.execute(
+        "SELECT id FROM project_cycles WHERE project_id = ? AND cancelled_at IS NULL"
+        " AND end_date < ? ORDER BY end_date DESC LIMIT 1", (c["project_id"], start)).fetchone()
+    prev_completed = _completed_count(conn, c["project_id"], prev["id"]) if prev else None
+    return {
+        "cycle_id": cycle_id, "name": c["name"], "start": start, "end": end,
+        "committed": len(committed_ids), "completed": completed,
+        "completion_rate": round(completed / len(committed_ids), 4) if committed_ids else None,
+        "carried_in": carried_in, "overdue_new": overdue_new,
+        "runs": runs_stat, "top_blockers": top_blockers,
+        "prev_completed": prev_completed,
+        "generated_at": events.utcnow(),
+    }
+
+
+def _item_title(conn, item_id: str) -> str:
+    row = conn.execute("SELECT title FROM items WHERE id = ?", (item_id,)).fetchone()
+    return row["title"] if row else item_id
+
+
+def _completed_count(conn, project_id: str, cycle_id: str) -> int:
+    """I129 口径：committed 集（首非零 scope 日）中窗口内首达完成的数量。"""
+    import json
+
+    scope_events: dict[str, list[tuple[str, bool]]] = {}
+    resolved: dict[str, str] = {}
+    c = get_cycle(cycle_id)
+    for e in conn.execute(
+        "SELECT agg_id, event_type, payload, ts FROM events"
+        " WHERE project_id = ? AND event_type IN ('item.updated','item.status_changed')"
+        " ORDER BY id", (project_id,),
+    ).fetchall():
+        if e["event_type"] == "item.updated":
+            p = json.loads(e["payload"])
+            if "cycle_id" in p:
+                scope_events.setdefault(e["agg_id"], []).append(
+                    (e["ts"][:10], p["cycle_id"] == cycle_id))
+        else:
+            if e["agg_id"] not in resolved:
+                p = json.loads(e["payload"])
+                if p.get("status_group") in ("done", "cancelled"):
+                    resolved[e["agg_id"]] = e["ts"][:10]
+
+    def in_scope_on(iid: str, day: str) -> bool:
+        state = False
+        for d, inside in scope_events.get(iid, []):
+            if d <= day:
+                state = inside
+        return state
+
+    def resolved_by(iid: str, day: str) -> bool:
+        d = resolved.get(iid)
+        return bool(d and d <= day)
+
+    all_items = set(scope_events) | set(resolved)
+    commitment_day = next(
+        (day for day in sorted({d for hist in scope_events.values() for d, inside in hist})
+         if any(in_scope_on(iid, day) for iid in all_items)), None)
+    if commitment_day is None:
+        return 0
+    committed = [iid for iid in all_items if in_scope_on(iid, commitment_day)]
+    return sum(1 for iid in committed if resolved_by(iid, c["end_date"]))
+
+
 @router.get("/projects/{project_id}/velocity")
 def project_velocity(project_id: str) -> dict:
     """M42-I129 (docs/01 §AO.2, Jira velocity chart): committed vs completed

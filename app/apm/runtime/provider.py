@@ -315,7 +315,14 @@ class RecordProvider:
                  on_delta: DeltaCallback | None = None) -> Completion:
         c = self._real.complete(role=role, node=node, messages=messages, context=context,
                                 on_delta=on_delta)  # 录制模式透传流式回调
-        key = f"{role}/{node}"
+        # M48-I144: key 带上下文指纹短哈希（instr+约束）——同 role/node 不同
+        # 上下文的录制件不再互相覆盖；读取端兼容无指纹旧 key（精确匹配优先，
+        # 回落裸 key 由 replay_templates._recorded 处理）。
+        import hashlib
+
+        fp_src = f"{context.get('instruction') or ''}|{'|'.join(context.get('constraints') or [])}"
+        fp = hashlib.sha1(fp_src.encode("utf-8")).hexdigest()[:8]
+        key = f"{role}/{node}@{fp}"
         with RecordProvider._lock:
             self._recordings[key] = c.text
             import yaml

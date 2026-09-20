@@ -30,13 +30,20 @@ def _recorded(key: str) -> str | None:
 
 
 def render(role: str, node: str, context: dict[str, Any]) -> str:
-    key = f"{role}/{node}"
-    recorded = _recorded(key)
-    if recorded is not None:
-        return recorded
-    fn = _TEMPLATES.get(key)
+    base = f"{role}/{node}"
+    # M48-I144: 录制件 key 带上下文指纹（instr+约束 sha1[:8]）——读取端按
+    # 指纹精确匹配优先，回落裸 key 兼容历史录制件。
+    import hashlib
+
+    fp_src = f"{context.get('instruction') or ''}|{'|'.join(context.get('constraints') or [])}"
+    fp = hashlib.sha1(fp_src.encode("utf-8")).hexdigest()[:8]
+    for key in (f"{base}@{fp}", base):
+        recorded = _recorded(key)
+        if recorded is not None:
+            return recorded
+    fn = _TEMPLATES.get(base)
     if fn is None:
-        raise KeyError(f"no replay fixture for '{key}'")
+        raise KeyError(f"no replay fixture for '{base}'")
     return fn(context)
 
 

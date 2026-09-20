@@ -15,12 +15,30 @@ class Role:
         self.id: str = raw["id"]
         self.display_name: str = raw.get("display_name", self.id)
         self.concepts: list[str] = raw.get("concepts", [])
-        self.model: dict[str, Any] = raw.get("model", {})
+        self.model: dict[str, Any] = self._resolve_model(raw.get("model", {}))
         self.system_prompt_file: str = raw.get("system_prompt_file", "")
         self.tools: list[str] = raw.get("tools", [])
         self.output: dict[str, Any] = raw.get("output", {})
         self.limits: dict[str, Any] = raw.get("limits", {})
         self.path = path
+
+    @staticmethod
+    def _resolve_model(m: dict[str, Any]) -> dict[str, Any]:
+        """M48-I144：`model.tier: cheap|standard|reasoning` 解析为具体模型名——
+        显式 `model.name` 仍最高优先（tier 只在缺省 name 时生效）。tier 解析
+        成功时标 `_tier_resolved=True`（该角色参与 cascade 降级）；显式 name
+        的角色不参与（用户明确指定，不静默替换）。"""
+        m = dict(m)
+        tier = (m.get("tier") or "").lower()
+        if not m.get("name") and tier in ("cheap", "standard", "reasoning"):
+            names = {
+                "cheap": config.settings.model_cheap,
+                "standard": config.settings.model_standard,
+                "reasoning": config.settings.model_reasoning,
+            }
+            m["name"] = names[tier]
+            m["_tier_resolved"] = True
+        return m
 
     def system_prompt(self) -> str:
         p = config.settings.agents_dir / self.system_prompt_file

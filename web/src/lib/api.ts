@@ -527,6 +527,18 @@ export const api = {
     req<{ id: string; name: string; start_date: string; end_date: string }>(`/projects/${pid}/cycles`, { method: "POST", body: JSON.stringify({ name, start_date, end_date }) }),
   cancelCycle: (id: string) =>
     req<{ cancelled: string }>(`/cycles/${id}`, { method: "DELETE" }),
+  // M48-I145: retrospective data pack (one-page review per cycle)
+  getCycleRetrospective: (cycleId: string) =>
+    req<{
+      cycle_id: string; name: string; start: string; end: string;
+      committed: number; completed: number; completion_rate: number | null;
+      carried_in: { id: string; title: string }[];
+      overdue_new: { id: string; title: string; due_date: string }[];
+      runs: { count: number; succeeded: number; input_tokens: number; output_tokens: number } | null;
+      top_blockers: { id: string; title: string; blocks: number }[];
+      prev_completed: number | null;
+      reason?: string;
+    }>(`/cycles/${encodeURIComponent(cycleId)}/retrospective`),
   batchStart: (ids: string[]) =>
     req<{ started: { item_id: string; run_id?: string; conversation_id: string }[]; skipped: { item_id: string; reason: string }[] }>("/orchestrator/batch-start", { method: "POST", body: JSON.stringify({ item_ids: ids }) }),
   batchPatch: (pid: string, ids: string[], patch: Record<string, unknown>) =>
