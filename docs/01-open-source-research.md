@@ -1416,3 +1416,33 @@ M50 = **周期性自动状态报告**：I150 sweep 周期报告 pass（节律面
 **AV.5 M51 取舍**
 
 M51 = **周报深化与分发三件套**：I153 评论语料段（素材面——语料/叙事两层，语料层确定可测）/ I154 digest 邮件（分发面——正文自含结论，链接只管取证）/ I155 冒烟 56+审阅，约 9 人日。Cycles 多周期并列（维持降级）、derived 进度上卷（M50 裁决维持）、subject 正则全量路由（不做除非要求）留 backlog。
+
+
+## AW. M52 前置调研：报告附件形态 / 周报订阅制 / 2026 秋季特性扫描（2026-09-21）
+
+> 目标协议触发：M51 完成后开启。防重查：候选池 grep——周报附件形态（§AV.2 仅「附件/内联/链接三形态」一句带过，无落地调研与技术选型）、报表订阅制（**无任何调研记录**——Jira filter/dashboard subscription 未查过，GitLab 缺口未确认）、Cycles 多周期并列（维持降级）、derived 上卷（M50 已裁决维持）、subject 正则全量路由（维持不做除非要求）。本轮三路新调研（服务端 PDF 选型 / 报告订阅语义 / 2026 秋季特性扫描），选定 **M52 = 周报分发完备三件套**。
+
+**AW.1 报告附件形态（PDF 依赖裁决 + Markdown 附件）**
+
+- 技术选型证据：Python 服务端 HTML→PDF 三路线——[Playwright](https://pdf4.dev) 渲染快（~42ms）但**捆绑整浏览器**部署重；[WeasyPrint](https://www.nutrient.io) 部署轻但**依赖系统 Pango/Cairo**（[Windows 安装痛](https://github.com/Kozea/WeasyPrint)是高频 issue，本项目开发/演示在 Windows）；[wkhtmltopdf 已停止上游维护](https://pdfbolt.com)（legacy 避雷）。共同结论：**PDF 服务端转换的依赖重量与「打印即得」的价值不成比例**。
+- 裁决：**不引服务端 PDF 依赖**。人的 PDF 路径维持 I88 打印 CSS（浏览器「另存为 PDF」）；机器分发路径补**Markdown 附件**（EmailMessage.add_attachment 零新依赖）——Google Data Studio 混合式（附件+内联摘要）以「.md 附件+digest 内联」形态闭环；附件名带周键（`weekly-report-2026-W39.md`）。
+
+**AW.2 周报订阅制（filter/dashboard subscription 语义）**
+
+- 行业：[Jira filter subscription](https://www.atlassian.com)——保存的 JQL 按日程跑、结果邮件发给你或组（订阅对象是「查询结果」）；[Jira dashboard subscription](https://support.atlassian.com)——定时邮件送 dashboard 的 **PDF/CSV 副本**（订阅对象是「视图快照」，收件人自选任意人）；**GitLab 原生无定时报告订阅**（社区多年 feature request）——OSS 真空区实证。共同语义：**订阅=「人 × 项目 × 通道」的自选关系，收件人不再由角色（owner）单方面决定**。
+- 对本项目的映射：M50 周报收件人硬编码 owner——补**订阅事件对** `report.subscribed/report.unsubscribed`（payload 记 user_id，投影 report_subscribers 表进 drop 清单）+ `POST/GET/DELETE /projects/{id}/report-subscription`（仅项目成员可订——读权限门）+ sweep 收件人 = **owner ∪ 订阅者去重**；前端 Reports 页「🔔 订阅周报」开关；per-kind 偏好门（report_weekly）对订阅者同样生效——订阅解决「发给谁」，偏好解决「怎么发」。
+
+**AW.3 2026 秋季特性扫描（新发现方向）**
+
+- [OpenProject 17.7](https://www.openproject.org)（2026-08）新资源管理模块（容量/人员规划）——AgentPM M28 个人负载 + I111 休假覆盖个人面，跨项目资源规划是更大队形，留 backlog 观察；[Plane v3.0](https://plane.so)（2026-07）桌面应用+治理+AI 深化、Taiga 6.10 项目归档（AgentPM M22 已有）——**无新功能缺口**；2026 主题（AI 自动化/个性化/工作流柔性）与既有路线一致。
+
+**AW.4 M52 设计映射与验证纪律（沿用）**
+
+- I156 周报 Markdown 附件：notification.sent payload 加 `path` + mailer `_send` 工作线程读 git 内容 add_attachment[零阻塞写路径]；单测（FakeSMTP iter_attachments 断言文件名与内容/非周报无附件/git 缺文件降级仅 digest）。
+- I157 周报订阅：事件对+投影表+三端点+成员门+sweep 收件人并集去重+前端开关；单测（订阅 roundtrip/非成员 403/owner 与订阅者去重/退订后不再收/rebuild 复现）。
+- I158 冒烟 57+审阅：订阅→sweep→订阅者收附件邮件→偏好关断→退订 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M52 审阅 + **冒烟 57**。
+
+**AW.5 M52 取舍**
+
+M52 = **周报分发完备三件套**：I156 Markdown 附件（形态面——混合式闭环，PDF 依赖裁决不引入）/ I157 周报订阅（受众面——收件人从角色单方扩到自选，OSS 真空区）/ I158 冒烟 57+审阅，约 9 人日。服务端 PDF 转换（依赖裁决不引入）、Cycles 多周期并列（维持降级）、derived 上卷（M50 裁决维持）留 backlog。

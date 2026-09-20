@@ -1600,6 +1600,36 @@ agent-project-management/
 
 ---
 
+### M52 · 周报分发完备三件套（I156-I158，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AW 前置调研）。M51 的 digest 邮件是「内联摘要」，M52 补混合式的另一半与受众面：**附件形态**裁决不引服务端 PDF（Playwright 捆浏览器/WeasyPrint 需系统 Pango/Cairo 且 Windows 痛/wkhtmltopdf 停维护）——补零依赖 Markdown 附件；**订阅制**把收件人从角色（owner）单方决定扩到用户自选（Jira subscription 语义，GitLab 原生无此功能 = OSS 真空区）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I156 | 周报 Markdown 附件（notification.sent payload 加 `path` 字段 + mailer `_send` 工作线程内经 gitrepo 读工件内容 `add_attachment`[文件名 `weekly-report-<week>.md`；git 缺文件降级仅 digest 不失败]——附件零新依赖，PDF 服务端转换裁决不引入） | — | I154 digest、gitrepo 读取 | 3d |
+| I157 | 周报订阅制（`report.subscribed/unsubscribed` 事件对 + report_subscribers 投影表进 drop 清单 + `POST/GET/DELETE /projects/{id}/report-subscription`[仅项目成员可订] + sweep 收件人 = owner ∪ 订阅者去重 + ReportsPage「🔔 订阅周报」开关——per-kind 偏好门对订阅者照常生效） | — | 事件溯源范式、I96 偏好门 | 3d |
+| I158 | 冒烟 57+收尾审阅（订阅→sweep→订阅者收附件邮件→偏好关断→退订 roundtrip + docs 收口 + M52 审阅） | — | 冒烟范式 | 3d |
+
+#### I156 · 周报 Markdown 附件（3d）
+
+- 任务：`write_weekly_status_report` 的 notification.sent payload 加 `"path": out["path"]`；mailer 队列项加 `attach_path`（notification.sent 透传）；`_send` 当 attach_path 存在时**工作线程内**惰性 import gitrepo 读内容（读失败降级为无附件不失败）——`msg.add_attachment(content.encode(), maintype="text", subtype="plain", filename=f"weekly-report-{week}.md")`（week 从 payload 取，缺省用 path 尾段）。
+- DoD：单测（FakeSMTP iter_attachments 断言文件名+内容/非周报邮件无附件/内容读取失败仍发正文）。
+- 演示路径：sweep 周报 → owner 邮箱收到的邮件带 .md 附件，正文仍是自含 digest。
+
+#### I157 · 周报订阅制（3d）
+
+- 任务：schema 加 report_subscribers 投影表（project_id/user_id/created_at，进 drop 清单）+ `@on("report.subscribed"/"report.unsubscribed")` 投影 + 三端点（POST 发 subscribed 事件[未订阅→已订阅，重复 409]、DELETE 发 unsubscribed[未订阅 404]、GET 返回当前状态；require_member 读权限门——非成员 403）+ `_report_status_weekly` 收件人构造改为 owner ∪ 订阅者去重[通知循环复用] + ReportsPage「🔔 订阅周报」按钮（GET 状态渲染已订/未订）。
+- DoD：单测（订阅/退订 roundtrip+rebuild 复现/非成员 403/重复订阅 409/退订未订 404/sweep 通知 owner 与订阅者去重各一份）。
+- 演示路径：非 owner 成员点订阅 → 下次 sweep 收到周报邮件 → 退订后不再收。
+
+#### I158 · 冒烟 57+收尾审阅（3d）
+
+- 任务：**冒烟 57**（成员订阅→sweep→owner 与订阅者各一份附件邮件→偏好关断邮件停发站内照常→退订 roundtrip）+ docs 收口 + M52 审阅。
+- DoD：冒烟 57 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「订阅 → 周一邮箱收带 .md 附件的周报 → 退订」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1799,6 +1829,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M52 周报分发完备三件套（I156-I158）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AW + docs/10 §M52）：I156 周报 Markdown 附件（payload 加 path + mailer 工作线程 gitrepo 读内容 add_attachment[git 缺文件降级]——服务端 PDF 裁决不引入[Playwright 捆浏览器/WeasyPrint 需 Pango-Cairo 且 Windows 痛/wkhtmltopdf 停维护]）/ I157 周报订阅制（事件对+投影表+三端点[成员门] + sweep 收件人 owner∪订阅者去重 + 前端订阅开关——Jira subscription 语义/GitLab 原生无此功能 OSS 真空区）/ I158 冒烟 57+审阅；Cycles 多周期[维持降级]、derived 上卷[已裁决]、服务端 PDF[依赖裁决不引入]留 backlog。基线：pytest 410（非 smoke 354 全绿 EXIT=0 + smoke 56 GREEN 对账）+ vitest 14 + build 绿 |
+| 2026-09-21 M52 调研定义（§AW） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：附件形态[仅一句带过无技术选型]、报表订阅制[无任何调研记录]、Cycles 多周期[维持降级]、derived[M50 已裁决]。三路 WebSearch：Python 服务端 PDF 三路线选型（Playwright ~42ms 捆整浏览器/WeasyPrint 227ms 需系统 Pango-Cairo Windows 高频安装痛/wkhtmltopdf 停止维护——依赖重量 vs 打印即得价值不成比例→不引入，补零依赖 .md 附件）、Jira filter/dashboard subscription（JQL 按日程邮件化/dashboard PDF-CSV 副本收件人自选——GitLab 原生无定时订阅=OSS 真空区；订阅=人×项目×通道自选关系）、2026 秋季扫描（OpenProject 17.7 资源管理模块/Plane v3 桌面端/Taiga 6.10 归档——无新缺口）。定案 M52=周报分发完备三件套（I156/I157/I158） |
 | **M51 周报深化与分发三件套（I153-I155）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AV + docs/10 §M51）：I153 评论语料段+AI 叙事开关（`_activity_lines` 本期动态确定语料层[comment.created 近 7 天按工作项分组·作者名+摘要 ≤8 条+独立 COUNT 溢出行·纯投影零模型] + config `weekly_report_ai` 默认关的叙事层[走廉价模型·失败降级纯语料版] + 手动端点保持点态快照不带周期语料）/ I154 digest 邮件（notification.sent payload 加 `digest` 纯文本字段[漏斗完成度/超期 Gate 风险/工时费用/环比首行/工件路径——正文自含结论链接只管取证] + mailer enqueue 透传 body、`_send` body 分支[非周报邮件零影响·email 通道/偏好门/队列 worker 全复用零新通道]）/ I155 冒烟 56+审阅（评论→周报语料段→digest 邮件→次周环比→email 偏好关断五段 roundtrip）；Cycles 多周期[维持降级]、derived 上卷[M50 裁决维持]、subject 正则[不做除非要求]留 backlog。基线：pytest **410** 全绿（非 smoke 354 EXIT=0 + smoke runner 56 GREEN 对账）+ 冒烟 **56** + vitest **14** + build 绿 |
 | 2026-09-21 M51 调研定义（§AV） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：AI 评论抓取摘要[仅留 backlog 一句无调研]、周报 email 分发[无记录——M11 通道已有但正文单行]、Cycles 多周期[维持降级]、derived[M50 已裁决]。三路 WebSearch：activity digest 三步范式（拉活动→LLM→定时分发；DailyBot「人是编辑」；语料层/叙事层两层定性——语料确定可测叙事才用模型）、邮件分发混合模式（Google Data Studio 附件+内联预览；正文自含结论链接只管取证）、2026 自托管 AI 扫描（OpenProject 无生产级 AI、Plane AI 商业自托管 BYO-key——AgentPM 路线开源侧领先无新缺口）。定案 M51=周报深化与分发三件套（I153/I154/I155） |
 | I153 评论语料段+AI 叙事开关 | 已完成 | 2026-09-21 | 2026-09-21 | `_activity_lines`[comment.created 近 7 天按项分组 JOIN items 走 payload.item_id[agg_id 是评论 id 不是工作项 id]·作者名 COALESCE(author_name,actor_id)·摘要 60 字·≤8 条+溢出行] + config `weekly_report_ai: bool = False`[默认关——定时任务不花没人要的 token]开启走 ui_agent_model 叙事段[异常降级] + 报告加「## 本期动态（评论）」「## AI 叙事」分区；坑：首版溢出计数用 LIMIT limit+1 探测法会少计（9 行取 8 报 1）——改独立 COUNT 查询；test_weekly_report 15 项 |
