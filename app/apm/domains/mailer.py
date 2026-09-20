@@ -61,6 +61,10 @@ def enqueue(event: events.Event) -> None:
                 "project_id": event.project_id,
                 "body": str(event.payload.get("digest", ""))
                 if event.event_type == "notification.sent" else "",
+                # M52-I156: weekly report mails carry the report file itself
+                "attach": event.payload.get("path", "")
+                if event.event_type == "notification.sent" else "",
+                "attach_week": str(event.payload.get("week") or ""),
             })
         except queue.Full:
             logger.warning("mail queue full; dropping mail to %s", row["email"])
@@ -79,6 +83,22 @@ def _send(item: dict) -> tuple[bool, str, int | None]:
         msg.set_content(f"{body}\n")
     else:
         msg.set_content(f"{item['summary']}\n\nkind: {item['kind']}\n")
+    # M52-I156: attach the report file itself (zero-dependency Markdown; the
+    # human PDF path stays print-CSS). Read here in the worker thread — the
+    # write path never waits on git/file I/O. Missing file degrades silently.
+    attach_path = item.get("attach") or ""
+    if attach_path:
+        try:
+            from apm.content import gitrepo
+
+            content = gitrepo.read_file(item["project_id"], attach_path)
+            week = item.get("attach_week") or "latest"
+            msg.add_attachment(
+                content, subtype="plain", charset="utf-8",
+                filename=f"weekly-report-{week}.md")
+        except Exception:
+            logger.warning("report attachment %s unreadable; sending digest only",
+                           attach_path, exc_info=True)
     start = time.monotonic()
     try:
         # 校验证书/主机名的默认 SSL 上下文：SMTP 凭据不得被中间人截获。

@@ -42,9 +42,14 @@ class FakeSMTP:
             time.sleep(type(self).stall)
         if type(self).fail:
             raise OSError("smtp unavailable")
+        part = msg.get_body(preferencelist=("plain",))
         type(self).sent.append({
             "from": msg["From"], "to": msg["To"],
-            "subject": msg["Subject"], "body": msg.get_content(),
+            "subject": msg["Subject"], "body": part.get_content() if part else "",
+            "attachments": [
+                {"filename": a.get_filename(), "content": a.get_content()}
+                for a in msg.iter_attachments()
+            ],
         })
 
     def quit(self):
@@ -222,3 +227,55 @@ def test_weekly_report_digest_body(client, tmp_data, isolated_ontologies, projec
     assert _wait_mail(2)
     plain = FakeSMTP.sent[-1]
     assert "kind: assigned" in plain["body"]
+
+
+def test_weekly_report_attachment(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    """M52-I156: the weekly digest mail carries the report .md as an
+    attachment (filename with ISO week key, content = the git blob); the
+    non-weekly mail stays attachment-free."""
+    _configure(monkeypatch)
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "owner"}).status_code == 200
+    from apm.core import db
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(db.get_conn(), "2026-09-21") == 1
+    assert _wait_mail(1), "digest mail never sent"
+    mail = FakeSMTP.sent[-1]
+    atts = list(mail["attachments"])
+    assert len(atts) == 1
+    assert atts[0]["filename"] == "weekly-report-2026-W39.md"
+    assert "## 总体健康" in atts[0]["content"]
+
+    # 对照：非周报邮件无附件
+    bug = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "bug", "title": "无附件邮件"}).json()
+    client.patch(f"/api/items/{bug['id']}",
+                 json={"assignee_type": "human", "assignee_id": "qa-wang"})
+    assert _wait_mail(2)
+    assert not list(FakeSMTP.sent[-1]["attachments"])
+
+
+def test_weekly_report_attachment_missing_degrades(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    """git 内容读取失败 → 邮件降级为仅 digest 正文，发送不失败。"""
+    _configure(monkeypatch)
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "owner"}).status_code == 200
+    # 工件读取在 _send 内走 gitrepo.read_file——让它抛错（写路径不受影响：
+    # write_file 不经过 read_file）
+    from apm.content import gitrepo as gitrepo_mod
+
+    def _boom(*a, **k):
+        raise FileNotFoundError("gone")
+
+    monkeypatch.setattr(gitrepo_mod, "read_file", _boom)
+    from apm.core import db
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(db.get_conn(), "2026-09-21") == 1
+    assert _wait_mail(1), "digest mail never sent"
+    mail = FakeSMTP.sent[-1]
+    assert not list(mail["attachments"])  # 附件缺失降级
+    assert "完成度约" in mail["body"]      # 正文自含结论照常

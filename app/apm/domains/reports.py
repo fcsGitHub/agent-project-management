@@ -1475,7 +1475,7 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
             event_type="notification.sent", agg_type="project", agg_id=project_id,
             project_id=project_id, actor_type="automation", actor_id="scheduler",
             payload={"user_id": o["user_id"], "kind": "report_weekly",
-                     "digest": digest,
+                     "digest": digest, "path": out["path"], "week": week,
                      "summary": f"周报已生成（第 {week} 期）→ {out['path']}"},
         )
     return out
