@@ -34,8 +34,10 @@ class FakeSMTP:
         pass
 
     def send_message(self, msg):
+        part = msg.get_body(preferencelist=("plain",))
         type(self).sent.append({
-            "to": msg["To"], "subject": msg["Subject"], "body": msg.get_content(),
+            "to": msg["To"], "subject": msg["Subject"],
+            "body": part.get_content() if part else "",
         })
 
     def quit(self):
