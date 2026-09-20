@@ -1420,6 +1420,36 @@ agent-project-management/
 
 ---
 
+### M46 · 流式与主题三件套（I138-I140，约 9 人日）
+
+> v3.0 新增（2026-09-19，docs/01 §AQ 前置调研）。M44 把真实模型变成一等公民后，体验层最大缺口是**等整段生成完才见字**；价值层缺口是 I122 成本锁单一隐式币种；显示层缺口是 M45 审计实证的主题割裂（index.css 只有亮色 token 而 theme-color 是深色、40+ 处硬编码调色板）。本里程碑三面各取一件：传输层做**流式**（事件溯源纪律优先——增量瞬态广播不落库，完整消息仍是唯一真相）、价值层做**多币种**（Tempo 汇率表语义——手工配置零外呼）、显示层做**双主题**（token 层一次到位，硬编码色择要归位）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I138 | LLM 流式输出（provider `stream=True` chunk 读取 + `run.token_delta` 瞬态广播[event_bus 直发不 emit 不落库——逐 token 入库会炸事件表并破坏 live==replay 可承受性] + ConversationView assistant 消息逐字渲染[光标跟随+SSE 现有通道] + replay/record 诚实非流式直返完整文本 + 流式中断语义与既有 ▸ 打断兼容） | — | M10/M15 SSE 通道、M44 provider | 3d |
+| I139 | 多币种轻量版（settings 基准币种[默认 CNY] + 手工汇率表[yaml 配置零外呼可审计] + users/projects 可选 currency 字段 + cost-report 基准币汇总披露汇率来源 + 未配汇率诚实标注「未折算」） | — | I122 派生成本语义 | 2.5d |
+| I140 | 深色模式+主题 token 化+收尾（index.css `.dark` 变量组 + prefers-color-scheme 跟随 + 手动切换[localStorage+html class] + M45 审计 40+ 硬编码色择要归位 ok/warn/dan/acc token + theme-color/manifest 双值 + **冒烟 51** + vitest/build + M46 审阅） | — | M45 token 基线 | 3.5d |
+
+#### I138 · LLM 流式输出（3d）
+
+- 任务：OpenAI/Anthropic 双 provider 加 `stream=True` 增量读取（httpx `aiter_lines`/SDK stream chunk）；engine 补全路径加流式分支——每 chunk 经 `event_bus.publish({"event_type": "run.token_delta", ...})` 瞬态广播（**不 emit 不落库**，payload 只带 run_id/增量文本不泄露全文）；前端 sse.ts 识别 token_delta → ConversationView assistant 气泡逐字追加 + 「▍」光标；`message.created` 仍为唯一持久化终点（落库文本=拼接结果，rebuild 一致性不受影响）；replay/record provider 无流语义直返完整文本并在 span 标注 `stream=false`；打断（▸ 注入）在流式中同样生效（挂起点语义不变）。
+- DoD：单测（chunk 广播零落库/完整消息落库/replay 直返/打断兼容）；真实 provider 演示逐字出字。
+- 演示路径：真实 glm-5.3 起 PRD run → 对话视图逐字流现 → 完成 message.created 全文入库 → rebuild 后一致。
+
+#### I139 · 多币种轻量版（2.5d）
+
+- 任务：config 加 `base_currency`（默认 CNY）+ `fx_rates`（yaml：{USD: 7.2, EUR: 7.8}）；users/projects 加可选 `currency` 字段（事件 payload 不含金额沿用 I122）；cost-report/预算消耗按基准币汇总——费率币种≠基准币时按汇率表折算并披露汇率；未配汇率的币种列「未折算」不假装精确；成员/项目编辑面加币种选择。
+- DoD：单测（换算正确/缺汇率披露/rebuild 幂等）；报表双币演示。
+- 演示路径：两成员分设 USD/CNY 费率 → cost-report 统一 CNY 汇总 + 汇率来源标注。
+
+#### I140 · 深色模式+主题 token 化+收尾审阅（3.5d）
+
+- 任务：index.css 补 `.dark` 全组变量（bg/surface/line/ink/mut/acc/accbg/ok/okbg/warn/warnbg/dan/danbg/ag）+ `@media (prefers-color-scheme: dark)` 跟随 + AppShell 手动三态切换（亮/暗/跟随系统，localStorage 记忆）；M45 审计清单硬编码色归位（Board/Dashboard/Reports/Timeline/Workload 等的 red-500→dan、green-50→okbg 等，rail 专用 zinc 保留）；index.html theme-color 双值 + manifest background 同步；**冒烟 51**（I138 瞬态零落库/I139 换算/I140 主题类切换 roundtrip）+ docs/12 §41 + M46 审阅。
+- DoD：冒烟 51 GREEN；vitest 14/build 绿；全量 pytest 收敛绿。
+- 演示路径：切换暗色 → 全页面 token 无撕裂 → 刷新记忆保持 → 系统深色下 PWA 状态栏同色。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1606,6 +1636,8 @@ agent-project-management/
 | I136 NL 命令层 L2+冒烟 50+真实复演 | 已完成 | 2026-09-15 | 2026-09-15 | `parse_llm`（ui_agent_model 廉价模型、严格 JSON 契约、LLMError 降级 []）+ `_normalize_llm_actions` 纯函数白名单（动作类型/参数键剥离/路径前缀/强制 read_only/≤5 条——模型提议、确定性校验裁决）+ post_ui_command rules 优先→非 replay 未命中走 L2→仍空 422 文案区分「L1 规则 + L2 模型」+ `ui_commands.parser` 列与事件/API 全链路溯源 + CommandBar 🤖 L2/📋 L1 徽标 + **冒烟 50**（状态面/ping 门禁/L1 溯源/L2 白名单+溯源）+ 浏览器真实复演（`.demo-m44` 隔离、python urllib 中文造数、glm-5.3-flash 真实解析「看看这个项目都产生了哪些文档」→ 资产页跳转；截图 m44-review-1~5）+ README LLM 段重写 |
 | **M45 安全加固与性能/显示优化（I137）** | 已完成 | 2026-09-19 | 2026-09-19 | 用户指令轮（「检查项目漏洞并修复，优化迭代项目性能及显示效果」，双代理全库审计后收口；docs/10 §M45）。后端高危×6：匿名不继承管理员[GET 浏览保留、admin/owner/SSE 门禁对匿名关闭]、feed_key 剥离、本体导入路径校验+admin 门禁、git `_safe_relpath` 逐级父目录比较、rebuild admin 门禁+恢复引导管理员、webhook SSRF 默认拒绝私网[开关 APM_WEBHOOK_ALLOW_PRIVATE]；中低危：SMTP 证书校验、commit hex 校验、畸形 cookie 容错、带密码账号仅管理员可建、归因修正×3、runs 重复查询+limit 上限、items 索引×4、db 连接泄漏。前端：7 处裸 fetch 收口+11 处 onClick 补 catch、md.ts href 转义、LoginPage 去预填、Board 备忘化+容错、CommentsModal 渲染缓存、全局失效收敛定向、MyTime 并行化、GraphView 🔔 真数据、Dashboard 真实进度条、五页错误态、aria-label。基线：pytest **349**（+8，实测 HEAD 收集 341——原记 339 为文档漂移）+ 冒烟 **50** + vitest **14** + build 绿 |
 | I137 全库漏洞修复与优化 | 已完成 | 2026-09-19 | 2026-09-19 | 后端：`effective_actor` network 匿名回退 "anonymous"[后台线程显式 actor 不受影响] + `_safe_user` 剥 feed_key + 导入包角色 id/prompt 路径校验[子目录允许、../与绝对路径拒绝]+admin 门禁 + gitrepo 逐级父目录比较+`?commit=` hex 白名单 + rebuild-projections admin 门禁+`ensure_default_user` 复跑 + `_validate_url` getaddrinfo 解析后拒私网/环回/链路本地[配置开关，测试 fixture 显式开] + SMTP `ssl.create_default_context()` + `session_user` int 容错 + `/api/stream` network 会话门禁 + `POST /users` 带密码 admin 门禁[OIDC JIT 不受限] + artifacts/ontology_pack/template_packs 归因 `effective_actor` + runs timeline 去重复查询/limit le=500 + items 索引 assignee/due/milestone/cycle + `reset_for_tests` 连接关闭 + approvals 死变量清理。前端：api.ts 新增 putArtifact/startRun/retryRun/getAsset/deposeAsset/submitAssetReview/listRunsByConversation + `API_BASE` 导出[Board/Audit/LoginPage 链接统一]；ConversationView/FeaturePage/RunsPage/AssetsPage 裸 fetch 全部收口；App/Dashboard/CommandBar/ApprovalsPage/AppShell/FeaturePage async onClick 补 try/catch+toast；md.ts 提取链接 href 整体 escapeHtml[sanitize 后注入面闭合]；Board `matches` useCallback+`listed` useMemo+groupKeyOf JSON 容错+`invalidateItemData` 定向失效×9；CommentsModal 按评论 id 渲染缓存；MyTime ts-approvals Promise.all；GraphView pendingGateCounts 接审批中心真数据+边色走主题变量；Dashboard 功能进度条接 board 数据[真实 %]；Reports/Activity/MyWork/Runs/Feature 加载/错误/空三态；LoginPage 空预填。**测试**：test_security_hardening ×7 + webhook SSRF 负向 ×1 + smoke_45 日期敏感修复[`this_monday-15` 周对齐锚点，任意星期可跑] + mailer/smoke17 假桩 starttls(context=) 适配 |
+| **M46 流式与主题三件套（I138-I140）** | 进行中 | 2026-09-19 | — | 3 迭代 / 约 9 人日（docs/01 §AQ + docs/10 §M46）：I138 LLM 流式输出（provider stream=True + `run.token_delta` 瞬态广播**不落库**[事件溯源纪律：完整消息是唯一落库真相] + ConversationView 逐字渲染 + replay/record 诚实非流式）/ I139 多币种轻量版（Tempo 汇率表语义：基准币种+手工汇率表零外呼+users/projects currency 字段+cost-report 换算汇总披露汇率来源）/ I140 深色模式+主题 token 化+收尾（`.dark` 变量组+prefers-color-scheme+手动三态切换+M45 硬编码色归位+theme-color 双值+冒烟 51+审阅）；Cycles 多周期并列[Plane 无原生、I129 已覆盖]、record 上下文指纹、多轮上下文压缩、温度分档留 backlog |
+| 2026-09-19 M46 调研定义（§AQ） | 已完成 | 2026-09-19 | 2026-09-19 | 防重查：多币种[§AM.5/§AO.5 两次留 backlog 无调研]、Cycles 多周期对比、LLM 流式[§B 仅一句]、深色模式均无完整调研记录；record→replay 录制件回放 M44 已实现[`_recorded(key)` 优先于模板]。三路 WebSearch：LangGraph streaming+FastAPI SSE[流式是传输层优化非数据模型变更]、Tempo Financial Manager 汇率表[OpenProject 无原生多币种以单一基准币绕行]、Tailwind 双主题 token 策略；Plane 无原生跨周期并列视图→该候选降级。定案 M46=流式与主题三件套（I138/I139/I140） |
 | **M43 交付闭环三件套（I131-I133）** | 已完成 | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AP + docs/10 §M43）：I131 风险登记册（risk 事件+risks 投影表[probability×impact 自动分排序]+「⚠ 风险登记册」页矩阵热力+工作项 risk_id 关联）/ I132 项目收尾清单（closure-checklist 五项核对 + project.completed 事件徽标[completed 区别于 archived] + 收尾报告数据）/ I133 完成自动重建+收尾审阅（recurrence_days + sweep respawn[完成日+N 重建、payload 记 respawn_of]——sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + 审阅通过（d67374c）；定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog |
 | I131 风险登记册 | 已完成 | 2026-09-14 | 2026-09-14 | risks.py 新域[risk.created/updated/closed 事件 + risks 投影表进 drop 清单 + 注册两处] + probability/impact 枚举 1-3 校验[越界 422、score=p×i 自动排序] + response/owner/review_date/related_item_id 字段[关联项不存在 404] + 生命周期 **open→mitigated→closed 严格单向**[跳级 422、closed 终态 PATCH 409] + 「⚠ 风险登记册」页[3×3 矩阵热力绿→琥珀→红+列表分降序+顶导航 ShieldAlert 入口]；test_risks **2** 项（打分 9/1+排序+越界 422+rebuild/生命周期+关联 404+closed 终态+rebuild 后登记册空）+ build 绿 |
 | I132 项目收尾清单 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/closure-checklist` 五项核对[活跃项=0/pending 审批=0/submitted 工时单=0/open 风险=0/planned+in_progress 里程碑=0——纯投影零新表] + `POST /projects/{id}/complete`[清单不全绿 409 列全部差项；全绿 emit `project.completed` → 状态 completed] + **guard 扩展**：completed 项目冻结写 409（/reopen 恢复——与 archived 同构）+ 项目列表「✅ 已交付」徽标 + Dashboard「🏁 收尾清单」卡[五格勾选+标记交付按钮]；test_project_closure **2** 项（差项列出→清空→全绿→complete→写 409→reopen 恢复/rebuild 后 completed 存活）+ build 绿 |

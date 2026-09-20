@@ -1227,6 +1227,37 @@ M42 = **流量可见性三件套**：I128 看板阻塞徽标（即时面——Bu
 M43 = **交付闭环三件套**：I131 风险登记册（风险面——PMBOK p×i 矩阵 + OpenProject 原生模块语义，核心知识域补缺）/ I132 项目收尾清单（闭环面——PMBOK Closing Process Group，completed 区别于 archived）/ I133 完成自动重建+收尾审阅（节拍面——YouTrack reset 语义，完成触发而非日历触发，sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + M43 审阅，约 9 人日。定量风险分析（EMV/蒙特卡洛）、风险升级链、跨项目风险留 backlog。
 
 
+## AQ. M46 前置调研：LLM 流式输出 / 多币种 / 深色模式与主题 token 化（2026-09-19）
+
+> 目标协议触发：M45（用户指令轮）完成后开启。防重查：候选池 grep——多币种/currency（§AM.5、§AO.5 两次仅留 backlog 无调研记录）、Cycles 多周期并列对比（§AN.3 只做单周期燃尽+burnup，I129 velocity 已覆盖跨周期 committed vs completed；本轮确认 Plane 无原生跨周期并列视图，该候选降级）、LLM 流式/逐 token（§B AgentScope 只一句「事件总线实时流式」，无落地调研）、深色模式/dark mode（无调研记录）、record 录制件回放（**M44 已顺手实现**：replay_templates `_recorded(key)` 优先于手写模板消费 recordings.yaml，候选池该项闭环，仅留 key 无上下文指纹的小改进）。本轮三路新调研（LLM 流式输出 / 多币种 / 深色模式），选定 **M46 = 流式与主题三件套**。
+
+**AQ.1 LLM 流式输出（LangGraph streaming + FastAPI SSE 语义）**
+
+- 行业模式：LangGraph 生产级流式三形态——节点更新/进度事件/**token 逐字**（`astream_events` 或 `messages` streaming mode），async FastAPI 端点包 `StreamingResponse(text/event-stream)` 逐 token 吐 SSE，前端 `useStream` 消费（[focused.io 生产指南](https://focused.io)、[LangChain 官方 streaming 文档](https://docs.langchain.com)、[astream_events 实战](https://abstractalgorithms.hashnode.dev)、[FastAPI SSE 教程](https://blog.gopenai.com)）；AgentScope 2.0 同样以事件总线做实时流式（§B）。共同语义：**流式是传输层优化，不是数据模型变更——完整消息仍是唯一落库真相**。
+- 对本项目的映射：**token 增量走瞬态广播、不入事件库**——逐 token 若全量 emit 会制造数千事件/次 run，炸事件表体积且破坏 live==replay 的可承受性（事件溯源不变量优先于流式体验）。形态：provider 流式读 chunk → `event_bus.publish` 瞬态事件（`run.token_delta`，不 emit 不落库）→ 前端经现有 `/api/stream` SSE 通道增量渲染 assistant 消息，`message.created` 仍是唯一持久化终点；replay/record provider 无流式语义，诚实直返完整文本（与 M29 诚实零 token 同款纪律）。事件溯源红利：SSE 广播基础设施 M10/M15 已建，本次零新通道。
+
+**AQ.2 多币种（Tempo Financial Manager 汇率表语义）**
+
+- 行业：Tempo Financial Manager（原 Cost Tracker）是 Jira 成本跟踪标杆，**显式汇率配置**——全局设置里 per-currency 汇率表，多币种成本统一换算基准币展示（[Tempo 汇率文档](https://help.tempo.io)、[Marketplace](https://marketplace.atlassian.com)）；OpenProject **无原生多币种**，成本锁单一系统币种，社区以「统一基准币/外导财务工具」绕行（[openproject.org](https://www.openproject.org)）。共同语义：**成本记录不锁币种、展示归一基准币——汇率是手工配置的可审计数据，不是实时外呼**。
+- 对本项目的映射：I122 成本=工时×费率派生不另记账的语义保持；轻量版三层——settings 基准币种（默认 CNY）+ 手工汇率表（YAML 配置、零外部 API 依赖、可测）+ users/projects 可选 currency 字段；cost-report 按基准币汇总并披露汇率来源，未配汇率的币种诚实标注「未折算」。多币种金额继续不进事件 payload（I122 语义：费率是运行时列）。
+
+**AQ.3 深色模式与主题 token 化（Tailwind 双主题语义）**
+
+- 行业：现代 PM 工具（Huly/Plane/Linear）均默认提供暗色主题，实现一致——**设计 token 层（CSS 变量）+ `prefers-color-scheme` 媒体查询/`.dark` 类双策略**，组件只引用 token 不写死色值（Tailwind dark mode 官方双策略）；PWA 需同步 `theme-color` meta 与 manifest 背景色，否则安装后状态栏与内容割裂。
+- 对本项目的映射：M45 审计确认 index.css 只有亮色 token、`theme-color` 却是深色（割裂实证）。三层修复——index.css 补 `.dark` 变量组 + `prefers-color-scheme` 跟随系统 + 手动切换（localStorage 记忆、html class 切换）；M45 审计列出的 40+ 处硬编码调色板（red-500/dan、indigo/acc 漂移）择要映射回 ok/warn/dan/acc token；theme-color 双值（media 分亮暗）。
+
+**AQ.4 M46 设计映射与验证纪律（沿用）**
+
+- I138 LLM 流式输出：provider `stream=True` chunk 读取 + bus 瞬态广播（不落库）+ ConversationView 逐字渲染 + replay/record 诚实非流式；单测（瞬态事件不入库/完整消息仍落库/replay 直返）。
+- I139 多币种轻量版：基准币种+汇率表+currency 字段+cost-report 换算汇总；单测（换算/未配汇率披露/rebuild）。
+- I140 深色模式+token 化+收尾：双主题 token 组+系统跟随+手动切换+硬编码色择要归位+theme-color 双值；**冒烟 51**（流式瞬态/币种换算/主题切换）并入 I140 + M46 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M46 审阅。
+
+**AQ.5 M46 取舍**
+
+M46 = **流式与主题三件套**：I138 LLM 流式输出（体验面——LangGraph streaming 语义，「完整消息是唯一落库真相」的流式纪律）/ I139 多币种轻量版（价值面——Tempo 汇率表语义，手工汇率零外呼，I122 派生成本语义延续）/ I140 深色模式+token 化+收尾审阅（显示面——双主题 token + M45 审计硬编码色归位 + theme-color 割裂修复）+ docs/12 §41 + 冒烟 51 + M46 审阅，约 9 人日。Cycles 多周期并列视图（Plane 无原生、I129 已覆盖跨周期对比，价值降级）、record 录制件上下文指纹、对话多轮上下文压缩、角色温度/模型分档留 backlog。
+
+
 
 
 
