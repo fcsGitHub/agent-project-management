@@ -502,6 +502,38 @@ def get_project_graph(project_id: str) -> dict:
                 "kind": rel["relation_type"],
             }
         )
+    # M47-I143: 跨项目 to_item 不在本项目节点集——补「外部依赖」占位节点。
+    # 对当前用户不可读的项目只给 🔒 占位（不泄露对方标题）；可读则显示真实
+    # 标题与来源项目名。
+    from apm.core.events import effective_actor as _actor
+    from apm.domains.members import is_instance_admin, member_role
+
+    known = {n["id"] for n in nodes}
+    me = _actor()
+    admin = is_instance_admin(me)
+    for rel in db.get_conn().execute(
+        "SELECT to_item AS iid FROM item_relations WHERE project_id = ?",
+        (project_id,)).fetchall():
+        ext = rel["iid"]
+        if ext in known:
+            continue
+        row = db.get_conn().execute(
+            "SELECT title, project_id FROM items WHERE id = ?", (ext,)).fetchone()
+        if row is None:
+            continue
+        readable = admin or member_role(row["project_id"], me)
+        proj = db.get_conn().execute(
+            "SELECT name FROM projects WHERE id = ?", (row["project_id"],)).fetchone()
+        nodes.append({
+            "id": ext, "kind": "task",
+            "label": row["title"] if readable else "🔒 外部依赖",
+            "concept_id": "external",
+            "status": "external", "status_group": "external",
+            "external": True,
+            "external_project_id": row["project_id"] if readable else None,
+            "external_project_name": (proj["name"] if proj else None) if readable else None,
+        })
+        known.add(ext)
     return {"project_id": project_id, "nodes": nodes, "edges": edges}
 
 

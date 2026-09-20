@@ -194,6 +194,30 @@ def _item_status_for_start(role_id: str) -> str:
     return "in_progress"
 
 
+def fold_constraints(constraints: list[str], budget: int, instruction_chars: int) -> tuple[list[str], bool, int]:
+    """I141: 预算内原样返回；超预算保留最近约束原文、早期折叠为一行摘要
+    （计数 + 首条/末条前 80 字）。纯函数——存储与事件流永不触碰。
+    返回 (折叠后列表, 是否发生折叠, 折叠条数)。"""
+    total = instruction_chars + sum(len(c) for c in constraints)
+    if budget <= 0 or total <= budget or len(constraints) <= 1:
+        return constraints, False, 0
+    keep_budget = max(budget - instruction_chars, budget // 3)
+    kept: list[str] = []
+    used = 0
+    for c in reversed(constraints):
+        if used + len(c) > keep_budget:
+            break
+        kept.insert(0, c)
+        used += len(c)
+    folded_count = len(constraints) - len(kept)
+    if folded_count <= 0:
+        return constraints, False, 0
+    early = constraints[:folded_count]
+    summary = (f"（前 {folded_count} 条约束已折叠：首条「{early[0][:80]}」"
+               f"… 末条「{early[-1][:80]}」）")
+    return [summary] + kept, True, folded_count
+
+
 def _status_in_group(concept_id: str, project_id: str, group: str) -> str | None:
     """Find a status of this concept within a five-bucket group (I6)."""
     try:
@@ -290,6 +314,27 @@ class RunEngine:
             return role_gate
 
     # ------------------------------------------------------------ graph
+    def _llm_summary(self, early: list[str]) -> str | None:
+        """I141 可选 LLM 摘要（role.yaml `model.summarize: true` 且非 replay）：
+        廉价档 ui_agent_model 压缩早期约束；任何失败退回规则摘要（返回 None），
+        绝不 fail run。"""
+        try:
+            from apm.runtime.provider import get_provider
+
+            c = get_provider().complete(
+                role=self.role.id, node="summarize",
+                messages=[
+                    {"role": "system", "content": "把多条约束压缩为一段不超过 200 字的摘要，"
+                     "保留数字、对象名与否定词；直接输出摘要正文。"},
+                    {"role": "user", "content": "\n".join(f"- {x}" for x in early)},
+                ],
+                context={"model": config.settings.ui_agent_model,
+                         "run_id": self.run_id, "item_id": self.run.get("item_id")},
+            )
+            return (c.text or "").strip() or None
+        except Exception:
+            return None  # 规则摘要保底，摘要失败不 fail run
+
     def _context(self, state: RunState) -> dict[str, Any]:
         from apm.domains.conversations import get_conversation, get_messages
         from apm.domains.projects import get_project
@@ -315,13 +360,27 @@ class RunEngine:
 
             item = get_item(self.run["item_id"])
             item_title = item["title"] if item else None
+        instruction = state.get("instruction") or conv.get("instruction") or ""
+        # I141 上下文压缩（docs/01 §AR.1）：预算内的约束原样进 prompt；超预算
+        # 时早期约束折叠为一行摘要（最近约束保原文）。**读路径优化——存储
+        # 原文一字不动，压缩产物不落事件库**（与 I138 瞬态广播同纪律）。
+        budget = config.settings.context_budget_chars
+        raw_chars = len(instruction) + sum(len(c) for c in constraints)
+        folded, compressed, folded_count = fold_constraints(constraints, budget, len(instruction))
+        if compressed and self.role.model.get("summarize") and config.settings.provider_mode != "replay":
+            summary = self._llm_summary(constraints[:folded_count])
+            if summary:
+                folded = [f"（前 {folded_count} 条约束摘要：{summary}）"] + folded[1:]
         return {
             "run_id": self.run_id,
             "project_name": project.get("name", ""),
-            "instruction": state.get("instruction") or conv.get("instruction") or "",
+            "instruction": instruction,
             "charter": project.get("charter") or "",
             "brief": brief,
-            "constraints": constraints,
+            "constraints": folded,
+            "context_chars": raw_chars,
+            "context_budget": budget,
+            "context_compressed": compressed,
             "item_id": self.run.get("item_id"),
             "item_title": item_title,
             "model": self.role.model.get("name"),
@@ -392,6 +451,9 @@ class RunEngine:
                 "apm.item_id": self.run.get("item_id"),
                 "apm.graph_node_id": self.run["graph_node_id"],
                 "apm.stream": streaming,
+                "apm.context_chars": ctx.get("context_chars"),
+                "apm.context_budget": ctx.get("context_budget"),
+                "apm.context_compressed": ctx.get("context_compressed"),
             },
         )
         completion = provider.complete(

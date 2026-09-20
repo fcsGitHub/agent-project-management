@@ -747,10 +747,27 @@ export const api = {
       by_user: { user_id: string; user_name: string; hours: number; rate: number | null;
                  currency: string | null; cost: number; cost_native: number; fx_rate: number | null }[];
       unconverted: { user_id: string; currency: string }[];
+      /** I142 双轨：material/unit costs 行项（经 I139 汇率折算基准币） */
+      expenses: { id: string; description: string; qty: number; unit_price: number;
+                  currency: string; spent_on: string; vendor?: string | null; item_id?: string | null;
+                  cost_native: number; fx_rate: number | null; cost: number }[];
+      expense_unconverted: { id: string; currency: string }[];
+      labor_cost: number; expense_cost: number;
       spent_hours: number; total_cost: number;
       budget_hours: number | null; burn_ratio: number | null; over_budget: boolean;
       generated_at: string;
     }>(`/projects/${pid}/cost-report`),
+  listExpenses: (pid: string, itemId?: string) => {
+    const q = itemId ? `?item_id=${encodeURIComponent(itemId)}` : "";
+    return req<{ expenses: { id: string; description: string; qty: number; unit_price: number;
+      currency: string; spent_on: string; vendor?: string | null; item_id?: string | null;
+      created_at: string }[] }>(`/projects/${pid}/expenses${q}`);
+  },
+  recordExpense: (pid: string, body: { description: string; qty: number; unit_price: number;
+    currency: string; spent_on: string; vendor?: string; item_id?: string }) =>
+    req<{ id: string }>(`/projects/${pid}/expenses`, { method: "POST", body: JSON.stringify(body) }),
+  deleteExpense: (pid: string, id: string) =>
+    req<{ deleted: string }>(`/projects/${pid}/expenses/${encodeURIComponent(id)}`, { method: "DELETE" }),
   // M40-I123: item attachments (multipart, Redmine files/-directory semantics)
   listAttachments: (itemId: string) =>
     req<{ attachments: { id: string; filename: string; size: number; mime: string | null; uploader: string | null; created_at: string }[] }>(`/items/${itemId}/attachments`),

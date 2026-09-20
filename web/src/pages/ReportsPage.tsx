@@ -288,9 +288,11 @@ function CostCard({ pid }: { pid: string }) {
       {d && (
         <>
           <div className="mt-1 text-xs text-mut">
-            已投入 <span className="font-medium text-ink">{d.spent_hours}h</span> · 成本合计
-            <span className="font-medium text-ink"> {d.total_cost}</span>
-            <span title="成本按全局汇率表折算基准币汇总（M46-I139）"> {d.base_currency}</span>
+            已投入 <span className="font-medium text-ink">{d.spent_hours}h</span> ·
+            人力 <span className="font-medium text-ink">{d.labor_cost}</span> ·
+            费用行 <span className="font-medium text-ink">{d.expense_cost}</span> ·
+            合计 <span className="font-medium text-ink">{d.total_cost}</span>
+            <span title="成本按全局汇率表折算基准币汇总（M46-I139）；费用行为 material/unit cost 双轨（M47-I142）"> {d.base_currency}</span>
             {d.unconverted.length > 0 && (
               <span className="ml-1 text-warn" title={`未配汇率的币种按原值计入：${d.unconverted.map((u) => u.currency).join("、")}`}>
                 ⚠ {d.unconverted.length} 项未折算
@@ -324,6 +326,20 @@ function CostCard({ pid }: { pid: string }) {
               </div>
             ))}
           </div>
+          {d.expenses.length > 0 && (
+            <div className="mt-2 border-t border-line pt-1.5">
+              <div className="mb-1 text-[10px] font-semibold text-mut">费用行（material/unit costs · I142）</div>
+              <div className="space-y-0.5">
+                {d.expenses.map((x) => (
+                  <div key={x.id} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-28 shrink-0 truncate text-ink" title={x.vendor ? `${x.description} · ${x.vendor}` : x.description}>{x.description}</span>
+                    <span className="flex-1 truncate text-mut">{x.spent_on} · {x.qty}×{x.unit_price} {x.currency}{x.fx_rate != null && x.currency !== d.base_currency ? ` ×${x.fx_rate}` : x.currency !== d.base_currency ? "（未折算）" : ""}</span>
+                    <span className="w-20 shrink-0 text-right font-medium text-ink">{x.cost}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
             <span className="text-[10px] text-mut">预算（小时）</span>
             <input type="number" min="0" value={budget}

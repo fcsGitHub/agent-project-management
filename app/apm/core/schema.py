@@ -522,6 +522,26 @@ CREATE TABLE IF NOT EXISTS risks (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_risks_project ON risks(project_id);
+
+-- I142: expense line items (projection of expense.* events — in
+-- drop_projections so rebuild reproduces them; OpenProject Budget dual-track:
+-- labor stays in item_time_entries, material/unit costs live here).
+CREATE TABLE IF NOT EXISTS expense_entries (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  qty REAL NOT NULL,
+  unit_price REAL NOT NULL,
+  currency TEXT NOT NULL,
+  spent_on TEXT NOT NULL,
+  vendor TEXT,
+  item_id TEXT,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_project ON expense_entries(project_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_item ON expense_entries(item_id);
 """
 
 FTS_DDL = """
@@ -559,6 +579,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "project_cycles",
         "attachments",
         "risks",
+        "expense_entries",
         "extracted_tasks",
         "baselines",
         "project_members",

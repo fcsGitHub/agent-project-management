@@ -562,7 +562,8 @@ def propagate_reschedule(project_id: str, predecessor_id: str, old_due: str | No
         return 0
     conn = db.get_conn()
     dependents = conn.execute(
-        "SELECT r.from_item AS dep_id, i.start_date, i.due_date"
+        "SELECT r.from_item AS dep_id, i.project_id AS dep_project,"
+        " i.start_date, i.due_date"
         " FROM item_relations r JOIN items i ON i.id = r.from_item"
         " WHERE r.to_item = ? AND r.relation_type = 'depends_on'",
         (predecessor_id,),
@@ -570,6 +571,8 @@ def propagate_reschedule(project_id: str, predecessor_id: str, old_due: str | No
     count = 0
     for dep in dependents:
         dep_id = dep["dep_id"]
+        # M47-I143: 事件归属被移动项自己的项目（跨项目链上不再是调用者项目）
+        dep_project = dep["dep_project"]
         if dep_id in visited or not conn.execute(
             "SELECT auto_scheduled FROM items WHERE id = ?", (dep_id,)
         ).fetchone()["auto_scheduled"]:
@@ -593,12 +596,12 @@ def propagate_reschedule(project_id: str, predecessor_id: str, old_due: str | No
             event_type="item.rescheduled",
             agg_type="item",
             agg_id=dep_id,
-            project_id=project_id,
+            project_id=dep_project,
             payload={"follow_of": predecessor_id, "delta_days": delta,
                      "start_date": new_start, "due_date": new_due, "depth": depth + 1},
         )
         count += 1
-        count += propagate_reschedule(project_id, dep_id, dep["due_date"], new_due,
+        count += propagate_reschedule(dep_project, dep_id, dep["due_date"], new_due,
                                       depth + 1, visited)
     return count
 
@@ -944,7 +947,18 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
             detail=f"relation '{body.relation_type}' not allowed (kernel: {KERNEL_RELATIONS})",
         )
     if item["project_id"] != target["project_id"]:
-        raise HTTPException(status_code=422, detail="cross-project relations not supported")
+        # M47-I143（docs/01 §AR.3，OpenProject 跨项目 relations 语义）：允许
+        # 跨项目建链——关系跟着工作项走；事件仍聚合在 from 侧项目（append-only
+        # 单写者不变）；建链要求双方项目当前用户可读，写门禁仍是 from 侧角色。
+        from apm.core.events import effective_actor as _actor
+        from apm.domains.members import is_instance_admin, member_role
+
+        me = _actor()
+        for pid in {item["project_id"], target["project_id"]}:
+            if not (is_instance_admin(me) or member_role(pid, me)):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"both projects must be readable to link them (not a member of {pid})")
     events.emit(
         event_type="item.related",
         agg_type="item",

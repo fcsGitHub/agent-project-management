@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # 如 APM_FX_RATES='{"USD":7.2}'）。汇率是可审计的手工配置，不外呼行情。
     base_currency: str = "CNY"
     fx_rates: dict[str, float] = {}
+    # I141 上下文压缩：prompt 组装的约束+指令字符预算，超限折叠早期约束
+    # （读路径优化，存储原文不动）。0 = 不限制。
+    context_budget_chars: int = 8000
     # OIDC single sign-on (M17): entirely optional — issuer/client_id/secret all
     # set enables the feature, otherwise it stays off (same semantics as SMTP).
     # allowed_groups: comma-separated IdP group names; empty disables the group

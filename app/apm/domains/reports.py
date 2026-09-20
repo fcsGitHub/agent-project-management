@@ -891,7 +891,33 @@ def cost_report(project_id: str) -> dict:
             "fx_rate": fx,
         })
     spent_hours = round(sum(u["hours"] for u in by_user), 2)
-    total_cost = round(sum(u["cost"] for u in by_user), 2)
+    labor_cost = round(sum(u["cost"] for u in by_user), 2)
+    # I142 双轨：material/unit costs（expense 行项）与 labor 并列；金额经
+    # I139 汇率表折算基准币；预算仍小时口径，费用轨并排展示不混算。
+    exp_rows = conn.execute(
+        "SELECT id, description, qty, unit_price, currency, spent_on, vendor, item_id"
+        " FROM expense_entries WHERE project_id = ? AND deleted_at IS NULL"
+        " ORDER BY spent_on, id", (project_id,)).fetchall()
+    expenses = []
+    expense_cost = 0.0
+    exp_unconverted: list[dict] = []
+    for r in exp_rows:
+        native = round((r["qty"] or 0) * (r["unit_price"] or 0), 2)
+        cur = (r["currency"] or base).upper()
+        fx = 1.0 if cur == base else rates.get(cur)
+        if fx is None:
+            exp_unconverted.append({"id": r["id"], "currency": cur})
+            cost_base = native
+        else:
+            cost_base = round(native * fx, 2)
+        expense_cost += cost_base
+        expenses.append({
+            "id": r["id"], "description": r["description"], "qty": r["qty"],
+            "unit_price": r["unit_price"], "currency": r["currency"],
+            "spent_on": r["spent_on"], "vendor": r["vendor"], "item_id": r["item_id"],
+            "cost_native": native, "fx_rate": fx, "cost": cost_base,
+        })
+    expense_cost = round(expense_cost, 2)
     budget = conn.execute(
         "SELECT budget_hours FROM projects WHERE id = ?", (project_id,)).fetchone()["budget_hours"]
     burn_ratio = round(spent_hours / budget, 4) if budget else None
@@ -900,8 +926,12 @@ def cost_report(project_id: str) -> dict:
         "base_currency": base,
         "by_user": by_user,
         "unconverted": unconverted,
+        "expenses": expenses,
+        "expense_unconverted": exp_unconverted,
+        "labor_cost": labor_cost,
+        "expense_cost": expense_cost,
         "spent_hours": spent_hours,
-        "total_cost": total_cost,
+        "total_cost": round(labor_cost + expense_cost, 2),
         "budget_hours": budget,
         "burn_ratio": burn_ratio,
         "over_budget": bool(budget and spent_hours > budget),
