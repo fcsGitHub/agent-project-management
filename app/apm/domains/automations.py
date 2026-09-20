@@ -546,7 +546,7 @@ def run_daily_sweep(force: bool = False) -> dict:
         if seen:
             return {"swept": False, "date": today, "fired": 0, "created": 0,
                     "notified": 0, "delegated": 0, "carried": 0, "reminded": 0,
-                    "respawned": 0}
+                    "respawned": 0, "reported": 0}
 
     fired = created = notified = delegated = carried = reminded = 0
     rules = conn.execute(
@@ -585,16 +585,55 @@ def run_daily_sweep(force: bool = False) -> dict:
     carried += carryover_finished_cycles(conn, today)
     reminded += _remind_pending_approvals(conn, today)
     respawned = _respawn_recurring(conn, today)
+    reported = _report_status_weekly(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
         payload={"date": today, "fired": fired, "created": created,
                  "notified": notified, "delegated": delegated, "carried": carried,
-                 "reminded": reminded, "respawned": respawned},
+                 "reminded": reminded, "respawned": respawned, "reported": reported},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
             "notified": notified, "delegated": delegated, "carried": carried,
-            "reminded": reminded, "respawned": respawned}
+            "reminded": reminded, "respawned": respawned, "reported": reported}
+
+
+def _report_status_weekly(conn, today: str) -> int:
+    """M50-I150 (docs/01 §AU.1, Plane #5861 digest semantics): the sweep's
+    seventh built-in pass — one status report per active project on the
+    configured ISO weekday (`weekly_report_day`, 0=off). Idempotency is a
+    fact of the event stream: an `artifact.report_generated` payload carrying
+    this project's ISO week key means the report already exists (zero new
+    tables, same bargain as the automation.swept heartbeat)."""
+    from datetime import date
+
+    from apm import config
+
+    day = config.settings.weekly_report_day
+    if not day or date.fromisoformat(today).isoweekday() != day:
+        return 0
+    from apm.domains.reports import write_weekly_status_report
+
+    iso = date.fromisoformat(today).isocalendar()
+    week = f"{iso[0]}-W{iso[1]:02d}"
+    import logging
+    logger = logging.getLogger("apm.automations")
+    generated = 0
+    for r in conn.execute(
+            "SELECT id FROM projects WHERE COALESCE(status, '') != 'archived'").fetchall():
+        seen = conn.execute(
+            "SELECT 1 FROM events WHERE event_type = 'artifact.report_generated'"
+            " AND project_id = ? AND json_extract(payload, '$.source') = 'weekly'"
+            " AND json_extract(payload, '$.week') = ? LIMIT 1",
+            (r["id"], week)).fetchone()
+        if seen:
+            continue
+        try:
+            if write_weekly_status_report(r["id"], today, week):
+                generated += 1
+        except Exception:  # one broken project must not kill the sweep
+            logger.exception("weekly report failed for project %s", r["id"])
+    return generated
 
 
 def _scheduler_loop() -> None:

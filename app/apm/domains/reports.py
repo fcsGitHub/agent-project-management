@@ -1204,6 +1204,98 @@ def my_schedule() -> dict:
 
 
 # ------------------------------------------------------- status report (I148)
+def _collect_status_metrics(conn, project, today: str) -> dict:
+    """I150: data-collection half of the report core — one dict with every
+    number the Markdown needs, shared by the manual endpoint and the sweep's
+    weekly pass (and by I152, which diffs it against last period)."""
+    pid = project["id"]
+    funnel = {b: 0 for b in BUCKET_NAMES}
+    for r in conn.execute(
+        "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? AND archived_at IS NULL"
+        " GROUP BY status_group", (pid,)).fetchall():
+        if r["status_group"] in funnel:
+            funnel[r["status_group"]] = r["c"]
+    done_pct = round(funnel["done"] * 100 / max(sum(funnel.values()), 1))
+    overdue = conn.execute(
+        "SELECT COUNT(*) c FROM items WHERE project_id = ? AND due_date IS NOT NULL"
+        " AND due_date < ? AND status_group NOT IN ('done','cancelled') AND archived_at IS NULL",
+        (pid, today)).fetchone()["c"]
+    gates_pending = conn.execute(
+        "SELECT COUNT(*) c FROM approvals WHERE project_id = ? AND status = 'pending'",
+        (pid,)).fetchone()["c"]
+    risks_open = conn.execute(
+        "SELECT COUNT(*) c FROM risks WHERE project_id = ? AND status != 'closed'",
+        (pid,)).fetchone()["c"]
+    timelog = conn.execute(
+        "SELECT COALESCE(SUM(minutes), 0) m FROM item_time_entries"
+        " WHERE project_id = ? AND deleted_at IS NULL", (pid,)).fetchone()["m"]
+    expense_cost = conn.execute(
+        "SELECT COALESCE(SUM(qty * unit_price), 0) c FROM expense_entries"
+        " WHERE project_id = ? AND deleted_at IS NULL", (pid,)).fetchone()["c"]
+    recent_done = [
+        r["t"] for r in conn.execute(
+            "SELECT i.title AS t FROM events e JOIN items i ON i.id = e.agg_id"
+            " WHERE e.project_id = ? AND e.event_type = 'item.status_changed'"
+            " AND json_extract(e.payload, '$.status_group') = 'done'"
+            " ORDER BY e.id DESC LIMIT 5", (pid,)).fetchall()
+    ]
+    return {"funnel": funnel, "done_pct": done_pct, "overdue": overdue,
+            "gates_pending": gates_pending, "risks_open": risks_open,
+            "timelog": timelog, "expense_cost": expense_cost,
+            "budget_hours": project["budget_hours"], "recent_done": recent_done}
+
+
+def _render_status_lines(project, today: str, m: dict) -> list[str]:
+    """I150: rendering half of the report core — pure function of the
+    metrics dict, no queries (manual and weekly share the exact layout)."""
+    funnel, done_pct = m["funnel"], m["done_pct"]
+    overdue, gates_pending = m["overdue"], m["gates_pending"]
+    timelog, expense_cost = m["timelog"], m["expense_cost"]
+    budget_hours = m["budget_hours"]
+    lines = [
+        f"# 项目状态报告 · {project['name']}",
+        f"（生成于 {today} · 覆盖全部活跃工作项）", "",
+        "## 总体健康", "",
+        f"- 工作项漏斗：待办 {funnel['backlog']} · 就绪 {funnel['todo']} · 进行中 {funnel['in_progress']}"
+        f" · 完成 {funnel['done']} · 取消 {funnel['cancelled']}（完成度约 {done_pct}%）",
+        f"- 超期未结：**{overdue}** 项 · 挂起 Gate：**{gates_pending}** 个 · 开放风险：**{m['risks_open']}** 条",
+        f"- 工时投入 {round(timelog / 60, 1)}h"
+        + (f" / 预算 {budget_hours}h（消耗 {round(timelog / 60 / budget_hours * 100)}%）" if budget_hours else "")
+        + f" · 费用行合计 {round(expense_cost, 2)}",
+        "",
+        "## 最近完成", "",
+    ]
+    lines += [f"- {t}" for t in m["recent_done"]] or ["-（暂无）"]
+    lines += ["", "## 待办与建议", "",
+              f"- {gates_pending} 个 Gate 待审批，先清审批墙" if gates_pending
+              else "- 审批墙干净，可推进新一批任务",
+              f"- 关注 {overdue} 项超期工作的原因归类（排期过满 / 依赖阻塞 / 范围蔓延）" if overdue
+              else "- 无超期项，节奏健康"]
+    return lines
+
+
+def _commit_report(project_id: str, lines: list[str], *, prefix: str,
+                   actor_type: str, actor_id: str, payload: dict) -> dict:
+    """I150: shared write+audit tail — file into the project git repo, then
+    the artifact.report_generated fact (payload_extra merged in by callers)."""
+    from apm.content import gitrepo
+    from apm.core.ids import new_id
+
+    stamp = _now().strftime("%Y%m%d-%H%M%S")
+    rel = f"artifacts/reports/{prefix}-{stamp}-{new_id('r')[-6:]}.md"
+    nl = chr(10)
+    sha = gitrepo.write_file(
+        project_id, rel, nl.join(lines) + nl,
+        message=f"status report {stamp}", actor_type=actor_type, actor_id=actor_id)
+    events.emit(
+        event_type="artifact.report_generated", agg_type="artifact", agg_id=rel,
+        project_id=project_id, actor_type=actor_type, actor_id=actor_id,
+        payload={"path": rel, "commit": sha, **payload,
+                 "summary": payload.get("summary", f"生成状态报告 → {rel}")},
+    )
+    return {"path": rel, "commit": sha}
+
+
 @router.post("/projects/{project_id}/status-report")
 def generate_status_report(project_id: str, ai_summary: bool = False) -> dict:
     """M49-I148 (docs/01 §AT.2, Monday/TeamGantt "auto-compile a draft, human
@@ -1212,66 +1304,14 @@ def generate_status_report(project_id: str, ai_summary: bool = False) -> dict:
     channel inherits version history, diff and the audit trail for free, no
     new tables. Optional ai_summary adds a plain-language paragraph via the
     cheap-tier model (any failure degrades to the data-only report)."""
-    from apm.content import gitrepo
-    from apm.domains.approvals import list_approvals
     from apm.domains.projects import require_project
 
     require_project(project_id)
     conn = db.get_conn()
     project = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
     today = _now().date().isoformat()
-
-    funnel = {b: 0 for b in BUCKET_NAMES}
-    for r in conn.execute(
-        "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? AND archived_at IS NULL"
-        " GROUP BY status_group", (project_id,)).fetchall():
-        if r["status_group"] in funnel:
-            funnel[r["status_group"]] = r["c"]
-    done_pct = round(funnel["done"] * 100 / max(sum(funnel.values()), 1))
-    overdue = conn.execute(
-        "SELECT COUNT(*) c FROM items WHERE project_id = ? AND due_date IS NOT NULL"
-        " AND due_date < ? AND status_group NOT IN ('done','cancelled') AND archived_at IS NULL",
-        (project_id, today)).fetchone()["c"]
-    gates_pending = conn.execute(
-        "SELECT COUNT(*) c FROM approvals WHERE project_id = ? AND status = 'pending'",
-        (project_id,)).fetchone()["c"]
-    risks_open = conn.execute(
-        "SELECT COUNT(*) c FROM risks WHERE project_id = ? AND status != 'closed'",
-        (project_id,)).fetchone()["c"]
-    timelog = conn.execute(
-        "SELECT COALESCE(SUM(minutes), 0) m FROM item_time_entries"
-        " WHERE project_id = ? AND deleted_at IS NULL", (project_id,)).fetchone()["m"]
-    expense_cost = conn.execute(
-        "SELECT COALESCE(SUM(qty * unit_price), 0) c FROM expense_entries"
-        " WHERE project_id = ? AND deleted_at IS NULL", (project_id,)).fetchone()["c"]
-    budget_hours = project["budget_hours"]
-    recent_done = [
-        r["t"] for r in conn.execute(
-            "SELECT i.title AS t FROM events e JOIN items i ON i.id = e.agg_id"
-            " WHERE e.project_id = ? AND e.event_type = 'item.status_changed'"
-            " AND json_extract(e.payload, '$.status_group') = 'done'"
-            " ORDER BY e.id DESC LIMIT 5", (project_id,)).fetchall()
-    ]
-
-    lines = [
-        f"# 项目状态报告 · {project['name']}",
-        f"（生成于 {today} · 覆盖全部活跃工作项）", "",
-        "## 总体健康", "",
-        f"- 工作项漏斗：待办 {funnel['backlog']} · 就绪 {funnel['todo']} · 进行中 {funnel['in_progress']}"
-        f" · 完成 {funnel['done']} · 取消 {funnel['cancelled']}（完成度约 {done_pct}%）",
-        f"- 超期未结：**{overdue}** 项 · 挂起 Gate：**{gates_pending}** 个 · 开放风险：**{risks_open}** 条",
-        f"- 工时投入 {round(timelog / 60, 1)}h"
-        + (f" / 预算 {budget_hours}h（消耗 {round(timelog / 60 / budget_hours * 100)}%）" if budget_hours else "")
-        + f" · 费用行合计 {round(expense_cost, 2)}",
-        "",
-        "## 最近完成", "",
-    ]
-    lines += [f"- {t}" for t in recent_done] or ["-（暂无）"]
-    lines += ["", "## 待办与建议", "",
-              f"- {gates_pending} 个 Gate 待审批，先清审批墙" if gates_pending
-              else "- 审批墙干净，可推进新一批任务",
-              f"- 关注 {overdue} 项超期工作的原因归类（排期过满 / 依赖阻塞 / 范围蔓延）" if overdue
-              else "- 无超期项，节奏健康"]
+    m = _collect_status_metrics(conn, project, today)
+    lines = _render_status_lines(project, today, m)
 
     ai_note = None
     if ai_summary and config.settings.provider_mode != "replay":
@@ -1293,19 +1333,33 @@ def generate_status_report(project_id: str, ai_summary: bool = False) -> dict:
         except Exception:
             ai_note = None  # 降级：纯数据版照常交付
 
-    from apm.core.ids import new_id
+    out = _commit_report(project_id, lines, prefix="status",
+                         actor_type="human", actor_id=events.effective_actor(),
+                         payload={"ai_summary": bool(ai_note)})
+    out["ai_summary"] = ai_note
+    return out
 
-    stamp = _now().strftime("%Y%m%d-%H%M%S")
-    rel = f"artifacts/reports/status-{stamp}-{new_id('r')[-6:]}.md"
-    nl = chr(10)
-    sha = gitrepo.write_file(
-        project_id, rel, nl.join(lines) + nl,
-        message=f"status report {stamp}", actor_type="human",
-        actor_id=events.effective_actor())
-    events.emit(
-        event_type="artifact.report_generated", agg_type="artifact", agg_id=rel,
-        project_id=project_id, actor_type="human", actor_id=events.effective_actor(),
-        payload={"path": rel, "commit": sha, "ai_summary": bool(ai_note),
-                 "summary": f"生成状态报告 → {rel}"},
-    )
-    return {"path": rel, "commit": sha, "ai_summary": ai_note}
+
+def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
+    """M50-I150 (docs/01 §AU.1): the sweep's weekly pass entry — same assembly
+    core as the manual endpoint, automation actor, and the payload carries
+    source/week (per-project per-week heartbeat, zero new tables) plus the
+    structured metrics I152 diffs against next period. AI summary stays off
+    here: scheduled reports must not spend tokens nobody asked for."""
+    conn = db.get_conn()
+    project = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if project is None:
+        return {}
+    m = _collect_status_metrics(conn, project, today)
+    lines = _render_status_lines(project, today, m)
+    metrics = {"done_pct": m["done_pct"], "overdue": m["overdue"],
+               "gates": m["gates_pending"], "risks": m["risks_open"],
+               "expense_cost": round(m["expense_cost"], 2),
+               "timelog_h": round(m["timelog"] / 60, 1)}
+    out = _commit_report(project_id, lines, prefix="status",
+                         actor_type="automation", actor_id="scheduler",
+                         payload={"source": "weekly", "week": week,
+                                  "metrics": metrics,
+                                  "summary": f"周报已生成 → 第 {week} 期"})
+    out["metrics"] = metrics
+    return out

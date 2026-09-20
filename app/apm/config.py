@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     # I126 approval reminder: gates pending longer than this get an owner
     # nudge from the daily sweep (ServiceNow timer→reminder semantics).
     approval_reminder_days: int = 3
+    # M50-I150 weekly status report cadence: ISO weekday on which the daily
+    # sweep generates one report per active project (1=Monday; 0 disables).
+    weekly_report_day: int = 1
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.
