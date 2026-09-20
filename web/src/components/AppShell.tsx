@@ -124,6 +124,7 @@ export function AppShell() {
           );
         })}
         <div className="mt-auto flex flex-col items-center gap-2 pb-1">
+          <ThemeToggle />
           <button
             onClick={pingLlm}
             disabled={pinging}
@@ -317,6 +318,50 @@ function KindPrefMatrix() {
         </div>
       ))}
     </div>
+  );
+}
+
+/** M46-I140 主题三态切换（亮 → 暗 → 跟随系统循环）。类名与 localStorage
+ * 键必须与 index.html 的引导脚本一致（theme-dark / theme-light / apm-theme）。 */
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"system" | "light" | "dark">(() => {
+    try {
+      const t = localStorage.getItem("apm-theme");
+      return t === "dark" || t === "light" ? t : "system";
+    } catch { return "system"; }
+  });
+
+  const apply = (next: "system" | "light" | "dark") => {
+    setTheme(next);
+    const el = document.documentElement;
+    el.classList.remove("theme-light", "theme-dark");
+    if (next !== "system") el.classList.add(`theme-${next}`);
+    try { localStorage.setItem("apm-theme", next); } catch { /* private mode */ }
+    toast.info(
+      next === "dark" ? "已切换暗色主题" : next === "light" ? "已切换亮色主题" : "跟随系统主题",
+      { duration: 1500 },
+    );
+  };
+
+  const META = {
+    system: { icon: "◐", label: "主题：跟随系统（点击切换亮色）" },
+    light: { icon: "☀", label: "主题：亮色（点击切换暗色）" },
+    dark: { icon: "☾", label: "主题：暗色（点击恢复跟随系统）" },
+  } as const;
+  const m = META[theme];
+
+  return (
+    <button
+      onClick={() => apply(theme === "system" ? "light" : theme === "light" ? "dark" : "system")}
+      title={m.label}
+      aria-label={m.label}
+      className="flex h-11 w-11 flex-col items-center justify-center rounded-xl text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+    >
+      <span className="text-[15px] leading-none">{m.icon}</span>
+      <span className="mt-0.5 text-[10px] leading-none">
+        {theme === "system" ? "自动" : theme === "light" ? "亮" : "暗"}
+      </span>
+    </button>
   );
 }
 

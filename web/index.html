@@ -5,8 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/pwa-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#18181b" />
+    <!-- M46-I140: theme-color 跟随亮/暗（修复深色值配亮色内容的割裂） -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f7f8" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101012" />
     <title>AgentPM</title>
+    <script>
+      // M46-I140 主题引导：首帧前应用 localStorage 的手动三态（亮/暗/跟随
+      // 系统），防暗色用户看到亮色闪烁（FOUC）。
+      (function () {
+        try {
+          var t = localStorage.getItem("apm-theme");
+          if (t === "dark") document.documentElement.classList.add("theme-dark");
+          else if (t === "light") document.documentElement.classList.add("theme-light");
+        } catch (e) { /* storage 不可用时跟随系统 */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

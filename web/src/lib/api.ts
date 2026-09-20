@@ -736,13 +736,17 @@ export const api = {
       generated_at: string;
     }>(`/projects/${pid}/forecast`),
   // M40-I122: labor cost & budget (cost = logged minutes × own hourly rate)
-  getHourlyRate: () => req<{ rate: number | null }>("/me/hourly-rate"),
-  setHourlyRate: (rate: number) =>
-    req<{ rate: number }>("/me/hourly-rate", { method: "POST", body: JSON.stringify({ rate }) }),
+  getHourlyRate: () => req<{ rate: number | null; currency: string | null }>("/me/hourly-rate"),
+  setHourlyRate: (rate: number, currency?: string) =>
+    req<{ rate: number; currency: string | null }>("/me/hourly-rate", {
+      method: "POST", body: JSON.stringify({ rate, currency }),
+    }),
   getCostReport: (pid: string) =>
     req<{
-      project_id: string;
-      by_user: { user_id: string; user_name: string; hours: number; rate: number | null; cost: number }[];
+      project_id: string; base_currency: string;
+      by_user: { user_id: string; user_name: string; hours: number; rate: number | null;
+                 currency: string | null; cost: number; cost_native: number; fx_rate: number | null }[];
+      unconverted: { user_id: string; currency: string }[];
       spent_hours: number; total_cost: number;
       budget_hours: number | null; burn_ratio: number | null; over_budget: boolean;
       generated_at: string;

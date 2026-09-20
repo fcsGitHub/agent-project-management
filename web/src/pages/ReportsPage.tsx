@@ -290,14 +290,20 @@ function CostCard({ pid }: { pid: string }) {
           <div className="mt-1 text-xs text-mut">
             已投入 <span className="font-medium text-ink">{d.spent_hours}h</span> · 成本合计
             <span className="font-medium text-ink"> {d.total_cost}</span>
+            <span title="成本按全局汇率表折算基准币汇总（M46-I139）"> {d.base_currency}</span>
+            {d.unconverted.length > 0 && (
+              <span className="ml-1 text-warn" title={`未配汇率的币种按原值计入：${d.unconverted.map((u) => u.currency).join("、")}`}>
+                ⚠ {d.unconverted.length} 项未折算
+              </span>
+            )}
             {d.budget_hours != null && <> · 预算 {d.budget_hours}h · 消耗
-              <span className={cx("font-medium", d.over_budget ? "text-red-500" : "text-ink")}>
+              <span className={cx("font-medium", d.over_budget ? "text-dan" : "text-ink")}>
                 {Math.round((d.burn_ratio ?? 0) * 100)}%
               </span></>}
           </div>
           {d.budget_hours != null && (
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-bg">
-              <div className={cx("h-full rounded-full", d.over_budget ? "bg-red-400" : "bg-acc")}
+              <div className={cx("h-full rounded-full", d.over_budget ? "bg-dan" : "bg-acc")}
                 style={{ width: `${Math.min(100, (d.burn_ratio ?? 0) * 100)}%` }} />
             </div>
           )}
@@ -309,8 +315,11 @@ function CostCard({ pid }: { pid: string }) {
                   <div className="h-full rounded-full bg-acc"
                     style={{ width: `${(u.cost / maxCost) * 100}%` }} />
                 </div>
-                <span className="w-20 shrink-0 text-right text-mut">
-                  {u.hours}h{u.rate != null ? ` · ${u.cost}` : " · 未设费率"}
+                <span className="w-28 shrink-0 text-right text-mut"
+                  title={u.currency && u.currency !== d.base_currency
+                    ? `费率币种 ${u.currency} · 汇率 ${u.fx_rate ?? "未配"}`
+                    : undefined}>
+                  {u.hours}h{u.rate != null ? ` · ${u.cost}${u.currency ? ` ${u.currency === d.base_currency ? "" : `(${u.currency}${u.fx_rate != null ? "×" + u.fx_rate : "未折算"})`}` : ""}` : " · 未设费率"}
                 </span>
               </div>
             ))}

@@ -11,8 +11,8 @@ import { Badge, Button, Card, Empty, Input, cx } from "../components/ui";
 
 const LEVEL_LABEL: Record<number, string> = { 1: "低", 2: "中", 3: "高" };
 const CELL_TONE: Record<number, string> = {
-  1: "bg-green-100 text-green-700",
-  2: "bg-green-100 text-green-700",
+  1: "bg-okbg text-ok",
+  2: "bg-okbg text-ok",
   3: "bg-amber-100 text-amber-700",
   4: "bg-amber-100 text-amber-700",
   6: "bg-orange-100 text-orange-700",

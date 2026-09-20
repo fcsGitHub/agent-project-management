@@ -348,7 +348,7 @@ export function TimelinePage() {
             <button onClick={() => setShowCP((v) => !v)}
               title={cp.data?.cycle ? "依赖图中存在环，无法计算关键路径" : "CPM 正逆传递：float≤0 的任务链决定项目终点"}
               className={cx("rounded-lg border px-2 py-1 text-xs",
-                showCP ? "border-red-500 bg-red-500/10 text-red-400" : "border-line text-mut hover:border-acc hover:text-acc")}>
+                showCP ? "border-dan bg-danbg text-dan" : "border-line text-mut hover:border-acc hover:text-acc")}>
               ⛔ 关键路径
             </button>
           </div>
@@ -368,7 +368,7 @@ export function TimelinePage() {
             {view.ticks.map((t) => (
               <div key={t.pct} className="absolute top-0 bottom-0 w-px bg-line" style={{ left: `${t.pct}%` }} />
             ))}
-            <div className="absolute top-0 bottom-0 w-px bg-amber-400" style={{ left: `${view.todayPct}%` }} />
+            <div className="absolute top-0 bottom-0 w-px bg-warnln" style={{ left: `${view.todayPct}%` }} />
           </div>
 
           {/* milestone row */}
@@ -432,7 +432,7 @@ export function TimelinePage() {
                   const width = Math.max(view.pct(due) - left, 0.8);
                   const tone = d.item.status_group === "done" ? "bg-ag"
                     : d.item.status_group === "cancelled" ? "bg-line"
-                    : d.conflict ? "bg-red-500 ring-2 ring-red-300" : "bg-acc";
+                    : d.conflict ? "bg-dan ring-2 ring-dan/40" : "bg-acc";
                   const fmt = (x: Date) => x.toISOString().slice(0, 10);
                   return (
                     <div key={d.item.id}>
@@ -455,7 +455,7 @@ export function TimelinePage() {
                       >
                         {subProgress.get(d.item.id) && (
                           <div className="absolute bottom-0 left-1 right-1 h-0.5 overflow-hidden rounded bg-black/25">
-                            <div className="h-full rounded bg-emerald-400"
+                            <div className="h-full rounded bg-ok"
                               style={{ width: `${subProgress.get(d.item.id)!.percent}%` }} />
                           </div>
                         )}
@@ -537,12 +537,12 @@ export function TimelinePage() {
                       <td>{v.current_start ?? "—"} ~ {v.current_due ?? "—"}</td>
                       <td className="text-right">
                         {v.start_deviation != null && v.start_deviation !== 0 && (
-                          <span className={v.start_deviation > 0 ? "text-red-500" : "text-green-600"}>
+                          <span className={v.start_deviation > 0 ? "text-dan" : "text-ok"}>
                             开始 {v.start_deviation > 0 ? "+" : ""}{v.start_deviation}{" "}
                           </span>
                         )}
                         {v.due_deviation != null && v.due_deviation !== 0 && (
-                          <span className={v.due_deviation > 0 ? "text-red-500" : "text-green-600"}>
+                          <span className={v.due_deviation > 0 ? "text-dan" : "text-ok"}>
                             截止 {v.due_deviation > 0 ? "+" : ""}{v.due_deviation}
                           </span>
                         )}

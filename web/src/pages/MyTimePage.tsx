@@ -137,9 +137,9 @@ export function MyTimePage() {
 }
 
 const TS_TONE: Record<Timesheet["status"], string> = {
-  submitted: "bg-amber-500/15 text-amber-600",
-  approved: "bg-emerald-500/15 text-emerald-600",
-  rejected: "bg-red-500/15 text-red-500",
+  submitted: "bg-warnbg text-warn",
+  approved: "bg-okbg text-ok",
+  rejected: "bg-danbg text-dan",
 };
 const TS_LABEL: Record<Timesheet["status"], string> = {
   submitted: "待审批",
@@ -269,9 +269,9 @@ function TimesheetPanel() {
               {can ? (
                 <span className="ml-auto flex gap-1.5">
                   <button onClick={() => decide(row.id, true)}
-                    className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-medium text-white">✓ 批准</button>
+                    className="rounded-lg bg-ok px-2 py-1 text-[10px] font-medium text-white">✓ 批准</button>
                   <button onClick={() => decide(row.id, false)}
-                    className="rounded-lg border border-line px-2 py-1 text-[10px] hover:border-red-400 hover:text-red-500">✕ 驳回</button>
+                    className="rounded-lg border border-line px-2 py-1 text-[10px] hover:border-dan hover:text-dan">✕ 驳回</button>
                 </span>
               ) : <span className="ml-auto text-[10px] text-mut">无审批权</span>}
             </div>

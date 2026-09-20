@@ -72,13 +72,16 @@ def test_cost_report_math_and_budget(client, ctx):
 
     r = client.get(f"/api/projects/{pid}/cost-report").json()
     by_user = {u["user_id"]: u for u in r["by_user"]}
+    # I139 多币种：行新增 currency/cost_native/fx_rate（缺省币种=基准币 fx=1）
     assert by_user["u_w1"] == {"user_id": "u_w1", "user_name": "王工",
-                               "hours": 2.0, "rate": 100, "cost": 200.0}
+                               "hours": 2.0, "rate": 100, "cost": 200.0,
+                               "currency": None, "cost_native": 200.0, "fx_rate": 1.0}
     assert by_user["u_w2"]["cost"] == 180.0
     assert by_user["u_free"]["hours"] == 1.0 and by_user["u_free"]["cost"] == 0
     assert r["spent_hours"] == 6.0 and r["total_cost"] == 380.0
     assert r["budget_hours"] == 10 and r["burn_ratio"] == 0.6
     assert r["over_budget"] is False
+    assert r["base_currency"] == "CNY" and r["unconverted"] == []
 
     # pushing past the budget flips the flag (budget 5h < 6h spent)
     assert client.patch(f"/api/projects/{pid}", json={"budget_hours": 5}).status_code == 200

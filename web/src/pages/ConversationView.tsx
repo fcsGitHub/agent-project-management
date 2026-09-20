@@ -1,9 +1,12 @@
-/** Conversation view: persistent, interruptible human-agent interaction (docs/06 §3.3). */
+/** Conversation view: persistent, interruptible human-agent interaction (docs/06 §3.3).
+ * I138: assistant 生成内容经 run.token_delta 瞬态增量逐字渲染（不入库），
+ * message.created 落库后自动切回权威全文。 */
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import { onStreamEvent } from "../lib/sse";
 import { clockOf } from "../lib/fmt";
 import {
   Badge, Button, Collapse, Drawer, Empty, Textarea, CONV_STATUS, cx,
@@ -20,6 +23,9 @@ export function ConversationView() {
   const [ctxOpen, setCtxOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [refetchTimer, setRefetchTimer] = useState<number | null>(null);
+  // I138: 当前 run 的流式增量缓冲——message.created 落库后清空（权威全文接管）
+  const [streamBuf, setStreamBuf] = useState("");
+  const [streamNode, setStreamNode] = useState<string | null>(null);
 
   const conv = useQuery({
     queryKey: ["conversation", cid],
@@ -61,6 +67,33 @@ export function ConversationView() {
 
   const pending = (approvals.data?.approvals ?? []).find((a) => a.conversation_id === cid);
 
+  // I138: 订阅流式增量——只认本对话的 token_delta；权威消息落库（refetch 后
+  // messages 变化）即清缓冲，避免流式残影与落库文本并存。
+  const lastMsgRef = useRef(conv.data?.messages?.length ?? 0);
+  useEffect(() => {
+    const off = onStreamEvent((e) => {
+      if (e.event_type !== "run.token_delta") return;
+      const d = e as unknown as { conversation_id?: string; delta?: string; node?: string };
+      if (d.conversation_id !== cid || !d.delta) return;
+      setStreamNode(d.node ?? null);
+      setStreamBuf((b) => (b + d.delta).slice(-20_000));
+    });
+    return off;
+  }, [cid]);
+  useEffect(() => {
+    const n = (conv.data?.messages?.length ?? 0);
+    if (n !== lastMsgRef.current) {
+      lastMsgRef.current = n;
+      setStreamBuf("");
+      setStreamNode(null);
+    }
+  }, [conv.data?.messages?.length]);
+  useEffect(() => {
+    // 对话切换/卸载：缓冲必须清零，防跨对话串流
+    setStreamBuf("");
+    setStreamNode(null);
+    lastMsgRef.current = (conv.data?.messages?.length ?? 0);
+  }, [cid]);
   // While a run is live, poll faster so streaming steps appear.
   useEffect(() => {
     const status = conv.data?.status;
@@ -168,14 +201,23 @@ export function ConversationView() {
         {(c.messages ?? []).map((m) => (
           <MessageRow key={m.id} m={m} pid={pid} />
         ))}
-        {!c.messages?.length && (
+        {streamBuf && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%] rounded-2xl border border-line bg-surface px-3.5 py-2 text-sm whitespace-pre-wrap break-words" data-testid="stream-bubble">
+              {streamNode && <div className="mb-0.5 text-[10px] font-mono text-mut">🤖 {streamNode} · 生成中</div>}
+              {streamBuf}
+              <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-acc align-middle">▍</span>
+            </div>
+          </div>
+        )}
+        {!c.messages?.length && !streamBuf && (
           <Empty
             icon="💬"
             title="对话尚未开始"
             hint="发送第一条消息，或让 Agent 执行任务；执行中发送消息 = 打断并注入指令"
           />
         )}
-        {c.status === "running" && (
+        {c.status === "running" && !streamBuf && (
           <div className="flex items-center gap-2 px-2 text-xs text-ag">
             <span className="animate-pulse">●</span> Agent 执行中…（步骤将实时出现）
           </div>

@@ -636,7 +636,7 @@ export function Board() {
                             ) : <span className="w-3" />}
                             <span className="font-medium">{item.title}</span>
                             {item.blocked && (
-                              <span className="text-[10px] text-red-500" title="存在未完成的阻塞上游">🚧</span>
+                              <span className="text-[10px] text-dan" title="存在未完成的阻塞上游">🚧</span>
                             )}
                             {wpProgress.get(item.id) && (
                               <span className="text-[10px] text-mut" title="子任务加权进度（estimate_hours 逐级上卷）">
@@ -713,7 +713,7 @@ export function Board() {
               <div className="flex items-center justify-between px-3 py-2">
                 <Badge tone={overWip ? "red" : col.tone}>{col.label}</Badge>
                 {overWip ? (
-                  <span className="text-xs font-medium text-red-500"
+                  <span className="text-xs font-medium text-dan"
                     title={`超出在制品上限（${wipCount}/${wipLimit}）——建议先完成再取新任务`}>
                     {wipCount}/{wipLimit} ⚠
                   </span>
@@ -734,7 +734,7 @@ export function Board() {
                       className={cx(
                         "cursor-pointer p-2.5 text-xs transition-all",
                         selected.has(item.id) && "ring-2 ring-acc",
-                        listed[kbIndex]?.id === item.id && "ring-2 ring-amber-400",
+                        listed[kbIndex]?.id === item.id && "ring-2 ring-warnln",
                       )}
                     >
                       <div className="flex items-start gap-1.5">

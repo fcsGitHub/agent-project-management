@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Webhook SSRF 防护（默认开）：拒绝私网/环回/链路本地投递目标；测试或
     # 内网集成场景显式放开（APM_WEBHOOK_ALLOW_PRIVATE=true）。
     webhook_allow_private: bool = False
+    # I139 多币种：成本汇总的基准币种 + 手工汇率表（1 单位 X = ? 基准币，
+    # 如 APM_FX_RATES='{"USD":7.2}'）。汇率是可审计的手工配置，不外呼行情。
+    base_currency: str = "CNY"
+    fx_rates: dict[str, float] = {}
     # OIDC single sign-on (M17): entirely optional — issuer/client_id/secret all
     # set enables the feature, otherwise it stays off (same semantics as SMTP).
     # allowed_groups: comma-separated IdP group names; empty disables the group

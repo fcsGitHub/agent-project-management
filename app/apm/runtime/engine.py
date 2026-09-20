@@ -358,9 +358,26 @@ class RunEngine:
             )
 
     def _provider_complete(self, node: str, state: RunState):
+        from apm.core.bus import event_bus
         from apm.runtime.provider import get_provider
 
         ctx = self._context(state)
+        provider = get_provider()
+        # I138: 真实 provider（含 record 包装）走流式；每个增量经 event_bus
+        # **瞬态**广播（publish 不 emit——绝不落事件库，逐 token 入库会炸事件
+        # 表并破坏 live==replay 可承受性），完整文本仍是 message.created 唯一真相。
+        streaming = provider.mode in ("openai", "record")
+
+        def _on_delta(chunk: str) -> None:
+            event_bus.publish({
+                "event_type": "run.token_delta",
+                "run_id": self.run_id,
+                "conversation_id": self.conversation_id,
+                "project_id": self.project_id,
+                "node": node,
+                "delta": chunk,
+            })
+
         sid = spans.open_span(
             run_id=self.run_id,
             project_id=self.project_id,
@@ -374,13 +391,15 @@ class RunEngine:
                 "apm.conversation_id": self.conversation_id,
                 "apm.item_id": self.run.get("item_id"),
                 "apm.graph_node_id": self.run["graph_node_id"],
+                "apm.stream": streaming,
             },
         )
-        completion = get_provider().complete(
-            role=self.role.id, node=node, messages=self._messages(state), context=ctx
+        completion = provider.complete(
+            role=self.role.id, node=node, messages=self._messages(state), context=ctx,
+            on_delta=_on_delta if streaming else None,
         )
         # M44: real usage lands on the run record (replay keeps its honest zeros)
-        if get_provider().mode != "replay":
+        if provider.mode != "replay":
             events.emit(
                 event_type="run.tokens_recorded",
                 agg_type="run",

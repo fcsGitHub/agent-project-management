@@ -18,7 +18,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from apm import config
 from apm.runtime.replay_templates import render
@@ -26,6 +26,11 @@ from apm.runtime.replay_templates import render
 
 class LLMError(RuntimeError):
     """A readable, user-facing provider failure (lands in run.failed.error)."""
+
+
+# I138: incremental token callback — transient deltas ride the event bus only
+# (never the event log); the assembled text stays the single persisted truth.
+DeltaCallback = Callable[[str], None]
 
 
 @dataclass
@@ -53,7 +58,9 @@ def resolve_protocol(base_url: str, protocol: str | None = None) -> str:
 class ReplayProvider:
     mode = "replay"
 
-    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any]) -> Completion:
+    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any],
+                 on_delta: DeltaCallback | None = None) -> Completion:
+        # 诚实非流式（M46-I138）：replay 无增量语义，一次性直返完整文本。
         text = render(role, node, context)
         input_tokens, output_tokens = _count_tokens(messages, text)
         return Completion(
@@ -79,9 +86,13 @@ class OpenAICompatProvider:
             max_retries=2,
         )
 
-    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any]) -> Completion:
+    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any],
+                 on_delta: DeltaCallback | None = None) -> Completion:
         model = context.get("model") or config.settings.llm_model
         try:
+            if on_delta is not None:
+                return self._complete_streaming(model=model, messages=messages, context=context,
+                                                on_delta=on_delta)
             resp = self._client.chat.completions.create(
                 model=model,
                 messages=messages,  # type: ignore[arg-type]
@@ -102,6 +113,47 @@ class OpenAICompatProvider:
             text=text,
             input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
             output_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            model=model,
+        )
+
+    def _complete_streaming(self, *, model: str, messages: list[dict],
+                            context: dict[str, Any], on_delta: DeltaCallback) -> Completion:
+        """I138: stream=True 增量读取；usage 走 include_usage 尾 chunk，兼容端
+        不支持时退化为字符数估算（诚实近似，量级正确）。"""
+        kwargs: dict[str, Any] = dict(
+            model=model,
+            messages=messages,  # type: ignore[arg-type]
+            temperature=context.get("temperature", 0.3),
+            max_tokens=config.settings.llm_max_tokens,
+            stream=True,
+        )
+        try:
+            stream = self._client.chat.completions.create(
+                **kwargs, stream_options={"include_usage": True})
+        except Exception:
+            # 兼容端不认 stream_options → 退回纯流式（usage 估算）
+            stream = self._client.chat.completions.create(**kwargs)
+        parts: list[str] = []
+        usage: Any = None
+        try:
+            for chunk in stream:
+                u = getattr(chunk, "usage", None)
+                if u is not None:
+                    usage = u
+                choices = getattr(chunk, "choices", None) or []
+                delta = getattr(getattr(choices[0], "delta", None), "content", None) if choices else None
+                if delta:
+                    parts.append(delta)
+                    on_delta(delta)
+        except Exception as e:
+            raise LLMError(f"LLM 流式读取失败（openai 协议 · {model}）: {_brief(e)}") from e
+        text = "".join(parts).strip()
+        if not text:
+            raise LLMError(f"LLM 流式返回空内容（模型 {model}）")
+        return Completion(
+            text=text,
+            input_tokens=getattr(usage, "prompt_tokens", 0) or 0 if usage else _count_tokens(messages, text)[0],
+            output_tokens=getattr(usage, "completion_tokens", 0) or 0 if usage else max(1, len(text) // 2),
             model=model,
         )
 
@@ -127,7 +179,8 @@ class AnthropicCompatProvider:
             timeout=config.settings.llm_timeout_s, headers=headers, transport=transport
         )
 
-    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any]) -> Completion:
+    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any],
+                 on_delta: DeltaCallback | None = None) -> Completion:
         model = context.get("model") or config.settings.llm_model
         system = "\n".join(m["content"] for m in messages if m.get("role") == "system")
         body: dict[str, Any] = {
@@ -144,6 +197,8 @@ class AnthropicCompatProvider:
         last_err = ""
         for attempt in range(3):  # 429/5xx backoff; transport errors retry too
             try:
+                if on_delta is not None:
+                    return self._complete_streaming(body=body, model=model, on_delta=on_delta)
                 r = self._client.post(self._url, json=body)
             except Exception as e:
                 last_err = _brief(e)
@@ -156,6 +211,51 @@ class AnthropicCompatProvider:
             last_err = f"HTTP {r.status_code}: {r.text[:200]}"
             time.sleep(1.0 * (attempt + 1))
         raise LLMError(f"LLM 调用失败（anthropic 协议 · {model}）: {last_err or 'unknown'}")
+
+    def _complete_streaming(self, *, body: dict[str, Any], model: str,
+                            on_delta: DeltaCallback) -> Completion:
+        """I138: httpx SSE 流式——content_block_delta 逐块回调，usage 取自
+        message_start（input）与 message_delta（output）；非 200 抛错交上游重试。"""
+        import json as _json
+
+        parts: list[str] = []
+        input_tokens = output_tokens = 0
+        try:
+            with self._client.stream("POST", self._url, json=body) as resp:
+                if resp.status_code != 200:
+                    detail = resp.read().decode("utf-8", "replace")[:200]
+                    raise LLMError(f"HTTP {resp.status_code}: {detail}")
+                for line in resp.iter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload in ("", "[DONE]"):
+                        continue
+                    try:
+                        evt = _json.loads(payload)
+                    except ValueError:
+                        continue
+                    etype = evt.get("type")
+                    if etype == "message_start":
+                        u = (evt.get("message") or {}).get("usage") or {}
+                        input_tokens = int(u.get("input_tokens", 0) or 0)
+                    elif etype == "content_block_delta":
+                        d = evt.get("delta") or {}
+                        if d.get("type") == "text_delta" and d.get("text"):
+                            parts.append(d["text"])
+                            on_delta(d["text"])
+                    elif etype == "message_delta":
+                        u = evt.get("usage") or {}
+                        output_tokens = int(u.get("output_tokens", 0) or 0)
+        except LLMError:
+            raise
+        except Exception as e:
+            raise LLMError(f"LLM 流式读取失败（anthropic 协议 · {model}）: {_brief(e)}") from e
+        text = "".join(parts).strip()
+        if not text:
+            raise LLMError(f"LLM 流式返回空内容（模型 {model}）")
+        return Completion(text=text, input_tokens=input_tokens,
+                          output_tokens=output_tokens or max(1, len(text) // 2), model=model)
 
     @staticmethod
     def _parse(data: dict, model: str) -> Completion:
@@ -211,8 +311,10 @@ class RecordProvider:
     def protocol(self) -> str:
         return getattr(self._real, "protocol", "openai")
 
-    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any]) -> Completion:
-        c = self._real.complete(role=role, node=node, messages=messages, context=context)
+    def complete(self, *, role: str, node: str, messages: list[dict], context: dict[str, Any],
+                 on_delta: DeltaCallback | None = None) -> Completion:
+        c = self._real.complete(role=role, node=node, messages=messages, context=context,
+                                on_delta=on_delta)  # 录制模式透传流式回调
         key = f"{role}/{node}"
         with RecordProvider._lock:
             self._recordings[key] = c.text

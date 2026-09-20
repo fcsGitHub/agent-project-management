@@ -224,7 +224,7 @@ function ClosureCard({ pid, completed }: { pid: string; completed: boolean }) {
           {d.checks.map((c) => (
             <div key={c.key}
               className={cx("rounded-lg border px-2 py-1.5 text-[11px]",
-                c.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600")}>
+                c.ok ? "border-okln bg-okbg text-ok" : "border-danbg bg-danbg text-dan")}>
               {c.ok ? "✓" : "✗"} {c.label}
             </div>
           ))}

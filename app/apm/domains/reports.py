@@ -856,23 +856,40 @@ def cost_report(project_id: str) -> dict:
     cost = logged minutes × the member's hourly rate, derived on the fly from
     the time-entry projection — never a second ledger. Members without a rate
     contribute hours but zero cost (stated, not hidden). The budget is set in
-    hours; the burn ratio compares spent hours against it."""
+    hours; the burn ratio compares spent hours against it.
+    M46-I139 多币种：费率带币种（users.currency），按全局手工汇率表折算
+    基准币汇总；未配汇率的币种诚实标注「未折算」，不假装精确。"""
+    from apm import config as cfg
     from apm.domains.projects import require_project
 
     require_project(project_id)
     conn = db.get_conn()
     rows = conn.execute(
         "SELECT t.user_id AS uid, u.name AS uname, u.hourly_rate AS rate,"
-        " SUM(t.minutes) AS minutes"
+        " u.currency AS currency, SUM(t.minutes) AS minutes"
         " FROM item_time_entries t LEFT JOIN users u ON u.id = t.user_id"
         " WHERE t.project_id = ? AND t.deleted_at IS NULL"
         " GROUP BY t.user_id ORDER BY minutes DESC", (project_id,)).fetchall()
-    by_user = [{
-        "user_id": r["uid"], "user_name": (r["uname"] or r["uid"]),
-        "hours": round((r["minutes"] or 0) / 60, 2),
-        "rate": r["rate"],
-        "cost": round((r["minutes"] or 0) / 60 * (r["rate"] or 0), 2),
-    } for r in rows]
+    base = (cfg.settings.base_currency or "CNY").upper()
+    rates = {k.upper(): float(v) for k, v in (cfg.settings.fx_rates or {}).items()}
+    unconverted: list[dict] = []
+    by_user = []
+    for r in rows:
+        cost_native = round((r["minutes"] or 0) / 60 * (r["rate"] or 0), 2)
+        cur = (r["currency"] or base).upper()
+        fx = 1.0 if cur == base else rates.get(cur)
+        if fx is None:
+            unconverted.append({"user_id": r["uid"], "currency": cur})
+            cost_base = cost_native  # 未折算：原样计入并显式披露
+        else:
+            cost_base = round(cost_native * fx, 2)
+        by_user.append({
+            "user_id": r["uid"], "user_name": (r["uname"] or r["uid"]),
+            "hours": round((r["minutes"] or 0) / 60, 2),
+            "rate": r["rate"], "currency": r["currency"],
+            "cost": cost_base, "cost_native": cost_native,
+            "fx_rate": fx,
+        })
     spent_hours = round(sum(u["hours"] for u in by_user), 2)
     total_cost = round(sum(u["cost"] for u in by_user), 2)
     budget = conn.execute(
@@ -880,7 +897,9 @@ def cost_report(project_id: str) -> dict:
     burn_ratio = round(spent_hours / budget, 4) if budget else None
     return {
         "project_id": project_id,
+        "base_currency": base,
         "by_user": by_user,
+        "unconverted": unconverted,
         "spent_hours": spent_hours,
         "total_cost": total_cost,
         "budget_hours": budget,

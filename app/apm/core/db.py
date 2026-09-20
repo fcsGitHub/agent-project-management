@@ -122,6 +122,9 @@ def init_db() -> None:
         ucols2 = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
         if "hourly_rate" not in ucols2:
             conn.execute("ALTER TABLE users ADD COLUMN hourly_rate REAL")
+        # I139: 存量库补 users.currency（费率币种，成本报表折算基准币）。
+        if "currency" not in ucols2:
+            conn.execute("ALTER TABLE users ADD COLUMN currency TEXT")
         pcols2 = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "budget_hours" not in pcols2:
             conn.execute("ALTER TABLE projects ADD COLUMN budget_hours REAL")

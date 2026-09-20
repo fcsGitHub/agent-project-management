@@ -42,7 +42,7 @@ const TONES: Record<string, string> = {
   violet: "bg-agbg text-ag border-violet-100",
   green: "bg-okbg text-ok border-okln",
   amber: "bg-warnbg text-warn border-warnln",
-  red: "bg-danbg text-dan border-red-100",
+  red: "bg-danbg text-dan border-dan/30",
 };
 
 export function Badge({

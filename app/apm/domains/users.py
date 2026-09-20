@@ -305,27 +305,40 @@ def add_time_off(body: TimeOffIn) -> dict:
 # ---------------------------------------------------- hourly rate (I122)
 class RateIn(BaseModel):
     rate: float
+    currency: str | None = None  # I139: 费率币种（ISO 代码，如 USD）；空=沿用现值
 
 
 @router.get("/me/hourly-rate")
 def get_hourly_rate() -> dict:
     row = db.get_conn().execute(
-        "SELECT hourly_rate FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
-    return {"rate": row["hourly_rate"] if row else None}
+        "SELECT hourly_rate, currency FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
+    return {"rate": row["hourly_rate"] if row else None,
+            "currency": row["currency"] if row else None}
 
 
 @router.post("/me/hourly-rate")
 def set_hourly_rate(body: RateIn) -> dict:
     """Own-data runtime preference (same family as email_notify/feed_key):
-    the cost report derives labor cost from logged minutes × this rate."""
+    the cost report derives labor cost from logged minutes × this rate.
+    I139: currency 是费率的币种标注——cost-report 按全局汇率表折算基准币。"""
     if body.rate < 0:
         raise HTTPException(status_code=422, detail="rate must not be negative")
+    cur = (body.currency or "").strip().upper() or None
+    if cur and (len(cur) != 3 or not cur.isalpha()):
+        raise HTTPException(status_code=422, detail="currency must be a 3-letter ISO code")
     conn = db.get_conn()
-    conn.execute(
-        "UPDATE users SET hourly_rate = ?, updated_at = ? WHERE id = ?",
-        (body.rate, events.utcnow(), events.effective_actor()))
+    if cur is None:
+        conn.execute(
+            "UPDATE users SET hourly_rate = ?, updated_at = ? WHERE id = ?",
+            (body.rate, events.utcnow(), events.effective_actor()))
+    else:
+        conn.execute(
+            "UPDATE users SET hourly_rate = ?, currency = ?, updated_at = ? WHERE id = ?",
+            (body.rate, cur, events.utcnow(), events.effective_actor()))
     conn.commit()
-    return {"rate": body.rate}
+    row = conn.execute(
+        "SELECT currency FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
+    return {"rate": body.rate, "currency": row["currency"] if row else None}
 
 
 @router.delete("/me/time-off/{off_id}")

@@ -25,6 +25,65 @@
   --radius-apm: 12px;
 }
 
+/* M46-I140 暗色主题：Tailwind v4 的 @theme 变量就是普通 CSS 自定义属性，
+ * 工具类（bg-bg 等）引用 var(--color-*)——在 html 上重写这组变量即全局
+ * 换肤，组件零改动。三态策略（AppShell 切换器 + index.html 引导脚本）：
+ *   跟随系统 = 无类（media 查询生效，但被 .theme-light 排除）
+ *   强制亮色 = html.theme-light（media 被排除，用默认亮色 token）
+ *   强制暗色 = html.theme-dark
+ * 两组暗变量必须同步维护。 */
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) {
+    --color-bg: #101012;
+    --color-surface: #1c1c1f;
+    --color-ink: #e4e4e7;
+    --color-mut: #8f8f98;
+    --color-line: #2e2e33;
+    --color-acc: #818cf8;
+    --color-accbg: #26264a;
+    --color-ag: #a78bfa;
+    --color-agbg: #2a2444;
+    --color-ok: #34d399;
+    --color-okbg: #0d2b22;
+    --color-okln: #065f46;
+    --color-warn: #fbbf24;
+    --color-warnbg: #2e240d;
+    --color-warnln: #a16207;
+    --color-dan: #f87171;
+    --color-danbg: #341b1b;
+    --color-rail: #000000;
+  }
+}
+html.theme-dark {
+  --color-bg: #101012;
+  --color-surface: #1c1c1f;
+  --color-ink: #e4e4e7;
+  --color-mut: #8f8f98;
+  --color-line: #2e2e33;
+  --color-acc: #818cf8;
+  --color-accbg: #26264a;
+  --color-ag: #a78bfa;
+  --color-agbg: #2a2444;
+  --color-ok: #34d399;
+  --color-okbg: #0d2b22;
+  --color-okln: #065f46;
+  --color-warn: #fbbf24;
+  --color-warnbg: #2e240d;
+  --color-warnln: #a16207;
+  --color-dan: #f87171;
+  --color-danbg: #341b1b;
+  --color-rail: #000000;
+}
+html {
+  color-scheme: light dark;
+}
+html.theme-light {
+  color-scheme: light;
+}
+html.theme-dark {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -41,7 +100,7 @@ body {
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
+  background: var(--color-line);
   border-radius: 4px;
 }
 *::-webkit-scrollbar-track {

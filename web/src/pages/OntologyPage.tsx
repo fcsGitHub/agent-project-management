@@ -1281,7 +1281,7 @@ function DiffView({ d }: { d: OntologyDiff }) {
   const g = d.diff;
   const chip = (label: string, removed = false) => (
     <span key={label}
-          className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${removed ? "bg-red-500/10 text-dan" : "bg-green-500/10 text-emerald-600"}`}>
+          className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${removed ? "bg-danbg text-dan" : "bg-okbg text-ok"}`}>
       {removed ? "−" : "+"}{label}
     </span>
   );
@@ -1302,7 +1302,7 @@ function DiffView({ d }: { d: OntologyDiff }) {
         <div key={m.id} className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs">
           <span className="font-medium">~ {m.name}</span>
           {m.changes.map((c, i) => (
-            <span key={i} className="ml-2 font-mono text-[10px] text-amber-600">{c.type}:{c.detail}</span>
+            <span key={i} className="ml-2 font-mono text-[10px] text-warn">{c.type}:{c.detail}</span>
           ))}
         </div>
       ))}
@@ -1319,7 +1319,7 @@ function DiffView({ d }: { d: OntologyDiff }) {
       {d.impact.blocking.length > 0 && (
         <div className="space-y-1">
           {d.impact.blocking.map((b, i) => (
-            <div key={i} className="rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-1.5 text-xs text-dan">
+            <div key={i} className="rounded-lg border border-dan/40 bg-danbg px-3 py-1.5 text-xs text-dan">
               ⛔ {b.detail}
               {b.sample_items?.map((s) => (
                 <span key={s.id} className="ml-2 font-mono text-[10px] text-mut">{s.title}</span>
@@ -1334,7 +1334,7 @@ function DiffView({ d }: { d: OntologyDiff }) {
         </div>
       )}
       {d.to_validation_errors.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-600">
+        <div className="rounded-lg border border-warn/40 bg-warnbg px-3 py-1.5 text-[11px] text-warn">
           当前文件校验问题：{d.to_validation_errors.join("；")}
         </div>
       )}

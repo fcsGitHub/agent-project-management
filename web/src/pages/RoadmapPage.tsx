@@ -73,7 +73,7 @@ export function RoadmapPage() {
                     style={{ left: `${Math.max(left, 0)}%` }}>
                     <div className="h-full bg-accbg" style={{ width: `${ratio}%` }} />
                   </div>
-                  <span className={`absolute top-1 ml-2 whitespace-nowrap text-[10px] leading-4 ${m.overdue ? "font-medium text-red-500" : "text-mut"}`}
+                  <span className={`absolute top-1 ml-2 whitespace-nowrap text-[10px] leading-4 ${m.overdue ? "font-medium text-dan" : "text-mut"}`}
                     style={{ left: `${Math.max(left, 0)}%` }}>
                     ◆ {m.title} {m.overdue ? "· 超期" : ""} {m.progress.done_ratio != null ? `· ${Math.round(m.progress.done_ratio * 100)}%` : ""}
                   </span>
