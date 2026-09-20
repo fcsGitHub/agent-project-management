@@ -1295,3 +1295,34 @@ M46 = **流式与主题三件套**：I138 LLM 流式输出（体验面——Lang
 **AR.5 M47 取舍**
 
 M47 = **深度与协同三件套**：I141 LLM 对话上下文压缩（深度面——LangGraph SummarizationNode 语义，「压缩是读路径优化，存储原文永不改」）/ I142 单元成本行项（价值面——OpenProject Budget 双轨，expense 一等记录+I139 汇率口径延续）/ I143 跨项目依赖+收尾审阅（协同面——OpenProject 跨项目 relations，「关系跟着工作项走」）+ docs/12 §42 + 冒烟 52 + M47 审阅，约 9 人日。角色温度/模型分档、record 录制件上下文指纹、跨项目关系类型扩展（derived/includes）、M45/M46 工程债（engine `_exec_lock` run 粒度化/_active_runs 清理/看板列渐进渲染）留 backlog。
+
+
+## AS. M48 前置调研：模型分档与降级 / 周期回顾包 / 并发治理（2026-09-21）
+
+> 目标协议触发：M47 完成后开启。防重查：候选池 grep——温度/模型分档（§AQ/§AR 两次留 backlog，无调研记录）、Cycles 多周期并列（§AQ 已确认 Plane 无原生 + I129 覆盖跨周期对比，**维持降级不重查**）、record 录制件指纹（§AQ 定性「小改进」并入本轮分档迭代，不独立立项）、回顾会议/retrospective（§B Leantime 仅「回顾」一词，无落地调研）、并发/锁粒度（工程债非调研项，但本轮补行业模式）。本轮三路新调研（模型分档与降级 / 周期回顾包 / 并发治理），选定 **M48 = 调度与治理三件套**。
+
+**AS.1 角色模型分档与 cascade 降级（model routing + cascade 语义）**
+
+- 行业：model routing=把每类查询路由到能胜任的最便宜模型（研究口径 **2-4× 成本降**而质量不损）；model cascade=**cheap-first、失败按档升级**（[routing/cascade 统一框架](https://openreview.net)、[NeuralTrust 路由指南](https://neuraltrust.com)、[TrueFoundry 成本感知路由](https://www.truefoundry.com)、[路由技术综述](https://www.getmaxim.ai)）。共同语义：**档位是显式配置（cheap/standard/reasoning 三档），运行时按档取模型名；失败沿档升级要留痕（degraded 可观测），绝不静默换档**。
+- 对本项目的映射：已有零散档位（`ui_agent_model` 廉价档、角色 `model.name`、I141 摘要走廉价档）——升级为**三档体系**：config `APM_MODEL_CHEAP/STANDARD/REASONING`（STANDARD 缺省回落 llm_model）+ 角色 YAML `model.tier: cheap|standard|reasoning`（显式 `model.name` 仍最高优先）+ **cascade 降级**：主档 LLMError（限流/5xx/超时）时向上一档重试一次，span 标 `apm.model_tier/model_degraded`，run 照常不 fail。**档位语义诚实**：降级只在错误路径，正常路由永不静默换模型。
+
+**AS.2 周期回顾包（retrospective data pack 语义）**
+
+- 行业：回顾（retrospective）是 Scrum 五步仪式的收口，工具趋势是把**数据支撑内建**进仪式（velocity 趋势=「团队容量的速度表」（[Atlassian](https://www.atlassian.com)）、analytics 面板把交付模式变成规划信号（[Axify](https://axify.io)）；2026 调研（419 工程师/PM）指出的最大缺口恰是**回顾洞察 → 跟进落地**（[Easy Agile Trends](https://www.easyagile.com)、[五步回顾实践研究](https://arxiv.org)）。共同语义：**回顾需要一份现成的数据包——周期口径对齐、拖入项显性、改进项可追踪**。
+- 对本项目的映射：M39-M42 已散落全部素材（velocity/forecast/burnup/carryover/responsiveness/blocks）——缺一个**仪式出口**。落点：`GET /cycles/{id}/retrospective` 纯投影聚合——完成数/承诺完成率（对 I129 口径）、结转拖入清单（I119 carryover）、超期新增、人机 run 参与度、top 阻塞依赖（blocks 计数排序）、与前周期速率对比；前端周期卡「📋 回顾」入口 + 打印友好。改进项转任务（retro action item → item）留 backlog。
+
+**AS.3 并发治理（per-run lock + 泄漏清理，工程债+行业模式）**
+
+- 行业：instance-wide 锁会把「配置的并发」变成「实际串行」——LangGraph `AsyncPostgresSaver` 用实例级 `asyncio.Lock` 包连接池即翻车（**configured capacity ≠ effective concurrency**）；正解=锁/信号量按**真正需要互斥的边界**划分（[Python sync 原语](https://docs.python.org)、[asyncio 信号量对齐速率限制](https://rednafi.com)）；并行分支的中断/取消要用结构化并发处理（[LangChain 论坛](https://forum.langchain.com)）。共同语义：**互斥边界=共享可变状态的范围，不是「图实例」或「进程」**。
+- 对本项目的映射：M45 审计 M8/L1 两笔工程债一次清——①`engine._exec_lock` 全局 threading.Lock 让所有 run 串行（一个挂起 LLM 调用阻塞全实例约 9 分钟）→ **按 conversation_id 分锁**（同对话的 run 天然互斥防状态竞争；不同对话并行；SQLite 写已由 `db.tx` 全局锁保护、LLM 长 IO 不持锁，安全）；②`_active_runs` 字典只进不出 → run 终态时 pop（终态判定复用 runkeeper 状态机）。看板列渐进渲染（前端显示债）并入收尾迭代。
+
+**AS.4 M48 设计映射与验证纪律（沿用）**
+
+- I144 模型分档：三档配置+tier 解析[显式 name 优先]+cascade 单次降级+span 观测；单测（tier 解析/降级链/降级留痕/replay 不受影响）。
+- I145 周期回顾包：聚合端点（完成率/拖入/超期/run 参与/blocks top/速率对比）+前端入口；单测（口径对齐 I129/空周期诚实/rebuild 一致）。
+- I146 并发治理+收尾：per-conversation 锁 + _active_runs pop + 看板列渐进渲染 + **冒烟 53**（分档降级/回顾包/并行 run）+ M48 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M48 审阅。
+
+**AS.5 M48 取舍**
+
+M48 = **调度与治理三件套**：I144 角色模型分档与 cascade 降级（成本面——routing/cascade 语义，「降级只在错误路径，永不静默换档」）/ I145 周期回顾包（仪式面——回顾数据包内建，堵「洞察→跟进」缺口）/ I146 并发治理+收尾审阅（性能面——per-conversation 锁取代全局串行 + 内存泄漏清理 + 看板列渐进渲染）+ docs/12 §43 + 冒烟 53 + M48 审阅，约 9 人日。Cycles 多周期并列（维持降级）、改进项转任务、record 录制件上下文指纹（并入 I144 顺手做 key 加 context 短哈希）、关系类型扩展留 backlog。

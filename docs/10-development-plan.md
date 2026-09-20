@@ -1480,6 +1480,36 @@ agent-project-management/
 
 ---
 
+### M48 · 调度与治理三件套（I144-I146，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AS 前置调研）。LLM 线的收口章：M44 接通了真实模型，M46/M47 补了流式与压缩——剩两笔账：**成本**（全部角色一个模型档，廉价活也烧推理模型）与**吞吐**（`_exec_lock` 全局串行让并行 run 变排队）；另补一个仪式缺口——M39-M42 的报表散点缺一个「周期回顾」出口把洞察拧成一页。三件共通：档位/降级/锁边界全部**显式可观测**，不搞静默魔法。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I144 | 角色模型分档与 cascade 降级（config `APM_MODEL_CHEAP/STANDARD/REASONING` 三档[STANDARD 缺省回落 llm_model] + 角色 YAML `model.tier: cheap\|standard\|reasoning` 解析[显式 model.name 仍最高优先] + **cascade 降级**：主档 LLMError[限流/5xx/超时]向上一档重试一次，span 标 `apm.model_tier/model_degraded`——降级只在错误路径，正常路由永不静默换模型 + record 录制件 key 加 context 短哈希[§AQ 遗留小改进]） | — | M44 provider/ui_agent_model | 3d |
+| I145 | 周期回顾包（`GET /cycles/{id}/retrospective` 纯投影聚合：承诺完成率[I129 口径]/结转拖入[I119]/超期新增/人机 run 参与度/top 阻塞依赖[blocks 计数]/与前周期速率对比 + 前端周期卡「📋 回顾」入口+打印友好——堵「回顾洞察→跟进」缺口） | — | I119/I129/I85 口径 | 2.5d |
+| I146 | 并发治理+收尾（`engine._exec_lock` 全局串行 → **per-conversation 锁**[同对话互斥防状态竞争、跨对话并行；SQLite 写已有 db.tx 全局锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[修内存泄漏] + 看板列渐进渲染[INITIAL_CARDS+load more] + **冒烟 53**[分档降级/回顾包/并行 run] + M48 审阅） | — | M45 审计 M8/L1、M22 渐进列表 | 3.5d |
+
+#### I144 · 角色模型分档与 cascade 降级（3d）
+
+- 任务：config 三档模型名（cheap 缺省=ui_agent_model，standard 缺省=llm_model，reasoning 缺省=standard）+ tier 级 max_tokens 可选覆盖；roles.py 解析 `model.tier`（显式 `model.name` 优先，解析结果进 role.model.name）；provider complete 加 tier 上报；engine `_provider_complete` LLMError 时向上一档重试一次（reasoning 档到底不升级）并在 span attrs 标注 `apm.model_tier`/`apm.model_degraded=true`；RecordProvider 录制 key `role/node` 追加 context 指纹短哈希（instr+约束 sha1[:8]，兼容读取无指纹旧 key）。
+- DoD：单测（tier 解析优先级/降级一次成功/degraded 留痕/两档皆败仍 fail/replay 不受影响）。
+- 演示路径：角色 tier=cheap → span 显示 cheap 档；mock 限流 → degraded=true 但 run.succeeded。
+
+#### I145 · 周期回顾包（2.5d）
+
+- 任务：cycles.py 加 `GET /cycles/{id}/retrospective`——committed vs completed（I129 口径）、carryover 拖入清单（I119 payload）、周期内超期新增、run 参与（人机 run 数/tokens/成功率）、top blocks 依赖对（item_relations blocks 计数降序 top5）、速率对比（completed vs 前周期）；前端 Cycles 区「📋 回顾」按钮 + 回顾抽屉（打印友好 class）。
+- DoD：单测（各分区口径与既有报表对齐/空周期诚实 null/rebuild 后一致）。
+- 演示路径：结转周期开回顾 → 一页看完成率/拖入/阻塞 top → 打印。
+
+#### I146 · 并发治理+收尾审阅（3.5d）
+
+- 任务：engine 锁字典 `dict[conversation_id, threading.Lock]`（get-or-create，per-conversation 互斥；run 终态释放）+ `_active_runs` 在终态迁移处 pop + Board.tsx 看板列 `INITIAL_CARDS=12` 渐进渲染（列尾「显示更多」）+ **冒烟 53**（tier 解析与降级留痕/回顾包口径/同对话双 run 串行跨对话并行）+ docs/12 §43 + M48 审阅。
+- DoD：冒烟 53 GREEN；单测（锁互斥边界/泄漏清理）；全量 pytest 分片收敛绿。
+- 演示路径：两个对话同时起 run → 互不阻塞各自完成；同对话重复触发 → 顺序执行。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1676,6 +1706,8 @@ agent-project-management/
 | I141 LLM 对话上下文压缩 | 已完成 | 2026-09-21 | 2026-09-21 | config `context_budget_chars`[默认 8000，0=不限制] + `fold_constraints` 纯函数[超预算保留最近约束原文、早期折叠一行摘要（计数+首末条前 80 字）] + role.yaml `model.summarize: true` 开关走 ui_agent_model 真实摘要[任何失败退规则摘要不 fail run] + span `apm.context_chars/budget/compressed` 观测；test_context_compression **5** 项[预算内零行为/0 禁用/折叠语义/存储原文不动+事件流零压缩痕迹集成/摘要失败降级] |
 | I142 单元成本行项 | 已完成 | 2026-09-21 | 2026-09-21 | expense.py 新域[`expense.recorded/deleted` 事件 + expense_entries 投影表进 drop 清单 + CRUD 软删 rebuild 复现] + 校验矩阵[qty>0/price≥0/ISO 币种/ISO 日期/item 存在 404] + cost-report 双轨[labor_cost/expense_cost 分区、expenses 明细带 fx_rate、total_cost=两轨之和、budget_hours 仍小时口径不混算] + CostCard 双轨展示[人力/费用行/合计+费用行明细区]；test_expense **4** 项[CRUD 软删 rebuild/校验矩阵/双轨 FX 合计/未配汇率披露] |
 | I143 跨项目依赖+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | 放开 `cross-project relations not supported` 422[建链要求双方项目可读（403）、事件仍聚合 from 侧项目] + **修 propagate_reschedule 跨项目归因缺陷**[rescheduled 事件原记调用者项目，改为被移动项自己的项目——同项目场景二者相同故 M14 以来未暴露] + 传播/lag 对齐跨项目天然生效[dependents 查询无项目过滤] + graph 端点跨项目 to_item 补「外部依赖」占位节点[可读显真实标题+来源项目名、不可读只给 🔒 不泄露] + **冒烟 52**[压缩原文不动/双轨成本/跨项目链传播+rebuild roundtrip]；test_cross_project **4** 项 |
+| **M48 调度与治理三件套（I144-I146）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AS + docs/10 §M48）：I144 角色模型分档与 cascade 降级（三档配置+tier 解析+LLMError 向上一档重试一次+span degraded 留痕——降级只在错误路径永不静默换档+record key 上下文指纹）/ I145 周期回顾包（retrospective 聚合端点[完成率/拖入/超期/run 参与/blocks top/速率对比]+前端入口——堵回顾洞察→跟进缺口）/ I146 并发治理+收尾（exec_lock 全局串行→per-conversation 锁+_active_runs 泄漏清理+看板列渐进渲染+冒烟 53+审阅）；改进项转任务/Cycles 多周期[维持降级]/关系类型扩展留 backlog |
+| 2026-09-21 M48 调研定义（§AS） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：温度/模型分档[两次留 backlog 无调研]、回顾会议[仅 Leantime 一词]、Cycles 多周期[§AQ 维持降级不重查]。三路 WebSearch：model routing/cascade（2-4× 成本降、cheap-first 升级链、降级留痕）、retrospective 数据包内建趋势（洞察→跟进是最大缺口）、并发治理（LangGraph AsyncPostgresSaver 实例级锁教训——configured capacity ≠ effective concurrency，锁边界=共享可变状态范围）。定案 M48=调度与治理三件套（I144/I145/I146） |
 | **M43 交付闭环三件套（I131-I133）** | 已完成 | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AP + docs/10 §M43）：I131 风险登记册（risk 事件+risks 投影表[probability×impact 自动分排序]+「⚠ 风险登记册」页矩阵热力+工作项 risk_id 关联）/ I132 项目收尾清单（closure-checklist 五项核对 + project.completed 事件徽标[completed 区别于 archived] + 收尾报告数据）/ I133 完成自动重建+收尾审阅（recurrence_days + sweep respawn[完成日+N 重建、payload 记 respawn_of]——sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + 审阅通过（d67374c）；定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog |
 | I131 风险登记册 | 已完成 | 2026-09-14 | 2026-09-14 | risks.py 新域[risk.created/updated/closed 事件 + risks 投影表进 drop 清单 + 注册两处] + probability/impact 枚举 1-3 校验[越界 422、score=p×i 自动排序] + response/owner/review_date/related_item_id 字段[关联项不存在 404] + 生命周期 **open→mitigated→closed 严格单向**[跳级 422、closed 终态 PATCH 409] + 「⚠ 风险登记册」页[3×3 矩阵热力绿→琥珀→红+列表分降序+顶导航 ShieldAlert 入口]；test_risks **2** 项（打分 9/1+排序+越界 422+rebuild/生命周期+关联 404+closed 终态+rebuild 后登记册空）+ build 绿 |
 | I132 项目收尾清单 | 已完成 | 2026-09-14 | 2026-09-14 | `GET /projects/{id}/closure-checklist` 五项核对[活跃项=0/pending 审批=0/submitted 工时单=0/open 风险=0/planned+in_progress 里程碑=0——纯投影零新表] + `POST /projects/{id}/complete`[清单不全绿 409 列全部差项；全绿 emit `project.completed` → 状态 completed] + **guard 扩展**：completed 项目冻结写 409（/reopen 恢复——与 archived 同构）+ 项目列表「✅ 已交付」徽标 + Dashboard「🏁 收尾清单」卡[五格勾选+标记交付按钮]；test_project_closure **2** 项（差项列出→清空→全绿→complete→写 409→reopen 恢复/rebuild 后 completed 存活）+ build 绿 |
