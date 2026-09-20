@@ -1326,3 +1326,34 @@ M47 = **深度与协同三件套**：I141 LLM 对话上下文压缩（深度面�
 **AS.5 M48 取舍**
 
 M48 = **调度与治理三件套**：I144 角色模型分档与 cascade 降级（成本面——routing/cascade 语义，「降级只在错误路径，永不静默换档」）/ I145 周期回顾包（仪式面——回顾数据包内建，堵「洞察→跟进」缺口）/ I146 并发治理+收尾审阅（性能面——per-conversation 锁取代全局串行 + 内存泄漏清理 + 看板列渐进渲染）+ docs/12 §43 + 冒烟 53 + M48 审阅，约 9 人日。Cycles 多周期并列（维持降级）、改进项转任务、record 录制件上下文指纹（并入 I144 顺手做 key 加 context 短哈希）、关系类型扩展留 backlog。
+
+
+## AT. M49 前置调研：回顾行动项落地 / 状态报告自动生成 / 关系类型扩展（2026-09-21）
+
+> 目标协议触发：M48 完成后开启。防重查：候选池 grep——改进项转任务（§AS.1/AS.5 两次留 backlog，痛点证据已在 M48 调研确立——「回顾洞察→跟进」是行业最大缺口，无落地调研）、项目状态报告自动生成（**无任何调研记录**，本轮新发现方向）、关系类型扩展（§B 49 行仅受控枚举一句 + §AS.3 搜索结果一句带过 OpenProject 关系族，无落地调研）；Cycles 多周期并列（维持降级）、subject 正则全量路由/digest 邮件（维持「除非用户要求」）。本轮三路新调研（行动项落地 / 状态报告自动化 / 关系类型扩展），选定 **M49 = 闭环与表达三件套**。
+
+**AT.1 回顾行动项落地（immediate conversion 语义）**
+
+- 行业共识高度收敛：**立即转换**——回顾会不散场，直到 top 1-2 项变成受追踪的 issue（[Easy Agile](https://help.easyagile.com) 的 Action 列直接建 Jira issue、[Atlassian 社区](https://community.atlassian.com)）；每项**单一 owner + 明确 due**（[Neatro](https://www.neatro.io)）；每周期限 1-3 项防疲劳、下届回顾开场先过上一届行动项（[Retromat](https://retromat.org)、[Kollabe](https://kollabe.com)）。共同语义：**行动项不是会议纪要的一行字，是带 owner/截止的受追踪工作项；生成动作发生在回顾现场**。
+- 对本项目的映射：I145 回顾包已有全部数据——落点三层：①retrospective 响应加 `action_items`（title/owner/due，回顾现场填写）；②`POST /cycles/{id}/action-items` 批量转工作项——item.created 真事件，payload 记 `retro_of: cycle_id` 审计链（同 I133 respawn 模式），owner→assignee_id、due→due_date；③已转换的项在回顾响应中标注 item_id（防重复生成）；下届回顾自动带出上届未结行动项（开场过账）。**不加新表**：转换关系走事件 payload 审计链。
+
+**AT.2 项目状态报告自动生成（status report as artifact）**
+
+- 行业：两条路线——模板化周报（[TeamGantt 模板](https://www.teamgantt.com)、[Monday 自动汇编](https://monday.com)）与 AI 草稿（[Dart](https://www.dartai.com)、[KnowledgeHut](https://www.knowledgehut.com)）；报告骨架共识：**总体健康结论 → 本期完成/下期计划 → 风险与阻塞 → 指标（进度/工时/预算）**；Monday 的形态是「平台已有数据自动汇编成草稿，人只做润色与结论」（[Virtosoftware](https://www.virtosoftware.com)、[ClickUp 综述](https://clickup.com)）。共同语义：**报告是平台数据的汇编视图，人补充判断——生成要落在可版本化、可分发的载体上**。
+- 对本项目的映射：`POST /projects/{id}/status-report` 生成 Markdown 状态报告，**作为工件写入项目 git 内容仓**（天然继承版本史/diff/审计，零新表）——这是「工件入 git」架构的红利。骨架：健康分与趋势 → 阶段/Gate 进度 → 本期完成/进行中/超期 → 待审 Gate → 工时与预算消耗（labor/expense 双轨 I142 口径）→ 风险 open 数 → 下期建议要点（由数据推导的客观条目）。可选 `?ai_summary=true` 时用 ui_agent_model 生成人话摘要段（失败降级纯数据版——同 I141 降级纪律）。手动触发优先；周期性自动生成（sweep 家族第五员）留 backlog。
+
+**AT.3 关系类型扩展（OpenProject 关系族补全）**
+
+- 行业：OpenProject 关系族为 relates/duplicates/blocks/precedes-follows/derived/includes（[官方 FAQ](https://www.openproject.org)）——其中 **duplicates=重复项互指**、**includes=包含**属「标注型关系」（无排期/闭锁副作用），derived 的进度派生传播是最重的一档。共同语义：**受控枚举扩档是低风险增量——标注型关系只影响可视化与检索，不触碰排期/闭锁守卫**。
+- 对本项目的映射：内核 KERNEL_RELATIONS 现有 depends_on（排期语义）/blocks（闭锁语义）/relates_to 等——补 **duplicates**（重复项互指：可视化连线+互相提示）与 **includes**（包含：聚合计数展示）；两者均为标注型，不进排期传播与 blocks 闭锁守卫；依赖图/关系列表/时间线连线自然支持（relation_type 透传渲染）。derived 的进度派生传播（最重档）留 backlog——与 I116 rollup 语义重叠需单独论证。
+
+**AT.4 M49 设计映射与验证纪律（沿用）**
+
+- I147 行动项落地：action_items 填写+批量转任务+审计链+去重标注+上届带出；单测（转换/去重/owner-due 映射/rebuild）。
+- I148 状态报告：POST 生成 Markdown 工件入 git+模板骨架全数据分区+可选 AI 摘要降级；单测（工件落盘/分区数据正确/重复生成=新版本/rebuild）。
+- I149 关系类型扩展+收尾：duplicates/includes 枚举+渲染透传+图表配对色 token 化 + **冒烟 54**（行动项转任务/状态报告工件/新关系类型 roundtrip）+ M49 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M49 审阅。
+
+**AT.5 M49 取舍**
+
+M49 = **闭环与表达三件套**：I147 回顾行动项落地（闭环面——immediate conversion，「行动项是受追踪工作项不是纪要字」）/ I148 状态报告自动生成（表达面——报告=平台数据汇编入 git，可选 AI 润色）/ I149 关系类型扩展+图表色收尾审阅（表达面——受控枚举低风险扩档）+ docs/12 §44 + 冒烟 54 + M49 审阅，约 9 人日。derived 进度派生传播、Cycles 多周期并列（维持降级）、subject 正则全量路由/digest 邮件（维持不做除非要求）、周期性自动状态报告（sweep 第五员）留 backlog。

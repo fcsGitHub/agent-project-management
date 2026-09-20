@@ -1510,6 +1510,36 @@ agent-project-management/
 
 ---
 
+### M49 · 闭环与表达三件套（I147-I149，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AT 前置调研）。两条「最后一公里」：M48 回顾包把洞察拧成一页，但**洞察不变成受追踪的工作项就等于没发生**（immediate conversion 行业共识）；项目状态汇报靠人手工拼数据——而 AgentPM 的「工件入 git」架构天生适合自动汇编。再加一笔低风险增量：受控关系枚举扩两档标注型类型。三件共通：都严格站在既有骨架上（审计链模式/工件链路/受控枚举），零新表零新通道。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I147 | 回顾行动项落地（retrospective 响应加 `action_items`[title/owner/due] + `POST /cycles/{id}/action-items` 批量转工作项[item.created 真事件 + payload 记 `retro_of` 审计链——同 I133 respawn 模式；owner→assignee/due→due_date] + 已转项回标 item_id 防重复 + 下届回顾自动带出上届未结行动项[开场过账]） | — | I145 回顾包、I133 审计链模式 | 3d |
+| I148 | 项目状态报告自动生成（`POST /projects/{id}/status-report` 汇编 Markdown 状态报告**工件入 git**[继承版本史/diff/审计零新表]：健康分趋势/阶段 Gate/本期完成/进行中/超期/待审 Gate/工时预算双轨/风险 open 数/数据推导建议要点 + 可选 `?ai_summary=true` 走 ui_agent_model 人话摘要段[失败降级纯数据版] + 前端一键生成+工件列表直开） | — | 工件链路、I122/I142/I131 口径 | 3d |
+| I149 | 关系类型扩展+收尾（KERNEL_RELATIONS 补 **duplicates**[重复互指]与 **includes**[包含聚合计数]——标注型：不进排期传播与 blocks 闭锁守卫，依赖图/关系列表/时间线连线透传渲染 + 剩余图表配对色 token 化 + **冒烟 54**[行动项转任务/状态报告工件/新关系 roundtrip] + M49 审阅） | — | 受控枚举、I124/I102 渲染 | 3d |
+
+#### I147 · 回顾行动项落地（3d）
+
+- 任务：cycles.py retrospective 响应加 `action_items` 存取（cycle.action_items JSON 列或事件载荷，沿用 cycle.updated 事件路径）+ `POST /cycles/{id}/action-items`（body: items[{title, owner, due_date}]；逐项 emit `item.created`[payload 带 `retro_of`=cycle_id、`retro_title`] + assignee/due 映射校验）+ 响应回填 item_id 防重复转换 + retrospective 输出带出上届未结行动项（`prev_open_actions`）+ RetroDrawer 行动项填写区与「转为任务」按钮。
+- DoD：单测（批量转换/审计链 payload/owner-due 映射/重复转换拒绝/上届带出）。
+- 演示路径：回顾抽屉填 2 条行动项 → 一键转任务 → 看板出现带 owner/截止的新卡 → 审计链可查。
+
+#### I148 · 项目状态报告自动生成（3d）
+
+- 任务：reports.py 加 `POST /projects/{id}/status-report`——纯投影汇编（健康分/阶段 Gate/完成/进行中/超期/待审 Gate/工时预算双轨/风险 open/数据推导建议）拼 Markdown；gitrepo.write_file 落 `reports/status-YYYYMMDD-HHMM.md`（artifact.report_generated 事件审计）+ 可选 ai_summary（ui_agent_model，异常降级）+ 前端 Reports 页「📝 生成状态报告」按钮 + 生成后直开工件。
+- DoD：单测（工件落盘 git 可读/各分区数字与既有端点对齐/重复生成产生新 commit/AI 失败降级）。
+- 演示路径：一键生成 → 工件抽屉看全文 → 再生成 → 版本史出现新 commit。
+
+#### I149 · 关系类型扩展+收尾审阅（3d）
+
+- 任务：KERNEL_RELATIONS 补 duplicates/includes（标注型：无排期/闭锁副作用，本体关系校验放行）+ 依赖图/时间线/关系列表渲染透传新类型（图例补色）+ includes 聚合计数展示（详情面板「包含 N 项」）+ 剩余图表配对色（VelocityCard 承诺柱/燃尽图例等 slate/green 对）token 化 + **冒烟 54**（行动项转任务审计链/状态报告工件 roundtrip/duplicates+includes 建链与渲染）+ docs/12 §44 + M49 审阅。
+- DoD：冒烟 54 GREEN；单测（新类型建链/守卫不误伤/渲染数据）；全量 pytest 分片收敛绿。
+- 演示路径：建 duplicates 关系 → 依赖图连线+互指提示 → 生成状态报告 → 打印。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1709,6 +1739,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M49 闭环与表达三件套（I147-I149）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AT + docs/10 §M49）：I147 回顾行动项落地（immediate conversion：action_items 填写+批量转工作项[item.created+retro_of 审计链——同 I133 模式]+已转回标防重+上届带出）/ I148 状态报告自动生成（POST 汇编 Markdown 工件入 git[继承版本史/diff/审计零新表]+健康/Gate/完成/超期/双轨预算/风险分区+可选 AI 摘要降级）/ I149 关系类型扩展+收尾（duplicates/includes 标注型枚举+渲染透传+图表配对色 token 化+冒烟 54+审阅）；derived 进度派生传播/周期性自动报告[sweep 第五员]/Cycles 多周期[维持降级]留 backlog |
+| 2026-09-21 M49 调研定义（§AT） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：改进项转任务[两次留 backlog 有痛点证据无落地调研]、状态报告自动生成[全新方向无记录]、关系类型扩展[仅受控枚举一句]。三路 WebSearch：retro immediate conversion（会不散场直到 top 项转 issue+单一 owner+due+每周期 1-3 项防疲劳）、状态报告两路线（模板化 Monday/TeamGantt 与 AI 草稿 Dart——「平台数据自动汇编成草稿，人只做润色」）、OpenProject 关系族（relates/duplicates/blocks/precedes/derived/includes——标注型与派生型分档）。定案 M49=闭环与表达三件套（I147/I148/I149） |
 | **M48 调度与治理三件套（I144-I146）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AS + docs/10 §M48）：I144 角色模型分档与 cascade 降级（三档配置+tier 解析+LLMError 向上一档重试一次+span degraded 留痕——降级只在错误路径永不静默换档+record key 上下文指纹）/ I145 周期回顾包（retrospective 聚合端点[完成率/拖入/超期/run 参与/blocks top/速率对比]+前端入口——堵回顾洞察→跟进缺口）/ I146 并发治理+收尾（exec_lock 全局串行→per-conversation 锁+_active_runs 泄漏清理+看板列渐进渲染+冒烟 53+审阅）；改进项转任务/Cycles 多周期[维持降级]/关系类型扩展留 backlog。基线：pytest **387**（非 smoke 334 全绿 EXIT=0 + smoke runner 53 GREEN 对账）+ 冒烟 **53** + vitest **14** + build 绿 |
 | 2026-09-21 M48 调研定义（§AS） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：温度/模型分档[两次留 backlog 无调研]、回顾会议[仅 Leantime 一词]、Cycles 多周期[§AQ 维持降级不重查]。三路 WebSearch：model routing/cascade（2-4× 成本降、cheap-first 升级链、降级留痕）、retrospective 数据包内建趋势（洞察→跟进是最大缺口）、并发治理（LangGraph AsyncPostgresSaver 实例级锁教训——configured capacity ≠ effective concurrency，锁边界=共享可变状态范围）。定案 M48=调度与治理三件套（I144/I145/I146） |
 | **M43 交付闭环三件套（I131-I133）** | 已完成 | 2026-09-14 | 2026-09-14 | 3 迭代 / 约 9 人日（docs/01 §AP + docs/10 §M43）：I131 风险登记册（risk 事件+risks 投影表[probability×impact 自动分排序]+「⚠ 风险登记册」页矩阵热力+工作项 risk_id 关联）/ I132 项目收尾清单（closure-checklist 五项核对 + project.completed 事件徽标[completed 区别于 archived] + 收尾报告数据）/ I133 完成自动重建+收尾审阅（recurrence_days + sweep respawn[完成日+N 重建、payload 记 respawn_of]——sweep 家族第四员）+ docs/12 §40 + 冒烟 49 + 审阅通过（d67374c）；定量风险分析[EMV/蒙特卡洛]/风险升级链/跨项目风险留 backlog |
