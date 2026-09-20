@@ -554,6 +554,13 @@ export const api = {
   // share the artifact.report_generated event; `source` tells them apart)
   listStatusReports: (pid: string) =>
     req<{ reports: StatusReportEntry[] }>(`/projects/${pid}/reports`),
+  // M52-I157: weekly report subscription (user-chosen recipients)
+  getReportSubscription: (pid: string) =>
+    req<{ project_id: string; user_id: string; subscribed: boolean }>(`/projects/${pid}/report-subscription`),
+  subscribeReport: (pid: string) =>
+    req<{ subscribed: boolean }>(`/projects/${pid}/report-subscription`, { method: "POST" }),
+  unsubscribeReport: (pid: string) =>
+    req<{ subscribed: boolean }>(`/projects/${pid}/report-subscription`, { method: "DELETE" }),
   // M49-I147: convert retro action items to tracked work items
   createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
     req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];

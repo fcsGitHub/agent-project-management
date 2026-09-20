@@ -436,6 +436,16 @@ CREATE TABLE IF NOT EXISTS non_working_days (
   created_at TEXT NOT NULL
 );
 
+-- M52-I157: weekly report subscriptions (projection of report.subscribed/
+-- unsubscribed — in drop_projections so rebuild reproduces them; Jira
+-- subscription semantics: recipients are user-chosen, not role-bound).
+CREATE TABLE IF NOT EXISTS report_subscribers (
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (project_id, user_id)
+);
+
 -- I107: processed mail Message-IDs (projection of imap.message_processed —
 -- in drop_projections so rebuild reproduces them; idempotency per Message-ID).
 CREATE TABLE IF NOT EXISTS imap_seen (
@@ -574,6 +584,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "timesheets",
         "intake_tokens",
         "non_working_days",
+        "report_subscribers",
         "imap_seen",
         "user_time_off",
         "project_cycles",

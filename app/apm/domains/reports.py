@@ -28,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from apm import config
 from apm.core import db, events
+from apm.core.projections import on
 from apm.domains.items import BUCKET_NAMES
 from apm.domains.members import is_instance_admin, member_role
 from apm.domains.milestones import milestone_progress
@@ -1391,6 +1392,77 @@ def _activity_lines(conn, project_id: str, today: str, limit: int = 8) -> list[s
     return lines
 
 
+# ------------------------------------------------- weekly subscription (I157)
+@on("report.subscribed")
+def _proj_report_subscribed(conn, e):
+    conn.execute(
+        "INSERT INTO report_subscribers (project_id, user_id, created_at) VALUES (?,?,?)"
+        " ON CONFLICT(project_id, user_id) DO NOTHING",
+        (e.project_id, e.payload["user_id"], e.ts),
+    )
+
+
+@on("report.unsubscribed")
+def _proj_report_unsubscribed(conn, e):
+    conn.execute(
+        "DELETE FROM report_subscribers WHERE project_id = ? AND user_id = ?",
+        (e.project_id, e.payload["user_id"]),
+    )
+
+
+@router.post("/projects/{project_id}/report-subscription")
+def subscribe_report(project_id: str) -> dict:
+    """M52-I157 (docs/01 §AW.2, Jira subscription semantics): a user-chosen
+    weekly-report recipient — recipients are no longer role-bound. Members
+    only (read access is the gate); the per-kind notification pref still
+    governs delivery per channel."""
+    from apm.domains.members import member_role
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    me = events.effective_actor()
+    if not member_role(project_id, me):
+        raise HTTPException(status_code=403, detail="project membership required to subscribe")
+    conn = db.get_conn()
+    if conn.execute("SELECT 1 FROM report_subscribers WHERE project_id = ? AND user_id = ?",
+                    (project_id, me)).fetchone():
+        raise HTTPException(status_code=409, detail="already subscribed")
+    events.emit(
+        event_type="report.subscribed", agg_type="project", agg_id=project_id,
+        project_id=project_id, payload={"user_id": me},
+    )
+    return {"project_id": project_id, "user_id": me, "subscribed": True}
+
+
+@router.delete("/projects/{project_id}/report-subscription")
+def unsubscribe_report(project_id: str) -> dict:
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    me = events.effective_actor()
+    conn = db.get_conn()
+    if not conn.execute("SELECT 1 FROM report_subscribers WHERE project_id = ? AND user_id = ?",
+                        (project_id, me)).fetchone():
+        raise HTTPException(status_code=404, detail="not subscribed")
+    events.emit(
+        event_type="report.unsubscribed", agg_type="project", agg_id=project_id,
+        project_id=project_id, payload={"user_id": me},
+    )
+    return {"project_id": project_id, "user_id": me, "subscribed": False}
+
+
+@router.get("/projects/{project_id}/report-subscription")
+def get_report_subscription(project_id: str) -> dict:
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    me = events.effective_actor()
+    subscribed = db.get_conn().execute(
+        "SELECT 1 FROM report_subscribers WHERE project_id = ? AND user_id = ?",
+        (project_id, me)).fetchone() is not None
+    return {"project_id": project_id, "user_id": me, "subscribed": subscribed}
+
+
 def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
     """M50-I150 (docs/01 §AU.1): the sweep's weekly pass entry — same assembly
     core as the manual endpoint, automation actor, and the payload carries
@@ -1466,15 +1538,23 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
         prev_note,
         f"全文见站内 Reports 页 · 工件 {out['path']}",
     ])
-    # I151: notify project owners (notification.sent is the automation
-    # channel — the projector applies the per-kind pref gate for us)
-    for o in conn.execute(
+    # I151 + I157: recipients = owners ∪ subscribers (user-chosen, deduped —
+    # an owner who also subscribed gets one copy); the projector applies the
+    # per-kind pref gate per channel for us
+    recipients: dict[str, None] = {}
+    for r in conn.execute(
             "SELECT user_id FROM project_members WHERE project_id = ? AND role = 'owner'",
             (project_id,)).fetchall():
+        recipients[r["user_id"]] = None
+    for r in conn.execute(
+            "SELECT user_id FROM report_subscribers WHERE project_id = ?",
+            (project_id,)).fetchall():
+        recipients[r["user_id"]] = None
+    for user_id in recipients:
         events.emit(
             event_type="notification.sent", agg_type="project", agg_id=project_id,
             project_id=project_id, actor_type="automation", actor_id="scheduler",
-            payload={"user_id": o["user_id"], "kind": "report_weekly",
+            payload={"user_id": user_id, "kind": "report_weekly",
                      "digest": digest, "path": out["path"], "week": week,
                      "summary": f"周报已生成（第 {week} 期）→ {out['path']}"},
         )

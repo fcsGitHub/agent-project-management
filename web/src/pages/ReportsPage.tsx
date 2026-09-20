@@ -59,6 +59,27 @@ export function ReportsPage() {
     queryFn: () => api.getArtifact(pid!, openReport!),
     enabled: !!pid && !!openReport,
   });
+  // M52-I157: 周报订阅开关（收件人从角色单方扩到自选）
+  const sub = useQuery({
+    queryKey: ["report-subscription", pid],
+    queryFn: () => api.getReportSubscription(pid!),
+    enabled: !!pid,
+  });
+  const toggleSub = async () => {
+    if (!pid) return;
+    try {
+      if (sub.data?.subscribed) {
+        await api.unsubscribeReport(pid);
+        toast.success("已退订周报");
+      } else {
+        await api.subscribeReport(pid);
+        toast.success("已订阅周报，生成时会通知你");
+      }
+      qc.invalidateQueries({ queryKey: ["report-subscription", pid] });
+    } catch (e) {
+      toast.error("订阅操作失败", { description: String(e) });
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
@@ -105,7 +126,15 @@ export function ReportsPage() {
       <Card className="p-4 md:col-span-2">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold">📜 最近报告</span>
-          <span className="text-xs text-mut">手动生成与 sweep 周报同一事件流 · 点击看全文</span>
+          <span className="flex items-center gap-2">
+            {sub.data && (
+              <Button size="sm" variant="ghost" onClick={toggleSub}
+                title={sub.data.subscribed ? "点击退订周报通知" : "订阅后每周报告生成时会通知你"}>
+                {sub.data.subscribed ? "🔔 已订周报" : "🔕 订阅周报"}
+              </Button>
+            )}
+            <span className="text-xs text-mut">手动生成与 sweep 周报同一事件流 · 点击看全文</span>
+          </span>
         </div>
         <div className="space-y-1.5">
           {(reports.data?.reports ?? []).map((rp) => (
