@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-19 更新 · M45 安全加固与性能/显示优化 完成，下一步 M46 调研定义）
+# HANDOFF —— 写给下一个新会话（2026-09-20 更新 · M46 流式与主题三件套 完成，下一步 M47 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -25,7 +25,8 @@
 - **M34~M37（I104-I115，审阅全过）**：工作日历跳休、到期提醒、基线 S 曲线（事件溯源红利第六例）、IMAP 邮件转任务、常用回复、引用快捷键、主题 `[项目名]` 路由、回复转评论、Atom 动态流。
 - **M38~M43（I116-I133，审阅全过，详情=docs/10 §M38-§M43 与看板行）**：多级加权 rollup（vitest+5）、休假代理转派、超载标记、Cycles 周期 + 结转、退信静默 + 邮件过滤、完成日预测（红利第八例）、时薪成本预算、附件域、跨项目依赖图、周期燃尽 burnup、审批超时提醒 + 升级链、审计 CSV 导出、看板阻塞徽标、速率对比卡、风险登记册、项目收尾清单、完成自动重建 respawn。**基线演进：pytest 277→328，冒烟 43→49。**
 - **M44 真实 LLM 接入（I134-I136，2026-09-15 完成，docs/10 §M44）**：AnthropicCompat/OpenAI Provider 真实化 + `GET /api/system/llm`/ping 观测面 + run.tokens_recorded 落账 + NL 命令层 L2（`_normalize_llm_actions` 白名单 + parser 溯源 + 冒烟 50）+ 浏览器真实复演（glm-5.3）。
-- **M45 安全加固与性能/显示优化（I137，2026-09-19 完成，用户指令轮「检查项目漏洞并修复，优化迭代项目性能及显示效果」；详情=docs/10 §M45 与附录 A）**：双代理全库审计后收口。**后端高危×6**——network 模式 `effective_actor` 匿名回退 "anonymous"（不再继承默认管理员；GET 开放浏览保留，admin/owner/intake-token/SSE 门禁对匿名关闭）+ `/api/users` 剥 feed_key + 本体导入路径校验[子目录允许、../拒绝]+admin 门禁 + gitrepo `_safe_relpath` 逐级父目录比较[`?commit=` hex 白名单] + rebuild-projections admin 门禁+`ensure_default_user` 复跑 + webhook SSRF 默认拒私网[`APM_WEBHOOK_ALLOW_PRIVATE` 开关，测试 fixture 显式开]。**中低危**——SMTP 证书校验、畸形 cookie 容错、带密码账号仅 admin 可建[OIDC JIT 不受限]、SSE 会话门禁、归因修正×3、runs 重复查询+limit 上限、items 索引×4、db 连接泄漏、死变量。**前端**——7 处裸 fetch 收口 api.ts（新增 putArtifact/startRun/retryRun/getAsset/deposeAsset/submitAssetReview + API_BASE 导出）+ 11 处 async onClick 补 catch/toast + md.ts sanitize 后 href 转义 + LoginPage 去管理员预填 + Board matches/listed 备忘化[useCallback/useMemo]与 custom_fields 容错 + CommentsModal 按评论 id 渲染缓存 + 全局 invalidateQueries 收敛为定向[Board×9/CommentsModal/TimeLogModal/ConversationView] + MyTime Promise.all 并行 + GraphView 🔔 徽标接审批真数据 + Dashboard 功能进度条真实 % + Reports/Activity/MyWork/Runs/Feature 三态（加载/错误/空）+ aria-label。**顺手修 smoke_45 日期敏感缺陷**（`today-17` 锚点只在周一~周四成立 → `this_monday-15` 周对齐）。**当前验证基线：pytest 349 全绿（+8，实测 HEAD 收集 341：test_security_hardening ×7 + webhook SSRF 负向）；冒烟 50 条 GREEN；vitest 14/build 绿。**
+- **M45 安全加固与性能/显示优化（I137，2026-09-19 完成，用户指令轮；详情=docs/10 §M45 与附录 A）**：双代理全库审计收口——后端高危×6（匿名不继承管理员/feed_key/导入穿越/git 前缀绕过/rebuild 门禁/SSRF）+ 中低危一批；前端裸 fetch 收口/补 catch/href 转义/备忘化/渲染缓存/失效收敛/三态。
+- **M46 流式与主题三件套（I138-I140，2026-09-20 完成，docs/01 §AQ + docs/10 §M46）**：**I138 LLM 流式输出**——双 provider 流式（OpenAI stream=True+include_usage[兼容退化估算]；Anthropic `client.stream()` SSE 解析）+ engine `event_bus.publish` 瞬态广播 `run.token_delta`（**publish 不 emit 零落库**——完整消息是唯一落库真相，逐 token 入库会炸事件表破坏 live==replay）+ ConversationView streamBuf 逐字气泡（▍光标、messages 变化即清、切对话清零防串流）+ sse.ts `onStreamEvent` 订阅口（token_delta 免 query 失效）+ replay/record 诚实语义。**I139 多币种**——`APM_BASE_CURRENCY`+`APM_FX_RATES` 手工汇率表（Tempo 语义零外呼）+ users.currency[ISO 校验] + cost-report 折算披露 fx_rate、未配汇率原值计入+`unconverted` 显式「未折算」。**I140 深色模式**——Tailwind v4 `@theme` 变量即 CSS 自定义属性：`.dark`/media 双通道重写 17 变量**组件零改动全局换肤** + ThemeToggle 三态循环（`apm-theme` 与 index.html 防 FOUC 引导脚本键名一致）+ theme-color 双值 + 硬编码语义色归位 26 处（图表配对色/rail zinc 保留）。**当前验证基线：pytest 360 全绿（+11：test_llm_stream ×5 + test_currency ×5 + smoke51；非 smoke 309 全绿 EXIT=0 + smoke runner 51 GREEN 对账）；冒烟 51 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -33,8 +34,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M45 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M46 调研定义（下一步）**：M45 用户指令轮占用了原 M45 调研位——原候选池整体顺延为 M46 起点。先 `grep -n "候选\|AP\|AQ\|AR" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M46 节 + 看板行 + 附录 A →「M46 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M46 审阅。**候选池**：①Cycles 多周期视图/燃尽对比（I125 留位）；②单元成本行项/多币种（I122 留）；③跨项目依赖图[需跨项目关系模型，V2 级]（I124 留）；④subject 正则全量路由（I113 前缀版已够用）；⑤digest 邮件[明确不做除非用户要求]；⑥LLM 深化：流式输出（SSE 逐 token）/ 对话多轮上下文压缩 / 角色 YAML 温度与模型分档 / record 模式录制真实 fixtures 供 CI 回放；⑦M45 审计遗留 backlog：engine `_exec_lock` 全局串行（按 run 粒度细化）/_active_runs 内存清理/深色模式/硬编码调色板 token 化/看板列渐进渲染；⑧调研新发现。
+1. ~~M24~M46 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M47 前置调研（下一步）**：先 `grep -n "候选\|A[Q-R]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M47 节 + 看板行 →「M47 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M47 审阅。**候选池**：①跨项目依赖图[需跨项目关系模型，V2 级]；②单元成本行项（差旅/设备，I122 留）；③LLM 深化二阶：对话多轮上下文压缩 / 角色 YAML 温度与模型分档 / record 录制件上下文指纹；④subject 正则全量路由（I113 前缀版已够用，除非用户要求）；⑤digest 邮件[明确不做除非用户要求]；⑥M45/M46 工程债：engine `_exec_lock` 全局串行（按 run 粒度细化）/_active_runs 内存清理/看板列渐进渲染/剩余硬编码色（图表配对色/rail）；⑦调研新发现。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
@@ -66,12 +67,15 @@
 - **日期敏感测试教训（M45/smoke_45）**：凡用 `today - N` 造历史数据的测试，先问「N 在任意星期几下语义是否一致」——forecast 只认「完全落入历史的完整周」，`today-17` 只在周一~周四成立；锚点一律按周对齐（`this_monday - N`）。**基线全绿的证明力受验证日期约束，周五跑一次全量是便宜的保险**。
 - **webhook 测试必须显式开 `APM_WEBHOOK_ALLOW_PRIVATE`（M45）**：SSRF 防护默认拒环回/私网，接收器跑 127.0.0.1 的套件要 monkeypatch `config.settings.webhook_allow_private=True`（test_webhooks autouse 已带）。
 - **前端「稳定函数引用」用 useCallback 而非 useMemo（M45）**：useMemo 工厂被当 predicate 传入时缓存的是布尔返回值，`filter(matches)` 直接类型爆炸——tsc 会当场揭穿，但要第一遍就写对。
+- **流式的 Event-Sourcing 纪律（M46-I138）**：token 增量走 `event_bus.publish`（瞬态），**绝不 events.emit**——逐 token 入库会造数千事件/run；完整文本仍是 message.created 唯一真相。engine 的 provider stub 测试若签名不带 `on_delta`，mode 设为 replay 或加 `**kwargs`（streaming 分支只在 mode∈(openai,record) 时传回调）。
+- **Tailwind v4 主题换肤（M46-I140）**：`@theme` 变量就是普通 CSS 自定义属性，`html.theme-dark`/media 下重写 `--color-*` 即全局换肤，无需 dark: 前缀；两组暗变量（media 块与 .theme-dark 类）必须同步维护；手动切换的 localStorage 键 `apm-theme` 与 index.html 引导脚本类名 `theme-dark`/`theme-light` 三处（css/html/AppShell）必须一致。
+- **httpx 流式测试**：MockTransport 配 `client.stream()` 官方高层 API 可用；手写 `client.send(request, stream=True)` 的 Response 上下文管理器在 mock 下会炸（'Response' object does not support the context manager protocol）。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 349 项，应全绿
-python tools/smoke/run_smoke.py       # 冒烟基线 50 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 360 项，应全绿
+python tools/smoke/run_smoke.py       # 冒烟基线 51 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 14 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
