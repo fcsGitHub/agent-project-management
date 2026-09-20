@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M51 调研定义完成，下一步迭代 I153）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M51 周报深化与分发三件套 完成，下一步 M52 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -28,7 +28,8 @@
 - **M45 安全加固与性能/显示优化（I137，2026-09-19 完成，用户指令轮；详情=docs/10 §M45 与附录 A）**：双代理全库审计收口——后端高危×6（匿名不继承管理员/feed_key/导入穿越/git 前缀绕过/rebuild 门禁/SSRF）+ 中低危一批；前端裸 fetch 收口/补 catch/href 转义/备忘化/渲染缓存/失效收敛/三态。
 - **M46~M48（I138-I146，审阅全过，docs/01 §AQ-§AS + docs/10 §M46-§M48）**：LLM 流式输出（`run.token_delta` 瞬态广播零落库+逐字渲染）、多币种轻量版（`APM_FX_RATES` 手工汇率表+折算披露）、深色模式（Tailwind v4 `@theme` 变量双通道+ThemeToggle 三态）、上下文压缩（读路径字符预算+fold_constraints+summarize 角色）、单元成本行项（expense 域+cost-report 双轨）、跨项目依赖（403 门禁+**修 propagate_reschedule 跨项目归因缺陷**+🔒 占位节点）、模型三档+cascade 降级（显式 name 不参与）、周期回顾包（retrospective 端点+抽屉）、并发治理（per-conversation 锁+_active_runs 终态 pop+**gitrepo per-project 写锁修并行 run 竞争**+看板列渐进渲染）。基线演进：pytest 360→387，冒烟 51→53。
 - **M49 闭环与表达三件套（I147-I149，2026-09-21 完成，docs/01 §AT + docs/10 §M49）**：I147 回顾行动项落地（`POST /cycles/{id}/action-items` 走 create_item 全校验链+`retro_of` 审计链+同名幂等+上届带出）+ I148 状态报告自动生成（汇编 Markdown 工件入 git+可选 AI 摘要降级）+ I149 关系类型扩展（duplicates/includes 标注型+图表色 token 化）。基线 pytest 394 / 冒烟 54。
-- **M50 周期性自动状态报告（I150-I152，2026-09-21 完成，docs/01 §AU + docs/10 §M50）**：**I150 sweep 周期报告 pass**——generate_status_report 重构汇编核 `_collect_status_metrics`/`_render_status_lines`/`_commit_report` 三层[手动端点行为不变] + sweep 第七员 `_report_status_weekly`（ISO 周一 `weekly_report_day`=1 可关；幂等=`artifact.report_generated` payload `source:"weekly"`+ISO 周键[心跳零新表]；`automation.swept` 加 `reported` 计数；单项目异常不杀 sweep）。**I151 通知与前端入口**——owner 通知 notification.sent 新 kind `report_weekly` 入 NOTIFY_KINDS[第八员，I96 偏好门自然生效] + `GET /projects/{id}/reports` 列表 + ReportsPage「📜 最近报告」卡（react-markdown 抽屉预览）。**I152 环比对比**——上期 payload 指标 Δ 完成度 pp/超期/费用/工时环比分区[首期诚实标注] + **冒烟 55**（sweep→周报→通知→环比→幂等五段 roundtrip）。**当前验证基线：pytest 405 全绿（非 smoke 350 EXIT=0 + smoke runner 55 GREEN 对账）；冒烟 55 条 GREEN；vitest 14/build 绿。**
+- **M50 周期性自动状态报告（I150-I152，2026-09-21 完成，docs/01 §AU + docs/10 §M50）**：sweep 第七员 `_report_status_weekly`（ISO 周一 `weekly_report_day` 可关；payload source/week 心跳幂等零新表；`reported` 计数）+ 汇编核三层重构（手动端点不变）+ owner 通知 `report_weekly`[白名单第八员] + `GET /projects/{id}/reports` 列表 + ReportsPage 最近报告卡抽屉预览 + 环比分区[首期诚实标注]。基线 pytest 405 / 冒烟 55。
+- **M51 周报深化与分发三件套（I153-I155，2026-09-21 完成，docs/01 §AV + docs/10 §M51）**：**I153 评论语料段+AI 叙事开关**——`_activity_lines` 本期动态确定语料层（comment.created 近 7 天按工作项分组[JOIN 走 payload.item_id——agg_id 是评论 id]·作者名+摘要 ≤8 条+独立 COUNT 溢出行·纯投影零模型）+ config `weekly_report_ai` 默认关的叙事层[失败降级] + 手动端点保持点态快照。**I154 digest 邮件**——notification.sent payload 加 `digest` 字段[漏斗/超期 Gate 风险/工时费用/环比/工件路径——正文自含结论链接只管取证] + mailer enqueue 透传 + `_send` body 分支[非周报邮件零影响；**调研修正候选池假设：M11 分发通道早已通，增量只在正文**]。**I155 冒烟 56**（评论→周报语料段→digest 邮件→次周环比→email 偏好关断[邮件停发站内照常]五段 roundtrip）。**当前验证基线：pytest 410 全绿（非 smoke 354 EXIT=0 + smoke runner 56 GREEN 对账）；冒烟 56 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -36,8 +37,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M50 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M51 周报深化与分发三件套（进行中，调研定义已提交）**：docs/01 §AV + docs/10 §M51 已落（三路调研：activity digest 三步范式——语料层/叙事层两层定性；邮件正文自含结论链接只管取证；2026 自托管 AI 无新缺口）。**迭代序**：I153 评论语料段+AI 叙事开关（`_activity_lines` comment.created 近 7 天按项分组 ≤8 条+溢出 + `weekly_report_ai` 默认关失败降级）→ I154 digest 邮件（notification.sent payload 加 digest 字段 + mailer enqueue 透传、`_send` body 分支）→ I155 **冒烟 56** + M51 审阅。
+1. ~~M24~M51 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M52 前置调研（下一步）**：先 `grep -n "候选\|A[A-V]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M52 节 + 看板行 →「M52 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M52 审阅。**候选池**：①周报 digest 邮件 PDF/附件形态（Google Data Studio 混合式第二半——打印 CSS 已有 I88，服务端转 PDF 需评估依赖）；②报表页订阅（用户自选周期收项目 digest——从 owner-only 扩到订阅者）；③Cycles 多周期并列（维持降级）；④derived 进度上卷（M50 裁决维持，除非用户要求）；⑤调研新发现（新特性扫描）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
