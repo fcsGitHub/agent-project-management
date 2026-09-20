@@ -85,9 +85,10 @@ concepts:
     agent_roles: [release-agent]
 
 # 内核固定关系（无需声明）：contains / depends_on / produces / consumes
+# blocks / precedes / relates；M49-I149 起内核另收录 duplicates / includes
+# （标注型），原自定义声明 duplicates 已由内核原生提供（删除避免重叠报错）。
 relations:
   - {id: verifies, name: 验证, domain: bug, range: task}
-  - {id: duplicates, name: 重复于, domain: requirement, range: requirement}
 
 phases:
   - {id: intake, name: 需求池, gate: null}
