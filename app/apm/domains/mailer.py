@@ -59,6 +59,8 @@ def enqueue(event: events.Event) -> None:
                 "to": row["email"], "user_id": user_id, "kind": kind,
                 "summary": summary, "event_id": event.id,
                 "project_id": event.project_id,
+                "body": str(event.payload.get("digest", ""))
+                if event.event_type == "notification.sent" else "",
             })
         except queue.Full:
             logger.warning("mail queue full; dropping mail to %s", row["email"])
@@ -70,7 +72,13 @@ def _send(item: dict) -> tuple[bool, str, int | None]:
     msg["From"] = s.smtp_from
     msg["To"] = item["to"]
     msg["Subject"] = f"[AgentPM] {item['summary']}"
-    msg.set_content(f"{item['summary']}\n\nkind: {item['kind']}\n")
+    # M51-I154: notification events may carry a richer digest body (weekly
+    # status report) — the plain summary stays the fallback for everything else
+    body = item.get("body")
+    if body:
+        msg.set_content(f"{body}\n")
+    else:
+        msg.set_content(f"{item['summary']}\n\nkind: {item['kind']}\n")
     start = time.monotonic()
     try:
         # 校验证书/主机名的默认 SSL 上下文：SMTP 凭据不得被中间人截获。

@@ -189,3 +189,36 @@ def test_write_not_blocked_by_slow_smtp(client, tmp_data, isolated_ontologies, p
     elapsed = time.monotonic() - t0
     assert elapsed < 1.0, f"write blocked on SMTP ({elapsed:.2f}s)"
     assert _wait_mail(1, timeout=5.0), "stalled mail eventually sent"
+
+
+def test_weekly_report_digest_body(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    """M51-I154: report_weekly mail carries the self-contained digest body
+    (conclusions inline, artifact path as evidence); non-weekly mails keep
+    the plain one-line format."""
+    _configure(monkeypatch)
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "owner"}).status_code == 200
+    it = client.post(f"/api/projects/{pid}/items",
+                     json={"concept_id": "task", "title": "周报任务"}).json()
+    client.post(f"/api/items/{it['id']}/comments", json={"body": "进展评论"})
+    from apm.core import db
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(db.get_conn(), "2026-09-21") == 1
+
+    assert _wait_mail(1), "digest mail never sent"
+    mail = FakeSMTP.sent[-1]
+    assert mail["to"] == "qa@x.local" and "周报" in mail["subject"]
+    assert "完成度约" in mail["body"] and "开放风险" in mail["body"]
+    assert "首期周报" in mail["body"]
+    assert "artifacts/reports/status-" in mail["body"]
+
+    # 非周报事件：邮件仍是原单行格式（digest 透传对既有邮件零影响）
+    bug = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "bug", "title": "单行邮件"}).json()
+    client.patch(f"/api/items/{bug['id']}",
+                 json={"assignee_type": "human", "assignee_id": "qa-wang"})
+    assert _wait_mail(2)
+    plain = FakeSMTP.sent[-1]
+    assert "kind: assigned" in plain["body"]

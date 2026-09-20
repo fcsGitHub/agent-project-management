@@ -1447,6 +1447,25 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
                                   "summary": f"周报已生成 → 第 {week} 期"})
     out["metrics"] = metrics
     out["ai_summary"] = ai_note
+    # I154: the mail digest must be self-contained (Google Data Studio lesson —
+    # inline summary carries the conclusion, the link only provides evidence)
+    if prev:
+        pp = json.loads(prev["payload"])
+        pm = pp.get("metrics") or {}
+        prev_note = (f"- 环比 vs {pp.get('week')}：完成度 {pm.get('done_pct', 0)}%"
+                     f" → {metrics['done_pct']}%")
+    else:
+        prev_note = "- 首期周报"
+    digest = chr(10).join([
+        f"项目「{project['name']}」周报（第 {week} 期）",
+        f"- 完成度约 {metrics['done_pct']}%"
+        f"（完成 {m['funnel']['done']}/共 {sum(m['funnel'].values())} 项）",
+        f"- 超期 {metrics['overdue']} 项 · 挂起 Gate {metrics['gates']} 个"
+        f" · 开放风险 {metrics['risks']} 条",
+        f"- 工时 {metrics['timelog_h']}h · 费用 {metrics['expense_cost']}",
+        prev_note,
+        f"全文见站内 Reports 页 · 工件 {out['path']}",
+    ])
     # I151: notify project owners (notification.sent is the automation
     # channel — the projector applies the per-kind pref gate for us)
     for o in conn.execute(
@@ -1456,6 +1475,7 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
             event_type="notification.sent", agg_type="project", agg_id=project_id,
             project_id=project_id, actor_type="automation", actor_id="scheduler",
             payload={"user_id": o["user_id"], "kind": "report_weekly",
+                     "digest": digest,
                      "summary": f"周报已生成（第 {week} 期）→ {out['path']}"},
         )
     return out
