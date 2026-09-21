@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M53 调研定义完成，下一步迭代 I159）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M53 分发呈现与资源面三件套 完成，下一步 M54 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -30,7 +30,8 @@
 - **M49 闭环与表达三件套（I147-I149，2026-09-21 完成，docs/01 §AT + docs/10 §M49）**：I147 回顾行动项落地（`POST /cycles/{id}/action-items` 走 create_item 全校验链+`retro_of` 审计链+同名幂等+上届带出）+ I148 状态报告自动生成（汇编 Markdown 工件入 git+可选 AI 摘要降级）+ I149 关系类型扩展（duplicates/includes 标注型+图表色 token 化）。基线 pytest 394 / 冒烟 54。
 - **M50 周期性自动状态报告（I150-I152，2026-09-21 完成，docs/01 §AU + docs/10 §M50）**：sweep 第七员 `_report_status_weekly`（ISO 周一 `weekly_report_day` 可关；payload source/week 心跳幂等零新表；`reported` 计数）+ 汇编核三层重构（手动端点不变）+ owner 通知 `report_weekly`[白名单第八员] + `GET /projects/{id}/reports` 列表 + ReportsPage 最近报告卡抽屉预览 + 环比分区[首期诚实标注]。基线 pytest 405 / 冒烟 55。
 - **M51 周报深化与分发三件套（I153-I155，2026-09-21 完成，docs/01 §AV + docs/10 §M51）**：I153 评论语料段+AI 叙事开关（`_activity_lines` 确定语料层[近 7 天评论按项分组+独立 COUNT 溢出行] + `weekly_report_ai` 默认关[失败降级]）+ I154 digest 邮件（notification.sent payload 加 `digest` 字段+mailer body 分支——正文自含结论；**调研修正候选池假设：M11 分发通道早已通，增量只在正文**）+ I155 冒烟 56。基线 pytest 410 / 冒烟 56。
-- **M52 周报分发完备三件套（I156-I158，2026-09-21 完成，docs/01 §AW + docs/10 §M52）**：**I156 周报 Markdown 附件**——notification.sent payload 加 `path`/`week` + mailer `_send` 工作线程内 gitrepo 读工件 add_attachment（`weekly-report-<ISO周键>.md`；**bytes 附件按默认编码解码致中文乱码→str+charset utf-8；str payload 不收 maintype；带附件变 multipart/mixed→测试 stub 改 get_body**；读失败降级仅 digest）；**服务端 PDF 裁决不引入**（Playwright 捆浏览器/WeasyPrint 需 Pango-Cairo 且 Windows 痛/wkhtmltopdf 停维护）。**I157 周报订阅制**——`report.subscribed/unsubscribed` 事件对 + report_subscribers 投影[rebuild 复现] + 三端点[仅成员可订] + sweep 收件人 owner∪订阅者去重 + 前端订阅开关（GitLab 原生无此功能=OSS 真空区）。**I158 冒烟 57**（订阅→附件邮件→偏好关断→退订 roundtrip）。**当前验证基线：pytest 416 全绿（非 smoke 359 EXIT=0 + smoke runner 57 GREEN 对账）；冒烟 57 条 GREEN；vitest 14/build 绿。**
+- **M52 周报分发完备三件套（I156-I158，2026-09-21 完成，docs/01 §AW + docs/10 §M52）**：I156 周报 Markdown 附件（payload 加 path/week + `_send` 工作线程 gitrepo 读工件 add_attachment[bytes 乱码→str+charset utf-8；multipart 后测试 stub 改 get_body；读失败降级]；服务端 PDF 裁决不引入）+ I157 周报订阅制（事件对+report_subscribers 投影+三端点成员门+sweep 收件人 owner∪订阅者去重+前端开关）。基线 pytest 416 / 冒烟 57。
+- **M53 分发呈现与资源面三件套（I159-I161，2026-09-21 完成，docs/01 §AX + docs/10 §M53）**：**I159 digest 邮件 HTML part**——`_digest_html()` 纯函数（table+内联样式、三色徽标、单 CTA 链 `{web_base_url}/#/p/{pid}/reports`）+ mailer `add_alternative`[顺序纪律：alternative 必须在 attachment 之前；构造/add 失败双重降级纯文本——纯文本底线恰为 I154 digest]。**I160 跨周资源热力**——workload per-member `weeks` 两桶（ISO 周一锚定、due 落桶+estimate 求和、桶级 on_leave 仅整周覆盖标灰）+ WorkloadPage 微热力条（**OpenProject 17.7 Resource planner 轻量裁决：只做读视图不做分配层**）。**I161 冒烟 58**（双 part+附件共存→两周桶→rebuild 一致；due_soon 并发入队按内容定位邮件）+ **修 smoke_53 日期敏感**[本地 end_date vs UTC 事件日期跨界——smoke_45 同族教训再证]。**当前验证基线：pytest 420 全绿（非 smoke 362 EXIT=0 + smoke runner 58 GREEN 对账）；冒烟 58 条 GREEN；vitest 14/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -38,8 +39,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M52 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M53 分发呈现与资源面三件套（进行中，调研定义已提交）**：docs/01 §AX + docs/10 §M53 已落（三路调研：HTML 邮件工程共识——table+内联 CSS+multipart/alternative 双 part、纯文本底线恰为 I154 digest；OpenProject 17.7 Resource planner 轻量裁决只做读视图不做分配层；Postmark 交易邮件三约束）。**迭代序**：I159 digest 邮件 HTML part（`_digest_html()` 纯函数+add_alternative[失败降级纯文本]）→ I160 跨周资源热力（workload per-member 两周到期桶+休假标灰+前端热力条）→ I161 **冒烟 58** + M53 审阅。
+1. ~~M24~M53 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M54 前置调研（下一步）**：先 `grep -n "候选\|A[A-X]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M54 节 + 看板行 →「M54 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M54 审阅。**候选池**：①显式容量/分配层（M53 轻量裁决留的口子——需用户先表达「要排人」需求，默认不做）；②订阅规则泛化（filter subscription 语义：把「人×项目×事件类型」订阅抽象成通用规则——Jira saved-filter subscription 对照，需评估事件面复杂度）；③Cycles 多周期并列（维持降级）；④derived 进度上卷（已裁决维持，除非用户要求）；⑤调研新发现（新特性扫描）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
