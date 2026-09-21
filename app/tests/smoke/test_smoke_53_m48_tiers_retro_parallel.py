@@ -72,8 +72,11 @@ def test_smoke_53_m48_tiers_retro_parallel(client, tmp_data, isolated_ontologies
         provider_mod.get_provider = monkey_get
 
     # --- ② retrospective pack: committed/completed caliber + disclosure --------
+    # end_date = today (NOT -1): mount/done events carry UTC dates while _d()
+    # uses the local date — an "yesterday" end can exclude today's done event
+    # across the UTC boundary (smoke_45 date-anchor lesson, M53 re-proof)
     c1 = client.post(f"/api/projects/{pid}/cycles",
-                     json={"name": "R-Sprint", "start_date": _d(-14), "end_date": _d(-1)}).json()
+                     json={"name": "R-Sprint", "start_date": _d(-14), "end_date": _d(0)}).json()
     it_done = client.post(f"/api/projects/{pid}/items",
                           json={"concept_id": "task", "title": "回顾完成项"}).json()
     client.patch(f"/api/items/{it_done['id']}", json={"cycle_id": c1["id"]})
