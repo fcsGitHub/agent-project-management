@@ -43,9 +43,11 @@ class FakeSMTP:
         if type(self).fail:
             raise OSError("smtp unavailable")
         part = msg.get_body(preferencelist=("plain",))
+        html_part = msg.get_body(preferencelist=("html",))
         type(self).sent.append({
             "from": msg["From"], "to": msg["To"],
             "subject": msg["Subject"], "body": part.get_content() if part else "",
+            "html": html_part.get_content() if html_part else "",
             "attachments": [
                 {"filename": a.get_filename(), "content": a.get_content()}
                 for a in msg.iter_attachments()
@@ -279,3 +281,50 @@ def test_weekly_report_attachment_missing_degrades(client, tmp_data, isolated_on
     mail = FakeSMTP.sent[-1]
     assert not list(mail["attachments"])  # 附件缺失降级
     assert "完成度约" in mail["body"]      # 正文自含结论照常
+
+
+def test_weekly_report_html_part(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    """M53-I159: the digest mail is multipart/alternative — HTML part with
+    badges + single CTA, plain-text part intact; non-weekly mails stay
+    plain-only."""
+    _configure(monkeypatch)
+    monkeypatch.setattr(config.settings, "web_base_url", "http://web.local")
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "owner"}).status_code == 200
+    from apm.core import db
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(db.get_conn(), "2026-09-21") == 1
+    assert _wait_mail(1), "digest mail never sent"
+    mail = FakeSMTP.sent[-1]
+    assert "查看全文" in mail["html"]
+    assert "http://web.local/#/p/" in mail["html"]
+    assert "健康" in mail["html"]  # 无超期无风险 → 绿色健康徽标
+    assert "完成度约" in mail["body"]  # 纯文本 part（可达性底线）仍在
+
+    # 对照：非周报邮件无 html part
+    bug = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "bug", "title": "纯文本邮件"}).json()
+    client.patch(f"/api/items/{bug['id']}",
+                 json={"assignee_type": "human", "assignee_id": "qa-wang"})
+    assert _wait_mail(2)
+    assert not FakeSMTP.sent[-1]["html"]
+
+
+def test_weekly_report_html_degrades(client, tmp_data, isolated_ontologies, project, monkeypatch):
+    """HTML 构造失败 → 只发纯文本 digest，邮件照常。"""
+    _configure(monkeypatch)
+    pid = project["id"]
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "owner"}).status_code == 200
+    from apm.core import db
+    from apm.domains import reports as reports_mod
+    monkeypatch.setattr(reports_mod, "_digest_html",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    from apm.domains.automations import _report_status_weekly
+    assert _report_status_weekly(db.get_conn(), "2026-09-21") == 1
+    assert _wait_mail(1)
+    mail = FakeSMTP.sent[-1]
+    assert not mail["html"] and "完成度约" in mail["body"]

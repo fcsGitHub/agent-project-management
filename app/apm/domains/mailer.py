@@ -61,6 +61,8 @@ def enqueue(event: events.Event) -> None:
                 "project_id": event.project_id,
                 "body": str(event.payload.get("digest", ""))
                 if event.event_type == "notification.sent" else "",
+                "html": str(event.payload.get("digest_html", ""))
+                if event.event_type == "notification.sent" else "",
                 # M52-I156: weekly report mails carry the report file itself
                 "attach": event.payload.get("path", "")
                 if event.event_type == "notification.sent" else "",
@@ -83,6 +85,14 @@ def _send(item: dict) -> tuple[bool, str, int | None]:
         msg.set_content(f"{body}\n")
     else:
         msg.set_content(f"{item['summary']}\n\nkind: {item['kind']}\n")
+    # M53-I159: HTML alternative (multipart/alternative — the plain part above
+    # stays the accessibility floor). Order matters: alternative before the
+    # attachment keeps the structure mixed(alternative(plain, html), file).
+    if item.get("html"):
+        try:
+            msg.add_alternative(item["html"], subtype="html")
+        except Exception:
+            logger.warning("digest html part skipped", exc_info=True)
     # M52-I156: attach the report file itself (zero-dependency Markdown; the
     # human PDF path stays print-CSS). Read here in the worker thread — the
     # write path never waits on git/file I/O. Missing file degrades silently.

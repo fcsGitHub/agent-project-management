@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # Default off: scheduled reports must not spend tokens nobody asked for;
     # the deterministic corpus section is always there.
     weekly_report_ai: bool = False
+    # M53-I159: web origin for links inside digest mails (HashRouter, so CTA
+    # targets look like {web_base_url}/#/p/{pid}/reports); empty → no CTA
+    # button, the plain-text digest carries the mail on its own.
+    web_base_url: str = ""
     # I107 IMAP inbox-to-task: optional channel, unset host means off
     # (same env-gated shape as SMTP). Fallback project takes unknown senders
     # under the intake identity; without it unknown senders are ignored.

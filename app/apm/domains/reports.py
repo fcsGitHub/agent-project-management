@@ -19,6 +19,7 @@ construction: there is nothing to project and nothing to replay.
 from __future__ import annotations
 
 import csv
+import html as html_mod
 import io
 import json
 from collections import deque
@@ -1463,6 +1464,55 @@ def get_report_subscription(project_id: str) -> dict:
     return {"project_id": project_id, "user_id": me, "subscribed": subscribed}
 
 
+def _digest_html(project_name: str, week: str, metrics: dict, prev_note: str,
+                 project_id: str) -> str:
+    """M53-I159 (docs/01 §AX.1/AX.3): the HTML half of the digest mail —
+    nested tables + inline styles are the only combination mail clients
+    render consistently (Gmail strips head styles, Outlook desktop has poor
+    CSS). Postmark discipline: conclusion first, colour badges, single CTA.
+    Any exception upstream just drops this part; the plain text carries."""
+    name = html_mod.escape(project_name)
+
+    def _badge(label: str, val, color: str) -> str:
+        return (f'<span style="display:inline-block;padding:1px 8px;margin-left:6px;'
+                f'border-radius:10px;font-size:12px;color:#ffffff;background:{color};">'
+                f"{html_mod.escape(str(label))} {html_mod.escape(str(val))}</span>")
+
+    badges = ""
+    if metrics["overdue"]:
+        badges += _badge("超期", metrics["overdue"], "#dc2626")
+    if metrics["risks"]:
+        badges += _badge("开放风险", metrics["risks"], "#d97706")
+    if not badges:
+        badges = _badge("健康", "✓", "#16a34a")
+    cta = ""
+    base = config.settings.web_base_url
+    if base:
+        href = f"{base.rstrip('/')}/#/p/{html_mod.escape(project_id)}/reports"
+        cta = ('<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+               '<td bgcolor="#4f46e5" style="border-radius:6px;">'
+               '<a href="' + href + '" style="display:inline-block;padding:8px 18px;'
+               'color:#ffffff;text-decoration:none;font-size:13px;">查看全文</a>'
+               "</td></tr></table>")
+    note = html_mod.escape(prev_note)
+    return (
+        '<div style="font-family:-apple-system,\'Segoe UI\',sans-serif;max-width:520px;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="border:1px solid #e4e4e7;border-radius:8px;border-collapse:separate;">'
+        f'<tr><td style="padding:14px 18px;background:#18181b;border-radius:8px 8px 0 0;">'
+        f'<span style="color:#ffffff;font-size:15px;font-weight:600;">项目「{name}」周报</span>'
+        f'<span style="color:#a1a1aa;font-size:12px;margin-left:8px;">第 {week} 期</span></td></tr>'
+        '<tr><td style="padding:12px 18px;font-size:13px;color:#3f3f46;">'
+        f"完成度约 <b>{metrics['done_pct']}%</b>{badges}</td></tr>"
+        '<tr><td style="padding:0 18px 6px;font-size:13px;color:#3f3f46;">'
+        f"超期 {metrics['overdue']} 项 · 挂起 Gate {metrics['gates']} 个 · "
+        f"工时 {metrics['timelog_h']}h · 费用 {metrics['expense_cost']}</td></tr>"
+        f'<tr><td style="padding:0 18px 12px;font-size:12px;color:#71717a;">{note}</td></tr>'
+        f'<tr><td style="padding:0 18px 16px;">{cta}</td></tr>'
+        "</table></div>"
+    )
+
+
 def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
     """M50-I150 (docs/01 §AU.1): the sweep's weekly pass entry — same assembly
     core as the manual endpoint, automation actor, and the payload carries
@@ -1538,6 +1588,13 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
         prev_note,
         f"全文见站内 Reports 页 · 工件 {out['path']}",
     ])
+    # I159: HTML alternative degrades independently — a failure here just
+    # omits the pretty part, the plain-text digest always goes out
+    try:
+        digest_html = _digest_html(project["name"], week, metrics, prev_note,
+                                   project_id)
+    except Exception:
+        digest_html = ""
     # I151 + I157: recipients = owners ∪ subscribers (user-chosen, deduped —
     # an owner who also subscribed gets one copy); the projector applies the
     # per-kind pref gate per channel for us
@@ -1555,7 +1612,8 @@ def write_weekly_status_report(project_id: str, today: str, week: str) -> dict:
             event_type="notification.sent", agg_type="project", agg_id=project_id,
             project_id=project_id, actor_type="automation", actor_id="scheduler",
             payload={"user_id": user_id, "kind": "report_weekly",
-                     "digest": digest, "path": out["path"], "week": week,
+                     "digest": digest, "digest_html": digest_html,
+                     "path": out["path"], "week": week,
                      "summary": f"周报已生成（第 {week} 期）→ {out['path']}"},
         )
     return out
