@@ -131,3 +131,63 @@ def test_workload_overload_flag(client, ctx):
         assert by2["u_w1"]["overloaded"] is True
     finally:
         config.settings.workload_overload_threshold = saved
+
+
+def test_two_week_due_buckets(client, tmp_data, isolated_ontologies):
+    """M53-I160: per-member due buckets (this/next ISO week) — active items
+    only, estimate hours summed, whole-week time-off marks the bucket grey;
+    no due date → no bucket."""
+    r = client.post("/api/projects",
+                    json={"name": "热力甲", "ontology": "software-dev"})
+    pid = r.json()["id"]
+    client.post("/api/users", json={"id": "u_h1", "name": "热工"})
+    today = datetime.now(timezone.utc).date()
+    monday = today - timedelta(days=today.weekday())
+    w1 = monday.isoformat()              # 本周
+    w2 = (monday + timedelta(days=7)).isoformat()   # 下下周
+    w3 = (monday + timedelta(days=14)).isoformat()  # 窗口外
+
+    def item(title, due=None, est=None):
+        r_ = client.post(f"/api/projects/{pid}/items",
+                         json={"concept_id": "task", "title": title,
+                               "estimate_hours": est} if est is not None else
+                              {"concept_id": "task", "title": title})
+        iid = r_.json()["id"]
+        client.patch(f"/api/items/{iid}",
+                     json={"assignee_type": "human", "assignee_id": "u_h1"})
+        if due:
+            client.patch(f"/api/items/{iid}", json={"due_date": due})
+        return iid
+
+    item("本周到期A", due=w1, est=4)
+    item("本周到期B", due=(monday + timedelta(days=6)).isoformat(), est=6)  # 本周日
+    item("下下周到期", due=w2, est=10)
+    done = item("窗口外且已完成", due=w3)
+    client.patch(f"/api/items/{done}", json={"status": "done"})
+    nodue = item("无截止不落桶")
+
+    wl = client.get("/api/portfolio/workload").json()
+    me = [m for m in wl["members"] if m["user_id"] == "u_h1"][0]
+    assert len(me["weeks"]) == 2
+    b1, b2 = me["weeks"]
+    assert b1["week_start"] == w1 and b1["due_items"] == 2 and b1["est_hours"] == 10
+    assert b2["week_start"] == w2 and b2["due_items"] == 1 and b2["est_hours"] == 10
+    assert b1["on_leave"] is False
+
+    # 整周休假的桶标灰；部分休假的周不标灰（不隐藏真实容量）
+    assert client.post("/api/session/identity", json={"user_id": "u_h1"}).status_code == 200
+    client.post("/api/me/time-off", json={
+        "start_date": w1, "end_date": (monday + timedelta(days=6)).isoformat(),
+        "reason": "年假"})
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    wl2 = client.get("/api/portfolio/workload").json()
+    me2 = [m for m in wl2["members"] if m["user_id"] == "u_h1"][0]
+    assert me2["weeks"][0]["on_leave"] is True
+    assert me2["weeks"][1]["on_leave"] is False
+
+    # rebuild 后桶数据一致（纯投影）
+    projections.ensure_handlers_registered()
+    projections.rebuild()
+    wl3 = client.get("/api/portfolio/workload").json()
+    me3 = [m for m in wl3["members"] if m["user_id"] == "u_h1"][0]
+    assert me3["weeks"][0]["due_items"] == 2 and me3["weeks"][0]["est_hours"] == 10

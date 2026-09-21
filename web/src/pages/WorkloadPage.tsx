@@ -62,6 +62,32 @@ function MemberRow({ m, maxActive }: { m: MemberWorkload; maxActive: number }) {
           </span>
         ))}
       </div>
+      {/* M53-I160: 未来两周到期负载（OpenProject 17.7 Resource planner 的读视图切片） */}
+      {!!m.weeks?.length && (
+        <div className="mt-2 flex gap-2">
+          {m.weeks.map((w, i) => {
+            const label = i === 0 ? "本周" : "下下周";
+            const cls = w.on_leave
+              ? "bg-sky-500/30"
+              : w.est_hours === 0
+                ? "bg-bg"
+                : w.est_hours <= 8 ? "bg-ag" : w.est_hours <= 20 ? "bg-amber-500" : "bg-dan";
+            return (
+              <div key={w.week_start}
+                className="flex flex-1 items-center gap-1.5 rounded border border-line px-2 py-1"
+                title={w.on_leave
+                  ? `${label}（${w.week_start} 起）整周休假`
+                  : `${label}（${w.week_start} 起）到期 ${w.due_items} 项 · 约 ${w.est_hours}h`}>
+                <span className="text-[10px] text-mut">{label}</span>
+                <div className={cx("h-2 flex-1 overflow-hidden rounded-full", cls)} />
+                <span className="w-20 shrink-0 text-right text-[10px] text-mut">
+                  {w.on_leave ? "🏖 整周休假" : `${w.due_items} 项 · ${w.est_hours}h`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }

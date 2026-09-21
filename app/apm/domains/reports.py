@@ -449,6 +449,11 @@ def portfolio_workload() -> dict:
     today = _now().date()
     week_ago = (today - timedelta(days=6)).isoformat()
     today_s = today.isoformat()
+    # M53-I160: ISO-Monday anchored window for the two due buckets
+    monday = today - timedelta(days=today.weekday())
+    w1_start = monday.isoformat()
+    w2_start = (monday + timedelta(days=7)).isoformat()
+    window_end = (monday + timedelta(days=14)).isoformat()
     people: dict[str, dict] = {}
     if user is not None:
         for p in conn.execute(
@@ -471,10 +476,33 @@ def portfolio_workload() -> dict:
                     "user_id": r["uid"], "user_name": r["uname"] or r["uid"],
                     "active": 0, "overdue": 0, "minutes_7d": 0,
                     "projects": {},
+                    "weeks": [
+                        {"week_start": w1_start, "due_items": 0, "est_hours": 0.0},
+                        {"week_start": w2_start, "due_items": 0, "est_hours": 0.0},
+                    ],
                 })
                 person["active"] += r["active"] or 0
                 person["overdue"] += r["overdue"] or 0
                 person["projects"][p["name"]] = person["projects"].get(p["name"], 0) + (r["active"] or 0)
+            # M53-I160: due buckets per member (this week / next week), active
+            # items only, estimate hours summed — the read-view slice of
+            # OpenProject 17.7's resource planner (no allocation layer)
+            for r in conn.execute(
+                "SELECT i.assignee_id AS uid,"
+                " CASE WHEN i.due_date < ? THEN 0 ELSE 1 END AS wk,"
+                " COUNT(*) AS n, COALESCE(SUM(i.estimate_hours), 0) AS est"
+                " FROM items i"
+                " WHERE i.project_id = ? AND i.assignee_type = 'human' AND i.assignee_id IS NOT NULL"
+                " AND i.status_group NOT IN ('done','cancelled')"
+                " AND i.due_date >= ? AND i.due_date < ?"
+                " GROUP BY i.assignee_id, wk",
+                (w2_start, p["id"], w1_start, window_end),
+            ).fetchall():
+                person = people.get(r["uid"])
+                if person is not None and r["n"]:
+                    bucket = person["weeks"][r["wk"]]
+                    bucket["due_items"] += r["n"]
+                    bucket["est_hours"] = round(bucket["est_hours"] + (r["est"] or 0), 1)
             # 7-day logged time within THIS project only — time in projects the
             # caller cannot see must never leak into the workload numbers
             for r in conn.execute(
@@ -498,9 +526,22 @@ def portfolio_workload() -> dict:
     # deliberately not replicated; humans rebalance, the page just warns).
     from apm import config as _cfg
     threshold = max(1, _cfg.settings.workload_overload_threshold)
+    # I160: a bucket goes grey only when a time-off stretch covers the WHOLE
+    # week — partial leave must not hide the capacity that still exists
+    stretches = conn.execute(
+        "SELECT user_id, start_date, end_date FROM user_time_off"
+        " WHERE cancelled_at IS NULL").fetchall()
     for p in rows:
         p["on_leave"] = p["user_id"] in on_leave
         p["overloaded"] = p["active"] > threshold
+        for bucket in p["weeks"]:
+            ws = date.fromisoformat(bucket["week_start"])
+            we = (ws + timedelta(days=6)).isoformat()
+            bucket["on_leave"] = any(
+                s["user_id"] == p["user_id"]
+                and s["start_date"] <= bucket["week_start"]
+                and s["end_date"] >= we
+                for s in stretches)
     return {"members": rows, "today": today_s, "generated_at": _now().isoformat(),
             "overload_threshold": threshold}
 

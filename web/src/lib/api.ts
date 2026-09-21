@@ -80,10 +80,14 @@ export type RoadmapData = {
   today: string;
   generated_at: string;
 };
+export type WeekBucket = {
+  week_start: string; due_items: number; est_hours: number; on_leave?: boolean;
+};
 export type MemberWorkload = {
   user_id: string; user_name: string;
   active: number; overdue: number; minutes_7d: number;
   projects: Record<string, number>;
+  weeks?: WeekBucket[];
   on_leave?: boolean;
   overloaded?: boolean;
 };
