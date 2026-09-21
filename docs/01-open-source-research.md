@@ -1446,3 +1446,33 @@ M51 = **周报深化与分发三件套**：I153 评论语料段（素材面—�
 **AW.5 M52 取舍**
 
 M52 = **周报分发完备三件套**：I156 Markdown 附件（形态面——混合式闭环，PDF 依赖裁决不引入）/ I157 周报订阅（受众面——收件人从角色单方扩到自选，OSS 真空区）/ I158 冒烟 57+审阅，约 9 人日。服务端 PDF 转换（依赖裁决不引入）、Cycles 多周期并列（维持降级）、derived 上卷（M50 裁决维持）留 backlog。
+
+
+## AX. M53 前置调研：digest 邮件 HTML 化 / 跨周资源面 / 交易邮件设计细节（2026-09-21）
+
+> 目标协议触发：M52 完成后开启。防重查：候选池 grep——digest 邮件 HTML 模板化（§AV.2 仅「内联 HTML 摘要」一句带过，无技术调研）、跨项目资源规划（§AW.3 仅「留 backlog 观察」一句，OpenProject 17.7 细节未查）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）、subject 正则全量路由（维持不做除非要求）。本轮三路新调研（HTML 邮件工程共识 / 资源规划对照 / 交易邮件设计细节），选定 **M53 = 分发呈现与资源面三件套**。
+
+**AX.1 digest 邮件 HTML 化（multipart/alternative 语义）**
+
+- 工程共识（[Sitepoint](https://www.sitepoint.com)/[WooCommerce 开发文档](https://developer.woocommerce.com)/[markaplugin](https://markaplugin.com)）：**table 嵌套布局而非 div**（Outlook 桌面版等老客户端 CSS 支持差，table 是唯一跨客户端一致方案）、**关键 CSS 全内联**（Gmail 等剥离/忽略 head 样式）、单元格显式宽度、移动优先；**发送 multipart/alternative 双 part**（[Campaign Monitor 共识](https://www.campaignmonitor.com)——HTML 与纯文本并存由客户端自选，兼容性/可达性/送达率三赢；纯文本部分必须是真正可读的 digest 而非自动转储）。共同语义：**HTML 是呈现增强，纯文本是可达性底线——两者共存而非二选一**。
+- 对本项目的映射：I154 的纯文本 digest 恰好就是那个「真正可读的纯文本 part」——补 HTML part 即可：`EmailMessage.add_alternative(html)` 零新依赖；HTML=table 布局+内联样式的周报卡（标题+周键、指标行配状态徽标色[超期红/风险琥珀/完成绿]、环比行、CTA「查看全文」按钮链到站内 Reports 页）。
+
+**AX.2 跨周资源面（OpenProject 17.7 Resource planner 轻量化）**
+
+- [OpenProject 17.7](https://www.openproject.org)（2026-08）：Resource planner 时间轴可视化**每用户已分配工作 vs 剩余容量**随时间变化、按实际容量规划、一处跨项目分配人员。重模式三件套：时间轴 UI+容量模型（工时/天）+显式分配记录——对「人 directs」定位过重（分配是另一种计划层，与 AgentPM「指派即分配」哲学冲突）。
+- 轻量裁决：**只做「读视图」不做「分配层」**——按人 × 未来两周（本周+下下周）的到期负载热力（活跃工作项按 due_date 落桶、estimate_hours 求和、休假覆盖标灰），纯投影零新表零新计划概念；跨项目天然（items 全局查，前端组合负载页入口）。显式容量/分配层留 backlog（需用户先表达「要排人」的需求）。
+
+**AX.3 交易邮件设计细节（层次/徽标/CTA）**
+
+- [Postmark 2026 交易邮件 15 条](https://postmarkapp.com)/[iContact](https://www.icontact.com)：**信息层级**——最重要的结论放最前（周报=总体判断先行）；状态用色块徽标强化（红=超期、琥珀=风险、绿=健康）；CTA 按钮单一明确（「查看全文」一个动作，不堆链接）。对 I159 HTML 模板的直接约束：结论行前置、三色徽标、单 CTA。
+
+**AX.4 M53 设计映射与验证纪律（沿用）**
+
+- I159 digest 邮件 HTML part：`_digest_html()` 纯函数（digest 字符串+指标→table HTML）+ mailer `_send` add_alternative[HTML 生成失败降级纯文本不失败]；单测（FakeSMTP html part 断言含徽标与 CTA/纯文本 part 仍在/非周报邮件无 html part）。
+- I160 跨周资源热力：workload 端点扩展 per-member 两周桶（due 桶+est_hours+on_leave 覆盖）+ WorkloadPage 热力卡；单测（桶归属含跨周边界/休假标灰/estimate 求和口径）。
+- I161 冒烟 58+审阅：HTML 邮件→资源热力→偏好门 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M53 审阅 + **冒烟 58**。
+
+**AX.5 M53 取舍**
+
+M53 = **分发呈现与资源面三件套**：I159 digest 邮件 HTML 化（呈现面——multipart/alternative，纯文本底线保留）/ I160 跨周资源热力（资源面——只做读视图不做分配层，OpenProject 17.7 轻量化）/ I161 冒烟 58+审阅，约 9 人日。显式容量/分配层（需用户先表达排人需求）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。

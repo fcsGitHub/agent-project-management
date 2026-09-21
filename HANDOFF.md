@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M52 周报分发完备三件套 完成，下一步 M53 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M53 调研定义完成，下一步迭代 I159）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -39,7 +39,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M52 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M53 前置调研（下一步）**：先 `grep -n "候选\|A[A-W]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M53 节 + 看板行 →「M53 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M53 审阅。**候选池**：①digest 邮件 HTML 模板化（现纯文本——行业主流内联 HTML 摘要+按钮链接；M50 研究已提 Google Data Studio 混合式）；②跨项目资源规划轻量面（OpenProject 17.7 资源管理模块对照——组合工作负载已 M28，缺跨项目资源视图；需评估是否与「人 directing」定位相符）；③Cycles 多周期并列（维持降级）；④derived 进度上卷（已裁决维持，除非用户要求）；⑤调研新发现（新特性扫描）。
+2. **M53 分发呈现与资源面三件套（进行中，调研定义已提交）**：docs/01 §AX + docs/10 §M53 已落（三路调研：HTML 邮件工程共识——table+内联 CSS+multipart/alternative 双 part、纯文本底线恰为 I154 digest；OpenProject 17.7 Resource planner 轻量裁决只做读视图不做分配层；Postmark 交易邮件三约束）。**迭代序**：I159 digest 邮件 HTML part（`_digest_html()` 纯函数+add_alternative[失败降级纯文本]）→ I160 跨周资源热力（workload per-member 两周到期桶+休假标灰+前端热力条）→ I161 **冒烟 58** + M53 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

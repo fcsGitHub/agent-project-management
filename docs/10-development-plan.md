@@ -1630,6 +1630,36 @@ agent-project-management/
 
 ---
 
+### M53 · 分发呈现与资源面三件套（I159-I161，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AX 前置调研）。M52 的 digest 邮件是纯文本，M52 补**呈现**：multipart/alternative 双 part（HTML 呈现增强+纯文本可达性底线共存，table+内联 CSS 是唯一跨客户端一致方案）；资源面对照 OpenProject 17.7 Resource planner 做**轻量裁决：只做读视图不做分配层**（按人×周到期负载热力，纯投影零新计划概念）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I159 | digest 邮件 HTML part（`_digest_html()` 纯函数[标题+周键/指标行三色徽标：超期红·风险琥珀·完成绿/环比行/单 CTA「查看全文」] + mailer `_send` add_alternative[HTML 生成失败降级纯文本；非周报邮件保持纯文本单 part]——Postmark 层级/徽标/单 CTA 约束） | — | I154 digest、邮件 worker | 3d |
+| I160 | 跨周资源热力（workload 端点 per-member 扩两周桶[活跃项按 due_date 落本周/下下周桶+estimate_hours 求和+休假覆盖标灰] + WorkloadPage「跨周资源热力」卡——OpenProject 17.7 轻量化：读视图不建分配层） | — | M28 workload、I111 休假 | 3d |
+| I161 | 冒烟 58+收尾审阅（HTML 邮件双 part→资源热力→偏好门 roundtrip + docs 收口 + M53 审阅） | — | 冒烟范式 | 3d |
+
+#### I159 · digest 邮件 HTML part（3d）
+
+- 任务：reports.py `_digest_html(project, week, metrics, prev_note, path)` 纯函数——table 布局+内联样式（无外部资源无脚本）：标题行、漏斗/超期/风险/工时费用行（超期>0 红徽标、风险>0 琥珀、否则绿「健康」）、环比行、CTA 按钮（href=站内 Reports 页，基址走 config）；write_weekly_status_report 的 digest 队列项带 `html` 字段；mailer `_send` 当 body+html 同在时 `msg.add_alternative(html, subtype="html")`[先 set_content 纯文本再 alternative——异常降级纯文本]。
+- DoD：单测（FakeSMTP get_body preferencelist=("html",) 断言徽标与 CTA/纯文本 part 仍可读/HTML 构造抛错仍发纯文本/非周报邮件无 html part）。
+- 演示路径：sweep 周报 → 邮箱里带色徽标与「查看全文」按钮的周报卡。
+
+#### I160 · 跨周资源热力（3d）
+
+- 任务：`/portfolio/workload` 响应 per-member 加 `weeks: [{week_start, due_items, est_hours, on_leave}]`×2（本周/下下周，ISO 周一锚定，活跃项 due_date 落桶、estimate_hours 求和、time_off 覆盖整周标灰）+ WorkloadPage 成员行扩两周微热力条（色阶按 est_hours，休假灰块）。
+- DoD：单测（桶归属含周日/周一边界/estimate 求和口径/休假整周标灰/无 due 不落桶）。
+- 演示路径：组合负载页 → 每人本周/下下周负载色条一眼看谁要过载。
+
+#### I161 · 冒烟 58+收尾审阅（3d）
+
+- 任务：**冒烟 58**（sweep→HTML+纯文本双 part 邮件→workload 两周桶→偏好门 roundtrip）+ docs 收口 + M53 审阅。
+- DoD：冒烟 58 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「周一邮箱收彩色周报 → 组合负载页看下周谁过载」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1829,6 +1859,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M53 分发呈现与资源面三件套（I159-I161）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AX + docs/10 §M53）：I159 digest 邮件 HTML part（multipart/alternative 双 part[HTML 呈现增强+纯文本可达性底线共存]——table+内联 CSS+三色徽标+单 CTA）/ I160 跨周资源热力（workload per-member 两周到期桶+estimate 求和+休假标灰——OpenProject 17.7 Resource planner 轻量裁决：只做读视图不做分配层）/ I161 冒烟 58+审阅；显式容量/分配层[需用户先表达排人需求]、Cycles 多周期[维持降级]、derived[已裁决]留 backlog。基线：pytest 416（非 smoke 359 全绿 EXIT=0 + smoke 57 GREEN 对账）+ vitest 14 + build 绿 |
+| 2026-09-21 M53 调研定义（§AX） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：HTML 邮件模板化[仅一句带过无技术调研]、跨项目资源规划[仅 backlog 观察一句 OpenProject 细节未查]、Cycles 多周期[维持降级]、derived[已裁决]。三路 WebSearch：HTML 邮件工程共识（table 嵌套+内联 CSS=唯一跨客户端一致方案[Gmail 剥 head 样式/Outlook 桌面 CSS 差]；multipart/alternative 双 part 三赢——纯文本必须真可读恰为 I154 digest）、OpenProject 17.7 Resource planner（时间轴已分配 vs 剩余容量/跨项目分配——重模式三件套对「人 directs」过重→轻量裁决读视图）、Postmark 交易邮件 15 条（结论前置/三色徽标/单 CTA）。定案 M53=分发呈现与资源面三件套（I159/I160/I161） |
 | **M52 周报分发完备三件套（I156-I158）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AW + docs/10 §M52）：I156 周报 Markdown 附件（notification.sent payload 加 path/week 字段 + mailer 队列项透传 attach/attach_week + `_send` 工作线程内惰性 gitrepo.read_file 读工件 add_attachment[filename weekly-report-<ISO周键>.md；读失败降级仅 digest 不失败+warning exc_info]——服务端 PDF 裁决不引入[Playwright 捆浏览器/WeasyPrint 需 Pango-Cairo 且 Windows 痛/wkhtmltopdf 停维护]）/ I157 周报订阅制（report.subscribed/unsubscribed 事件对 + report_subscribers 投影表进 drop 清单[rebuild 复现] + POST/GET/DELETE 三端点[仅成员可订：非成员 403/重复 409/未订退订 404] + sweep 收件人 owner∪订阅者去重 + ReportsPage「🔔 订阅周报」开关——Jira subscription 语义/GitLab 原生无此功能 OSS 真空区）/ I158 冒烟 57+审阅（成员订阅→sweep 各一份附件邮件→偏好关断只闸邮件→退订后只剩 owner）；Cycles 多周期[维持降级]、derived 上卷[已裁决]、服务端 PDF[依赖裁决不引入]留 backlog。基线：pytest **416** 全绿（非 smoke 359 EXIT=0 + smoke runner 57 GREEN 对账）+ 冒烟 **57** + vitest **14** + build 绿 |
 | 2026-09-21 M52 调研定义（§AW） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：附件形态[仅一句带过无技术选型]、报表订阅制[无任何调研记录]、Cycles 多周期[维持降级]、derived[M50 已裁决]。三路 WebSearch：Python 服务端 PDF 三路线选型（Playwright ~42ms 捆整浏览器/WeasyPrint 227ms 需系统 Pango-Cairo Windows 高频安装痛/wkhtmltopdf 停止维护——依赖重量 vs 打印即得价值不成比例→不引入，补零依赖 .md 附件）、Jira filter/dashboard subscription（JQL 按日程邮件化/dashboard PDF-CSV 副本收件人自选——GitLab 原生无定时订阅=OSS 真空区；订阅=人×项目×通道自选关系）、2026 秋季扫描（OpenProject 17.7 资源管理模块/Plane v3 桌面端/Taiga 6.10 归档——无新缺口）。定案 M52=周报分发完备三件套（I156/I157/I158） |
 | I156 周报 Markdown 附件 | 已完成 | 2026-09-21 | 2026-09-21 | notification.sent payload 加 `path`/`week` 字段 + mailer 队列项 `attach`/`attach_week` 透传 + `_send` 工作线程内惰性 import gitrepo 读工件（写路径永不等待 git/文件 I/O）；坑三连：①附件以 bytes 传入会按默认编码解码致中文乱码→改 str+`charset="utf-8"`；②str payload 走 set_text_content 不收 maintype 参数；③邮件带附件变 multipart/mixed——FakeSMTP/StubSMTP 的 `get_content()` 直取正文会 KeyError→改 `get_body(preferencelist=("plain",))`（smoke_56 同步适配补交 d54b552）+ test_mailer 9 项 |
