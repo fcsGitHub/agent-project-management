@@ -446,6 +446,18 @@ CREATE TABLE IF NOT EXISTS report_subscribers (
   PRIMARY KEY (project_id, user_id)
 );
 
+-- M54-I162: user-defined watch rules (projection of watch.added/removed —
+-- in drop_projections so rebuild reproduces them; 「人×项目×事件类型」
+-- self-built notification rules, rules are data not code).
+CREATE TABLE IF NOT EXISTS watch_rules (
+  user_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  condition_json TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, project_id, event_type)
+);
+
 -- I107: processed mail Message-IDs (projection of imap.message_processed —
 -- in drop_projections so rebuild reproduces them; idempotency per Message-ID).
 CREATE TABLE IF NOT EXISTS imap_seen (
@@ -585,6 +597,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "intake_tokens",
         "non_working_days",
         "report_subscribers",
+        "watch_rules",
         "imap_seen",
         "user_time_off",
         "project_cycles",

@@ -43,6 +43,9 @@ def create_app() -> FastAPI:
         from apm.domains.mailer import install_mailer
 
         install_mailer()  # 邮件通道入队 hook + 后台发送线程（幂等，M11-I35）
+        from apm.domains.watch import install_watcher
+
+        install_watcher()  # watch 规则匹配 hook（幂等，M54-I162——规则是数据不是代码）
         from apm.domains.automations import install_scheduler
 
         if config.settings.scheduler_enabled:
@@ -168,6 +171,8 @@ def create_app() -> FastAPI:
     app.include_router(webhooks_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")
+    from apm.domains.watch import router as watch_router
+    app.include_router(watch_router, prefix="/api")
     app.include_router(members_router, prefix="/api")
     app.include_router(calendar_router, prefix="/api")
     app.include_router(cycles_router, prefix="/api")
