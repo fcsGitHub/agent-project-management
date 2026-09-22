@@ -31,8 +31,11 @@ def _d(offset: int) -> str:
 
 
 def test_retrospective_aggregates_and_calibers(client, tmp_data, isolated_ontologies, project):
+    # end_date = today (NOT -1): done events carry UTC dates while _d() uses
+    # the local date — an "yesterday" end zeroes `completed` across the UTC
+    # boundary (smoke_45/smoke_53 date-anchor family, third member)
     c1 = client.post(f"/api/projects/{project}/cycles",
-                     json={"name": "S1", "start_date": _d(-14), "end_date": _d(-1)}).json()
+                     json={"name": "S1", "start_date": _d(-14), "end_date": _d(0)}).json()
     # 承诺 3 项：2 done 1 仍开 → 完成率 2/3。create 不收 cycle_id——挂载走
     # PATCH；为区分「承诺日 vs 中途拖入」（口径粒度=日），承诺项的挂载用
     # backdate 历史事件（昨日），中途项用真实 now。
