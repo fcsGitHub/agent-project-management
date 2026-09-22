@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M53 分发呈现与资源面三件套 完成，下一步 M54 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M54 调研定义完成，下一步迭代 I162）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -40,7 +40,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M53 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M54 前置调研（下一步）**：先 `grep -n "候选\|A[A-X]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M54 节 + 看板行 →「M54 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M54 审阅。**候选池**：①显式容量/分配层（M53 轻量裁决留的口子——需用户先表达「要排人」需求，默认不做）；②订阅规则泛化（filter subscription 语义：把「人×项目×事件类型」订阅抽象成通用规则——Jira saved-filter subscription 对照，需评估事件面复杂度）；③Cycles 多周期并列（维持降级）；④derived 进度上卷（已裁决维持，除非用户要求）；⑤调研新发现（新特性扫描）。
+2. **M54 自定义关注三件套（进行中，调研定义已提交）**：docs/01 §AY + docs/10 §M54 已落（三路调研：Jira filter subscription/GitHub Custom watch/Linear 按通道配置四共识；Azure Service Bus 订阅侧过滤规则——规则是数据不是代码；2026 末无新缺口）。**迭代序**：I162 watch 规则域（`watch.added/removed` 事件+watch_rules 投影[drop 清单] + CRUD own-data+成员门+白名单[排除 notification.sent 防循环] + 新 watch.py post-emit hook 消费→notification.sent kind=watch[自事件抑制/多规则单份]）→ I163 偏好门+前端管理（NOTIFY_KINDS 第九员 + 铃铛偏好浮层管理区）→ I164 **冒烟 59** + M54 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

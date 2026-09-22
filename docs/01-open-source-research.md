@@ -1476,3 +1476,33 @@ M52 = **周报分发完备三件套**：I156 Markdown 附件（形态面——�
 **AX.5 M53 取舍**
 
 M53 = **分发呈现与资源面三件套**：I159 digest 邮件 HTML 化（呈现面——multipart/alternative，纯文本底线保留）/ I160 跨周资源热力（资源面——只做读视图不做分配层，OpenProject 17.7 轻量化）/ I161 冒烟 58+审阅，约 9 人日。显式容量/分配层（需用户先表达排人需求）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
+
+
+## AY. M54 前置调研：自定义关注规则 / 通知规则架构范式 / 2026 末扫描（2026-09-21）
+
+> 目标协议触发：M53 完成后开启。防重查：候选池 grep——订阅规则泛化（I157 只调研了「周报订阅」特例，「人×项目×事件类型」通用 watch 规则与 Jira filter subscription/GitHub custom watch 对照**无调研记录**）、显式容量分配层（M53 轻量裁决留口子，需用户先表达排人需求——维持默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）、subject 正则全量路由（维持不做除非要求）。本轮三路新调研（订阅规则产品语义 / 事件订阅架构范式 / 2026 末扫描），选定 **M54 = 自定义关注三件套**。
+
+**AY.1 订阅规则产品语义（watch=用户自建的「谁在什么事件上被通知」）**
+
+- 三家对照：[Jira filter subscription](https://support.atlassian.com)——保存的过滤器按日程跑、结果邮件化（可「无结果也发」），且**默认只在结果最近有变化时发**（反空/反重复是内建纪律）；[GitHub Custom watch](https://docs.github.com)——按仓库×**事件类型**自选（releases/issues/PRs/discussions），触发器与通道分离；[Linear](https://linear.app/docs/notifications)——**按通道**（Desktop/Mobile/Email/Slack）×事件类别独立配置。四条设计共识（[Adobe](https://blog.adobe.com)/[Toptal](https://www.toptal.com)）：**触发器与通道分离、相关性默认、空/重复抑制、用户可控**。
+- 对本项目的映射：现有通知面是「角色推导收件人」（指派/owner/参与者），I157 是「周报」单事件特例——补**用户自建 watch 规则**：`人 × 项目 × 事件类型`（白名单内，可带条件），触发走 notification.sent 既有双通道（站内+邮件+偏好门全复用）——「发给谁」由 watch 决定，「怎么发」仍由 I96 偏好决定，语义正交不重造。
+
+**AY.2 事件订阅架构范式（subscription-side filter rules）**
+
+- [Azure Service Bus Topic Filters](https://learn.microsoft.com)：pub/sub 的订阅侧过滤规则——每个订阅者注册自己的过滤表达式（对事件属性求值），broker 侧匹配投递；与「每类事件硬编码收件人」相对，是**通用可配置通知**的标准形态。共同语义：**规则是数据不是代码**——匹配逻辑对事件 payload 求值，规则增删不改事件流。
+- 对本项目的映射：事件溯源天然适配——watch 规则本身就是事件（`watch.added/removed` + 投影表进 drop 清单，同 I157 范式）；消费端用 **post-emit hook**（mailer.enqueue 同款机制）对每个事件求值匹配规则→命中即 emit `notification.sent`（kind=`watch`）——投影器做偏好门、mailer 做邮件门，双通道零新通道。防循环：watch 规则匹配白名单不含 `notification.sent` 自身。
+
+**AY.3 2026 末扫描（新发现方向）**
+
+- 2026 Q3-Q4 无具体厂商新缺口信号（Epicflow/Atlassian/TechPlusTrends 等均为趋势综述：Agentic AI 从被动软件转向自主代理）——AgentPM 的「人 directs、Agent executes + 事件溯源审计」正是该方向的工程化形态；watch 规则把「人想被通知什么」也从硬编码变成用户可配置，与趋势同向。无新功能缺口。
+
+**AY.4 M54 设计映射与验证纪律（沿用）**
+
+- I162 watch 规则域：`watch.added/removed` 事件对 + watch_rules 投影表（drop 清单）+ CRUD 三端点（own-data+成员门）+ 可订阅事件类型白名单（item.*/approval.*/comment.*/risk.*/expense.*/artifact.report_generated 等，显式排除 notification.sent/email.*）+ post-emit hook 匹配消费[actor 自事件抑制/命中去重]；单测（roundtrip+rebuild/非成员 403/白名单外 422/命中发 watch 通知/自事件抑制）。
+- I163 偏好门+前端管理：NOTIFY_KINDS 加 `watch: 自定义关注` + 铃铛偏好浮层「👁 项目关注规则」管理区（跨项目列表+事件类型下拉+增删）；单测（偏好关断双通道/多规则命中单份）。
+- I164 冒烟 59+审阅：建规则→触发事件→站内+邮件→偏好关断→删规则 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M54 审阅 + **冒烟 59**。
+
+**AY.5 M54 取舍**
+
+M54 = **自定义关注三件套**：I162 watch 规则域（规则=数据不是代码，事件溯源范式第七例）/ I163 偏好门+前端管理（触发器与通道分离的 Linear 语义）/ I164 冒烟 59+审阅，约 9 人日。显式容量/分配层（默认不做除非用户要求）、订阅日程化（filter subscription 的定时批次面——AgentPM 已有 sweep 节律，暂无第二批过滤需求）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。

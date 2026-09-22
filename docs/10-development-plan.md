@@ -1660,6 +1660,36 @@ agent-project-management/
 
 ---
 
+### M54 · 自定义关注三件套（I162-I164，约 9 人日）
+
+> v3.0 新增（2026-09-21，docs/01 §AY 前置调研）。现有通知面是「角色推导收件人」，watch 规则把它变成**用户自建**：`人 × 项目 × 事件类型`（白名单内）——规则是数据不是代码（`watch.added/removed` 事件+投影），消费走 post-emit hook 命中即 emit notification.sent（kind=watch），站内/邮件/偏好门三面全复用零新通道。Jira filter subscription + GitHub Custom watch + Linear 按通道配置的三家合流。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I162 | watch 规则域（`watch.added/removed` 事件对 + watch_rules 投影表进 drop 清单 + POST/GET/DELETE `/projects/{id}/watch-rules`[own-data+成员门；事件类型白名单校验] + post-emit hook 匹配消费[可订阅白名单显式排除 notification.sent/email.* 防循环；actor 自事件抑制；同事件同用户多规则单份]→emit notification.sent kind=watch） | — | I157 事件范式、post-emit hook、I96 偏好门 | 3d |
+| I163 | 偏好门+前端管理（NOTIFY_KINDS 加 `watch: 自定义关注`[偏好矩阵第九员] + 铃铛偏好浮层「👁 项目关注规则」管理区[跨项目规则列表+事件类型下拉+增删] + api.ts 三接口） | — | I96 白名单、AppShell 偏好浮层 | 3d |
+| I164 | 冒烟 59+收尾审阅（建规则→触发事件→站内+邮件→偏好关断→删规则 roundtrip + docs 收口 + M54 审阅） | — | 冒烟范式 | 3d |
+
+#### I162 · watch 规则域（3d）
+
+- 任务：schema 加 watch_rules 投影表（user_id/project_id/event_type/condition_json/created_at，PRIMARY KEY(user_id,project_id,event_type)，进 drop 清单）+ `@on("watch.added"/"watch.removed")` 投影 + 三端点（POST 校验白名单+成员门[重复 409]、DELETE[未订 404]、GET 列本人跨项目规则带项目名；condition_json 可选暂存不参与匹配——最小面）+ 新 `apm/domains/watch.py`：`WATCHABLE_EVENTS` 白名单 + `install_watcher()` post-emit hook（对白名单事件求值全部规则→actor≠user_id 且命中→emit notification.sent kind=watch；异常吞掉不杀事件流）+ main.py lifespan 注册。
+- DoD：单测（roundtrip+rebuild 复现/非成员 403/白名单外 422/重复 409/触发事件命中发 watch 通知/自事件不发/notification.sent 自身不匹配）。
+- 演示路径：qa-wang 对项目建「item.status_changed」watch → 别人完成任务 → qa-wang 铃铛出现「自定义关注」通知。
+
+#### I163 · 偏好门+前端管理（3d）
+
+- 任务：NOTIFY_KINDS 加 `watch: "自定义关注"` + 铃铛偏好浮层加管理区（GET 全量规则、每行项目名+事件类型+✕ 删除、底部「+ 新关注」选项目+事件类型）+ api.ts `listWatchRules/addWatchRule/removeWatchRule`。
+- DoD：单测（watch 偏好 inapp=False 双通道全静默[hook 事件照发]/两条同事件规则命中单份通知）+ 前端三态。
+- 演示路径：偏好浮层建关注 → 关掉「自定义关注」站内 → 触发事件 → 铃铛安静、事件流仍有 notification.sent。
+
+#### I164 · 冒烟 59+收尾审阅（3d）
+
+- 任务：**冒烟 59**（建 watch→触发→站内+邮件→偏好关断→删规则 roundtrip）+ docs 收口 + M54 审阅。
+- DoD：冒烟 59 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「关注 → 别人动了我的项目 → 我收到通知 → 不想收了就退」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1859,6 +1889,8 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| **M54 自定义关注三件套（I162-I164）** | 进行中 | 2026-09-21 | — | 3 迭代 / 约 9 人日（docs/01 §AY + docs/10 §M54）：I162 watch 规则域（`watch.added/removed` 事件+投影表+CRUD[own-data+成员门+白名单] + post-emit hook 消费[白名单排除 notification.sent 防循环/自事件抑制/多规则单份]→notification.sent kind=watch——规则=数据不是代码）/ I163 偏好门+前端管理（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）/ I164 冒烟 59+审阅；显式容量分配层[默认不做除非用户要求]、订阅日程化[已有 sweep 节律暂无需求]、Cycles 多周期[维持降级]、derived[已裁决]留 backlog。基线：pytest 420（非 smoke 362 全绿 EXIT=0 + smoke 58 GREEN 对账）+ vitest 14 + build 绿 |
+| 2026-09-21 M54 调研定义（§AY） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：订阅规则泛化[I157 仅周报特例无通用规则调研]、显式容量[M53 裁决口子默认不做]、Cycles 多周期[维持降级]、derived[已裁决]。三路 WebSearch：订阅规则产品语义（Jira filter subscription 反空/反重复内建+GitHub Custom watch 按仓库×事件类型+Linear 按通道×类别——四共识：触发器/通道分离、相关性默认、空重复抑制、用户可控）、事件订阅架构范式（Azure Service Bus 订阅侧过滤规则——规则是数据不是代码）、2026 末扫描（Agentic AI 趋势综述无新缺口——watch 与趋势同向）。定案 M54=自定义关注三件套（I162/I163/I164） |
 | **M53 分发呈现与资源面三件套（I159-I161）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AX + docs/10 §M53）：I159 digest 邮件 HTML part（`_digest_html()` 纯函数[table 嵌套+内联样式——Gmail 剥 head 样式/Outlook 桌面 CSS 差的唯一跨客户端一致方案；结论前置+三色徽标 超期红/风险琥珀/健康绿+单 CTA「查看全文」链 {web_base_url}/#/p/{pid}/reports；project_name/prev_note escape] + config `web_base_url` 空=无按钮纯文本自持 + mailer `add_alternative`[alternative 在 attachment 前保持 mixed(alternative(plain,html),file) 结构；构造/add 失败双重降级纯文本——纯文本底线恰为 I154 digest]）/ I160 跨周资源热力（workload per-member `weeks` 两桶[ISO 周一锚定本周/下下周；活跃项按 due_date 落桶+estimate_hours 求和；仅可见项目计入不泄漏] + 桶级 on_leave 仅整周覆盖标灰[部分休假不隐藏真实容量] + WorkloadPage 两周微热力条[绿≤8h/琥珀≤20h/红>20h/天蓝整周休假]——OpenProject 17.7 Resource planner 轻量裁决：只做读视图不做分配层/指派即分配）/ I161 冒烟 58+审阅（multipart/alternative 双 part+.md 附件共存→两周桶→rebuild 一致；due_soon 提醒与周报并发按内容定位邮件）；显式容量/分配层[需用户先表达排人需求]、Cycles 多周期[维持降级]、derived[已裁决]留 backlog。基线：pytest **420** 全绿（非 smoke 362 EXIT=0 + smoke runner 58 GREEN 对账）+ 冒烟 **58** + vitest **14** + build 绿 |
 | 2026-09-21 M53 调研定义（§AX） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：HTML 邮件模板化[仅一句带过无技术调研]、跨项目资源规划[仅 backlog 观察一句 OpenProject 细节未查]、Cycles 多周期[维持降级]、derived[已裁决]。三路 WebSearch：HTML 邮件工程共识（table 嵌套+内联 CSS=唯一跨客户端一致方案[Gmail 剥 head 样式/Outlook 桌面 CSS 差]；multipart/alternative 双 part 三赢——纯文本必须真可读恰为 I154 digest）、OpenProject 17.7 Resource planner（时间轴已分配 vs 剩余容量/跨项目分配——重模式三件套对「人 directs」过重→轻量裁决读视图）、Postmark 交易邮件 15 条（结论前置/三色徽标/单 CTA）。定案 M53=分发呈现与资源面三件套（I159/I160/I161） |
 | I159 digest 邮件 HTML part | 已完成 | 2026-09-21 | 2026-09-21 | `_digest_html()` 纯函数[无外部资源无脚本；badge 闭包内联样式] + config `web_base_url: str = ""`[新配置——空则渲染不出 CTA 按钮纯文本自持] + payload 加 `digest_html` + mailer 队列项 `html` 透传 + `_send` `add_alternative(html, subtype="html")`[顺序纪律：alternative 必须在 add_attachment 之前——结构才是 mixed(alternative(plain,html), file)] + `_digest_html` 抛错在生成侧 try 住[digest_html=""降级]+mailer 侧再兜底；test_mailer 11 项（html part/纯文本底线/非周报无 html/构造失败降级） |
