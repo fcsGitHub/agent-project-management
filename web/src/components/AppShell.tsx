@@ -286,6 +286,89 @@ export function AppShell() {
 
 const KIND_ICON: Record<string, string> = { assigned: "👤", approval: "◆", rule_notify: "⚡", notify: "🔔" };
 
+/** M54-I163: watch rules management (GitHub custom watch semantics) —
+ * 「人×项目×事件类型」 self-built rules; the per-kind pref matrix above still
+ * governs delivery per channel. */
+const WATCHABLE: { type: string; label: string }[] = [
+  { type: "item.created", label: "新建工作项" },
+  { type: "item.updated", label: "工作项更新" },
+  { type: "item.status_changed", label: "状态变更" },
+  { type: "item.assigned", label: "新指派" },
+  { type: "comment.created", label: "新评论" },
+  { type: "approval.requested", label: "审批请求" },
+  { type: "approval.decided", label: "审批决定" },
+  { type: "risk.created", label: "新风险" },
+  { type: "risk.closed", label: "风险关闭" },
+  { type: "expense.recorded", label: "费用登记" },
+  { type: "attachment.created", label: "新附件" },
+  { type: "artifact.report_generated", label: "报告生成" },
+];
+
+function WatchRulesSection() {
+  const qc = useQueryClient();
+  const rules = useQuery({ queryKey: ["watch-rules"], queryFn: api.listWatchRules });
+  const projects = useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
+  const [newType, setNewType] = useState(WATCHABLE[2].type);
+  const [newPid, setNewPid] = useState("");
+  useEffect(() => {
+    if (!newPid && projects.data?.projects.length) setNewPid(projects.data.projects[0].id);
+  }, [projects.data, newPid]);
+
+  const add = async () => {
+    if (!newPid) return;
+    try {
+      await api.addWatchRule(newPid, newType);
+      toast.success("已添加关注");
+      await qc.invalidateQueries({ queryKey: ["watch-rules"] });
+    } catch (e) {
+      toast.error(`添加失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const remove = async (pid: string, type: string) => {
+    try {
+      await api.removeWatchRule(pid, type);
+      await qc.invalidateQueries({ queryKey: ["watch-rules"] });
+    } catch (e) {
+      toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const labelOf = (t: string) => WATCHABLE.find((w) => w.type === t)?.label ?? t;
+  return (
+    <div className="space-y-1 border-t border-line pt-2">
+      <div className="text-[10px] text-mut">👁 项目关注规则（别人动了我关注的项目就提醒我）</div>
+      {(rules.data?.rules ?? []).map((r) => (
+        <div key={`${r.project_id}/${r.event_type}`} className="flex items-center gap-1.5 text-xs">
+          <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}`}>
+            {r.project_name} · {labelOf(r.event_type)}
+          </span>
+          <button onClick={() => remove(r.project_id, r.event_type)}
+            className="text-mut hover:text-dan" title="删除该关注">✕</button>
+        </div>
+      ))}
+      {rules.data && !rules.data.rules.length && (
+        <div className="text-[11px] text-mut">暂无关注——添加一条，命中时通过上面的「自定义关注」通道提醒你</div>
+      )}
+      <div className="flex items-center gap-1">
+        <select value={newPid} onChange={(e) => setNewPid(e.target.value)}
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-[11px]" title="选择项目">
+          {(projects.data?.projects ?? []).map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <select value={newType} onChange={(e) => setNewType(e.target.value)}
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-[11px]" title="选择事件类型">
+          {WATCHABLE.map((w) => (
+            <option key={w.type} value={w.type}>{w.label}</option>
+          ))}
+        </select>
+        <button onClick={add} className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc">
+          + 关注
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** I96: per-kind × channel preference matrix (GitLab Custom level). mention is
  *  checked and disabled — the API refuses to turn it off anyway (fail-closed). */
 function KindPrefMatrix() {
@@ -484,6 +567,7 @@ function NotificationsBell() {
               <span>邮件通知{notes.data?.email_enabled ? "（开启）" : "（已关，站内照常）"}</span>
             </label>
             <KindPrefMatrix />
+            <WatchRulesSection />
             <div className="flex items-center gap-2">
               <button onClick={loadFeedKey} className="text-[11px] text-acc hover:underline">
                 {showKey ? "隐藏 feed key" : "Atom 订阅 key"}

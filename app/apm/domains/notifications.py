@@ -38,6 +38,7 @@ NOTIFY_KINDS: dict[str, str] = {
     "due_soon": "临近截止提醒",
     "approval_reminder": "审批超时提醒",
     "report_weekly": "周报已生成",  # M50-I151: sweep weekly status report
+    "watch": "自定义关注",  # M54-I163: user-built watch rules
 }
 
 

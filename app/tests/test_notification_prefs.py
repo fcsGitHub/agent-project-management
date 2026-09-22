@@ -72,9 +72,11 @@ def test_matrix_shape_defaults_all_on(client, tmp_data, isolated_ontologies, pro
     assert body["email_enabled"] is True
     kinds = {k["kind"]: k for k in body["kinds"]}
     # I126 joins approval_reminder as the seventh kind;
-    # M50-I151 joins report_weekly (sweep weekly status report) as the eighth
+    # M50-I151 joins report_weekly (sweep weekly status report) as the eighth;
+    # M54-I163 joins watch (user-built watch rules) as the ninth
     assert set(kinds) == {"assigned", "approval", "comment", "item", "mention",
-                          "due_soon", "approval_reminder", "report_weekly"}
+                          "due_soon", "approval_reminder", "report_weekly",
+                          "watch"}
     assert all(k["inapp"] and k["email"] for k in kinds.values())
 
 

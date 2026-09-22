@@ -125,6 +125,9 @@ export type StatusReportEntry = {
   source: string; week: string | null; ai_summary: boolean;
   metrics: Record<string, number> | null; summary: string;
 };
+export type WatchRule = {
+  project_id: string; project_name: string; event_type: string; created_at: string;
+};
 export type ProjectReport = {
   project_id: string;
   funnel: Record<string, number>;
@@ -565,6 +568,14 @@ export const api = {
     req<{ subscribed: boolean }>(`/projects/${pid}/report-subscription`, { method: "POST" }),
   unsubscribeReport: (pid: string) =>
     req<{ subscribed: boolean }>(`/projects/${pid}/report-subscription`, { method: "DELETE" }),
+  // M54-I163: user-built watch rules (人×项目×事件类型)
+  listWatchRules: () =>
+    req<{ rules: WatchRule[] }>("/watch-rules"),
+  addWatchRule: (pid: string, eventType: string) =>
+    req<{ watching: boolean }>(`/projects/${pid}/watch-rules`,
+      { method: "POST", body: JSON.stringify({ event_type: eventType }) }),
+  removeWatchRule: (pid: string, eventType: string) =>
+    req<{ watching: boolean }>(`/projects/${pid}/watch-rules/${eventType}`, { method: "DELETE" }),
   // M49-I147: convert retro action items to tracked work items
   createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
     req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];

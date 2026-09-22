@@ -106,3 +106,25 @@ def test_watch_multi_rule_single_copy_and_no_recursion(client, project):
     assert len(watch_sent) == 1  # 单份
     # 无级联：watch 消费产生的 notification.sent 不在白名单，不会再生 watch
     assert all(e["payload"].get("user_id") == "qa-wang" for e in watch_sent)
+
+
+def test_watch_pref_gate_holds(client, project):
+    """I96 偏好关断：watch kind inapp=False 后站内投影不发（hook 事件照发，
+    「发给谁」由 watch 决定、「怎么发」由偏好决定）。"""
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{project}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert _watch(client, project, "item.created").status_code == 200
+    assert client.put("/api/me/notification-prefs", json={
+        "prefs": [{"kind": "watch", "inapp": False, "email": False}]}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    client.post(f"/api/projects/{project}/items",
+                json={"concept_id": "task", "title": "被闸的动态"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    notes = client.get("/api/notifications").json()["notifications"]
+    assert not [n for n in notes if n["kind"] == "watch"]  # in-app gate held
+    sent = client.get("/api/events",
+                      params={"event_type": "notification.sent"}).json()["events"]
+    assert any(e["payload"].get("kind") == "watch" for e in sent)  # fact still evented
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
