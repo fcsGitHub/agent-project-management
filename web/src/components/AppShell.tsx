@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon, Shapes, ShieldAlert, Users, Workflow, Plus, Bell, BellRing, Command,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { bundleWatch } from "../lib/notify";
 import { connectStream } from "../lib/sse";
 import { isTypingTarget } from "../lib/shortcuts";
 import { Badge, Button, Modal, Input, Textarea, cx } from "./ui";
@@ -549,7 +550,32 @@ function NotificationsBell() {
             </button>
           </div>
           <div className="max-h-64 space-y-0.5 overflow-y-auto">
-            {(notes.data?.notifications ?? []).map((n) => (
+            {bundleWatch(notes.data?.notifications ?? []).map((row) => {
+              if (row.kind === "bundle") {
+                const latest = row.notes[0];
+                return (
+                  <div key={row.key}
+                    className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs"
+                    title={row.notes.map((n) => n.summary).join("\n")}>
+                    <span>👁</span>
+                    <div className="min-w-0">
+                      <div className={cx("truncate", !latest.read && "font-medium")}>
+                        {row.notes.length > 1
+                          ? `关注动态 · ${row.notes.length} 条`
+                          : latest.summary}
+                      </div>
+                      <div className="text-[10px] text-mut">
+                        watch · {new Date(latest.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    {row.notes.some((n) => !n.read) && (
+                      <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-acc" />
+                    )}
+                  </div>
+                );
+              }
+              const n = row.note;
+              return (
               <div key={n.id}
                 onClick={async () => {
                   // M18-I57: mention notifications deep-link to the commented item;
@@ -573,7 +599,8 @@ function NotificationsBell() {
                 </div>
                 {!n.read && <span className="ml-auto mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-acc" />}
               </div>
-            ))}
+              );
+            })}
             {!notes.data?.notifications.length && (
               <div className="px-2 py-3 text-xs text-mut">暂无通知——指派、审批请求与自动化提醒会出现在这里</div>
             )}
