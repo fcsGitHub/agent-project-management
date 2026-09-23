@@ -128,3 +128,43 @@ def test_watch_pref_gate_holds(client, project):
                       params={"event_type": "notification.sent"}).json()["events"]
     assert any(e["payload"].get("kind") == "watch" for e in sent)  # fact still evented
     client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_condition_matching(client, project):
+    """M55-I165：条件化 watch——全部键值全等命中才投递；不命中静默；
+    空条件兼容 M54 行为；坏条件 422；rebuild 复现。"""
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{project}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    # 只关注「完成」
+    r = client.post(f"/api/projects/{project}/watch-rules",
+                    json={"event_type": "item.status_changed",
+                          "condition": {"status_group": "done"}})
+    assert r.status_code == 200
+    # 坏条件 422（嵌套值/超 5 键/值非原始）
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "item.created",
+                             "condition": {"a": {"nested": 1}}}).status_code == 422
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "item.updated",
+                             "condition": {f"k{i}": i for i in range(6)}}).status_code == 422
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+    it = client.post(f"/api/projects/{project}/items",
+                     json={"concept_id": "task", "title": "条件任务"}).json()
+    client.patch(f"/api/items/{it['id']}", json={"status": "in_progress"})  # 不命中
+    client.patch(f"/api/items/{it['id']}", json={"status": "done"})         # 命中
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    notes = client.get("/api/notifications").json()["notifications"]
+    wk = [n for n in notes if n["kind"] == "watch"]
+    assert len(wk) == 1 and "条件任务" in wk[0]["summary"]  # in_progress 静默
+    assert client.get("/api/watch-rules").json()["rules"][0]["condition"] \
+        == '{"status_group": "done"}'
+
+    from apm.core import projections
+    projections.ensure_handlers_registered()
+    projections.rebuild()
+    assert client.get("/api/watch-rules").json()["rules"][0]["condition"] \
+        == '{"status_group": "done"}'
+    client.post("/api/session/identity", json={"user_id": "u_admin"})

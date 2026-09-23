@@ -310,6 +310,8 @@ function WatchRulesSection() {
   const projects = useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
   const [newType, setNewType] = useState(WATCHABLE[2].type);
   const [newPid, setNewPid] = useState("");
+  const [condKey, setCondKey] = useState("");
+  const [condVal, setCondVal] = useState("");
   useEffect(() => {
     if (!newPid && projects.data?.projects.length) setNewPid(projects.data.projects[0].id);
   }, [projects.data, newPid]);
@@ -317,8 +319,12 @@ function WatchRulesSection() {
   const add = async () => {
     if (!newPid) return;
     try {
-      await api.addWatchRule(newPid, newType);
+      const condition: Record<string, string> = {};
+      if (condKey.trim() && condVal.trim()) condition[condKey.trim()] = condVal.trim();
+      await api.addWatchRule(newPid, newType, condition);
       toast.success("已添加关注");
+      setCondKey("");
+      setCondVal("");
       await qc.invalidateQueries({ queryKey: ["watch-rules"] });
     } catch (e) {
       toast.error(`添加失败：${e instanceof Error ? e.message : e}`);
@@ -338,8 +344,11 @@ function WatchRulesSection() {
       <div className="text-[10px] text-mut">👁 项目关注规则（别人动了我关注的项目就提醒我）</div>
       {(rules.data?.rules ?? []).map((r) => (
         <div key={`${r.project_id}/${r.event_type}`} className="flex items-center gap-1.5 text-xs">
-          <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}`}>
+          <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}${r.condition ? ` · 仅当 ${r.condition}` : ""}`}>
             {r.project_name} · {labelOf(r.event_type)}
+            {r.condition && (
+              <span className="ml-1 rounded bg-acc/10 px-1 text-[10px] text-acc">仅当 {r.condition}</span>
+            )}
           </span>
           <button onClick={() => remove(r.project_id, r.event_type)}
             className="text-mut hover:text-dan" title="删除该关注">✕</button>
@@ -364,6 +373,14 @@ function WatchRulesSection() {
         <button onClick={add} className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc">
           + 关注
         </button>
+      </div>
+      <div className="flex items-center gap-1 text-[10px] text-mut" title="可选：对事件载荷的精确匹配，如 status_group=done 表示只关注完成">
+        <span>仅当</span>
+        <input value={condKey} onChange={(e) => setCondKey(e.target.value)} placeholder="字段"
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5" />
+        <span>=</span>
+        <input value={condVal} onChange={(e) => setCondVal(e.target.value)} placeholder="值"
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5" />
       </div>
     </div>
   );

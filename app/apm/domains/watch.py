@@ -53,6 +53,29 @@ def _proj_watch_removed(conn, e):
 
 class WatchIn(BaseModel):
     event_type: str
+    # M55-I165: optional payload conditions — flat dict, top-level payload
+    # field → primitive expected value, ALL pairs must match (equality) for
+    # the rule to deliver. No expression engine: flat equality covers the
+    # 80% (「只关注完成」「只看新建」) without JEXL-style over-engineering.
+    condition: dict = {}
+
+
+_PRIMITIVES = (str, int, float, bool)
+
+
+def _serialize_condition(condition: dict) -> str:
+    if not isinstance(condition, dict):
+        raise HTTPException(status_code=422, detail="condition must be an object")
+    if len(condition) > 5:
+        raise HTTPException(status_code=422, detail="condition supports at most 5 pairs")
+    for k, v in condition.items():
+        if not isinstance(k, str) or isinstance(v, (dict, list)) or v is None \
+                or not isinstance(v, _PRIMITIVES):
+            raise HTTPException(
+                status_code=422,
+                detail="condition values must be flat primitives (str/int/float/bool)")
+    import json
+    return json.dumps(condition, ensure_ascii=False) if condition else ""
 
 
 def _require_member(project_id: str) -> str:
@@ -80,7 +103,8 @@ def add_watch_rule(project_id: str, body: WatchIn) -> dict:
     events.emit(
         event_type="watch.added", agg_type="project", agg_id=project_id,
         project_id=project_id,
-        payload={"user_id": me, "event_type": body.event_type},
+        payload={"user_id": me, "event_type": body.event_type,
+                 "condition_json": _serialize_condition(body.condition)},
     )
     return {"project_id": project_id, "user_id": me,
             "event_type": body.event_type, "watching": True}
@@ -109,7 +133,8 @@ def list_watch_rules() -> dict:
     me = events.effective_actor()
     rows = db.get_conn().execute(
         "SELECT w.project_id AS project_id, w.event_type AS event_type,"
-        " w.created_at AS created_at, COALESCE(p.name, w.project_id) AS project_name"
+        " w.created_at AS created_at, COALESCE(p.name, w.project_id) AS project_name,"
+        " w.condition_json AS condition"
         " FROM watch_rules w LEFT JOIN projects p ON p.id = w.project_id"
         " WHERE w.user_id = ? ORDER BY w.created_at DESC", (me,)).fetchall()
     return {"rules": [dict(r) for r in rows]}
@@ -133,9 +158,24 @@ def _on_event(event: events.Event) -> None:
         if event.event_type not in WATCHABLE_EVENTS or not event.project_id:
             return
         conn = db.get_conn()
-        matched = [r["user_id"] for r in conn.execute(
-            "SELECT user_id FROM watch_rules WHERE project_id = ? AND event_type = ?"
+        matched = [(r["user_id"], r["condition_json"]) for r in conn.execute(
+            "SELECT user_id, condition_json FROM watch_rules"
+            " WHERE project_id = ? AND event_type = ?"
             " ORDER BY user_id", (event.project_id, event.event_type)).fetchall()]
+        if not matched:
+            return
+        # I165: subscription-side payload filter — ALL condition pairs must
+        # equal the payload values; empty condition = match everything
+        def _hit(condition_json: str | None) -> bool:
+            if not condition_json:
+                return True
+            import json
+            try:
+                cond = json.loads(condition_json)
+            except Exception:
+                return True  # 写入侧已校验；防御坏数据不吞通知
+            return all(event.payload.get(k) == v for k, v in cond.items())
+        matched = [(uid, cj) for uid, cj in matched if _hit(cj)]
         if not matched:
             return
         # context for the summary: item title when the event is item-scoped
@@ -148,7 +188,7 @@ def _on_event(event: events.Event) -> None:
                                 (event.project_id,)).fetchone()
         pname = name_row["name"] if name_row else event.project_id
         seen: set[str] = set()
-        for uid in matched:
+        for uid, _cj in matched:
             if uid in seen:
                 continue  # 多规则命中单份（同一事件同一用户）
             seen.add(uid)

@@ -127,6 +127,7 @@ export type StatusReportEntry = {
 };
 export type WatchRule = {
   project_id: string; project_name: string; event_type: string; created_at: string;
+  condition?: string | null;
 };
 export type ProjectReport = {
   project_id: string;
@@ -571,9 +572,9 @@ export const api = {
   // M54-I163: user-built watch rules (人×项目×事件类型)
   listWatchRules: () =>
     req<{ rules: WatchRule[] }>("/watch-rules"),
-  addWatchRule: (pid: string, eventType: string) =>
+  addWatchRule: (pid: string, eventType: string, condition: Record<string, string> = {}) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules`,
-      { method: "POST", body: JSON.stringify({ event_type: eventType }) }),
+      { method: "POST", body: JSON.stringify({ event_type: eventType, condition }) }),
   removeWatchRule: (pid: string, eventType: string) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules/${eventType}`, { method: "DELETE" }),
   // M49-I147: convert retro action items to tracked work items
