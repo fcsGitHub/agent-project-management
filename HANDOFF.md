@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M54 自定义关注三件套 完成，下一步 M55 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M55 调研定义完成，下一步迭代 I165）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -41,7 +41,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M54 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M55 前置调研（下一步）**：先 `grep -n "候选\|A[A-Y]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M55 节 + 看板行 →「M55 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M55 审阅。**候选池**：①watch 条件化（condition_json 已落库未消费——对 payload 求值的条件匹配[Azure Service Bus rule 语义第二半]，如「只关注 status→done」）；②通知合并/摘要面（同一事件多 watch/多通道的频次治理——Jira 反重复内建语义）；③显式容量分配层（默认不做除非用户要求）；④Cycles 多周期并列（维持降级）/derived 上卷（已裁决维持）；⑤调研新发现（新特性扫描）。
+2. **M55 关注精修与降噪三件套（进行中，调研定义已提交）**：docs/01 §AZ + docs/10 §M55 已落（三路调研：Jira/GitHub 原生无 payload 条件——AgentPM 结构化事件原生支持[红利第九例]；降噪=源头条件+展示层 bundling 两层，定时窗口 digest 与周报节律重复不做）。**迭代序**：I165 watch 条件化（`condition_json` 扁平等值 ≤5 键 + hook 全等匹配 + 前端条件输入与徽标）→ I166 铃铛降噪折叠（连续同 kind+同项目 watch 一行折叠带计数——纯函数+vitest）→ I167 **冒烟 60** + M55 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

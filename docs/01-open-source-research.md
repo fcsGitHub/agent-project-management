@@ -1506,3 +1506,33 @@ M53 = **分发呈现与资源面三件套**：I159 digest 邮件 HTML 化（呈�
 **AY.5 M54 取舍**
 
 M54 = **自定义关注三件套**：I162 watch 规则域（规则=数据不是代码，事件溯源范式第七例）/ I163 偏好门+前端管理（触发器与通道分离的 Linear 语义）/ I164 冒烟 59+审阅，约 9 人日。显式容量/分配层（默认不做除非用户要求）、订阅日程化（filter subscription 的定时批次面——AgentPM 已有 sweep 节律，暂无第二批过滤需求）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
+
+
+## AZ. M55 前置调研：watch 条件化 / 通知降噪 / 疲劳面证据（2026-09-21）
+
+> 目标协议触发：M54 完成后开启。防重查：候选池 grep——watch 条件化（condition_json M54 已落库但**未消费**，payload 条件匹配[Azure Service Bus rule 第二半]无调研记录）、通知合并/频次治理（**无任何调研记录**）、显式容量分配层（维持默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）。本轮三路新调研（条件过滤产品现状 / 降噪工程范式 / 疲劳面证据），选定 **M55 = 关注精修与降噪三件套**。
+
+**AZ.1 watch 条件化（subscription-side payload filter）**
+
+- 产品现状：**Jira 订阅与 GitHub watch 原生都不支持按用户的细粒度 payload 条件**——业界靠中间件补位（[AWS CodeBuild webhook filter groups](https://docs.github.com)、[Harness 的 payload/header/branch JEXL 条件 AND 组合](https://developer.harness.io)）；[Keboola 实战文](https://www.keboola.com)直言 GitHub 通知过滤「the hard way」要自建管道。共同语义：**条件是订阅规则的一部分，匹配发生在投递侧**。
+- 对本项目的映射：AgentPM 事件 payload 是结构化 JSON——条件可**原生**支持而无需中间件（事件溯源红利第九例）：`condition_json` = 扁平 dict（payload 顶层字段→期望值，全等匹配，≤5 键），hook 内全部命中才投递；`{"status_group":"done"}` 即「只关注完成」。无 JEXL/表达式引擎（过度设计），扁平等值已覆盖「只看完成/只看新建/只看某指派」八成诉求。
+
+**AZ.2 通知降噪（source filter + display bundling 两层）**
+
+- 工程范式：[Knock 批量引擎](https://www.knock.app)/[Novu digest](https://novu.co)——定时窗口聚合多事件为一封；[Courier 通知中心](https://www.courier.com)——**展示层 bundling 是降噪性价比最高的修复**（同类重复折叠为一行「Maya 和 8 其他人」）；[Sentry 反噪三招](https://blog.sentry.io)——**条件逻辑放源头**（只在满足条件时产生告警）胜过事后静音。
+- 对本项目的映射：两层各取一半——**源头层**=I165 条件化（不匹配就不产生事件）；**展示层**=站内铃铛对连续同类 watch 通知折叠为一行带计数（纯前端，事件流不动，rebuild 语义不变）；不做定时窗口 digest（AgentPM 已有周报 digest 节律，第二套窗口属重复建设）。
+
+**AZ.3 疲劳面证据（新发现方向）**
+
+- 2026 年疲劳叙事收敛（[MeisterTask](https://www.meistertask.com)/[SupportBench](https://www.supportbench.com)）：疲劳来自「多工具各自 streams + 差过滤」，解方是**审计+条件化+静音规则**而非全关（[Wrike 反面观点](https://www.wrike.com)：配置得当的通知反而穿透噪声）——与 M54/M55 路线（用户可控 watch + 条件 + 偏好矩阵九员）完全同向。无新功能缺口。
+
+**AZ.4 M55 设计映射与验证纪律（沿用）**
+
+- I165 watch 条件化：POST 校验 condition_json（扁平 dict/≤5 键/值为原始类型）+ hook 匹配（全等、空条件=全匹配）+ 前端条件字段/值可选输入与规则行条件徽标；单测（条件命中/不命中/坏条件 422/rebuild 复现）。
+- I166 铃铛降噪折叠：bell 列表连续同 kind+同项目 watch 折叠一行「N 条动态」（纯函数分组 + vitest）；不触碰事件流与已读语义（折叠行点开=逐条已读不变）。
+- I167 冒烟 60+审阅：条件 watch（done 命中/in_progress 不命中）→降噪折叠→偏好门 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M55 审阅 + **冒烟 60**。
+
+**AZ.5 M55 取舍**
+
+M55 = **关注精修与降噪三件套**：I165 watch 条件化（源头层——事件溯源红利第九例：结构化 payload 原生条件无需中间件）/ I166 铃铛降噪折叠（展示层——性价比最高修复，事件流零改动）/ I167 冒烟 60+审阅，约 9 人日。定时窗口 digest（与周报节律重复）、JEXL 表达式引擎（过度设计）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
