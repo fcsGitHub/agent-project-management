@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M55 调研定义完成，下一步迭代 I165）
+# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M55 关注精修与降噪三件套 完成，下一步 M56 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -32,7 +32,8 @@
 - **M51 周报深化与分发三件套（I153-I155，2026-09-21 完成，docs/01 §AV + docs/10 §M51）**：I153 评论语料段+AI 叙事开关（`_activity_lines` 确定语料层[近 7 天评论按项分组+独立 COUNT 溢出行] + `weekly_report_ai` 默认关[失败降级]）+ I154 digest 邮件（notification.sent payload 加 `digest` 字段+mailer body 分支——正文自含结论；**调研修正候选池假设：M11 分发通道早已通，增量只在正文**）+ I155 冒烟 56。基线 pytest 410 / 冒烟 56。
 - **M52 周报分发完备三件套（I156-I158，2026-09-21 完成，docs/01 §AW + docs/10 §M52）**：I156 周报 Markdown 附件（payload 加 path/week + `_send` 工作线程 gitrepo 读工件 add_attachment[bytes 乱码→str+charset utf-8；multipart 后测试 stub 改 get_body；读失败降级]；服务端 PDF 裁决不引入）+ I157 周报订阅制（事件对+report_subscribers 投影+三端点成员门+sweep 收件人 owner∪订阅者去重+前端开关）。基线 pytest 416 / 冒烟 57。
 - **M53 分发呈现与资源面三件套（I159-I161，2026-09-21 完成，docs/01 §AX + docs/10 §M53）**：I159 digest 邮件 HTML part（`_digest_html()` 纯函数[table+内联样式+三色徽标+单 CTA 链 `web_base_url`] + `add_alternative`[alternative 必须先于 attachment；双重降级纯文本]）+ I160 跨周资源热力（workload `weeks` 两桶 ISO 锚定+estimate 求和+桶级 on_leave 整周标灰——OpenProject 17.7 轻量裁决：只做读视图不做分配层）+ I161 冒烟 58 + 修 smoke_53 日期敏感。基线 pytest 420 / 冒烟 58。
-- **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：**I162 watch 规则域**——新域 watch.py：`人×项目×事件类型` 用户自建通知规则（WATCHABLE_EVENTS 白名单 13 类[排除 notification.sent/email.*/watch.* 防递归] + `watch.added/removed` 事件+投影表 rebuild 复现 + 三端点 own-data+成员门 + `install_watcher` post-emit hook[命中→notification.sent kind=watch；自事件抑制；多规则单份]——规则=数据不是代码）。**I163 偏好门+前端**——NOTIFY_KINDS 第九员 `watch`（「发给谁」由 watch、「怎么发」由 I96 偏好）+ 铃铛偏好浮层关注规则管理区。**I164 冒烟 59**（watch→双通道→偏好关断→删规则 roundtrip）+ **修 test_retrospective 日期敏感**[smoke_45/53 同族第三例：本地 end_date vs UTC 事件 ts 跨翻转点——修复模式 end=_d(0)]。**当前验证基线：pytest 426 全绿（非 smoke 367 EXIT=0 + smoke runner 59 GREEN 对账）；冒烟 59 条 GREEN；vitest 14/build 绿。**
+- **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
+- **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：**I165 watch 条件化**——`condition_json` 消费（写入侧校验扁平/≤5 键/原始类型 + hook 投递侧全等匹配[空条件=全匹配；坏条件防御性放行]——**事件溯源红利第九例：Jira/GitHub 原生都没有 payload 条件，AgentPM 靠结构化事件原生支持**）。**I166 铃铛降噪折叠**——lib/notify.ts `bundleWatch` 纯函数（连续同 kind+同项目相邻折叠[跨界打断]）+ AppShell 分组渲染「关注动态 · N 条」[悬浮列全部；事件流/已读零改动]。**I167 冒烟 60**（条件命中/静默→bundling 相邻性→偏好关断）。**当前验证基线：pytest 428 全绿（非 smoke 368 EXIT=0 + smoke runner 60 GREEN 对账）；冒烟 60 条 GREEN；vitest 18/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -40,8 +41,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M54 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M55 关注精修与降噪三件套（进行中，调研定义已提交）**：docs/01 §AZ + docs/10 §M55 已落（三路调研：Jira/GitHub 原生无 payload 条件——AgentPM 结构化事件原生支持[红利第九例]；降噪=源头条件+展示层 bundling 两层，定时窗口 digest 与周报节律重复不做）。**迭代序**：I165 watch 条件化（`condition_json` 扁平等值 ≤5 键 + hook 全等匹配 + 前端条件输入与徽标）→ I166 铃铛降噪折叠（连续同 kind+同项目 watch 一行折叠带计数——纯函数+vitest）→ I167 **冒烟 60** + M55 审阅。
+1. ~~M24~M55 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M56 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M56 节 + 看板行 →「M56 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M56 审阅。**候选池**：①watch 摘要批量投递（同一事件同一人多条关注规则的合并面——M54 已做单份去重，剩余是跨事件窗口聚合[Knock/Novu 窗口语义]，需评估与周报 digest 的边界）；②watch 规则导入导出（团队共享关注模板——事件流导出既有 NDJSON 通道复用评估）；③显式容量分配层（默认不做除非用户要求）；④Cycles 多周期并列（维持降级）/derived 上卷（已裁决维持）；⑤调研新发现（新特性扫描）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
