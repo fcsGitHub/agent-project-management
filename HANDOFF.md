@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-26 更新 · M56 关注共享与免打扰三件套 调研定义完成，下一步 I168 watch 规则导入导出）
+# HANDOFF —— 写给下一个新会话（2026-09-26 更新 · M56 关注共享与免打扰三件套 完成，下一步 M57 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -33,7 +33,8 @@
 - **M52 周报分发完备三件套（I156-I158，2026-09-21 完成，docs/01 §AW + docs/10 §M52）**：I156 周报 Markdown 附件（payload 加 path/week + `_send` 工作线程 gitrepo 读工件 add_attachment[bytes 乱码→str+charset utf-8；multipart 后测试 stub 改 get_body；读失败降级]；服务端 PDF 裁决不引入）+ I157 周报订阅制（事件对+report_subscribers 投影+三端点成员门+sweep 收件人 owner∪订阅者去重+前端开关）。基线 pytest 416 / 冒烟 57。
 - **M53 分发呈现与资源面三件套（I159-I161，2026-09-21 完成，docs/01 §AX + docs/10 §M53）**：I159 digest 邮件 HTML part（`_digest_html()` 纯函数[table+内联样式+三色徽标+单 CTA 链 `web_base_url`] + `add_alternative`[alternative 必须先于 attachment；双重降级纯文本]）+ I160 跨周资源热力（workload `weeks` 两桶 ISO 锚定+estimate 求和+桶级 on_leave 整周标灰——OpenProject 17.7 轻量裁决：只做读视图不做分配层）+ I161 冒烟 58 + 修 smoke_53 日期敏感。基线 pytest 420 / 冒烟 58。
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
-- **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：**I165 watch 条件化**——`condition_json` 消费（写入侧校验扁平/≤5 键/原始类型 + hook 投递侧全等匹配[空条件=全匹配；坏条件防御性放行]——**事件溯源红利第九例：Jira/GitHub 原生都没有 payload 条件，AgentPM 靠结构化事件原生支持**）。**I166 铃铛降噪折叠**——lib/notify.ts `bundleWatch` 纯函数（连续同 kind+同项目相邻折叠[跨界打断]）+ AppShell 分组渲染「关注动态 · N 条」[悬浮列全部；事件流/已读零改动]。**I167 冒烟 60**（条件命中/静默→bundling 相邻性→偏好关断）。**当前验证基线：pytest 428 全绿（非 smoke 368 EXIT=0 + smoke runner 60 GREEN 对账）；冒烟 60 条 GREEN；vitest 18/build 绿。**
+- **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：watch 条件化（condition_json 全等匹配——事件溯源红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ 冒烟 60。基线 pytest 428 / 冒烟 60 / vitest 18。
+- **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：**I168 watch 规则导入导出**——`GET /watch-rules/export` own 模板（去重 {event_type, condition} 数组·项目无关）+ `POST /projects/{id}/watch-rules/import`（校验复用白名单+条件序列化·坏条目 422 带 rules[i] 序号·已存在跳过不覆盖=ON CONFLICT DO NOTHING 同构·对账 {imported,skipped}）+ 前端铃铛偏好浮层「⇩ 导出/⇧ 导入」（Jira 无内建导出导入——DC 靠 SearchRequest 表挖；AgentPM 规则即事件内建+可重放）。**I169 静默时段**——users.quiet_start/quiet_end 运行态列（轻量 ALTER）+ quiet_active 纯函数（跨午夜 start>end/边界含端点/非法=关）+ GET/PUT `/me/quiet-hours` + mailer.enqueue 第四道时刻门（窗口内非 mention 非 digest 邮件跳过·站内照发事件照发；mention 突破=I96 同族；digest 突破=周报已是批量窗口）+ QuietHoursSection。**I170 冒烟 61+审阅**（模板 roundtrip→邮件静默→突破→恢复）。**当前验证基线：pytest 434 全绿（非 smoke 373 EXIT=0 + smoke runner 61 GREEN 对账）；冒烟 61 条 GREEN；vitest 18/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -41,9 +42,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M55 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M56 实现（下一步）**：调研已定案（docs/01 §BA + docs/10 §M56，2026-09-26）——**I168 watch 规则导入导出**（`GET /watch-rules/export` own 模板去重 {event_type, condition} 数组 + `POST /projects/{id}/watch-rules/import` 校验复用+缺补在跳+对账 imported/skipped + 前端铃铛偏好浮层导出/导入按钮）→ **I169 静默时段**（users.quiet_start/quiet_end 轻量 ALTER 迁移 + `_quiet_active` 纯函数[跨午夜 start>end/相等=关] + GET/PUT /me/quiet-hours + mailer.enqueue 第四道时刻门[窗口内非 mention 非 digest 邮件跳过·站内照发] + 前端浮层起止输入）→ **I170 冒烟 61+审阅**（导出→导入 roundtrip→静默窗口→mention/digest 突破→恢复）。维持不做：免打扰期排队汇总投递（即定时窗口，M55 裁决）、管理员默认 DND、显式容量、Cycles 多周期、derived。
-3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
+1. ~~M24~M56 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M57 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M57 节 + 看板行 →「M57 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M57 审阅。**候选池**：①watch 规则 PATCH 编辑与暂停恢复（改条件需删了重加的 409 是 M55 记录的语义坑——产品化为「暂停规则不丢配置」，需查 GitHub rules/Jira filter 编辑语义）；②多节律报告（daily digest 与周报/静默时段的边界——M55 裁决过「不做第二套定时窗口」，重提需新证据）；③资产库/模板包域深化（距上次调研已 15+ 里程碑）；④新特性扫描（Linear/Jira/OpenProject 2026 Q4）；⑤显式容量分配层（维持默认不做）/Cycles 多周期+derived（维持）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
 
@@ -84,9 +85,9 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 394 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 54 条，应 GREEN（repo 根目录跑）
-cd web && pnpm vitest run             # 前端单测 14 项；pnpm build 须绿
+cd app && python -m pytest            # 434 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 61 条，应 GREEN（repo 根目录跑）
+cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
