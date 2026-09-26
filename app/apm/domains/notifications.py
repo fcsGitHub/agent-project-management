@@ -250,12 +250,19 @@ def get_notifications() -> dict:
     out = []
     for r in rows:
         d = dict(r)
-        # mention 通知跳转工作项：ref_event_id → 事件 agg_id 即 item_id（M18-I57）
+        # mention 通知跳转工作项：ref_event_id → 事件 agg_id 即 item_id（M18-I57）；
+        # M58-I175: run watch notifications surface the source run_id so the
+        # bell can deep-link to the run drawer
         if d.get("ref_event_id"):
             ev = conn.execute(
-                "SELECT agg_id FROM events WHERE id = ?", (d["ref_event_id"],)).fetchone()
+                "SELECT agg_id, event_type, payload FROM events WHERE id = ?",
+                (d["ref_event_id"],)).fetchone()
             if ev:
                 d["item_id"] = ev["agg_id"]
+                if ev["event_type"] == "notification.sent":
+                    src = json.loads(ev["payload"] or "{}")
+                    if src.get("run_id"):
+                        d["run_id"] = src["run_id"]
         out.append(d)
     return {
         "notifications": out,

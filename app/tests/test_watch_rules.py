@@ -338,3 +338,24 @@ def test_watch_run_outcomes(client, project):
     assert len(ok) == 1 and "shipped · content/prd.md" in ok[0]["summary"]
     assert len(bad) == 1 and "provider 401" in bad[0]["summary"]
     client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_run_notification_carries_run_id(client, project):
+    """M58-I175：run.* watch 通知 payload 透传 run_id，GET /notifications 从
+    ref 链源事件解析透出（铃铛直达 run 抽屉的数据面）；非 run watch 通知无
+    run_id（对照）。"""
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{project}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "run.succeeded"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    events.emit(event_type="run.succeeded", agg_type="run", agg_id="r_link1",
+                project_id=project, actor_type="system", actor_id="runtime:r_link1",
+                payload={"outcome": "done", "output": {}})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    wk = [n for n in client.get("/api/notifications").json()["notifications"]
+          if n["kind"] == "watch"]
+    assert len(wk) == 1 and wk[0].get("run_id") == "r_link1"
+    client.post("/api/session/identity", json={"user_id": "u_admin"})

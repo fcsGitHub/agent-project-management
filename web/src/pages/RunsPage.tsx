@@ -44,6 +44,7 @@ export function RunsPage() {
       <div className="mb-3 flex items-center gap-2">
         <span className="text-sm font-semibold">Runs · 轨迹浏览器</span>
         <span className="text-xs text-mut">{runs.data?.runs.length ?? 0} 次运行</span>
+        {pid && <WatchAgentToggle pid={pid} />}
       </div>
       {rep && rep.total > 0 && (
         <Card className="no-print mb-3 p-4">
@@ -201,4 +202,40 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
 
 function iconOf(kind: string) {
   return { agent: "▣", generation: "⚙", tool: "🔧", gate: "◆", chain: "●", human_action: "👤", ui_command: "⌨" }[kind] ?? "•";
+}
+
+// M58-I175: 一键关注 agent 动态——幂等建/删 run.succeeded+run.failed 规则对
+// （CI「路由给触发者」语义：运行完成/失败双通道提醒；通道关断与免打扰在铃铛偏好细调）
+const RUN_WATCH_EVENTS = ["run.succeeded", "run.failed"];
+
+function WatchAgentToggle({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const rules = useQuery({ queryKey: ["watch-rules"], queryFn: api.listWatchRules });
+  const mine = (rules.data?.rules ?? []).filter(
+    (r) => r.project_id === pid && RUN_WATCH_EVENTS.includes(r.event_type));
+  const allOn = mine.length === RUN_WATCH_EVENTS.length;
+  const toggle = async () => {
+    try {
+      if (allOn) {
+        for (const t of RUN_WATCH_EVENTS) await api.removeWatchRule(pid, t);
+        toast.info("已退订 agent 动态");
+      } else {
+        for (const t of RUN_WATCH_EVENTS) {
+          if (!mine.some((r) => r.event_type === t)) await api.addWatchRule(pid, t);
+        }
+        toast.success("已关注 agent 动态：运行成功/失败都会提醒你");
+      }
+      await qc.invalidateQueries({ queryKey: ["watch-rules"] });
+    } catch (e) {
+      toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  return (
+    <button onClick={toggle} disabled={rules.isLoading}
+      title="关注本项目的 agent 运行成功/失败（随时退订；通道与免打扰在铃铛偏好里细调）"
+      className={cx("ml-auto rounded-full border px-2.5 py-1 text-xs",
+        allOn ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink")}>
+      👁 {allOn ? "已关注 agent 动态" : "关注 agent 动态"}
+    </button>
+  );
 }

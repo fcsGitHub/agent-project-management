@@ -683,23 +683,33 @@ function NotificationsBell() {
                 );
               }
               const n = row.note;
+              const runId = (n as { run_id?: string }).run_id;
+              const jumpItem = n.kind === "mention" && (n as { item_id?: string }).item_id;
               return (
               <div key={n.id}
                 onClick={async () => {
                   // M18-I57: mention notifications deep-link to the commented item;
+                  // M58-I175: run watch notifications deep-link to the run drawer;
                   // following the link also reads the notification
-                  if (n.kind === "mention" && (n as { item_id?: string }).item_id && pid) {
+                  if (jumpItem && pid) {
                     setOpen(false);
                     if (!n.read) {
                       await api.markNotificationsRead({ ids: [n.id] });
                       invalidate();
                     }
                     navigate(`/p/${pid}/board?item=${(n as { item_id?: string }).item_id}`);
+                  } else if (runId && pid) {
+                    setOpen(false);
+                    if (!n.read) {
+                      await api.markNotificationsRead({ ids: [n.id] });
+                      invalidate();
+                    }
+                    navigate(`/p/${pid}/runs?run=${runId}`);
                   }
                 }}
                 className={cx("flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs",
                   !n.read && "bg-accbg/50",
-                  n.kind === "mention" && (n as { item_id?: string }).item_id && "cursor-pointer hover:bg-bg")}>
+                  ((jumpItem || (runId && pid)) ? "cursor-pointer hover:bg-bg" : undefined))}>
                 <span>{KIND_ICON[n.kind] ?? "🔔"}</span>
                 <div className="min-w-0">
                   <div className={cx("truncate", !n.read && "font-medium")}>{n.summary}</div>

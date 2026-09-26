@@ -341,11 +341,16 @@ def _on_event(event: events.Event) -> None:
             else:
                 suffix = f"「{title}」" if title else ""
                 core = f"有新动态：{event.event_type}{suffix}"
+            extra: dict = {}
+            if event.event_type.startswith("run."):
+                # M58-I175: the bell deep-links to the run drawer (CI "link to
+                # the logs" semantics)
+                extra["run_id"] = event.agg_id
             events.emit(
                 event_type="notification.sent", agg_type="project",
                 agg_id=event.project_id, project_id=event.project_id,
                 payload={"user_id": uid, "kind": "watch",
-                         "summary": f"关注的项目「{pname}」{core}"},
+                         "summary": f"关注的项目「{pname}」{core}", **extra},
             )
     except Exception:  # the hook must never break the write path
         logging.getLogger("apm.watch").exception("watch hook failed after #%s", event.id)
