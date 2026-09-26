@@ -1536,3 +1536,32 @@ M54 = **自定义关注三件套**：I162 watch 规则域（规则=数据不是�
 **AZ.5 M55 取舍**
 
 M55 = **关注精修与降噪三件套**：I165 watch 条件化（源头层——事件溯源红利第九例：结构化 payload 原生条件无需中间件）/ I166 铃铛降噪折叠（展示层——性价比最高修复，事件流零改动）/ I167 冒烟 60+审阅，约 9 人日。定时窗口 digest（与周报节律重复）、JEXL 表达式引擎（过度设计）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
+
+## BA. M56 前置调研：watch 规则导入导出 / 静默时段 / 2026 秋季扫描（2026-09-26）
+
+> 目标协议触发：M55 完成后开启。防重查：候选池 grep——watch 摘要批量投递（跨事件窗口聚合 M55 §AZ.2/§AZ.5 已裁决「与周报节律重复→不做」，**维持不重查**）、watch 规则导入导出/团队共享关注模板（**无任何调研记录**）、显式容量分配层（维持默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）、静默时段/免打扰窗口（**无调研记录**——本轮新方向）。本轮三路新调研（规则模板共享与导入导出 / 静默时段与免打扰范式 / 2026 秋季扫描），选定 **M56 = 关注共享与免打扰三件套**。
+
+**BA.1 watch 规则导入导出（团队共享关注模板）**
+
+- 产品现状：**Jira 没有内建的过滤器/订阅导出导入机制**——[Manage filters](https://support.atlassian.com/jira-software-cloud/docs/manage-filters) 只覆盖分享/订阅/复制/收藏；跨实例迁移要靠 Data Center 的 SearchRequest 表 admin 工具（[社区实践](https://community.atlassian.com/forums/Jira-Service-Management/Custom-Subscription-for-a-Filter/qaq-p/3209177)）；订阅在标准导出中不存活，连「限制谁能收订阅邮件」都还是未解需求（[JSWSERVER-21837](https://jira.atlassian.com/browse/JSWSERVER-21837)）。业界最接近「团队共享通知模板」的是**共享过滤器（模板层）+ 个人订阅（配置层）**两层：过滤器可分享给组/项目、订阅永远是个人的——分享的应该是配置模板而不是订阅本身。
+- 对本项目的映射：watch 规则本身是事件溯源的数据——导出=own-rules 序列化为**项目无关模板**（去重后的 `{event_type, condition}` 对数组，剥离 user/project 才能跨项目复用）；导入=复用既有校验链（WATCHABLE 白名单+`_serialize_condition`）+「缺则补、在则跳过」的模板应用语义（投影 ON CONFLICT DO NOTHING 已内建，个人改过的条件不被模板覆盖）→ `{imported, skipped}` 对账返回；成员门复用 `_require_member`。**AgentPM 超越 Jira 的点：导出导入内建开箱（Jira 要 admin 工具挖表），且规则是事件、rebuild 可复现。**
+
+**BA.2 静默时段（quiet hours / 免打扰窗口）**
+
+- 产品范式：Slack 支持个人 DND 日程 + 管理员工作区默认免打扰时段（[Configure your Do Not Disturb schedule](https://slack.com/help/articles/214908388)）；GitHub/Linear 经 Slack 路由的告警同样被日程静默（跨入站源一致生效是共识诉求）。设计共识五条：**按用户日程（如 22:00–08:00）、管理员默认+个人可调、优先级突破（@mention 可穿透）、免打扰期排队/汇总投递、跨入站源一致生效**。
+- 对本项目的映射（与 M55「不做第二套定时窗口」裁决不冲突）：静默时段是**通道投递门**不是内容报告——窗口内邮件推送静默、站内照发（铃铛就是应用内实时面，Slack DND 同语义；事件流零改动）。两层例外：**mention 突破**（急迫性最高，I96 已有 mention 不可关断的同族纪律）与 **digest 类邮件不重复抑制**（周报 digest 本身已是批量窗口，再被静默等于白做——payload 带 digest 体即豁免）。落点：mailer.enqueue 既有门链（kind 偏好→邮箱地址→总开关）加第四道**时刻门**；`users.quiet_start/quiet_end` 运行态列（email_notify/hourly_rate 同族：轻量 ALTER 迁移+own-data 端点）；不做「免打扰期排队+退出汇总投递」（那即定时窗口，M55 已裁决不做）。
+
+**BA.3 2026 秋季扫描**
+
+- 三家均无 9 月具体缺口信号：趋势综述确认 AI 特性铺满 agile 工具（[Simpliaxis 2026 agile 工具综述](https://www.simpliaxis.com)：自动门票摘要已成标配）；Jira 走 MCP agent 连接（AI 经 MCP 直接读写 Jira 数据，[LinkedIn 实践](https://www.linkedin.com)）；OpenProject 仍是自托管治理选位（[Sharkly human-agent teams 对照](https://sharkly.ai)：Linear 最快/Plane 与 OpenProject 自托管）。「human-agent teams」叙事与 AgentPM「人指挥 Agent 执行+事件溯源审计」同向。无新功能缺口。
+
+**BA.4 M56 设计映射与验证纪律（沿用）**
+
+- I168 watch 规则导入导出：`GET /watch-rules/export`（own 模板：去重后 `{event_type, condition}` 数组）+ `POST /projects/{id}/watch-rules/import`（校验+缺补在跳+对账 imported/skipped）+ 前端铃铛偏好浮层「导出/导入模板」（下载 JSON blob/文件选择解析后应用到所选项目）；单测（导出模板形状/导入 roundtrip/坏模板 422/非成员 403/重复导入跳过对账/rebuild 复现）。
+- I169 静默时段：`users.quiet_start/quiet_end`（HH:MM，空=关；跨午夜窗口 start>end 合法；start==end 视为关闭）+ `GET/PUT /me/quiet-hours`（格式校验 422）+ mailer 时刻门（窗口内非 mention 非 digest 邮件跳过——站内照发、事件照发）+ 前端铃铛偏好浮层起止输入；单测（窗口判定纯函数含跨午夜/边界、mention 与 digest 突破、窗口外正常投递、站内不受影响）。
+- I170 冒烟 61+审阅：导出→导入 roundtrip→静默窗口内邮件静默站内照发→mention/digest 突破→窗口外恢复。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M56 审阅 + **冒烟 61**。
+
+**BA.5 M56 取舍**
+
+M56 = **关注共享与免打扰三件套**：I168 watch 规则导入导出（团队模板——Jira 无内建导入导出，AgentPM 内建+事件可重放）/ I169 静默时段（通道投递门——Slack DND 语义，mention 与 digest 突破）/ I170 冒烟 61+审阅，约 9 人日。免打扰期排队汇总投递（即定时窗口，M55 已裁决不做）、管理员默认 DND（单实例个人工具无组语义，个人时段已覆盖）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。

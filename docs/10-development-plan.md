@@ -1720,6 +1720,36 @@ agent-project-management/
 
 ---
 
+### M56 · 关注共享与免打扰三件套（I168-I170，约 9 人日）
+
+> v3.0 新增（2026-09-26，docs/01 §BA 前置调研）。M54/M55 把 watch 做到了「条件化+降噪」，M56 补**分发治理两层**：模板共享（导出导入——Jira 无内建机制、AgentPM 规则即事件可序列化可重放）与免打扰（静默时段——Slack DND 语义的通道投递门：窗口内邮件静默、站内照发、mention 与 digest 突破）。不做免打扰期排队汇总投递（即定时窗口，M55 已裁决）与管理员默认 DND（个人时段已覆盖）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I168 | watch 规则导入导出（`GET /watch-rules/export` own 模板[去重 {event_type, condition} 数组·项目无关] + `POST /projects/{id}/watch-rules/import`[校验复用白名单+条件序列化·缺补在跳·对账 imported/skipped·成员门] + 前端铃铛偏好浮层导出/导入按钮[JSON blob 下载/文件解析]） | — | M54 watch 域 | 3d |
+| I169 | 静默时段（`users.quiet_start/quiet_end` 运行态列[轻量 ALTER 迁移·HH:MM·空=关·start>end 跨午夜合法] + GET/PUT `/me/quiet-hours`[格式校验 422] + mailer.enqueue 第四道时刻门[窗口内非 mention 非 digest 邮件跳过——站内照发事件照发] + 前端铃铛偏好浮层起止输入） | — | mailer 门链 | 3d |
+| I170 | 冒烟 61+收尾审阅（导出→导入 roundtrip→静默窗口内邮件静默站内照发→mention/digest 突破→窗口外恢复 + docs 收口 + M56 审阅） | — | 冒烟范式 | 3d |
+
+#### I168 · watch 规则导入导出（3d）
+
+- 任务：watch.py 加两端点——`GET /watch-rules/export`：own 全部规则 → `{version: 1, rules: [{event_type, condition}]}`（跨项目去重、剥离 user/project 得项目无关模板）；`POST /projects/{id}/watch-rules/import`：body `{rules: [...]}` 逐条走白名单+`_serialize_condition` 校验（坏条目 422 指明序号），已存在（同 user×project×event_type）跳过，其余 emit `watch.added`，返回 `{imported, skipped}`；前端 WatchRulesSection 加「⇩ 导出模板」（Blob 下载 watch-template.json）与「⇧ 导入」（`<input type=file>` 解析 JSON→应用到当前所选项目→toast imported/skipped）。
+- DoD：单测（导出形状含条件/导入 roundtrip[rebuild 后 watch_rules 一致]/坏模板 422[白名单外+坏条件]/非成员导入 403/重复导入 skipped 对账）。
+- 演示路径：A 用户配置三条带条件规则→导出 JSON→B 用户导入到自己项目→B 的规则列表出现同款（已有的一条显示 skipped）。
+
+#### I169 · 静默时段（3d）
+
+- 任务：db.py 轻量迁移 `users.quiet_start/quiet_end TEXT`（默认 NULL=关闭）+ 纯函数 `_quiet_active(start, end, now_hhmm)`（跨午夜 start>end、边界含端点、start==end=关）+ `GET/PUT /me/quiet-hours`（HH:MM 正则校验、空串清除）+ mailer.enqueue 门链尾部加时刻门（`kind != "mention"` 且 payload 无 digest 体且窗口命中→continue；只拦邮件不拦站内）+ 前端铃铛偏好浮层「🌙 免打扰」起止时间输入（保存调 PUT）。
+- DoD：单测（窗口纯函数 5 断言[同日/跨午夜/边界/相等=关/无效]→静默内 enqueue 跳过邮件但站内通知照常落库/mention 突破/report digest 突破/窗口外正常/PUT 校验 422）。
+- 演示路径：设 22:00–08:00→他人完成任务→站内有通知、邮件队列无新增→@mention 邮件照到。
+
+#### I170 · 冒烟 61+收尾审阅（3d）
+
+- 任务：**冒烟 61**（导出→导入 roundtrip→静默窗口邮件静默站内照发→mention/digest 突破→窗口外恢复）+ docs 收口 + M56 审阅。
+- DoD：冒烟 61 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「团队模板共享 → 深夜只留站内 → 上班前恢复邮件」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1919,6 +1949,7 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| 2026-09-26 M56 调研定义（§BA） | 已完成 | 2026-09-26 | 2026-09-26 | 防重查：watch 摘要批量投递[M55 §AZ.2/AZ.5 已裁决与周报节律重复维持不做]、watch 规则导入导出/团队共享模板[无记录]、显式容量[默认不做]、Cycles 多周期+derived[维持]、静默时段[无记录新方向]。三路 WebSearch：规则模板共享（Jira 无内建过滤器/订阅导出导入——DC 靠 SearchRequest 表 admin 工具、订阅不存活于标准导出，业界最近似=共享过滤器[模板]+个人订阅两层）、静默时段范式（Slack 个人 DND+管理员默认；共识五条：按用户日程/管理员默认+个人可调/mention 突破/免打扰期排队汇总/跨源一致——映射为通道投递门不与 M55 裁决冲突：窗口内邮件静默站内照发+mention 与 digest 突破；排队汇总投递即定时窗口维持不做）、2026 秋扫描（AI 特性铺满 agile 工具/Jira 走 MCP agent 连接/OpenProject 自托管选位——无新缺口同向）。定案 M56=关注共享与免打扰三件套（I168/I169/I170） |
 | **M55 关注精修与降噪三件套（I165-I167）** | 已完成 | 2026-09-21 | 2026-09-21 | 3 迭代 / 约 9 人日（docs/01 §AZ + docs/10 §M55）：I165 watch 条件化（`WatchIn` 加 condition dict[校验扁平/≤5 键/值限 str·int·float·bool——扁平等值覆盖八成诉求无 JEXL 引擎] + hook 订阅侧 payload 过滤[全部键值全等命中才投递；空条件=全匹配兼容 M54；坏条件防御性放行] + GET /watch-rules 透出 condition + 前端「仅当 字段=值」可选输入与规则行条件徽标——事件溯源红利第九例：Jira/GitHub 原生都没有细粒度 payload 条件、AgentPM 靠结构化事件原生支持无中间件）/ I166 铃铛降噪折叠（lib/notify.ts `bundleWatch` 纯函数[连续同 kind=watch 且同项目的相邻通知折叠；项目或类型变化即打断] + AppShell 列表分组渲染[多条「关注动态 · N 条」+悬浮列全部；未读点按组内任一未读]——展示层性价比最高修复，事件流/已读语义零改动）/ I167 冒烟 60+审阅（条件 watch done 命中/in_progress 静默→bundling 相邻性→偏好门 roundtrip）；定时窗口 digest[与周报节律重复]、JEXL 引擎[过度设计]、显式容量[默认不做]、Cycles 多周期+derived[维持]留 backlog。基线：pytest **428** 全绿（非 smoke 368 EXIT=0 + smoke runner 60 GREEN 对账）+ 冒烟 **60** + vitest **18** + build 绿 |
 | 2026-09-21 M55 调研定义（§AZ） | 已完成 | 2026-09-21 | 2026-09-21 | 防重查：watch 条件化[M54 落库未消费无调研]、通知合并/频次治理[无记录]、显式容量[默认不做]、Cycles 多周期+derived[维持]。三路 WebSearch：条件过滤产品现状（Jira 订阅与 GitHub watch 原生都不支持细粒度 payload 条件——业界靠中间件 filter groups/JEXL 补位；条件属订阅规则、匹配在投递侧）、降噪工程范式（Knock/Novu 窗口聚合、Courier 展示层 bundling=性价比最高修复、Sentry 条件逻辑放源头胜过事后静音）、疲劳面证据（疲劳=多工具 streams+差过滤，解方审计+条件化+静音而非全关）。定案 M55=关注精修与降噪三件套（I165/I166/I167） |
 | I165 watch 条件化 | 已完成 | 2026-09-21 | 2026-09-21 | `_serialize_condition` 写入侧校验[非 dict/超 5 键/值含 dict·list·None 或非原始类型→422] + `_hit` 投递侧匹配[json 解析失败防御性放行不吞通知——写入侧已把关口] + 前端「仅当 字段=值」可选项；同 (project,event_type) 改条件需删了重加（主键约束——409 引导，非 upsert 的语义诚实）；test_watch_rules 6 项 |

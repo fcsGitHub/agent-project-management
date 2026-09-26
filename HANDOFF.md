@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-21 更新 · M55 关注精修与降噪三件套 完成，下一步 M56 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-26 更新 · M56 关注共享与免打扰三件套 调研定义完成，下一步 I168 watch 规则导入导出）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -42,7 +42,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M55 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M56 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M56 节 + 看板行 →「M56 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M56 审阅。**候选池**：①watch 摘要批量投递（同一事件同一人多条关注规则的合并面——M54 已做单份去重，剩余是跨事件窗口聚合[Knock/Novu 窗口语义]，需评估与周报 digest 的边界）；②watch 规则导入导出（团队共享关注模板——事件流导出既有 NDJSON 通道复用评估）；③显式容量分配层（默认不做除非用户要求）；④Cycles 多周期并列（维持降级）/derived 上卷（已裁决维持）；⑤调研新发现（新特性扫描）。
+2. **M56 实现（下一步）**：调研已定案（docs/01 §BA + docs/10 §M56，2026-09-26）——**I168 watch 规则导入导出**（`GET /watch-rules/export` own 模板去重 {event_type, condition} 数组 + `POST /projects/{id}/watch-rules/import` 校验复用+缺补在跳+对账 imported/skipped + 前端铃铛偏好浮层导出/导入按钮）→ **I169 静默时段**（users.quiet_start/quiet_end 轻量 ALTER 迁移 + `_quiet_active` 纯函数[跨午夜 start>end/相等=关] + GET/PUT /me/quiet-hours + mailer.enqueue 第四道时刻门[窗口内非 mention 非 digest 邮件跳过·站内照发] + 前端浮层起止输入）→ **I170 冒烟 61+审阅**（导出→导入 roundtrip→静默窗口→mention/digest 突破→恢复）。维持不做：免打扰期排队汇总投递（即定时窗口，M55 裁决）、管理员默认 DND、显式容量、Cycles 多周期、derived。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
