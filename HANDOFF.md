@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M59 行动聚合与包治理三件套 完成，下一步 M60 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M60 运维韧性与组合洞察三件套 调研定义完成，下一步 I180 备份/恢复演练工具）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -46,7 +46,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M59 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M60 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M60 节 + 看板行 →「M60 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M60 审阅。**候选池**：①本体/角色域刷新（角色 YAML 的模型分档/上下文压缩自 M46-M48 后未刷新——角色市场/角色版本化语义）；②报表域深化（对比/健康分自 M30 后未动——跨项目健康对比、自定义聚合）；③admin/部署面（多实例治理、备份恢复演练——docs/11 部署文档对齐验证）；④新特性扫描（2027 前瞻——Gartner 洗牌期叙事已确认同向）；⑤维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化（均维持不做）。
+2. **M60 实现（下一步）**：调研已定案（docs/01 §BE + docs/10 §M60，2026-09-27）——**I180 备份/恢复演练工具**（tools/backup.py[sqlite3 backup API 一致快照+content/+ontologies/ 打包+manifest.json→单 zip] + tools/restore.py[解包校验→目标 APM_DATA_DIR] + docs/11 演练三步 + 冒烟演练闭环[备份→清空→恢复→rebuild→可读断言——「演练证明恢复有效」]）→ **I181 组合健康趋势与流指标**（`GET /portfolio/health-trend`[可见项目健康史采样对齐+组合中位线+方向] + per-project 流指标[中位完成周期/近 4 周吞吐/WIP——Flow 三件·事件对投影零埋点=红利第十二例] + Dashboard 组合卡趋势行）→ **I182 冒烟 65+审阅**。维持不做：Litestream（单机手动档 docs/11 留说明）、角色市场（过度设计）、健康分权重刷新（无数据证据）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

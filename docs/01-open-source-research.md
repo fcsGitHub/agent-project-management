@@ -1652,3 +1652,33 @@ M58 = **关注 agent 动态三件套**：I174 run 生命周期入白名单（完
 **BD.5 M59 取舍**
 
 M59 = **行动聚合与包治理三件套**：I177 「等待我」行动聚合（Linear Inbox 行动视角——与 MyWork 任务视角正交）/ I178 模板包实例溯源与升级影响（VS Code/Obsidian update 语义翻译——可见性不做自动迁移）/ I179 冒烟 64+审阅，约 9 人日。watch 邮件摘要化（第二套定时窗口需新证据）、审批页/Runs 页重构（聚合面只做入口）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并留 backlog。
+
+## BE. M60 前置调研：备份恢复演练 / 组合健康趋势 / 健康分模型对照（2026-09-27）
+
+> 目标协议触发：M59 完成后开启。防重查：候选池 grep——备份/恢复（**§L.3 裁决「NDJSON 仅补充、备份走 DB 层」后一直留 backlog**——docs/11 有手工命令无工具无演练）、角色市场/角色版本化（无记录——单实例 YAML 治理偏过度设计，**降级不查**）、组合健康趋势（M23 组合总览是当前态聚合·M30 健康史按项目——**跨项目趋势对比无调研**）、健康分模型刷新（M30 建分后未对照行业框架）、新特性扫描（BC.3/BD.3 连续两轮同向结论，边际价值低——本轮并入健康分对照）。本轮三路新调研（SQLite 自托管备份工程共识 / 组合层流指标 / DORA 与 Flow 框架对照），选定 **M60 = 运维韧性与组合洞察三件套**。
+
+**BE.1 备份/恢复演练（「备份会自己跑，演练是为了证明恢复有效」）**
+
+- 工程共识：**绝不直接拷贝活库文件**——WAL 模式下直接 cp 会丢未 checkpoint 的帧（[Slipway](https://docs.sailscasts.com)/[Drupal](https://www.drupal.org)：用在线备份 API[`sqlite3_backup_*`/`.backup`/`VACUUM INTO`]取一致性快照）；自托管标配 Litestream 做 WAL 连续流复制到对象存储（[SSDNodes](https://www.ssdnodes.com)），但单机场景「备份命令+定期演练」已够（[Kazma DR 文档](https://kazma.ai)：**"backups run themselves; the drill exists to prove the RESTORE still works"**）；[2026 WAL 生产指南](https://www.kunalganglani.com)把 restore drill 列为标配交付物。
+- 对本项目的映射：`tools/backup.py`（apm.db 走 sqlite3 backup API + `content/` 打包 + `ontologies/` 打包 + manifest.json[版本/时间/文件清单] → 单 zip）与 `tools/restore.py`（解包到目标 data dir + 完整性校验）；**冒烟演练闭环**：备份→清空→恢复→rebuild→项目可读断言——「演练证明恢复有效」的直接工程化。Litestream 不引入（单机手动档，docs/11 补充连接说明）。APM_DATA_DIR 感知（演示隔离纪律自然兼容）。
+
+**BE.2 组合健康趋势（跨项目流指标对照）**
+
+- 产品现状：**Jira 原生做不了跨项目指标**——对照需 Atlassian Analytics（Premium/Enterprise）或第三方（[Grandia](https://grandiasolutions.com)/[Broken Build](https://brokenbuild.net)）；组合层标准指标集=**中位周期时间、吞吐、WIP、阻塞占比**（[Umbrex R&D 流指标手册](https://umbrex.com)）；SAFe 语境加 PI 可预测性（[Savah](https://www.savahapp.com)）；专门流分析工具（[Businessmap](https://businessmap.io)）卖的就是 CFD+周期散点+吞吐。
+- 对本项目的映射：`GET /portfolio/health-trend` 纯投影——可见项目的健康史对齐采样（每项目近 N 周分数序列+方向箭头）+ **组合中位线**；每项目附流指标三件：**中位完成周期**（item.created→done 事件对中位天数）、**近 4 周吞吐**（done 计数/周）、**当前 WIP**（in_progress 计数）——Flow Framework 三指标原生可算（事件溯源红利第十二例：流指标=事件对投影，零埋点）。Dashboard 组合卡加趋势行。原生 Jira 的缺口恰是 AgentPM 事件内核的免费午餐。
+
+**BE.3 健康分模型对照（DORA/Flow 框架校验）**
+
+- 框架基线：DORA 四键（部署频率/变更前置时长/变更失败率/恢复时长）是首个实证交付性能框架（[coderbuds](https://coderbuds.com)）；Flow Framework 四指标（周期/WIP/流效率/吞吐）与 DORA/SPACE 互补（[targetboard](https://targetboard.ai)）；2026 研究（[levitation](https://levitation.in)）：240 团队 75% 在引入 AI 后 DORA 指标下滑——**AI 加速产出但不天然加速健康**，治理与队列管理才是杠杆。
+- 对本项目的映射：M30 健康分五因子（完成率/超期/Gate 挂起/吞吐/工时记账）已覆盖 Flow 三指标的健康面与滞后面——本轮以 BE.2 的流指标**并排呈现**（健康分=结论，流指标=归因入口），不改分模型（无证据支持改权重）；「AI 后 DORA 下滑」研究反向确认 AgentPM「人在环+审计」路线：agent 加速必须配治理面板。健康分模型刷新留待有数据证据时再议。
+
+**BE.4 M60 设计映射与验证纪律（沿用）**
+
+- I180 备份/恢复演练：tools/backup.py（sqlite3 backup API→临时一致库+content/ 仓 zip+ontologies/ zip+manifest.json→单 zip 产物）+ tools/restore.py（解包校验 manifest→落目标 APM_DATA_DIR）+ docs/11 补「演练三步」段；冒烟含演练闭环（备份→清空→恢复→rebuild→断言项目与工件可读——live==replay 纪律的灾备版）。
+- I181 组合健康趋势：`GET /portfolio/health-trend`（可见项目健康史采样对齐+组合中位线+方向）+ per-project 流指标（中位完成周期/近 4 周吞吐/WIP）+ Dashboard 组合卡趋势行 + api.ts；单测（趋势对齐/中位线/流指标算术/不可见项目不泄漏/rebuild 一致）。
+- I182 冒烟 65+审阅：演练闭环 roundtrip→组合趋势与流指标 roundtrip + docs 收口 + M60 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M60 审阅 + **冒烟 65**。
+
+**BE.5 M60 取舍**
+
+M60 = **运维韧性与组合洞察三件套**：I180 备份/恢复演练工具（在线备份 API+演练闭环——灾备版的 live==replay）/ I181 组合健康趋势与流指标（Jira 原生缺口的事件内核免费午餐——健康分=结论流指标=归因）/ I182 冒烟 65+审阅，约 9 人日。Litestream 连续复制（单机手动档够用，docs/11 留连接说明）、角色市场/角色版本化（单实例 YAML 治理过度设计）、健康分权重刷新（无数据证据不动）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化留 backlog。

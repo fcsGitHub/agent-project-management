@@ -1834,9 +1834,39 @@ agent-project-management/
 
 #### I179 · 冒烟 64+收尾审阅（3d）
 
-- 任务：**冒烟 64**（审批+interrupted run+临期项三分区聚合→pack 两实例出生版本对比→早期实例诚实态 roundtrip）+ docs 收口 + M59 审阅。
+- 任务：**冒烟 64**（审批+interrupted run+临期项三分区聚合→pack 两实例+版本对比→早期实例诚实态 roundtrip）+ docs 收口 + M59 审阅。
 - DoD：冒烟 64 GREEN；全量 pytest 分片收敛绿。
 - 演示路径：完整走「等我的事一眼清 → 包升级影响面一眼清」。
+
+---
+
+### M60 · 运维韧性与组合洞察三件套（I180-I182，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BE 前置调研）。§L.3 裁决「备份走 DB 层」后一直只有 docs/11 手工命令——「备份会自己跑，演练是为了证明恢复有效」；组合层流指标（中位周期/吞吐/WIP）是 Jira 原生做不了的（要 Premium Analytics），AgentPM 事件内核纯投影即得（红利第十二例）。健康分模型有证据才动权重，本轮只并排呈现归因。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I180 | 备份/恢复演练工具（tools/backup.py[sqlite3 backup API 一致快照+content/ +ontologies/ 打包+manifest.json→单 zip] + tools/restore.py[解包校验→目标 APM_DATA_DIR] + docs/11 演练三步 + 冒烟演练闭环[备份→清空→恢复→rebuild→可读断言]） | docs/11 | §L.3 裁决 | 3d |
+| I181 | 组合健康趋势与流指标（`GET /portfolio/health-trend`[可见项目健康史采样对齐+组合中位线+方向箭头数据] + per-project 流指标[中位完成周期/近 4 周吞吐/WIP——Flow Framework 三件·事件对投影零埋点] + Dashboard 组合卡趋势行） | — | health history | 3d |
+| I182 | 冒烟 65+收尾审阅（演练闭环 roundtrip→组合趋势与流指标 roundtrip + docs 收口 + M60 审阅） | — | 冒烟范式 | 3d |
+
+#### I180 · 备份/恢复演练工具（3d）
+
+- 任务：tools/backup.py——`sqlite3.Connection.backup()` 在线取 apm.db 一致快照（WAL 帧并入）+ content/ 与 ontologies/ 目录打包 + manifest.json（时间/数据目录/文件清单/事件数）→ 单 zip 到指定输出；tools/restore.py——校验 manifest→解包覆盖目标 APM_DATA_DIR；docs/11 补「备份与恢复演练」小节（三步：backup→restore→冒烟）。冒烟内演练：backup→删除数据目录内容→restore→rebuild→断言项目数与工件内容可读。
+- DoD：单测（备份产物含 manifest 与三成分/恢复后 db 与 content 一致/演练闭环 rebuild 后 live==replay）。
+- 演示路径：一条命令备份、一条命令恢复，冒烟证明「恢复出来的系统真的能用」。
+
+#### I181 · 组合健康趋势与流指标（3d）
+
+- 任务：reports.py `GET /portfolio/health-trend`——对可见项目各取健康史（复用 health/history 采样）按周对齐→每项目分数序列+首尾方向+组合中位线；同端点 per-project 流指标：中位完成周期（events 中 item.created 与对应 done 事件对的中位天数）、近 4 周吞吐（done/周）、当前 WIP（in_progress 计数）；Dashboard 组合总览卡加「📈 趋势」行（方向箭头+中位周期）。
+- DoD：单测（趋势采样对齐/中位线计算/流指标算术[周期中位/吞吐/WIP]/不可见项目不泄漏/rebuild 一致）。
+- 演示路径：组合卡一眼看出「哪个项目在变差、哪个周期最长」。
+
+#### I182 · 冒烟 65+收尾审阅（3d）
+
+- 任务：**冒烟 65**（备份→恢复演练闭环→组合趋势与流指标 roundtrip）+ docs 收口 + M60 审阅。
+- DoD：冒烟 65 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「灾备演练一把过 → 组合健康一眼清」。
 
 ---
 
@@ -2040,6 +2070,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-27 M60 调研定义（§BE） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：备份/恢复[§L.3 裁决「备份走 DB 层」后仅 docs/11 手工命令无工具无演练]、角色市场/角色版本化[无记录——单实例 YAML 治理过度设计降级不查]、组合健康趋势[M23 当前态聚合·M30 健康史按项目——跨项目趋势无调研]、健康分模型刷新[M30 后未对照行业框架]、新特性扫描[BC/BD 连续同向边际价值低并入对照]。三路 WebSearch：SQLite 自托管备份共识（绝不直接拷活库[WAL 帧丢失]——在线备份 API 取一致快照/Litestream=连续流复制标配但单机「命令+演练」已够/「backups run themselves; the drill exists to prove the RESTORE still works」）、组合层流指标（Jira 原生做不了跨项目需 Premium Analytics——标准集=中位周期/吞吐/WIP/阻塞占比[Businessmap 卖的就是这个]）、DORA/Flow 对照（DORA 四键实证框架+Flow 四指标互补；2026 研究 240 团队 75% AI 后 DORA 下滑——AI 加速产出不天然加速健康·治理是杠杆，反向确认 AgentPM 人在环路线）。定案 M60=运维韧性与组合洞察三件套（I180/I181/I182） |
 | **M59 行动聚合与包治理三件套（I177-I179）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BD + docs/10 §M59）：I177 「等待我」行动聚合（`GET /my/attention` 纯读投影三分区[待我审批=我任 owner 项目内 pending——owner/admin 决策权与 I96 approval 通知收件人同口径/等我恢复的运行=成员可见项目内 interrupted/我的临期项=assignee=me 且 due≤today+3 且 status_group NOT IN done,cancelled·_active_where 排除回收站]——行动视角与 /my/work 任务视角正交[Linear Inbox 语义：按谁需要行动聚合而非按事件类型·聚合面只做入口不做第二套操作面] + MyWorkPage 顶部「⏳ 等待我」卡[三分区计数+前 3 条预览+分区点击跳审批中心/Runs?run=/board?item=·全空不渲染]）/ I178 模板包实例溯源（post_project payload +ontology_version 增量键[旧库事件自然缺键→诚实显示「早期实例」] + `GET /template-packs/{name}/usages` 纯读侧聚合[query_events project.created 按 ontology 过滤·behind=当前-出生·created_at 排序·未知包 404]——「谁还跑在旧版」成一等信息[VS Code/Obsidian update 语义翻译]·升级保持人工治理只做可见性不做自动迁移 + PackDrawer「📦 实例项目」区[落后 N 版 warn/早期实例 neutral/当前 green 徽标]）/ I179 冒烟 64+审阅（真实 run 挂起→三分区出现→批准后双分区退场→临期项留存→双实例 behind=0 与排序）；watch 邮件摘要化[第二套定时窗口需新证据]、审批/Runs 页重构[聚合面只做入口]、显式容量、Cycles 多周期+derived、多节律报告、站内跨 kind 合并[维持]留 backlog。基线：pytest **443** 全绿（非 smoke 379 EXIT=0 + smoke runner 64 GREEN 对账）+ 冒烟 **64** + vitest **18** + build 绿 |
 | 2026-09-27 M59 调研定义（§BD） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：run 域「等待我」行动聚合[无专项调研——M12 MyWork 是任务视角·审批中心是单域视角]、watch 邮件摘要化[第二套定时窗口维持需新证据]、本体/模板域刷新[M7 后空白——pack 版本/升级/实例溯源未查]、显式容量/Cycles/derived/多节律报告/站内跨 kind 合并[维持]。三路 WebSearch：行动聚合收件箱范式（Linear Inbox=按谁需要行动聚合的 canonical 形态/GitHub notifications reason:review-requested/Jira pending-my-approval——行动视角与任务视角正交）、模板市场升级语义（VS Code 扩展市场版本化+更新可见/Obsidian 社区插件提交治理——实例与模板版本解耦后「谁还跑在旧版」成一等信息）、2027 前瞻（Gartner 40%+ agentic 项目 2027 取消——洗牌期·幸存者画像=标准化+可审计+人指挥·AgentPM 三支柱正中·40% 取消率的反面即机会面）。定案 M59=行动聚合与包治理三件套（I177/I178/I179） |
 | I177 「等待我」行动聚合 | 已完成 | 2026-09-27 | 2026-09-27 | reports.py /my/attention[三分区 SQL 直查+决策权/可见性门] + MyWorkPage 顶部卡 + api.ts getMyAttention；test_my_attention（contributor 见 run 不见审批/owner 见审批/临期三例筛选[今天进·远期不进·已完成不进]/批准后双分区退场/rebuild 一致） |
