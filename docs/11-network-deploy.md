@@ -107,7 +107,14 @@ compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`�
 
 - **停机冷备（最简可靠）**：停止 api 进程后拷贝 `data_dir/` 整目录（SQLite 单文件 + Git 仓直接可拷）；
 - **在线热备**：SQLite 处于 WAL 模式，`sqlite3 data/apm.db ".backup backup.db"` 可在线取一致性快照；`content/` 为 Git 仓可 `git bundle` 或直接 rsync；
+- **一键备份（M60-I180）**：`python tools/backup.py -o backups/apm-YYYYMMDD.zip` ——在线备份 API 取 apm.db 一致快照（WAL 帧并入，活机安全）+ content/ 与 assets-repo/ 全量（含 Git 历史）+ 生效本体目录 + manifest.json（时间/事件数/数据目录），单 zip 产物；
 - **事件导出（补充）**：`GET /api/projects/{id}/events/export`（NDJSON，按全局追加序，含 prev_event_id 链与校验和行）——用于单项目异地留存/审计，不作为恢复手段（恢复 = 重放：`POST /api/system/rebuild-projections` 可由事件流重建全部投影）。
+
+### 5.2.1 恢复演练（M60-I180）
+
+- **恢复**：`python tools/restore.py backups/apm-XXX.zip --data-dir data [--ontologies-dir ontologies]` ——先剥陈旧 `-wal/-shm` 侧车（防污染恢复快照）再落库/内容仓/资产仓；本体目录仅在显式给出 `--ontologies-dir` 时覆盖（覆盖活本体是决策不是副作用）；
+- **演练三步（定期执行）**：① `python tools/backup.py -o drill.zip` → ② `--data-dir` 指向空目录执行 restore → ③ 启动 api 后 `POST /api/system/rebuild-projections`（`events_replayed` 应等于 manifest 的 event_count）。**备份会自己跑，演练是为了证明恢复仍然有效**；冒烟 65 固化了该闭环（备份→清空→恢复→一致性断言）；
+- 连续流复制（Litestream 等 WAL→对象存储方案）不内置：单机手动档已覆盖；接入时以其恢复产物替换演练第 ② 步的输入即可。
 
 ### 5.3 恢复
 
