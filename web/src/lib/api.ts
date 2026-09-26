@@ -577,6 +577,13 @@ export const api = {
       { method: "POST", body: JSON.stringify({ event_type: eventType, condition }) }),
   removeWatchRule: (pid: string, eventType: string) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules/${eventType}`, { method: "DELETE" }),
+  // M56-I168: share watch rules as a project-agnostic template
+  exportWatchRules: () =>
+    req<{ version: number; rules: { event_type: string; condition: Record<string, unknown> }[] }>(
+      "/watch-rules/export"),
+  importWatchRules: (pid: string, rules: { event_type: string; condition?: Record<string, unknown> }[]) =>
+    req<{ imported: number; skipped: number }>(`/projects/${pid}/watch-rules/import`,
+      { method: "POST", body: JSON.stringify({ rules }) }),
   // M49-I147: convert retro action items to tracked work items
   createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
     req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];

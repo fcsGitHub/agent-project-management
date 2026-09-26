@@ -60,6 +60,15 @@ class WatchIn(BaseModel):
     condition: dict = {}
 
 
+class WatchTemplateRule(BaseModel):
+    event_type: str
+    condition: dict = {}
+
+
+class WatchImportIn(BaseModel):
+    rules: list[WatchTemplateRule]
+
+
 _PRIMITIVES = (str, int, float, bool)
 
 
@@ -76,6 +85,17 @@ def _serialize_condition(condition: dict) -> str:
                 detail="condition values must be flat primitives (str/int/float/bool)")
     import json
     return json.dumps(condition, ensure_ascii=False) if condition else ""
+
+
+def _parse_condition(condition_json: str | None) -> dict:
+    if not condition_json:
+        return {}
+    import json
+    try:
+        cond = json.loads(condition_json)
+    except Exception:
+        return {}
+    return cond if isinstance(cond, dict) else {}
 
 
 def _require_member(project_id: str) -> str:
@@ -138,6 +158,59 @@ def list_watch_rules() -> dict:
         " FROM watch_rules w LEFT JOIN projects p ON p.id = w.project_id"
         " WHERE w.user_id = ? ORDER BY w.created_at DESC", (me,)).fetchall()
     return {"rules": [dict(r) for r in rows]}
+
+
+@router.get("/watch-rules/export")
+def export_watch_rules() -> dict:
+    """Own rules as a project-agnostic template (M56-I168, docs/01 §BA.1):
+    distinct {event_type, condition} pairs with user/project stripped, so the
+    JSON re-applies to any project the importer is a member of. Jira ships no
+    filter/subscription export at all — rules being events makes this native."""
+    me = events.effective_actor()
+    rows = db.get_conn().execute(
+        "SELECT event_type, condition_json FROM watch_rules WHERE user_id = ?"
+        " ORDER BY created_at DESC", (me,)).fetchall()
+    seen: dict[tuple[str, tuple], None] = {}
+    for r in rows:
+        cond = _parse_condition(r["condition_json"])
+        seen.setdefault((r["event_type"], tuple(sorted(cond.items()))), None)
+    return {"version": 1, "rules": [
+        {"event_type": et, "condition": dict(pairs)} for et, pairs in seen]}
+
+
+@router.post("/projects/{project_id}/watch-rules/import")
+def import_watch_rules(project_id: str, body: WatchImportIn) -> dict:
+    """Apply a shared template (M56-I168): fill what's missing, keep what's
+    there — an existing rule (user×project×event_type) is never clobbered,
+    matching the projection's ON CONFLICT DO NOTHING semantics; the count
+    report makes the outcome honest. Re-validation runs the same whitelist +
+    condition serializer as the manual add path."""
+    me = _require_member(project_id)
+    if len(body.rules) > 50:
+        raise HTTPException(status_code=422, detail="template supports at most 50 rules")
+    conn = db.get_conn()
+    imported = skipped = 0
+    for i, rule in enumerate(body.rules):
+        if rule.event_type not in WATCHABLE_EVENTS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"rules[{i}]: event_type must be one of {WATCHABLE_EVENTS}")
+        try:
+            cond_json = _serialize_condition(rule.condition)
+        except HTTPException as e:
+            raise HTTPException(status_code=422, detail=f"rules[{i}]: {e.detail}")
+        if conn.execute(
+                "SELECT 1 FROM watch_rules WHERE user_id = ? AND project_id = ? AND event_type = ?",
+                (me, project_id, rule.event_type)).fetchone():
+            skipped += 1  # already watching this event type — template won't clobber
+            continue
+        events.emit(
+            event_type="watch.added", agg_type="project", agg_id=project_id,
+            project_id=project_id,
+            payload={"user_id": me, "event_type": rule.event_type,
+                     "condition_json": cond_json})
+        imported += 1
+    return {"imported": imported, "skipped": skipped}
 
 
 _hook_installed = False

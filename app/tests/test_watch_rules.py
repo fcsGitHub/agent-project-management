@@ -168,3 +168,68 @@ def test_watch_condition_matching(client, project):
     assert client.get("/api/watch-rules").json()["rules"][0]["condition"] \
         == '{"status_group": "done"}'
     client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_export_import_roundtrip(client, tmp_data, isolated_ontologies):
+    """M56-I168：导出 own 规则为项目无关模板（跨项目去重、条件保留）；
+    他人导入到自己项目→对账；重复导入全 skipped（模板不覆盖已有）；
+    rebuild 复现。"""
+    p1 = client.post("/api/projects",
+                     json={"name": "项目一", "ontology": "software-dev"}).json()["id"]
+    p2 = client.post("/api/projects",
+                     json={"name": "项目二", "ontology": "software-dev"}).json()["id"]
+    assert client.post(f"/api/projects/{p1}/watch-rules",
+                       json={"event_type": "item.status_changed",
+                             "condition": {"status_group": "done"}}).status_code == 200
+    assert client.post(f"/api/projects/{p1}/watch-rules",
+                       json={"event_type": "item.created"}).status_code == 200
+    assert client.post(f"/api/projects/{p2}/watch-rules",
+                       json={"event_type": "item.status_changed",
+                             "condition": {"status_group": "done"}}).status_code == 200
+
+    tpl = client.get("/api/watch-rules/export").json()
+    assert tpl["version"] == 1
+    got = {(r["event_type"], tuple(sorted(r["condition"].items()))) for r in tpl["rules"]}
+    assert ("item.status_changed", (("status_group", "done"),)) in got
+    assert ("item.created", ()) in got
+    assert len(tpl["rules"]) == 2  # 跨项目同款规则去重
+
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{p1}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    r = client.post(f"/api/projects/{p1}/watch-rules/import", json={"rules": tpl["rules"]})
+    assert r.status_code == 200 and r.json() == {"imported": 2, "skipped": 0}
+    # 重复导入 → 模板不覆盖已有规则（ON CONFLICT DO NOTHING 语义）
+    r2 = client.post(f"/api/projects/{p1}/watch-rules/import", json={"rules": tpl["rules"]})
+    assert r2.status_code == 200 and r2.json() == {"imported": 0, "skipped": 2}
+    rules = client.get("/api/watch-rules").json()["rules"]
+    assert len(rules) == 2
+    assert {r["event_type"] for r in rules} == {"item.status_changed", "item.created"}
+
+    from apm.core import projections
+    projections.ensure_handlers_registered()
+    projections.rebuild()
+    assert client.get("/api/watch-rules").json()["rules"] == rules
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_import_validation(client, project):
+    """M56-I168：坏模板逐条校验带序号（白名单外/坏条件 422）；超 50 条 422；
+    非成员导入 403。"""
+    r = client.post(f"/api/projects/{project}/watch-rules/import",
+                    json={"rules": [{"event_type": "item.created"},
+                                    {"event_type": "notification.sent"}]})
+    assert r.status_code == 422 and "rules[1]" in r.json()["detail"]
+    r = client.post(f"/api/projects/{project}/watch-rules/import",
+                    json={"rules": [{"event_type": "item.created",
+                                     "condition": {"a": {"nested": 1}}}]})
+    assert r.status_code == 422 and "rules[0]" in r.json()["detail"]
+    assert client.post(f"/api/projects/{project}/watch-rules/import",
+                       json={"rules": [{"event_type": "item.created"}] * 51}).status_code == 422
+
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.post(f"/api/projects/{project}/watch-rules/import",
+                       json={"rules": [{"event_type": "item.created"}]}).status_code == 403
+    client.post("/api/session/identity", json={"user_id": "u_admin"})

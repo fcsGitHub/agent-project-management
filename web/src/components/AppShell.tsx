@@ -339,10 +339,53 @@ function WatchRulesSection() {
       toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
     }
   };
+  // M56-I168: 导出 own 规则为项目无关模板；导入按「缺补在跳」应用到所选项目
+  const exportTemplate = async () => {
+    try {
+      const tpl = await api.exportWatchRules();
+      const blob = new Blob([JSON.stringify(tpl, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "watch-template.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(`导出失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const importTemplate = async (file: File) => {
+    try {
+      const tpl = JSON.parse(await file.text());
+      const rules = Array.isArray(tpl?.rules) ? tpl.rules : [];
+      if (!rules.length) {
+        toast.error("模板中没有规则");
+        return;
+      }
+      const res = await api.importWatchRules(newPid, rules);
+      toast.success(`导入完成：新增 ${res.imported} · 跳过 ${res.skipped}`);
+      await qc.invalidateQueries({ queryKey: ["watch-rules"] });
+    } catch (e) {
+      toast.error(`导入失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
   const labelOf = (t: string) => WATCHABLE.find((w) => w.type === t)?.label ?? t;
   return (
     <div className="space-y-1 border-t border-line pt-2">
-      <div className="text-[10px] text-mut">👁 项目关注规则（别人动了我关注的项目就提醒我）</div>
+      <div className="flex items-center gap-1">
+        <span className="flex-1 text-[10px] text-mut">👁 项目关注规则（别人动了我关注的项目就提醒我）</span>
+        <button onClick={exportTemplate} className="text-[10px] text-mut hover:text-acc"
+          title="导出我的关注规则为模板 JSON（可分享给团队）">⇩ 导出</button>
+        <label className="cursor-pointer text-[10px] text-mut hover:text-acc" title="导入模板 JSON 到所选项目（已有的跳过）">
+          ⇧ 导入
+          <input type="file" accept=".json,application/json" className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void importTemplate(f);
+              e.target.value = "";
+            }} />
+        </label>
+      </div>
       {(rules.data?.rules ?? []).map((r) => (
         <div key={`${r.project_id}/${r.event_type}`} className="flex items-center gap-1.5 text-xs">
           <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}${r.condition ? ` · 仅当 ${r.condition}` : ""}`}>
