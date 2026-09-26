@@ -21,6 +21,9 @@ export function Dashboard() {
   const convs = useQuery({ queryKey: ["conversations", pid], queryFn: () => api.listConversations(pid!), enabled: !!pid });
   const portfolio = useQuery({ queryKey: ["portfolio"], queryFn: api.getPortfolioReport, refetchInterval: 15_000 });
   const health = useQuery({ queryKey: ["portfolio-health"], queryFn: api.portfolioHealth, refetchInterval: 15_000 });
+  // M60-I181: 组合健康趋势 + 每项目流指标（中位周期/吞吐/WIP）
+  const healthTrend = useQuery({ queryKey: ["portfolio-health-trend"], queryFn: () => api.getPortfolioHealthTrend(30), refetchInterval: 60_000 });
+  const trendMap = new Map((healthTrend.data?.projects ?? []).map((t) => [t.project_id, t]));
   // 功能进度条数据源：与看板同键（["board", pid, …]）复用缓存，避免额外口径
   const board = useQuery({
     queryKey: ["board", pid, undefined, undefined, undefined],
@@ -84,6 +87,17 @@ export function Dashboard() {
                 ) : (
                   <Badge tone="neutral">♥ —</Badge>
                 )}
+              </span>
+              {/* M60-I181: 健康趋势方向 + 中位完成周期（Flow 归因入口） */}
+              <span className="w-20 shrink-0 text-right text-mut"
+                title="健康趋势（近 30 天首尾对比）· 中位完成周期天数（Flow 指标）">
+                {(() => {
+                  const t = trendMap.get(p.project_id);
+                  if (!t) return "—";
+                  const arrow = t.direction === "up" ? "📈" : t.direction === "down" ? "📉" : "➖";
+                  const cyc = t.median_cycle_days != null ? ` · ${t.median_cycle_days}d` : "";
+                  return `${arrow}${cyc}`;
+                })()}
               </span>
               <div className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-full bg-bg">
                 {(["backlog", "todo", "in_progress", "done", "cancelled"] as const).map((k) => (

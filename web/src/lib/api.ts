@@ -352,6 +352,14 @@ export const api = {
     req<{ projects: Project[] }>(`/projects${includeArchived ? "?include_archived=true" : ""}`),
   getPortfolioReport: () =>
     req<PortfolioReport>("/portfolio/report"),
+  // M60-I181: portfolio health trend + flow metrics per project
+  getPortfolioHealthTrend: (days = 30) =>
+    req<{ days: number; portfolio_median: number | null;
+          projects: { project_id: string; name: string;
+                      direction: "up" | "down" | "flat" | null;
+                      first: number | null; last: number | null;
+                      median_cycle_days: number | null; throughput_4w: number;
+                      wip: number }[] }>(`/portfolio/health-trend?days=${days}`),
   portfolioRoadmap: () =>
     req<RoadmapData>("/portfolio/roadmap"),
   // I110: cross-project activity feed — the visible event stream, newest first

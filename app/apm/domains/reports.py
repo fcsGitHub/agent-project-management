@@ -698,6 +698,75 @@ def health_history(project_id: str, days: int = 30) -> dict:
             "generated_at": _now().isoformat()}
 
 
+@router.get("/portfolio/health-trend")
+def portfolio_health_trend(days: int = 30) -> dict:
+    """Portfolio health trend + flow metrics (M60-I181, docs/01 §BE.2/BE.3):
+    per visible project, the health score series with a first→last direction,
+    the portfolio median line, and the Flow-framework trio (median cycle time,
+    4-week throughput, WIP) computed as event-pair projections — the
+    cross-project analytics Jira reserves for its Premium tier, free off the
+    event kernel (event-sourcing dividend #12). The health score is the
+    verdict; flow metrics are the attribution entry point."""
+    conn = db.get_conn()
+    me = events.effective_actor()
+    from apm.domains.feed import _visible
+    out = []
+    for p in conn.execute(
+            "SELECT id, name FROM projects ORDER BY created_at, id").fetchall():
+        if not _visible(p["id"], {"id": me}):
+            continue
+        series = health_history(p["id"], days)["series"]
+        scores = [pt["score"] for pt in series if pt["score"] is not None]
+        direction = None
+        if len(scores) >= 2:
+            delta = scores[-1] - scores[0]
+            direction = "up" if delta > 0 else "down" if delta < 0 else "flat"
+        out.append({"project_id": p["id"], "name": p["name"], "series": series,
+                    "first": scores[0] if scores else None,
+                    "last": scores[-1] if scores else None,
+                    "direction": direction,
+                    **_flow_metrics(conn, p["id"])})
+    lasts = sorted(x["last"] for x in out if x["last"] is not None)
+    if lasts:
+        n = len(lasts)
+        portfolio_median = lasts[n // 2] if n % 2 else (lasts[n // 2 - 1] + lasts[n // 2]) / 2
+    else:
+        portfolio_median = None
+    return {"days": days, "portfolio_median": portfolio_median, "projects": out}
+
+
+def _flow_metrics(conn, project_id: str) -> dict:
+    """Flow-framework trio as pure event-pair projections (zero
+    instrumentation): median cycle time over completed items (created→first
+    done arrival), done-per-week over the last 4 weeks, and current WIP
+    (in-progress, not archived)."""
+    created: dict[str, str] = {}
+    done: dict[str, str] = {}
+    for r in conn.execute(
+            "SELECT agg_id, event_type, payload, ts FROM events"
+            " WHERE project_id = ? AND event_type IN ('item.created','item.status_changed')"
+            " ORDER BY id", (project_id,)):
+        p = json.loads(r["payload"])
+        if r["event_type"] == "item.created":
+            created.setdefault(r["agg_id"], r["ts"][:10])
+        elif r["agg_id"] in created and p.get("status_group") == "done" \
+                and r["agg_id"] not in done:
+            done[r["agg_id"]] = r["ts"][:10]
+    from datetime import date as _date
+    cycles = sorted(max(0, (_date.fromisoformat(d) - _date.fromisoformat(created[i])).days)
+                    for i, d in done.items())
+    n = len(cycles)
+    median_cycle = (cycles[n // 2] if n % 2
+                    else (cycles[n // 2 - 1] + cycles[n // 2]) / 2) if n else None
+    cutoff = (_now().date() - timedelta(days=28)).isoformat()
+    throughput_4w = round(sum(1 for d in done.values() if d >= cutoff) / 4, 2)
+    wip = conn.execute(
+        "SELECT COUNT(*) c FROM items WHERE project_id = ? AND status_group = 'in_progress'"
+        " AND archived_at IS NULL", (project_id,)).fetchone()["c"]
+    return {"median_cycle_days": median_cycle, "throughput_4w": throughput_4w,
+            "wip": wip}
+
+
 @router.get("/projects/{project_id}/baseline-curve")
 def baseline_curve(project_id: str, baseline_id: str | None = None,
                    compare: str | None = None) -> dict:
