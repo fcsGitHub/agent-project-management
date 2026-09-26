@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M58 关注 agent 动态三件套 完成，下一步 M59 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M59 行动聚合与包治理三件套 调研定义完成，下一步 I177「等待我」行动聚合）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M58 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M59 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M59 节 + 看板行 →「M59 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M59 审阅。**候选池**：①run 域通知的消化面（interrupted/awaiting_approval 的「等待我」聚合视图——approval 中心已有，评估 run 视角合并价值）；②watch 通知的邮件摘要化（watch 邮件走每日 digest 形态——接近已裁决的「第二套定时窗口」，需新证据）；③本体/模板域调研刷新（距 M7 已远——模板包市场语义、本体 pack 治理）；④新特性扫描（2027 前瞻）；⑤维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并（均维持不做）。
+2. **M59 实现（下一步）**：调研已定案（docs/01 §BD + docs/10 §M59，2026-09-27）——**I177 「等待我」行动聚合**（`GET /my/attention` 纯投影三分区[待我审批=我任 owner 项目内 pending·等我恢复=可见项目 interrupted runs·我的临期项=assignee=me 且 due≤3 天未完成] + MyWorkPage「⏳ 等待我」卡分区跳转——行动视角与 MyWork 任务视角正交）→ **I178 模板包实例溯源**（project.created payload +ontology_version 增量键 + `GET /template-packs/{name}/usages`[出生版本 vs 当前·早期实例诚实标] + 模板中心「实例 N·落后 M 版」徽标——VS Code/Obsidian update 语义·只做可见性不做自动迁移）→ **I179 冒烟 64+审阅**。维持不做：watch 邮件摘要化（第二套定时窗口）、审批/Runs 页重构（聚合面只做入口）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

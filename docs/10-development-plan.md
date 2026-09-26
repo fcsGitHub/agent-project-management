@@ -1810,6 +1810,36 @@ agent-project-management/
 
 ---
 
+### M59 · 行动聚合与包治理三件套（I177-I179，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BD 前置调研）。行动视角（「什么在等我动手」）与任务视角（MyWork「我名下有什么」）正交——Linear Inbox/GitHub review-requested 的行动聚合无专项调研；模板包版本自 M4 存在但实例出生版本未记录，「谁还跑在旧版」不可见（VS Code/Obsidian update 语义）。聚合面只做跨域入口不重构审批/Runs 页；包升级只做可见性不做自动迁移（本体演进人工治理纪律）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I177 | 「等待我」行动聚合（`GET /my/attention` 纯投影三分区[待我审批=我任 owner 项目内 pending·等我恢复=可见项目内 interrupted runs·我的临期项=assignee=me 且 due≤3 天未完成] + MyWorkPage「⏳ 等待我」卡[分区点击跳审批中心/Runs/MyWork]） | — | MyWork/审批中心 | 3d |
+| I178 | 模板包实例溯源（project.created payload +ontology_version 增量键 + `GET /template-packs/{name}/usages`[实例清单：项目名/出生版本 vs 当前/早期实例诚实显示] + 模板中心「实例 N·落后 M 版」徽标） | — | 本体版本化 | 3d |
+| I179 | 冒烟 64+收尾审阅（三分区聚合 roundtrip→pack 两实例+版本对比→早期实例诚实态 + docs 收口 + M59 审阅） | — | 冒烟范式 | 3d |
+
+#### I177 · 「等待我」行动聚合（3d）
+
+- 任务：新聚合端点（或并入 my 域）`GET /my/attention`——approvals pending WHERE 项目我是 owner；runs interrupted WHERE 我可见项目；items assignee=me AND due_date≤today+3 AND status_group≠done；响应 `{approvals:[{id,project_id,kind,requested_at}], runs:[...], due:[...], counts}`；前端 MyWorkPage 顶部卡（三分区计数徽标+前 3 条预览+点击跳转）。
+- DoD：单测（三分区命中/owner 外不见审批/非成员不见 run/已完成与远期不进临期/rebuild 一致）。
+- 演示路径：打开「我的工作」一眼看清「2 个审批等我拍板、1 个运行等我恢复、3 项今天到期」。
+
+#### I178 · 模板包实例溯源（3d）
+
+- 任务：post_project payload 加 `ontology_version: onto.version` + `GET /template-packs/{name}/usages`（扫 events project.created WHERE payload.ontology==name：项目名/出生版本/是否落后于当前 pack 版本/created_at 排序）+ 模板中心 pack 卡加「实例 N」徽标与 usages 抽屉（落后行「落后 M 版」warn 徽标·无版本键行「早期实例」诚实标）。
+- DoD：单测（usages 聚合/版本对比/早期实例/多实例排序/rebuild）。
+- 演示路径：重导入升版本后，模板中心一眼看出哪些项目出身旧版。
+
+#### I179 · 冒烟 64+收尾审阅（3d）
+
+- 任务：**冒烟 64**（审批+interrupted run+临期项三分区聚合→pack 两实例出生版本对比→早期实例诚实态 roundtrip）+ docs 收口 + M59 审阅。
+- DoD：冒烟 64 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「等我的事一眼清 → 包升级影响面一眼清」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2010,6 +2040,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-27 M59 调研定义（§BD） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：run 域「等待我」行动聚合[无专项调研——M12 MyWork 是任务视角·审批中心是单域视角]、watch 邮件摘要化[第二套定时窗口维持需新证据]、本体/模板域刷新[M7 后空白——pack 版本/升级/实例溯源未查]、显式容量/Cycles/derived/多节律报告/站内跨 kind 合并[维持]。三路 WebSearch：行动聚合收件箱范式（Linear Inbox=按谁需要行动聚合的 canonical 形态/GitHub notifications reason:review-requested/Jira pending-my-approval——行动视角与任务视角正交）、模板市场升级语义（VS Code 扩展市场版本化+更新可见/Obsidian 社区插件提交治理——实例与模板版本解耦后「谁还跑在旧版」成一等信息）、2027 前瞻（Gartner 40%+ agentic 项目 2027 取消——洗牌期·幸存者画像=标准化+可审计+人指挥·AgentPM 三支柱正中·40% 取消率的反面即机会面）。定案 M59=行动聚合与包治理三件套（I177/I178/I179） |
 | **M58 关注 agent 动态三件套（I174-I176）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BC + docs/10 §M58）：I174 run 生命周期入白名单（WATCHABLE_EVENTS 13→15 类[run.succeeded/run.failed——agent 版 notify-worthy moments=完成/失败/等待人介入的行业收敛去其一一 Gate 已有 approval.requested；run.interrupted 不入防双份·requested/started/tokens/span=记账面不入] + engine run.succeeded payload 顶层镜像 outcome[纯增量——watch 扁平等值条件可直达 {"outcome":...}] + hook 摘要带可行动上下文[failed=error 首行 80 字/succeeded=outcome·工件路径——CI actionable context；系统 actor runtime:* 不触发自抑制=发起人收到·CI 路由给触发者] + AppShell WATCHABLE 标签「运行成功/运行失败」）/ I175 通知直达与一键关注（hook 对 run.* 通知 payload 透传 run_id + GET /notifications 解析 ref 链源事件 payload 透出[mention 跳 item 同族] + 铃铛点击直达 `/#/p/{pid}/runs?run={id}`[RunsPage 既有 ?run= 参数直开 RunDrawer 零新路由·点击即已读沿用 mention 纪律] + RunsPage「👁 关注 agent 动态」WatchAgentToggle 幂等建/删 succeeded+failed 规则对——通道关断与免打扰仍由铃铛偏好细调不越权）/ I176 冒烟 63+审阅（真实 run Gate→批准→succeeded 通知带 run_id→failed 摘要带 error→过程面 422）；站内跨 kind 合并[需新证据]、显式容量、Cycles 多周期+derived、多节律报告[维持]留 backlog。基线：pytest **439** 全绿（非 smoke 377 EXIT=0 + smoke runner 63 GREEN 对账）+ 冒烟 **63** + vitest **18** + build 绿 |
 | 2026-09-27 M57 调研定义（§BB） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：watch 规则 PATCH 编辑与暂停[无记录——M55 坑位「改条件需删了重加 409」的产品化方向未查过]、多节律报告[M55 已裁决维持不重查]、资产库/模板域深化[M7 后 30+ 迭代空白]、显式容量+Cycles 多周期+derived[维持]。三路 WebSearch：自动化规则开关与编辑语义（Zapier on/off toggle 配置保留/GitHub Actions Disable workflow 横幅态+一键恢复/IFTTT 直翻开关——通用语义=二元开关+就地编辑从不删了重建）、资产注册表信任信号（npm 包页金标准：last published/弃用横幅/README；pkgpulse 健康度=下载趋势+维护活跃+源码可查+弃用状态；GitLab/Firefly/Harness 私有 module registry 集中版本化——AgentPM asset.consumed/link 事件早已入流缺读侧洞察=红利第十例）、2026 Q4 扫描（Atlassian 9 月 Teamwork Graph+Agentic loops in Jira——与事件图+agent 运行时+Gate 同向无缺口）。定案 M57=治理收口与资产洞察三件套（I171/I172/I173） |
 | 2026-09-27 M58 调研定义（§BC） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：run.* 入 watch 白名单[无记录——WATCHABLE 13 类自 M54 定格]、站内跨 kind 合并[M55 已做同 kind 折叠维持需新证据]、显式容量/Cycles/derived/多节律报告[均已裁决维持]。三路 WebSearch：agent 状态通知产品语义（Superset 编排 100+ agent「finish 即通知」/Solo 状态机 working-idle-waiting-permission/Devin subagents 完成汇报+权限等待批准/Smithers 审批门挂起到盘——notify-worthy 收敛=完成/失败/等待人介入）、CI 通知纪律（GitHub Actions if:failure()/CircleCI basic_fail_1——失败必响成功静默、可行动上下文、路由给触发者；部署型成功例外）、2026-27 前瞻（Agentic 支出 $206B→$376B/Gartner 40% 应用内嵌 agent/41% 代码 AI 生成推高评审需求/HITL 审批门成合规标准——有界自主收敛，AgentPM Gate 同向强确认）。定案 M58=关注 agent 动态三件套（I174/I175/I176）；run.interrupted 不入白名单防与 approval.requested 双份 |

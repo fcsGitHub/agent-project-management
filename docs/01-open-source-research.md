@@ -1623,3 +1623,32 @@ M57 = **治理收口与资产洞察三件套**：I171 watch 规则编辑与暂�
 **BC.5 M58 取舍**
 
 M58 = **关注 agent 动态三件套**：I174 run 生命周期入白名单（完成/失败=agent 版 notify-worthy moments，行业三点收敛去其一一Gate 已有）/ I175 通知直达与一键关注（CI 可行动上下文+日志链接语义的组织内翻译）/ I176 冒烟 63+审阅，约 9 人日。run.interrupted 入白名单（与 approval.requested 双份——M55 降噪违背）、站内跨 kind 合并（需新证据）、过程事件入白名单（requested/started/tokens/span=记账面）、显式容量、Cycles 多周期、derived、多节律报告留 backlog。
+
+## BD. M59 前置调研：「等待我」行动聚合 / 模板包升级溯源 / 2027 前瞻（2026-09-27）
+
+> 目标协议触发：M58 完成后开启。防重查：候选池 grep——run 域「等待我」行动聚合（**无专项调研**——M12「我的工作」是任务视角[分配给我的]，审批中心是单域视角；「按谁需要行动聚合」的行动视角未查过）、watch 邮件摘要化（接近 M55 已裁决的「第二套定时窗口」——维持需新证据）、本体/模板域刷新（**M7 后 30+ 迭代空白**——pack 版本/升级/实例溯源语义未查过）、新特性扫描（照例）、显式容量/Cycles/derived/多节律报告/站内跨 kind 合并（均维持）。本轮三路新调研（行动聚合收件箱范式 / 模板市场升级语义 / 2027 前瞻），选定 **M59 = 行动聚合与包治理三件套**。
+
+**BD.1 「等待我」行动聚合（action-required 视角）**
+
+- 产品范式：Linear Inbox 是「需要我处理」队列的 canonical 形态——按**谁需要行动**聚合（review request/assignment/mention），而非按事件类型；GitHub notifications 有 `reason:review-requested` 过滤器、Jira 有「pending my approval」视图——**行动视角与任务视角（My page「分配给我」）是两套正交面**：前者回答「什么在等我动手」，后者回答「我名下有什么」。
+- 对本项目的映射：`GET /my/attention` 纯读投影，三分区——**待我审批**（我任 owner 的项目内 pending approvals——decider 语义即 owner，与 I96 approval 通知收件人同口径）、**等我恢复的运行**（我可见项目内 interrupted runs——Gate 语义即等人）、**我的临期项**（assignee=me 且 due≤3 天未完成）；每分区计数+清单。前端 MyWorkPage 顶部「⏳ 等待我」卡，分区点击跳对应页（审批中心/Runs/我的工作）。审批中心与 Runs 页不动——聚合面只做「跨域入口」，不做第二套操作面（YAGNI）。
+
+**BD.2 模板包升级溯源（marketplace update 语义的组织内翻译）**
+
+- 产品范式：[VS Code 扩展市场](https://code.visualstudio.com)的核心生命周期语义=**版本化+更新可见**（"Show Extension Updates"）；[Obsidian 社区插件](https://github.com/obsidianmd/obsidian-releases)有提交+治理流程；两者的共同本质：**实例与模板版本解耦后，「谁还跑在旧版」成为一等可见信息**。
+- 对本项目的映射：pack 已有 version（本体版本，M4 起版本化），但**实例化时刻的版本未记录**——`project.created` payload 增量加 `ontology_version`（旧实例无此键→诚实显示「早期实例」）；`GET /template-packs/{name}/usages` 从事件流聚合实例项目清单（名称/出生版本/当前 pack 版本对比/活跃状态）+ 模板中心「实例 N·落后 M 版」徽标。**升级影响面可见化**：重导入升版本后，一眼看出哪些项目出身旧版——不做自动迁移（本体演进是人工治理决策，M4 纪律），只做可见性。
+
+**BD.3 2027 前瞻**
+
+- Gartner 预测 **2027 年 40%+ agentic AI 项目将被取消**（[mtm.video](https://www.mtm.video)）——洗牌期将至，失败归因于「混沌环境+无标准」；Kanbanchi 2026-27 诚实评估（[Kanbanchi](https://kanbanchi.com)）：AI 擅长例行任务管理（建任务/改状态/提醒/分发/总结），人聚焦高价值——**增强而非替代**。对本项目的含义：幸存者画像=**标准化+可审计+人指挥**——AgentPM 的本体类型系统/事件溯源审计/Gate 治理正是该画像的三支柱；40% 取消率的反面恰是工程化管理系统的机会面。无新功能缺口，路线强确认。
+
+**BD.4 M59 设计映射与验证纪律（沿用）**
+
+- I177 「等待我」行动聚合：`GET /my/attention`（三分区计数+清单，可见性门与审批中心/Runs/MyWork 同口径）+ MyWorkPage「⏳ 等待我」卡（分区点击跳转）+ api.ts getMyAttention；单测（三分区各命中与不命中/owner 才见审批/非成员不见/rebuild 一致/空态诚实）。
+- I178 模板包实例溯源：project.created payload +ontology_version（增量键）+ `GET /template-packs/{name}/usages`（实例清单：项目名/出生版本/落后 badge）+ 模板中心 pack 卡「实例 N」入口；单测（usages 聚合正确/早期实例无版本键的诚实显示/多实例排序/rebuild）。
+- I179 冒烟 64+审阅：三分区聚合 roundtrip→pack 实例两项目+版本对比→docs 收口 + M59 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M59 审阅 + **冒烟 64**。
+
+**BD.5 M59 取舍**
+
+M59 = **行动聚合与包治理三件套**：I177 「等待我」行动聚合（Linear Inbox 行动视角——与 MyWork 任务视角正交）/ I178 模板包实例溯源与升级影响（VS Code/Obsidian update 语义翻译——可见性不做自动迁移）/ I179 冒烟 64+审阅，约 9 人日。watch 邮件摘要化（第二套定时窗口需新证据）、审批页/Runs 页重构（聚合面只做入口）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并留 backlog。
