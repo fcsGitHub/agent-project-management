@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M60 运维韧性与组合洞察三件套 调研定义完成，下一步 I180 备份/恢复演练工具）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M60 运维韧性与组合洞察三件套 完成，下一步 M61 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -37,7 +37,8 @@
 - **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：watch 规则导入导出（模板 {event_type, condition} 去重·缺补在跳·对账 imported/skipped——Jira 无内建）+ 静默时段（users.quiet_start/quiet_end + quiet_active 纯函数跨午夜 + mailer 第四道时刻门——mention/digest 突破·站内照发）+ 冒烟 61。基线 pytest 434 / 冒烟 61 / vitest 18。
 - **M57 治理收口与资产洞察三件套（I171-I173，2026-09-27 完成，docs/01 §BB + docs/10 §M57）**：watch 规则编辑与暂停（PATCH + watch.updated 整行 upsert·paused 列——修 M55 的 409 删了重加坑·Zapier 配置保留语义）+ 资产使用洞察（GET /assets/insights 读侧投影·stale=已发布+零消费+超 90 天·红利第十例）+ 冒烟 62。基线 pytest 437 / 冒烟 62 / vitest 18。
 - **M58 关注 agent 动态三件套（I174-I176，2026-09-27 完成，docs/01 §BC + docs/10 §M58）**：run 生命周期入 watch 白名单（run.succeeded/failed·interrupted 不入防与 approval 双份·payload 顶层镜像 outcome）+ 通知直达（run_id 透传·铃铛跳 runs?run=）+ RunsPage 一键关注开关 + 冒烟 63。基线 pytest 439 / 冒烟 63 / vitest 18。
-- **M59 行动聚合与包治理三件套（I177-I179，2026-09-27 完成，docs/01 §BD + docs/10 §M59）**：**I177 「等待我」行动聚合**——`GET /my/attention` 纯读投影三分区（待我审批=owner 项目内 pending·等我恢复=可见项目 interrupted runs·我的临期项=assignee=me 且 due≤3 天未完成）+ MyWorkPage「⏳ 等待我」卡分区跳转——行动视角与任务视角正交（Linear Inbox 语义·聚合面只做入口）。**I178 模板包实例溯源**——project.created payload +ontology_version（增量键·旧库诚实显示「早期实例」）+ `GET /template-packs/{name}/usages`（出生版本 vs 当前·behind 徽标——VS Code/Obsidian update 语义·只做可见性不做自动迁移）。**I179 冒烟 64+审阅**。**当前验证基线：pytest 443 全绿（非 smoke 379 EXIT=0 + smoke runner 64 GREEN 对账）；冒烟 64 条 GREEN；vitest 18/build 绿。**
+- **M59 行动聚合与包治理三件套（I177-I179，2026-09-27 完成，docs/01 §BD + docs/10 §M59）**：「等待我」行动聚合（GET /my/attention 三分区·行动视角与任务视角正交·Linear Inbox 语义）+ 模板包实例溯源（project.created +ontology_version·usages 端点·behind 徽标——只做可见性不做自动迁移）+ 冒烟 64。基线 pytest 443 / 冒烟 64 / vitest 18。
+- **M60 运维韧性与组合洞察三件套（I180-I182，2026-09-27 完成，docs/01 §BE + docs/10 §M60）**：**I180 备份/恢复演练工具**——app/apm/ops.py `create_backup`（sqlite3 backup API 在线取 WAL 一致快照——绝不直接拷活库文件 + content/ 与 assets-repo/ 全量含 Git 历史 + 生效本体目录 + manifest.json→单 zip）+ `restore_backup`（manifest 校验+剥陈旧 -wal/-shm 侧车+本体目录仅显式目标才覆盖）+ tools/backup.py·restore.py 薄 CLI + docs/11 §5.2/5.2.1 演练三步 + 冒烟演练闭环（**「备份会自己跑，演练是为了证明恢复仍然有效」**）。**I181 组合健康趋势与流指标**——`GET /portfolio/health-trend`（可见项目健康史采样对齐+组合中位线+方向）+ _flow_metrics Flow 三件（中位完成周期/近 4 周吞吐/WIP——事件对投影零埋点=**红利第十二例**；Jira 原生做不了跨项目要 Premium Analytics）+ Dashboard 组合卡趋势列。**I182 冒烟 65+审阅**。**当前验证基线：pytest 447 全绿（非 smoke 382 EXIT=0 + smoke runner 65 GREEN 对账）；冒烟 65 条 GREEN；vitest 18/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -45,9 +46,9 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M59 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M60 实现（下一步）**：调研已定案（docs/01 §BE + docs/10 §M60，2026-09-27）——**I180 备份/恢复演练工具**（tools/backup.py[sqlite3 backup API 一致快照+content/+ontologies/ 打包+manifest.json→单 zip] + tools/restore.py[解包校验→目标 APM_DATA_DIR] + docs/11 演练三步 + 冒烟演练闭环[备份→清空→恢复→rebuild→可读断言——「演练证明恢复有效」]）→ **I181 组合健康趋势与流指标**（`GET /portfolio/health-trend`[可见项目健康史采样对齐+组合中位线+方向] + per-project 流指标[中位完成周期/近 4 周吞吐/WIP——Flow 三件·事件对投影零埋点=红利第十二例] + Dashboard 组合卡趋势行）→ **I182 冒烟 65+审阅**。维持不做：Litestream（单机手动档 docs/11 留说明）、角色市场（过度设计）、健康分权重刷新（无数据证据）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化。
-3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
+1. ~~M24~M60 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M61 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M61 节 + 看板行 →「M61 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M61 审阅。**候选池**：①事件表体积治理与归档节奏（events 只增——体积观测端点+归档导出策略，对照事件溯源长期运行实践）；②移动端响应式审计刷新（M15 375px 断点后新增 10+ 页面/卡片未过审计——等待我卡/洞察卡/趋势列/热力条）；③会话/轨迹域刷新（对话搜索/导出——距 MVP 未大动）；④新特性扫描（并入前路）；⑤维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新（均维持不做）。
+3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
 
@@ -88,8 +89,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 443 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 64 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 447 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 65 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
