@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-26 更新 · M56 关注共享与免打扰三件套 完成，下一步 M57 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M57 治理收口与资产洞察三件套 调研定义完成，下一步 I171 watch 规则编辑与暂停）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -43,7 +43,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M56 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M57 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M57 节 + 看板行 →「M57 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M57 审阅。**候选池**：①watch 规则 PATCH 编辑与暂停恢复（改条件需删了重加的 409 是 M55 记录的语义坑——产品化为「暂停规则不丢配置」，需查 GitHub rules/Jira filter 编辑语义）；②多节律报告（daily digest 与周报/静默时段的边界——M55 裁决过「不做第二套定时窗口」，重提需新证据）；③资产库/模板包域深化（距上次调研已 15+ 里程碑）；④新特性扫描（Linear/Jira/OpenProject 2026 Q4）；⑤显式容量分配层（维持默认不做）/Cycles 多周期+derived（维持）。
+2. **M57 实现（下一步）**：调研已定案（docs/01 §BB + docs/10 §M57，2026-09-27）——**I171 watch 规则编辑与暂停**（`PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用校验·paused 可选] + `watch.updated` 事件+投影 upsert 整行 + hook 跳过 paused + 前端 ⏸/▶ 与「✎ 改条件」就地编辑——修 M55 的 409 删了重加坑）→ **I172 资产使用洞察**（`GET /assets/insights` 纯投影[consumed/link 计数+最近消费+published 时长+零消费且久未更新清单] + AssetsPage 洞察卡——npm 信任信号组织内翻译，事件早已入流投影即得）→ **I173 冒烟 62+审阅**。维持不做：多节律报告/daily digest（M55 裁决）、资产评分/星级（单实例无社区语义）、显式容量、Cycles 多周期、derived。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

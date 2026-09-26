@@ -1565,3 +1565,32 @@ M55 = **关注精修与降噪三件套**：I165 watch 条件化（源头层—�
 **BA.5 M56 取舍**
 
 M56 = **关注共享与免打扰三件套**：I168 watch 规则导入导出（团队模板——Jira 无内建导入导出，AgentPM 内建+事件可重放）/ I169 静默时段（通道投递门——Slack DND 语义，mention 与 digest 突破）/ I170 冒烟 61+审阅，约 9 人日。免打扰期排队汇总投递（即定时窗口，M55 已裁决不做）、管理员默认 DND（单实例个人工具无组语义，个人时段已覆盖）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
+
+## BB. M57 前置调研：watch 规则编辑与暂停 / 资产信任信号 / 2026 Q4 扫描（2026-09-27）
+
+> 目标协议触发：M56 完成后开启。防重查：候选池 grep——watch 规则 PATCH 编辑与暂停恢复（**无调研记录**——M55 坑位记录了「改条件需删了重加的 409 语义诚实」，产品化方向未查过行业语义）、多节律报告/daily digest（M55 §AZ.5 已裁决「不做第二套定时窗口」——维持不重查，重提需新证据）、资产库/模板域深化（**M7（I23-I25 模板中心）后未再调研**，30+ 迭代空白）、新特性扫描（照例）、显式容量分配层（维持默认不做）、Cycles 多周期+derived（维持）。本轮三路新调研（自动化规则开关与编辑语义 / 资产注册表信任信号 / 2026 Q4 扫描），选定 **M57 = 治理收口与资产洞察三件套**。
+
+**BB.1 watch 规则编辑与暂停（in-place edit + paused state）**
+
+- 产品现状：**二元开关 + 配置保留 + 可恢复**是自动化规则的通用开关语义——[Zapier 的 Zap on/off toggle](https://help.zapier.com)（关掉不删配置，社区常见「批量编辑前先关掉一批 Zap」）；[GitHub Actions 的 Disable workflow](https://docs.github.com)（菜单项禁用→横幅态+一键恢复，API `PUT .../workflows/{id}/disable`）；IFTTT Applet 卡片直翻开关。编辑侧三家皆支持**就地修改**（Zapier 编辑器/GitHub 工作流文件），从不要求「删了重建」。
+- 对本项目的映射：M55 记录的「同 (project,event_type) 改条件需删了重加（409 引导）」是主键约束下的诚实兜底，但行业语义是**就地编辑 + 暂停态**——`PATCH /projects/{id}/watch-rules/{event_type}`（body {condition?, paused?}，走白名单+条件校验复用）emit 单一 `watch.updated` 事实（payload 带全量 condition_json+paused，投影 upsert 整行——重建可复现，暂停/恢复/改条件都有审计链）；hook 投递侧跳过 paused 规则；前端规则行加 ⏸/▶ 切换与条件就地编辑。**暂停≠删除**：配置原样保留，事件流零改动。
+
+**BB.2 资产信任信号（registry trust signals 的组织内翻译）**
+
+- 产品现状：npm 包页是**注册表信任信号的金标准**——最新版本、**last published 时间**、README 渲染、仓库链接、弃用横幅（[npmjs.com](https://www.npmjs.com)）；健康度评估工具（[pkgpulse](https://www.pkgpulse.com)）把用户实际判断依据形式化为：**周下载趋势、维护活跃度、源码可查、弃用状态**。私有模块注册表（[GitLab Terraform Module Registry](https://gitlab.com)/[Firefly](https://docs.firefly.ai)/[Harness IaCM](https://developer.harness.io)）同样以集中、版本化、可发现为核心，用量导出支撑采纳追踪。
+- 对本项目的映射：资产库是「组织记忆」，但**复用是否发生**目前不可见——`asset.consumed/asset.linked` 事件早已入流（M6 起），缺的是读侧洞察：`GET /assets/insights` 纯投影（per-asset 消费计数/最近消费时间/published 时长/来源项目；**零消费且久未更新的资产清单**=候选弃用面）+ AssetsPage 洞察卡（使用 Top/久未复用两分区+「久未复用」徽标）。弃用流程已有（asset.deprecated），不新增写路径——**事件溯源红利第十例：使用遥测零埋点，投影即得**。
+
+**BB.3 2026 Q4 扫描**
+
+- [Atlassian 2026 年 9 月发布](https://techgig.com)：AI-native Jira——**Teamwork Graph**（链接工作/团队/目标/代码/知识）与 **Agentic loops in Jira**（代理循环执行工作项）+ @Jira Slack 自然语言操作；Linear/Plane 无 Q4 具体缺口信号。Teamwork Graph=跨实体事件图、Agentic loops=人监督下的代理执行——与 AgentPM「事件溯源图 + 角色 Agent 运行时 + Gate 审批」**完全同向**，无新功能缺口；反向确认了本体/事件内核路线的先手性。
+
+**BB.4 M57 设计映射与验证纪律（沿用）**
+
+- I171 watch 规则编辑与暂停：`PATCH /projects/{id}/watch-rules/{event_type}`（条件复用 `_serialize_condition` 校验·paused: bool 可选）+ `watch.updated` 事件与投影 upsert（drop 清单已含 watch_rules，rebuild 复现）+ `_on_event` 跳过 paused 规则 + 前端规则行 ⏸/▶ 与「✎ 改条件」就地编辑；单测（PATCH 条件生效[旧条件不再匹配/新条件命中]/暂停静默与恢复投递/未订 404/坏条件 422/rebuild 复现含 paused 态）。
+- I172 资产使用洞察：`GET /assets/insights` 纯投影（events 流聚合 consumed/link 计数与最近时间·published 时长·零消费清单）+ AssetsPage 洞察卡（使用 Top/久未复用+徽标）+ vitest 无新组件断言走 API 单测（投影计数/rebuild 一致/空态诚实）。
+- I173 冒烟 62+审阅：改条件→旧静默新命中→暂停→恢复→洞察计数与久未复用清单 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M57 审阅 + **冒烟 62**。
+
+**BB.5 M57 取舍**
+
+M57 = **治理收口与资产洞察三件套**：I171 watch 规则编辑与暂停（就地编辑+暂停态——Zapier/GitHub Actions 通用语义，修 M55 的 409 坑）/ I172 资产使用洞察（registry 信任信号的组织内翻译——投影即得零埋点）/ I173 冒烟 62+审阅，约 9 人日。多节律报告/daily digest（M55 已裁决维持不做）、资产评分/星级（单实例无社区语义，使用计数已够）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。

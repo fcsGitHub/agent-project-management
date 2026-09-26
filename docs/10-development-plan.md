@@ -1750,6 +1750,36 @@ agent-project-management/
 
 ---
 
+### M57 · 治理收口与资产洞察三件套（I171-I173，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BB 前置调研）。M56 后 watch 域 CRUD 还差「就地编辑与暂停」（M55 记录的 409 坑）；资产库自 M7 后首次深化——使用遥测事件早已入流但读侧不可见。行业语义：自动化规则=二元开关+配置保留可恢复（Zapier/GitHub Actions）；注册表信任信号=用量+最近活跃+弃用横幅（npm/私有 module registry）。不做多节律报告（M55 已裁决）、资产评分（单实例无社区语义）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I171 | watch 规则编辑与暂停（`PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用校验·paused 可选] + `watch.updated` 事件+投影 upsert 整行[rebuild 复现] + hook 跳过 paused 规则 + 前端规则行 ⏸/▶ 与「✎ 改条件」就地编辑） | — | M54 watch 域 | 3d |
+| I172 | 资产使用洞察（`GET /assets/insights` 纯投影[events 流聚合 per-asset consumed/link 计数与最近消费·published 时长·零消费且久未更新清单] + AssetsPage 洞察卡[使用 Top/久未复用两分区+徽标]——npm 信任信号组织内翻译，投影即得零埋点） | — | asset.consumed/link 事件 | 3d |
+| I173 | 冒烟 62+收尾审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与久未复用清单 roundtrip + docs 收口 + M57 审阅） | — | 冒烟范式 | 3d |
+
+#### I171 · watch 规则编辑与暂停（3d）
+
+- 任务：watch.py 加 `PATCH`（body {condition?, paused?}——condition 走 `_serialize_condition` 校验 422，规则不存在 404；emit `watch.updated` payload {user_id, event_type, condition_json, paused}）+ 投影 `_proj_watch_updated` upsert 整行（condition_json+paused 全覆盖）+ `_on_event` 查询排除 paused=1 + 前端规则行 ⏸/▶（PATCH paused）与「✎ 改条件」（条件填入仅当输入→保存走 PATCH）；api.ts patchWatchRule。
+- DoD：单测（PATCH 条件生效[旧条件不再匹配/新条件命中]/暂停静默恢复投递/未订 404/坏条件 422/非成员 403/rebuild 复现含 paused 态）。
+- 演示路径：「仅当 done」改成「仅当 in_progress」不删规则直接生效；假期前 ⏸ 暂停、回来 ▶ 恢复，配置原样。
+
+#### I172 · 资产使用洞察（3d）
+
+- 任务：assets.py 加 `GET /assets/insights`——扫 events 流 asset.consumed/asset.linked（per-asset consumed 计数+最近消费 ISO/linked 计数）+ watch_rules 投影外读 assets 表（published_at/status）派生 published_days 与「零消费且 published>90 天」清单 + AssetsPage「📊 使用洞察」卡（使用 Top5/久未复用列表+「久未复用」徽标）+ api.ts getAssetInsights。
+- DoD：单测（consumed 计数与最近时间正确/零消费清单判定/published 天数/rebuild 一致/空态诚实返回空清单）。
+- 演示路径：资产库页一眼看出「哪些资产真在被复用、哪些在吃灰」。
+
+#### I173 · 冒烟 62+收尾审阅（3d）
+
+- 任务：**冒烟 62**（watch 改条件旧静默新命中→暂停静默→恢复投递→资产 consumed 计数与久未复用清单 roundtrip）+ docs 收口 + M57 审阅。
+- DoD：冒烟 62 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「改条件不重建 → 暂停/恢复 → 资产库健康度一眼清」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1949,6 +1979,7 @@ agent-project-management/
 | I144 角色模型分档与 cascade 降级 | 已完成 | 2026-09-21 | 2026-09-21 | config 三档 `APM_MODEL_CHEAP/STANDARD/REASONING`[standard 回落 llm_model/cheap 回落 ui_agent_model/reasoning 回落 standard] + roles.py `_resolve_model`[tier 解析到 name、显式 name 最高优先、`_tier_resolved` 标记参与降级] + engine cascade[主档 LLMError 向上一档重试一次，reasoning 到底；显式 name 角色不参与——用户明确指定不静默替换] + span `apm.model_tier/model_degraded` 留痕 + RecordProvider 录制 key 加 context 指纹[sha1[:8]，replay 读取端精确匹配回落裸 key 兼容旧件]；test_model_tiers **6** 项 |
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
+| 2026-09-27 M57 调研定义（§BB） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：watch 规则 PATCH 编辑与暂停[无记录——M55 坑位「改条件需删了重加 409」的产品化方向未查过]、多节律报告[M55 已裁决维持不重查]、资产库/模板域深化[M7 后 30+ 迭代空白]、显式容量+Cycles 多周期+derived[维持]。三路 WebSearch：自动化规则开关与编辑语义（Zapier on/off toggle 配置保留/GitHub Actions Disable workflow 横幅态+一键恢复/IFTTT 直翻开关——通用语义=二元开关+就地编辑从不删了重建）、资产注册表信任信号（npm 包页金标准：last published/弃用横幅/README；pkgpulse 健康度=下载趋势+维护活跃+源码可查+弃用状态；GitLab/Firefly/Harness 私有 module registry 集中版本化——AgentPM asset.consumed/link 事件早已入流缺读侧洞察=红利第十例）、2026 Q4 扫描（Atlassian 9 月 Teamwork Graph+Agentic loops in Jira——与事件图+agent 运行时+Gate 同向无缺口）。定案 M57=治理收口与资产洞察三件套（I171/I172/I173） |
 | **M56 关注共享与免打扰三件套（I168-I170）** | 已完成 | 2026-09-26 | 2026-09-26 | 3 迭代 / 约 9 人日（docs/01 §BA + docs/10 §M56）：I168 watch 规则导入导出（`GET /watch-rules/export` own 模板[去重 {event_type,condition} 数组·剥离 user/project 项目无关] + `POST /projects/{id}/watch-rules/import`[逐条白名单+条件校验·坏条目 422 带 rules[i] 序号·≤50 条·同 user×project×event_type 跳过不覆盖=ON CONFLICT DO NOTHING 语义同构·对账 {imported,skipped}·成员门] + 前端「⇩ 导出」Blob 下载 watch-template.json/「⇧ 导入」file 解析应用到所选项目——**Jira 无内建过滤器/订阅导出导入**[DC 靠 SearchRequest 表挖·订阅不存活于标准导出]，AgentPM 规则即事件内建+rebuild 可重放）/ I169 静默时段（users.quiet_start/quiet_end 运行态列[schema 列+轻量 ALTER 迁移] + quiet_active 纯函数[HH:MM 零填充字符串比较·start>end 跨午夜·边界含端点·相等/缺失/非法=关——坏日程绝不吞通道] + GET/PUT `/me/quiet-hours`[两端同设/格式 422/相等拒绝/空清除] + mailer.enqueue 第四道时刻门[窗口内非 mention 非 digest 邮件跳过——站内照发事件照发；mention 突破与 I96 不可关断同族；digest 突破=周报已是 M51 批量窗口不重复抑制；_now_hhmm 本地钟打桩可测] + QuietHoursSection time 输入）/ I170 冒烟 61+审阅（模板导出→导入→重复 skipped→rebuild→窗口内邮件静默站内照常→mention/digest 突破→窗口外恢复）；免打扰期排队汇总[即定时窗口 M55 已裁决]、管理员默认 DND[个人时段已覆盖]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **434** 全绿（非 smoke 373 EXIT=0 + smoke runner 61 GREEN 对账）+ 冒烟 **61** + vitest **18** + build 绿 |
 | 2026-09-26 M56 调研定义（§BA） | 已完成 | 2026-09-26 | 2026-09-26 | 防重查：watch 摘要批量投递[M55 §AZ.2/AZ.5 已裁决与周报节律重复维持不做]、watch 规则导入导出/团队共享模板[无记录]、显式容量[默认不做]、Cycles 多周期+derived[维持]、静默时段[无记录新方向]。三路 WebSearch：规则模板共享（Jira 无内建过滤器/订阅导出导入——DC 靠 SearchRequest 表 admin 工具、订阅不存活于标准导出，业界最近似=共享过滤器[模板]+个人订阅两层）、静默时段范式（Slack 个人 DND+管理员默认；共识五条：按用户日程/管理员默认+个人可调/mention 突破/免打扰期排队汇总/跨源一致——映射为通道投递门不与 M55 裁决冲突：窗口内邮件静默站内照发+mention 与 digest 突破；排队汇总投递即定时窗口维持不做）、2026 秋扫描（AI 特性铺满 agile 工具/Jira 走 MCP agent 连接/OpenProject 自托管选位——无新缺口同向）。定案 M56=关注共享与免打扰三件套（I168/I169/I170） |
 | I168 watch 规则导入导出 | 已完成 | 2026-09-26 | 2026-09-26 | export 端点[dict setdefault 按插入序去重·(event_type, sorted condition items) 键·_parse_condition 容错反序列化] + import 端点[校验复用 _serialize_condition 包 HTTPException 加 rules[i] 序号·已存在 SELECT 探测跳过不覆盖·emit watch.added 走既有事件链] + 前端 WatchRulesSection 头行导出/导入按钮+api.ts 两接口；test_watch_rules 8 项（导出跨项目去重/导入 roundtrip+重复 skipped 对账+rebuild 复现/坏模板序号 422/非成员 403） |
