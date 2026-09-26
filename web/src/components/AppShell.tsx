@@ -303,6 +303,8 @@ const WATCHABLE: { type: string; label: string }[] = [
   { type: "expense.recorded", label: "费用登记" },
   { type: "attachment.created", label: "新附件" },
   { type: "artifact.report_generated", label: "报告生成" },
+  { type: "run.succeeded", label: "运行成功" },
+  { type: "run.failed", label: "运行失败" },
 ];
 
 function WatchRulesSection() {

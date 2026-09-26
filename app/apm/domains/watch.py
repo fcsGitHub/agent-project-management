@@ -30,6 +30,13 @@ WATCHABLE_EVENTS = (
     "expense.recorded",
     "attachment.created",
     "artifact.report_generated",
+    # M58-I174 (docs/01 §BC): agent-run outcomes join the watchable set —
+    # completion/failure are the notify-worthy moments (Superset/Solo/Devin
+    # consensus; CI failure-first discipline). run.interrupted stays out: a
+    # gate pause already notifies via approval.requested, and dual copies
+    # would break the M55 noise budget. Process facts (requested/started/
+    # tokens/spans) remain bookkeeping, not news.
+    "run.succeeded", "run.failed",
 )
 
 
@@ -300,7 +307,19 @@ def _on_event(event: events.Event) -> None:
         matched = [(uid, cj) for uid, cj in matched if _hit(cj)]
         if not matched:
             return
-        # context for the summary: item title when the event is item-scoped
+        # context for the summary: item title when the event is item-scoped;
+        # for run outcomes carry the actionable detail itself (CI "actionable
+        # context" consensus — error first line / outcome·artifact, M58-I174)
+        run_ctx = ""
+        if event.event_type.startswith("run."):
+            p = event.payload or {}
+            if event.event_type == "run.failed":
+                err = str(p.get("error") or "")[:80]
+                run_ctx = f"：{err}" if err else ""
+            else:
+                out = p.get("output") or {}
+                bits = " · ".join(str(b) for b in (out.get("outcome"), out.get("artifact")) if b)
+                run_ctx = f"：{bits[:80]}" if bits else ""
         title = None
         if event.event_type.startswith("item."):
             row = conn.execute("SELECT title FROM items WHERE id = ?",
@@ -316,12 +335,17 @@ def _on_event(event: events.Event) -> None:
             seen.add(uid)
             if event.actor_id == uid:
                 continue  # 自事件抑制：自己动作的结果不提醒自己
-            suffix = f"「{title}」" if title else ""
+            if event.event_type.startswith("run."):
+                verb = "失败" if event.event_type == "run.failed" else "完成"
+                core = f"agent 运行{verb}{run_ctx}"
+            else:
+                suffix = f"「{title}」" if title else ""
+                core = f"有新动态：{event.event_type}{suffix}"
             events.emit(
                 event_type="notification.sent", agg_type="project",
                 agg_id=event.project_id, project_id=event.project_id,
                 payload={"user_id": uid, "kind": "watch",
-                         "summary": f"关注的项目「{pname}」有新动态：{event.event_type} {suffix}"},
+                         "summary": f"关注的项目「{pname}」{core}"},
             )
     except Exception:  # the hook must never break the write path
         logging.getLogger("apm.watch").exception("watch hook failed after #%s", event.id)

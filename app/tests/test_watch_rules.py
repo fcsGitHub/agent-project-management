@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from apm import config
-from apm.core import db
+from apm.core import db, events
 
 
 @pytest.fixture(autouse=True)
@@ -295,4 +295,46 @@ def test_watch_patch_and_pause(client, project):
     client.post("/api/session/identity", json={"user_id": "qa-wang"})
     assert len([n for n in client.get("/api/notifications").json()["notifications"]
                 if n["kind"] == "watch"]) == 2
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_run_outcomes(client, project):
+    """M58-I174：run.succeeded/failed 入白名单——完成/失败通知带可行动上下文
+    （outcome·工件/error 首行）；run.started 过程面仍白名单外 422；系统 actor
+    不触发自抑制（发起人收到——CI「路由给触发者」语义）；条件化 outcome 顶层
+    匹配命中与不命中。"""
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{project}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "run.failed"}).status_code == 200
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "run.started"}).status_code == 422
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "run.succeeded",
+                             "condition": {"outcome": "shipped"}}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+    def _run_evt(etype, rid, payload):
+        events.emit(event_type=etype, agg_type="run", agg_id=rid,
+                    project_id=project, actor_type="system",
+                    actor_id=f"runtime:{rid}", payload=payload)
+
+    _run_evt("run.succeeded", "r_ok1",
+             {"output": {"outcome": "shipped", "artifact": "content/prd.md"},
+              "outcome": "shipped"})
+    _run_evt("run.succeeded", "r_ok2",
+             {"output": {"outcome": "archived"}, "outcome": "archived"})  # 条件不命中
+    _run_evt("run.failed", "r_bad1", {"error": "provider 401 unauthorized: bad key"})
+    _run_evt("run.started", "r_start", {})  # 白名单外：hook 直接跳过
+
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    wk = [n for n in client.get("/api/notifications").json()["notifications"]
+          if n["kind"] == "watch"]
+    assert len(wk) == 2
+    ok = [n for n in wk if "运行完成" in n["summary"]]
+    bad = [n for n in wk if "运行失败" in n["summary"]]
+    assert len(ok) == 1 and "shipped · content/prd.md" in ok[0]["summary"]
+    assert len(bad) == 1 and "provider 401" in bad[0]["summary"]
     client.post("/api/session/identity", json={"user_id": "u_admin"})

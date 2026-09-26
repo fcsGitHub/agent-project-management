@@ -906,6 +906,9 @@ class RunEngine:
             {
                 "output": {"artifact": (result or {}).get("artifact_path"),
                            "outcome": (result or {}).get("outcome")},
+                # M58-I174: top-level mirror so watch conditions (flat payload
+                # equality) can target the outcome directly
+                "outcome": (result or {}).get("outcome"),
                 "decision": decision,
             },
         )
