@@ -935,6 +935,11 @@ export const api = {
   // Template packs (M7-I23/I24)
   listTemplatePacks: () => req<{ packs: TemplatePack[] }>("/template-packs"),
   previewTemplatePack: (name: string) => req<TemplatePackPreview>(`/template-packs/${name}`),
+  getPackUsages: (name: string) =>
+    req<{ pack: string; current_version: number;
+          usages: { project_id: string; name: string; born_version: number | null;
+                   current_version: number; behind: number | null; created_at: string }[] }>(
+      `/template-packs/${encodeURIComponent(name)}/usages`),
   instantiateTemplatePack: (name: string, body: { project_name: string; requirement?: string }) =>
     req<Project>(`/template-packs/${name}/instantiate`, { method: "POST", body: JSON.stringify(body) }),
   assetToPack: (assetId: string, packName: string) =>

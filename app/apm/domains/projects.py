@@ -225,6 +225,10 @@ def post_project(body: ProjectIn) -> dict:
             "name": body.name,
             "description": body.description,
             "ontology": body.ontology,
+            # M59-I178: record the pack version at birth so pack usages can
+            # show which projects predate a template upgrade (additive key —
+            # legacy events simply lack it and surface as「早期实例」)
+            "ontology_version": onto.version,
             "template": body.ontology,
             "charter": charter,
             "requirement": body.requirement,

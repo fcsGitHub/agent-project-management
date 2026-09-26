@@ -68,6 +68,13 @@ function PackDrawer({ name, onClose, onInstantiate }: {
     queryFn: () => api.previewTemplatePack(name!),
     enabled: !!name,
   });
+  // M59-I178: 实例溯源——谁出身此包、出生版本 vs 当前（升级影响面可见）
+  const usages = useQuery({
+    queryKey: ["template-pack-usages", name],
+    queryFn: () => api.getPackUsages(name!),
+    enabled: !!name,
+  });
+  const u = usages.data;
   const d = prev.data;
   return (
     <Drawer open={!!name} onClose={onClose} title={d ? `模板预览 · ${d.display_name}` : "模板预览"} width="46%">
@@ -94,6 +101,30 @@ function PackDrawer({ name, onClose, onInstantiate }: {
               ))}
             </div>
           </section>
+
+          {u && (
+            <section>
+              <div className="mb-1 font-semibold">📦 实例项目（{u.usages.length}）</div>
+              {u.usages.length ? (
+                <div className="space-y-1">
+                  {u.usages.map((x) => (
+                    <div key={x.project_id} className="flex items-center gap-2 rounded-lg border border-line px-2 py-1">
+                      <span className="min-w-0 flex-1 truncate">{x.name}</span>
+                      {x.born_version == null ? (
+                        <Badge tone="neutral">早期实例</Badge>
+                      ) : x.behind ? (
+                        <Badge tone="amber">落后 {x.behind} 版</Badge>
+                      ) : (
+                        <Badge tone="green">v{x.born_version} 当前</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-mut">还没有项目使用此模板</div>
+              )}
+            </section>
+          )}
 
           <section>
             <div className="mb-1 font-semibold">概念表</div>

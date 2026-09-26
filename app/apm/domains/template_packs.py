@@ -195,3 +195,33 @@ def instantiate(name: str, body: InstantiateIn) -> dict:
     return post_project(
         ProjectIn(name=body.project_name, ontology=name, requirement=body.requirement)
     )
+
+
+@router.get("/template-packs/{name}/usages")
+def pack_usages(name: str) -> dict:
+    """Instantiation provenance (M59-I178, docs/01 §BD.2): which projects were
+    born from this pack and at which ontology version — "who still runs the
+    old version" becomes first-class info (marketplace update semantics).
+    Projects born before version tracking surface honestly without a version.
+    Read-side aggregation over project.created; upgrades stay a human
+    governance decision — visibility, never auto-migration."""
+    try:
+        onto = load_ontology(name)
+    except OntologyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    current = onto.version
+    usages = []
+    for e in events.query_events(event_type="project.created", limit=_PROVENANCE_LIMIT)[0]:
+        if e.payload.get("ontology") != name:
+            continue
+        born = e.payload.get("ontology_version")
+        usages.append({
+            "project_id": e.agg_id,
+            "name": e.payload.get("name", e.agg_id),
+            "born_version": born,
+            "current_version": current,
+            "behind": (current - born) if isinstance(born, int) else None,
+            "created_at": e.ts,
+        })
+    usages.sort(key=lambda u: u["created_at"])
+    return {"pack": name, "current_version": current, "usages": usages}
