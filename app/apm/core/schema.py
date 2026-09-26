@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0,
   feed_key TEXT,
   email_notify INTEGER NOT NULL DEFAULT 1,
+  quiet_start TEXT,
+  quiet_end TEXT,
   hourly_rate REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

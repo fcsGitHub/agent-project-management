@@ -20,12 +20,21 @@ from email.message import EmailMessage
 
 from apm import config
 from apm.core import db, events
-from apm.domains.notifications import NOTIFY_EVENTS, plan_notifications, pref_allows
+from apm.domains.notifications import (
+    NOTIFY_EVENTS, plan_notifications, pref_allows, quiet_active,
+)
 
 logger = logging.getLogger(__name__)
 
 _queue: "queue.Queue[dict]" = queue.Queue(maxsize=500)
 _worker: threading.Thread | None = None
+
+
+def _now_hhmm() -> str:
+    """Local wall clock — quiet hours are a human schedule, not UTC
+    bookkeeping (tests monkeypatch this for determinism)."""
+    import datetime
+    return datetime.datetime.now().strftime("%H:%M")
 
 
 def smtp_configured() -> bool:
@@ -49,11 +58,21 @@ def enqueue(event: events.Event) -> None:
         if not pref_allows(conn, user_id, kind, "email"):
             continue  # I96: per-kind email gate (same gate the in-app channel uses)
         row = conn.execute(
-            "SELECT email, email_notify FROM users WHERE id = ?", (user_id,)).fetchone()
+            "SELECT email, email_notify, quiet_start, quiet_end FROM users WHERE id = ?",
+            (user_id,)).fetchone()
         if not row or not row["email"]:
             continue  # no address → silently skip (email is opt-in by profile)
         if not row["email_notify"]:
             continue  # user-level email preference off (M11-I37)
+        # M56-I169: quiet hours — email push pauses in the user's window while
+        # the in-app channel keeps flowing (the bell is the live surface).
+        # mention breaks through (highest urgency); digest mails (weekly report,
+        # already a batched window per M51) are exempt from re-suppression.
+        is_digest = (event.event_type == "notification.sent"
+                     and bool(event.payload.get("digest")))
+        if kind != "mention" and not is_digest and quiet_active(
+                row["quiet_start"], row["quiet_end"], _now_hhmm()):
+            continue
         try:
             _queue.put_nowait({
                 "to": row["email"], "user_id": user_id, "kind": kind,

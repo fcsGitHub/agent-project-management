@@ -9,6 +9,7 @@ counts exactly."""
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -52,6 +53,28 @@ def pref_allows(conn, user_id: str, kind: str, channel: str) -> bool:
         (user_id, kind),
     ).fetchone()
     return bool(row[channel]) if row else True
+
+
+# M56-I169 (docs/01 §BA.2): per-user quiet-hours window — email push pauses
+# inside it while the in-app channel keeps flowing (Slack DND semantics: the
+# bell is the live surface). mention breaks through at the mailer; digest
+# mails (already a batched window per M51) are exempt there too.
+_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def quiet_active(start: str | None, end: str | None, now: str) -> bool:
+    """Pure window predicate: start/end/now are HH:MM strings (zero-padded
+    HH:MM compares correctly as strings); start > end is an overnight window
+    (22:00–08:00); boundary moments count as inside; missing or equal
+    endpoints = off. Anything malformed is off — a broken schedule must never
+    swallow the email channel."""
+    if not start or not end or start == end:
+        return False
+    if not (_HHMM.match(start) and _HHMM.match(end) and _HHMM.match(now)):
+        return False
+    if start < end:
+        return start <= now <= end
+    return now >= start or now <= end
 
 
 def _item_title(conn, item_id: str) -> str:
@@ -263,6 +286,42 @@ def set_prefs(body: PrefsIn) -> dict:
     )
     conn.commit()
     return {"user_id": user_id, "email_enabled": body.email_enabled}
+
+
+class QuietHoursIn(BaseModel):
+    start: str | None = None
+    end: str | None = None
+
+
+@router.get("/me/quiet-hours")
+def get_quiet_hours() -> dict:
+    """M56-I169: own quiet-hours window (users table runtime state, the
+    email_notify family)."""
+    me = events.effective_actor()
+    row = db.get_conn().execute(
+        "SELECT quiet_start, quiet_end FROM users WHERE id = ?", (me,)).fetchone()
+    return {"start": row["quiet_start"] if row else None,
+            "end": row["quiet_end"] if row else None}
+
+
+@router.put("/me/quiet-hours")
+def put_quiet_hours(body: QuietHoursIn) -> dict:
+    me = events.effective_actor()
+    start, end = body.start or None, body.end or None
+    if bool(start) != bool(end):
+        raise HTTPException(status_code=422, detail="start and end must be set together")
+    if start and not (_HHMM.match(start) and _HHMM.match(end)):
+        raise HTTPException(status_code=422, detail="quiet hours must be HH:MM (e.g. 22:00)")
+    if start and start == end:
+        raise HTTPException(
+            status_code=422,
+            detail="start == end is an empty window; clear both to disable")
+    conn = db.get_conn()
+    conn.execute(
+        "UPDATE users SET quiet_start = ?, quiet_end = ?, updated_at = ? WHERE id = ?",
+        (start, end, events.utcnow(), me))
+    conn.commit()
+    return {"user_id": me, "start": start, "end": end}
 
 
 class KindPrefIn(BaseModel):

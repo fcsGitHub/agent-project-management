@@ -430,6 +430,47 @@ function WatchRulesSection() {
   );
 }
 
+// M56-I169: 免打扰窗口——窗口内邮件推送静默、站内照常（铃铛即实时面）；
+// @提及与周报摘要在邮件通道突破不受限。
+function QuietHoursSection() {
+  const qc = useQueryClient();
+  const qh = useQuery({ queryKey: ["quiet-hours"], queryFn: api.getQuietHours });
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  useEffect(() => {
+    if (qh.data) {
+      setStart(qh.data.start ?? "");
+      setEnd(qh.data.end ?? "");
+    }
+  }, [qh.data]);
+  const save = async () => {
+    try {
+      await api.setQuietHours(start || null, end || null);
+      toast.success(start && end
+        ? `免打扰已设：${start}–${end}（窗口内邮件静默、站内照常）`
+        : "免打扰已关闭");
+      await qc.invalidateQueries({ queryKey: ["quiet-hours"] });
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  return (
+    <div className="space-y-1 border-t border-line pt-2">
+      <div className="text-[10px] text-mut">🌙 免打扰（窗口内邮件静默、站内照常；@提及与周报摘要不受限）</div>
+      <div className="flex items-center gap-1">
+        <input type="time" value={start} onChange={(e) => setStart(e.target.value)}
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-[11px]" title="开始时刻" />
+        <span className="text-[10px] text-mut">至</span>
+        <input type="time" value={end} onChange={(e) => setEnd(e.target.value)}
+          className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-[11px]" title="结束时刻" />
+        <button onClick={save} className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc">
+          保存
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** I96: per-kind × channel preference matrix (GitLab Custom level). mention is
  *  checked and disabled — the API refuses to turn it off anyway (fail-closed). */
 function KindPrefMatrix() {
@@ -653,6 +694,7 @@ function NotificationsBell() {
               <input type="checkbox" checked={notes.data?.email_enabled ?? true} onChange={toggleEmail} />
               <span>邮件通知{notes.data?.email_enabled ? "（开启）" : "（已关，站内照常）"}</span>
             </label>
+            <QuietHoursSection />
             <KindPrefMatrix />
             <WatchRulesSection />
             <div className="flex items-center gap-2">

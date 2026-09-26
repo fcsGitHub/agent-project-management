@@ -584,6 +584,12 @@ export const api = {
   importWatchRules: (pid: string, rules: { event_type: string; condition?: Record<string, unknown> }[]) =>
     req<{ imported: number; skipped: number }>(`/projects/${pid}/watch-rules/import`,
       { method: "POST", body: JSON.stringify({ rules }) }),
+  // M56-I169: per-user quiet hours (email push pauses inside the window)
+  getQuietHours: () =>
+    req<{ start: string | null; end: string | null }>("/me/quiet-hours"),
+  setQuietHours: (start: string | null, end: string | null) =>
+    req<{ user_id: string; start: string | null; end: string | null }>("/me/quiet-hours",
+      { method: "PUT", body: JSON.stringify({ start, end }) }),
   // M49-I147: convert retro action items to tracked work items
   createActionItems: (cycleId: string, items: { title: string; owner?: string; due_date?: string }[]) =>
     req<{ cycle_id: string; created: { id: string; title: string; owner: string | null; due_date: string | null }[];

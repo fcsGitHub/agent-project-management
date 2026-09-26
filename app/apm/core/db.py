@@ -96,6 +96,11 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 users.email_notify（M11-I37）。
         if "email_notify" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN email_notify INTEGER NOT NULL DEFAULT 1")
+        # Lightweight migration: 存量库补 users.quiet_start/quiet_end（M56-I169）。
+        if "quiet_start" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN quiet_start TEXT")
+        if "quiet_end" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN quiet_end TEXT")
         # Lightweight migration: 存量库补 item_relations.lag_days（M25-I78）。
         if any(r[0] == "item_relations" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
