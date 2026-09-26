@@ -25,6 +25,11 @@ export function AssetsPage() {
     queryKey: ["assets", lib, q],
     queryFn: () => api.listAssets({ library: lib || undefined, q: q || undefined }),
   });
+  // M57-I172: 使用洞察——消费/引用遥测的读侧投影（使用 Top + 久未复用）
+  const insights = useQuery({ queryKey: ["asset-insights"], queryFn: api.getAssetInsights });
+  const insList = insights.data?.assets ?? [];
+  const topUsed = insList.filter((a) => a.consumed_count > 0).slice(0, 5);
+  const staleList = insList.filter((a) => a.stale);
   const list = assets.data?.assets ?? [];
 
   return (
@@ -45,6 +50,36 @@ export function AssetsPage() {
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {insList.length > 0 && (
+            <Card className="mb-3 p-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">📊 使用洞察</span>
+                <span className="text-[11px] text-mut">复用是否真实发生，一目了然（消费计数来自资产使用事件，零埋点）</span>
+              </div>
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="text-[11px] text-mut">使用 Top</div>
+                  {topUsed.length ? topUsed.map((a) => (
+                    <button key={a.id} className="mt-1 block w-full truncate text-left hover:text-acc"
+                      onClick={() => setDetail(a.id)}
+                      title={`${a.title} · 消费 ${a.consumed_count} 次`}>
+                      🏆 {a.title} · 消费 {a.consumed_count} 次{a.last_consumed ? ` · 最近 ${timeAgo(a.last_consumed)}` : ""}
+                    </button>
+                  )) : <div className="mt-1 text-[11px] text-mut">尚无消费记录——从项目里消费一次资产就会出现在这里</div>}
+                </div>
+                <div>
+                  <div className="text-[11px] text-mut">久未复用（已发布 · 零消费 · 入库超 90 天）</div>
+                  {staleList.length ? staleList.slice(0, 5).map((a) => (
+                    <button key={a.id} className="mt-1 block w-full truncate text-left hover:text-acc"
+                      onClick={() => setDetail(a.id)}
+                      title={`${a.title} · 入库 ${a.age_days} 天未复用——候选弃用`}>
+                      <span className="rounded bg-warn/10 px-1 text-[10px] text-warn">久未复用</span> {a.title} · 入库 {a.age_days} 天
+                    </button>
+                  )) : <div className="mt-1 text-[11px] text-mut">没有吃灰的已发布资产 ✓</div>}
+                </div>
+              </div>
+            </Card>
+          )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {list.map((a) => (
               <Card key={a.id} className="cursor-pointer p-3 text-xs hover:border-acc" onClick={() => setDetail(a.id)}>

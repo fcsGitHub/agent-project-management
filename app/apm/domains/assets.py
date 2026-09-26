@@ -368,6 +368,56 @@ def list_assets(
     return {"assets": search(q, library, kind, tag)}
 
 
+# NOTE: registered before "/assets/{asset_id}" so "insights" is not eaten as
+# an asset id by FastAPI's first-match routing.
+@router.get("/assets/insights")
+def get_asset_insights() -> dict:
+    """Registry trust signals (M57-I172, docs/01 §BB.2): usage telemetry over
+    the asset.consumed / asset.linked facts that have been on the stream since
+    M6 — a pure read-side projection, zero instrumentation (npm-style usage
+    counts and staleness, translated for an org-internal library)."""
+    return asset_insights()
+
+
+def asset_insights(now: str | None = None) -> dict:
+    """Aggregate per-asset usage. Sort: most consumed first; linked count and
+    deposit order break ties. Stale = published, never consumed, and older
+    than 90 days (the deprecation candidate list); `now` is injectable so the
+    rule stays testable without sleeping."""
+    conn = db.get_conn()
+    now_ts = now or events.utcnow()
+    consumed: dict[str, int] = {}
+    last_consumed: dict[str, str] = {}
+    linked: dict[str, int] = {}
+    for r in conn.execute(
+            "SELECT event_type, agg_id, ts, payload FROM events"
+            " WHERE event_type IN ('asset.consumed','asset.linked') ORDER BY id"):
+        if r["event_type"] == "asset.consumed":
+            consumed[r["agg_id"]] = consumed.get(r["agg_id"], 0) + 1
+            last_consumed[r["agg_id"]] = r["ts"]
+        else:
+            # only usage-type links count — deposit-time provenance links are
+            # not reuses (same semantics as the citation_count projection)
+            p = json.loads(r["payload"] or "{}")
+            if p.get("type") == "usage":
+                linked[r["agg_id"]] = linked.get(r["agg_id"], 0) + 1
+    from datetime import datetime as _dt
+    now_d = _dt.fromisoformat(now_ts)
+    out = []
+    for a in conn.execute("SELECT * FROM assets ORDER BY created_at, id").fetchall():
+        c = consumed.get(a["id"], 0)
+        age_days = max(0, (now_d - _dt.fromisoformat(a["created_at"])).days)
+        item = dict(a)
+        item["consumed_count"] = c
+        item["last_consumed"] = last_consumed.get(a["id"])
+        item["linked_count"] = linked.get(a["id"], 0)
+        item["age_days"] = age_days
+        item["stale"] = bool(a["status"] == "published" and c == 0 and age_days > 90)
+        out.append(item)
+    out.sort(key=lambda x: (-x["consumed_count"], -x["linked_count"], x["created_at"]))
+    return {"assets": out}
+
+
 @router.post("/assets")
 def post_asset(body: DepositIn) -> dict:
     return deposit(

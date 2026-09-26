@@ -909,6 +909,12 @@ export const api = {
     return req<{ assets: Asset[] }>(`/assets?${q.toString()}`);
   },
   getAsset: (id: string) => req<Asset>(`/assets/${encodeURIComponent(id)}`),
+  // M57-I172: usage telemetry per asset (read-side projection over events)
+  getAssetInsights: () =>
+    req<{ assets: (Asset & {
+      consumed_count: number; last_consumed: string | null;
+      linked_count: number; age_days: number; stale: boolean;
+    })[] }>("/assets/insights"),
   deposeAsset: (body: { source_project_id: string; artifact_path: string; commit: string; library: string; kind: string; title: string }) =>
     req<Asset>("/assets", { method: "POST", body: JSON.stringify(body) }),
   submitAssetReview: (id: string) =>
