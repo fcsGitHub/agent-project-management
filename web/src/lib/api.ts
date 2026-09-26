@@ -385,6 +385,18 @@ export const api = {
   getTimelogReport: (id: string, days = 14) =>
     req<TimelogReport>(`/projects/${id}/timelog_report?days=${days}`),
   getMyWork: () => req<MyWork>("/my/work"),
+  // M59-I177: action-required view — what is waiting for ME to act
+  getMyAttention: () =>
+    req<{
+      user_id: string;
+      approvals: { id: string; project_id: string; kind: string; run_id?: string;
+                   requested_at?: string; project_name: string }[];
+      runs: { id: string; project_id: string; agent_role?: string;
+              started_at?: string; project_name: string }[];
+      due: { id: string; title: string; status_group: string; priority?: string;
+             due_date: string; project_id: string; project_name: string }[];
+      counts: { approvals: number; runs: number; due: number };
+    }>("/my/attention"),
   getMySchedule: () =>
     req<{ items: MyScheduleItem[]; today: string }>("/my/schedule"),
   getMyTimelog: (days = 60) => req<MyTimelog>(`/my/timelog?days=${days}`),

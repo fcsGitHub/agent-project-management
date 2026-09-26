@@ -18,6 +18,9 @@ const GROUP_LABEL: Record<string, string> = {
 
 export function MyWorkPage() {
   const work = useQuery({ queryKey: ["my-work"], queryFn: api.getMyWork, refetchInterval: 15_000 });
+  // M59-I177: 行动视角——「什么在等我动手」（与任务视角正交；分区点击跳原生操作页）
+  const attention = useQuery({ queryKey: ["my-attention"], queryFn: api.getMyAttention, refetchInterval: 15_000 });
+  const att = attention.data;
 
   return (
     <div className="flex h-full flex-col">
@@ -31,6 +34,46 @@ export function MyWorkPage() {
         </span>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 md:grid-cols-3">
+        {att && (att.counts.approvals + att.counts.runs + att.counts.due > 0) && (
+          <Card className="p-4 md:col-span-3">
+            <div className="mb-2 text-sm font-semibold">⏳ 等待我</div>
+            <div className="grid gap-3 text-xs md:grid-cols-3">
+              <div>
+                <Link to={att.approvals[0] ? `/p/${att.approvals[0].project_id}/approvals` : "#"}
+                  className="font-medium text-acc hover:underline">
+                  待我审批 · {att.counts.approvals}
+                </Link>
+                {att.approvals.slice(0, 3).map((a) => (
+                  <Link key={a.id} to={`/p/${a.project_id}/approvals`}
+                    className="mt-1 block truncate text-mut hover:text-acc" title={a.project_name}>
+                    · {a.project_name} · {a.kind === "gate" ? "阶段门" : "工件审批"}
+                  </Link>
+                ))}
+              </div>
+              <div>
+                <Link to={att.runs[0] ? `/p/${att.runs[0].project_id}/runs` : "#"}
+                  className="font-medium text-acc hover:underline">
+                  等我恢复的运行 · {att.counts.runs}
+                </Link>
+                {att.runs.slice(0, 3).map((r) => (
+                  <Link key={r.id} to={`/p/${r.project_id}/runs?run=${r.id}`}
+                    className="mt-1 block truncate text-mut hover:text-acc" title={r.project_name}>
+                    · {r.project_name} · {r.agent_role ?? "agent"}
+                  </Link>
+                ))}
+              </div>
+              <div>
+                <span className="font-medium text-acc">我的临期项 · {att.counts.due}</span>
+                {att.due.slice(0, 3).map((d) => (
+                  <Link key={d.id} to={`/p/${d.project_id}/board?item=${d.id}`}
+                    className="mt-1 block truncate text-mut hover:text-acc" title={d.title}>
+                    · {d.due_date} {d.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
         <Card className="p-4 md:col-span-2">
           <div className="mb-2 text-sm font-semibold">分配给我</div>
           <div className="space-y-1.5">

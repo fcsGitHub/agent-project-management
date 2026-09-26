@@ -1225,6 +1225,52 @@ def my_work() -> dict:
             "week_minutes": week_minutes}
 
 
+@router.get("/my/attention")
+def my_attention() -> dict:
+    """Action-required view (M59-I177, docs/01 §BD.1): what is waiting for ME
+    to act — orthogonal to the task view above (/my/work answers "what is
+    mine", this answers "what needs my hands now"; Linear-Inbox semantics).
+    Pure read projection with the same decision/visibility semantics as the
+    native pages: approvals follow decision rights (owner/admin), interrupted
+    runs follow project visibility, due items follow assignment. The
+    aggregation is an entry point only — approving/resuming still happens on
+    the native pages."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    approvals = []
+    for r in conn.execute(
+        "SELECT a.id, a.project_id, a.kind, a.run_id, a.requested_at,"
+        " p.name AS project_name FROM approvals a"
+        " JOIN projects p ON p.id = a.project_id"
+        " WHERE a.status = 'pending' ORDER BY a.requested_at",
+    ).fetchall():
+        if member_role(r["project_id"], me) == "owner" or is_instance_admin(me):
+            approvals.append(dict(r))
+    runs = []
+    for r in conn.execute(
+        "SELECT r.id, r.project_id, r.agent_role, r.started_at,"
+        " p.name AS project_name FROM runs r"
+        " JOIN projects p ON p.id = r.project_id"
+        " WHERE r.status = 'interrupted' ORDER BY r.started_at",
+    ).fetchall():
+        if member_role(r["project_id"], me) or is_instance_admin(me):
+            runs.append(dict(r))
+    horizon = (_now().date() + timedelta(days=3)).isoformat()
+    due = [dict(r) for r in conn.execute(
+        "SELECT i.id, i.title, i.status_group, i.priority, i.due_date, i.project_id,"
+        " p.name AS project_name FROM items i JOIN projects p ON p.id = i.project_id"
+        " WHERE i.assignee_type = 'human' AND i.assignee_id = ?"
+        f" AND i.{_active_where()}"
+        " AND i.due_date IS NOT NULL AND i.due_date <= ?"
+        " AND i.status_group NOT IN ('done', 'cancelled')"
+        " ORDER BY i.due_date LIMIT 20",
+        (me, horizon),
+    ).fetchall()]
+    return {"user_id": me, "approvals": approvals, "runs": runs, "due": due,
+            "counts": {"approvals": len(approvals), "runs": len(runs),
+                       "due": len(due)}}
+
+
 @router.get("/my/schedule")
 def my_schedule() -> dict:
     """Personal cross-project schedule (M29-I89, docs/01 §AB.1): every item
