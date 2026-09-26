@@ -1780,6 +1780,36 @@ agent-project-management/
 
 ---
 
+### M58 · 关注 agent 动态三件套（I174-I176，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BC 前置调研）。watch 白名单自 M54 定格 13 类——agent 运行完成/失败尚不可关注；「人监督 agent」缺的最后一环是通知面。行业收敛：notify-worthy moments=完成/失败/等待人介入（Superset/Solo/Devin）；CI 纪律=失败必响+可行动上下文+路由给触发者。`run.interrupted` 不入白名单（Gate 挂起已有 approval.requested，防双份）；过程事件（requested/started/tokens/span）是记账面不入。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I174 | run 生命周期入白名单（WATCHABLE_EVENTS 13→15 类[run.succeeded/run.failed] + hook 摘要分支[failed 带 error 首行 80 字/succeeded 带 outcome 或工件路径——CI 可行动上下文] + AppShell WATCHABLE 标签表同步 + 条件化 `{"outcome":...}` 天然可用） | — | watch hook | 3d |
+| I175 | 通知直达与一键关注（watch hook 对 run.* 通知 payload 透传 run_id + GET /notifications 解析透出 + 铃铛点击跳 run + RunsPage「👁 关注 agent 动态」开关[一键幂等建/删 succeeded+failed 规则对——CI「路由给触发者」]） | — | RunsPage/铃铛 | 3d |
+| I176 | 冒烟 63+收尾审阅（发起 run→succeeded 通知直达→failed 通知→条件化静默→一键关注/退订 roundtrip + docs 收口 + M58 审阅） | — | 冒烟范式 | 3d |
+
+#### I174 · run 生命周期入白名单（3d）
+
+- 任务：watch.py `WATCHABLE_EVENTS` 加 `run.succeeded`/`run.failed`；`_on_event` 加 run.* 摘要分支（payload.error 前 80 字 / output.artifact·outcome；无 item 上下文查项目名照旧）+ AppShell `WATCHABLE` 常量加「运行成功」「运行失败」两项。
+- DoD：单测（succeeded/failed 均入站通知+摘要带上下文/run.started 白名单外 422/条件化 `{"outcome": "..."}` 命中与不命中/发起人收到通知[系统 actor 不触发自抑制]/rebuild 复现）。
+- 演示路径：关注「运行成功」→ 让 agent 交付一个功能 → 完成时铃铛+邮件双通道通知，摘要带工件路径。
+
+#### I175 · 通知直达与一键关注（3d）
+
+- 任务：watch hook 对 run.* 事件在 notification.sent payload 加 `run_id` + notifications.py `GET /notifications` 解析 ref_event_id 源事件 payload 透出 run_id + 前端铃铛 watch 通知带 run_id 时点击跳该 run + RunsPage 头部「👁 关注 agent 动态」开关（查 GET /watch-rules 判断两规则是否齐→一键建/删，幂等）。
+- DoD：单测（payload 透传 run_id/GET 透出/开关建删幂等 roundtrip/非白名单不受影响）。
+- 演示路径：点铃铛直达 run 时间线；RunsPage 一键关注后别人（或 agent）触发的运行完成都会提醒。
+
+#### I176 · 冒烟 63+收尾审阅（3d）
+
+- 任务：**冒烟 63**（run.succeeded/failed 入站通知+摘要上下文→run_id 直达数据→条件化 outcome 静默→一键关注/退订 roundtrip）+ docs 收口 + M58 审阅。
+- DoD：冒烟 63 GREEN；全量 pytest 分片收敛绿。
+- 演示路径：完整走「让 agent 干活 → 完成即知 → 点开即达 → 失败必响」。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -1981,6 +2011,7 @@ agent-project-management/
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
 | 2026-09-27 M57 调研定义（§BB） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：watch 规则 PATCH 编辑与暂停[无记录——M55 坑位「改条件需删了重加 409」的产品化方向未查过]、多节律报告[M55 已裁决维持不重查]、资产库/模板域深化[M7 后 30+ 迭代空白]、显式容量+Cycles 多周期+derived[维持]。三路 WebSearch：自动化规则开关与编辑语义（Zapier on/off toggle 配置保留/GitHub Actions Disable workflow 横幅态+一键恢复/IFTTT 直翻开关——通用语义=二元开关+就地编辑从不删了重建）、资产注册表信任信号（npm 包页金标准：last published/弃用横幅/README；pkgpulse 健康度=下载趋势+维护活跃+源码可查+弃用状态；GitLab/Firefly/Harness 私有 module registry 集中版本化——AgentPM asset.consumed/link 事件早已入流缺读侧洞察=红利第十例）、2026 Q4 扫描（Atlassian 9 月 Teamwork Graph+Agentic loops in Jira——与事件图+agent 运行时+Gate 同向无缺口）。定案 M57=治理收口与资产洞察三件套（I171/I172/I173） |
+| 2026-09-27 M58 调研定义（§BC） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：run.* 入 watch 白名单[无记录——WATCHABLE 13 类自 M54 定格]、站内跨 kind 合并[M55 已做同 kind 折叠维持需新证据]、显式容量/Cycles/derived/多节律报告[均已裁决维持]。三路 WebSearch：agent 状态通知产品语义（Superset 编排 100+ agent「finish 即通知」/Solo 状态机 working-idle-waiting-permission/Devin subagents 完成汇报+权限等待批准/Smithers 审批门挂起到盘——notify-worthy 收敛=完成/失败/等待人介入）、CI 通知纪律（GitHub Actions if:failure()/CircleCI basic_fail_1——失败必响成功静默、可行动上下文、路由给触发者；部署型成功例外）、2026-27 前瞻（Agentic 支出 $206B→$376B/Gartner 40% 应用内嵌 agent/41% 代码 AI 生成推高评审需求/HITL 审批门成合规标准——有界自主收敛，AgentPM Gate 同向强确认）。定案 M58=关注 agent 动态三件套（I174/I175/I176）；run.interrupted 不入白名单防与 approval.requested 双份 |
 | I171 watch 规则编辑与暂停 | 已完成 | 2026-09-27 | 2026-09-27 | watch_rules.paused 列 + PATCH 端点 + watch.updated 事件与整行 upsert + hook 排除 paused + 前端 ⏸/▶/⟳ 更新；test_watch_rules 9 项（改条件旧静默新命中+created_at 保留/暂停静默恢复投递/rebuild 复现 paused/未订 404/坏条件 422）；坑：r.paused 可为数字 0 与布尔假短路撞 cx 参数类型——tsc 揭出改三元 |
 | I172 资产使用洞察 | 已完成 | 2026-09-27 | 2026-09-27 | insights 纯投影 + AssetsPage 洞察卡 + api.ts getAssetInsights；test_asset_insights 5 断言（空态/计数口径/排序/stale 91 天注入/rebuild）；坑两处：①首版把沉淀期 provenance 链接也算复用（linked 3!=2）——改只计 usage 型与 citation_count 同口径；②/assets/insights 必须注册在 /assets/{asset_id} 之前防 FastAPI 首匹配把 insights 吃成 id |
 | I173 冒烟 62+收尾审阅 | 已完成 | 2026-09-27 | 2026-09-27 | **冒烟 62**（改条件旧静默新命中+created_at 保留→⏸ 暂停静默→▶ 恢复投递→资产消费计数/排序/stale 注入判定→rebuild 一致）+ 全量回归（非 smoke 375 EXIT=0/冒烟 62 GREEN/vitest 18/build 绿）+ docs 收口 |

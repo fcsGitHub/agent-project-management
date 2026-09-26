@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M57 治理收口与资产洞察三件套 完成，下一步 M58 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M58 关注 agent 动态三件套 调研定义完成，下一步 I174 run 生命周期入白名单）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -44,7 +44,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M57 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M58 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M58 节 + 看板行 →「M58 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M58 审阅。**候选池**：①run.* 生命周期事件入 watch 白名单（「关注 agent 动态」——WATCHABLE_EVENTS 现仅 item/approval/comment/risk/expense/attachment/report 十三类，agent run 完成/Gate 挂起尚未可关注；需评估白名单扩容、自抑制与噪声面）；②站内跨 kind 合并摘要（M55 已做同 kind 折叠，跨 kind 合并需新证据才重提）；③新特性扫描（2026 末-2027 前瞻——Atlassian Teamwork Graph/Agentic loops 已确认同向）；④维持项：显式容量分配层、Cycles 多周期、derived 上卷、多节律报告（均已裁决维持不做）。
+2. **M58 实现（下一步）**：调研已定案（docs/01 §BC + docs/10 §M58，2026-09-27）——**I174 run 生命周期入白名单**（WATCHABLE_EVENTS 13→15 类[run.succeeded/run.failed] + hook 摘要带上下文[error 首行/outcome·工件路径] + AppShell WATCHABLE 标签同步；run.interrupted 不入——防与 approval.requested 双份）→ **I175 通知直达与一键关注**（watch hook 对 run.* 透传 run_id + GET /notifications 解析透出 + 铃铛点击跳 run + RunsPage「👁 关注 agent 动态」幂等开关）→ **I176 冒烟 63+审阅**。维持不做：站内跨 kind 合并（需新证据）、过程事件入白名单（记账面）、显式容量、Cycles 多周期、derived、多节律报告。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩

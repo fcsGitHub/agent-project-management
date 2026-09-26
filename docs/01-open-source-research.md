@@ -1594,3 +1594,32 @@ M56 = **关注共享与免打扰三件套**：I168 watch 规则导入导出（�
 **BB.5 M57 取舍**
 
 M57 = **治理收口与资产洞察三件套**：I171 watch 规则编辑与暂停（就地编辑+暂停态——Zapier/GitHub Actions 通用语义，修 M55 的 409 坑）/ I172 资产使用洞察（registry 信任信号的组织内翻译——投影即得零埋点）/ I173 冒烟 62+审阅，约 9 人日。多节律报告/daily digest（M55 已裁决维持不做）、资产评分/星级（单实例无社区语义，使用计数已够）、显式容量分配层（默认不做）、Cycles 多周期并列（维持降级）、derived 上卷（已裁决维持）留 backlog。
+
+## BC. M58 前置调研：agent 动态关注 / CI 通知纪律 / 2026-27 前瞻（2026-09-27）
+
+> 目标协议触发：M57 完成后开启。防重查：候选池 grep——run.* 生命周期事件入 watch 白名单（**无调研记录**——WATCHABLE_EVENTS 自 M54 定格为 13 类，agent 运行完成/失败尚不可关注）、站内跨 kind 合并摘要（M55 已做同 kind 折叠——维持「需新证据才重提」）、新特性扫描（照例）、显式容量/Cycles 多周期/derived/多节律报告（均已裁决维持）。本轮三路新调研（agent 状态通知产品语义 / CI 流水线通知纪律 / 2026-27 前瞻），选定 **M58 = 关注 agent 动态三件套**。
+
+**BC.1 agent 动态关注（run lifecycle events → watch）**
+
+- 产品现状：agent 编排产品的通知时刻收敛于三点——**完成、失败、等待人介入**。[Superset](https://github.com/superset-sh)（编排 100+ 编码 agent）以「agent finish 即通知」为核心卖点；[Solo](https://soloterm.com) 跟踪 agent 状态机（working/idle/**waiting for permission**/error-blocked）并在状态变化时提醒；[Devin subagents](https://cognitionai.mintlify.app) 在子代理完成后汇报、权限请求即暂停等待批准；[Smithers](https://smithers.sh) 的审批门把 run 挂起到盘上等人应答（分钟或天级）。
+- 对本项目的映射：`run.succeeded` / `run.failed` 入 WATCHABLE 白名单（13→15 类）——agent 完成是交付时刻（Copilot/Superset 均通知完成），失败必响；**run.interrupted 不入白名单**：Gate 挂起已有 approval.requested 通知面（I96 偏好门第九员 watch 亦已覆盖），双份通知违背 M55 降噪路线。噪声面排除：run.requested/started/tokens_recorded/span_* 是记账与过程面（M44 纪律：token 记录不进通知）。自抑制天然成立（run 事件 actor=runtime:{run_id} 系统态，不触发 actor 相等抑制——发起人正是最该收到完成通知的人，CI 语义「路由给触发者」）。
+
+**BC.2 CI 通知纪律（failure-first + actionable context）**
+
+- 工程共识：**失败必响、成功静默**（[GitHub Actions `if: failure()`](https://www.gitnotifier.com) / [CircleCI Slack orb `basic_fail_1`](https://circleci.com/developer/orbs/orb/circleci/slack)）——成功通知制造警报疲劳；例外是**部署/交付型成功值得通知**（production deploy success）；通知必须**带可行动上下文**（job 名/分支/commit/日志链接）；**路由给对的人**（触发者/breaking-change owner 而非整频道）。
+- 对本项目的映射：watch hook 对 run.* 事件生成**带上下文的摘要**——failed 带 error 首行、succeeded 带 outcome/工件路径（CI「可行动上下文」共识），用户以 watch 条件化自行裁决成功是否通知（I165 的 payload 条件天然支持 `{"outcome": ...}` 匹配——订阅侧过滤仍在投递位）；通知点击**直达 run**（notification.sent payload 透传 run_id，铃铛跳转——「日志链接」语义）。
+
+**BC.3 2026-27 前瞻**
+
+- Agentic AI 支出 2026 $206.5B→2027 $376.3B（[biz4group](https://www.biz4group.com)）；Gartner 预测 2026 末 40% 企业应用内嵌任务型 agent（2025 不足 5%）；全球 ~41% 新代码由 AI 生成、92% 美国开发者日用 AI 助手——**「AI 技术债清算」叙事**推高人工评审/审批需求（[Citrusbug](https://www.citrusbug.com)）；HITL 审批门成为企业合规标准模式（SOX 控制面）。**有界自主（bounded autonomy）= 行业收敛模型**——AgentPM「人 directs、Agent executes、Gate 审批」正是该形态的工程化；run 可关注补上「人监督 agent」的最后一环：通知面。无新功能缺口，方向强确认。
+
+**BC.4 M58 设计映射与验证纪律（沿用）**
+
+- I174 run 生命周期入白名单：WATCHABLE_EVENTS 加 `run.succeeded`/`run.failed` + hook 摘要分支（failed 带 error 首行 80 字/succeeded 带 outcome 或工件路径）+ AppShell WATCHABLE 标签表同步 15 类；单测（成功/失败入站通知/白名单外 run.started 422/条件化 `{"outcome":...}` 匹配/自抑制不误伤[发起人收到]/rebuild）。
+- I175 通知直达与一键关注：watch hook 对 run.* 通知 payload 透传 `run_id` + GET /notifications 解析 ref 链透出 run_id + 前端铃铛 watch 通知点击跳 run 详情 + RunsPage「👁 关注 agent 动态」开关（一键幂等建/删 run.succeeded+failed 规则对）；单测（payload 透传/GET 透出/开关幂等 roundtrip）。
+- I176 冒烟 63+审阅：发起 run→succeeded 通知直达→failed 通知→条件化静默→一键关注/退订 roundtrip。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M58 审阅 + **冒烟 63**。
+
+**BC.5 M58 取舍**
+
+M58 = **关注 agent 动态三件套**：I174 run 生命周期入白名单（完成/失败=agent 版 notify-worthy moments，行业三点收敛去其一一Gate 已有）/ I175 通知直达与一键关注（CI 可行动上下文+日志链接语义的组织内翻译）/ I176 冒烟 63+审阅，约 9 人日。run.interrupted 入白名单（与 approval.requested 双份——M55 降噪违背）、站内跨 kind 合并（需新证据）、过程事件入白名单（requested/started/tokens/span=记账面）、显式容量、Cycles 多周期、derived、多节律报告留 backlog。
