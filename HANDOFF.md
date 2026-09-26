@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M59 行动聚合与包治理三件套 调研定义完成，下一步 I177「等待我」行动聚合）
+# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M59 行动聚合与包治理三件套 完成，下一步 M60 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -36,7 +36,8 @@
 - **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：watch 条件化（condition_json 全等匹配——事件溯源红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ 冒烟 60。基线 pytest 428 / 冒烟 60 / vitest 18。
 - **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：watch 规则导入导出（模板 {event_type, condition} 去重·缺补在跳·对账 imported/skipped——Jira 无内建）+ 静默时段（users.quiet_start/quiet_end + quiet_active 纯函数跨午夜 + mailer 第四道时刻门——mention/digest 突破·站内照发）+ 冒烟 61。基线 pytest 434 / 冒烟 61 / vitest 18。
 - **M57 治理收口与资产洞察三件套（I171-I173，2026-09-27 完成，docs/01 §BB + docs/10 §M57）**：watch 规则编辑与暂停（PATCH + watch.updated 整行 upsert·paused 列——修 M55 的 409 删了重加坑·Zapier 配置保留语义）+ 资产使用洞察（GET /assets/insights 读侧投影·stale=已发布+零消费+超 90 天·红利第十例）+ 冒烟 62。基线 pytest 437 / 冒烟 62 / vitest 18。
-- **M58 关注 agent 动态三件套（I174-I176，2026-09-27 完成，docs/01 §BC + docs/10 §M58）**：**I174 run 生命周期入白名单**——WATCHABLE_EVENTS 13→15 类（run.succeeded/failed；run.interrupted 不入防与 approval.requested 双份；过程事件=记账面不入）+ engine run.succeeded payload 顶层镜像 outcome（watch 扁平条件可达 {"outcome":...}）+ hook 摘要带可行动上下文（error 首行/outcome·工件——CI actionable context；系统 actor 不触发自抑制=发起人收到）。**I175 通知直达与一键关注**——hook 透传 run_id + GET /notifications ref 链解析透出 + 铃铛点击直达 `runs?run=`（零新路由）+ RunsPage「👁 关注 agent 动态」幂等开关。**I176 冒烟 63+审阅**（真实 run Gate→批准→succeeded 通知）。**当前验证基线：pytest 439 全绿（非 smoke 377 EXIT=0 + smoke runner 63 GREEN 对账）；冒烟 63 条 GREEN；vitest 18/build 绿。**
+- **M58 关注 agent 动态三件套（I174-I176，2026-09-27 完成，docs/01 §BC + docs/10 §M58）**：run 生命周期入 watch 白名单（run.succeeded/failed·interrupted 不入防与 approval 双份·payload 顶层镜像 outcome）+ 通知直达（run_id 透传·铃铛跳 runs?run=）+ RunsPage 一键关注开关 + 冒烟 63。基线 pytest 439 / 冒烟 63 / vitest 18。
+- **M59 行动聚合与包治理三件套（I177-I179，2026-09-27 完成，docs/01 §BD + docs/10 §M59）**：**I177 「等待我」行动聚合**——`GET /my/attention` 纯读投影三分区（待我审批=owner 项目内 pending·等我恢复=可见项目 interrupted runs·我的临期项=assignee=me 且 due≤3 天未完成）+ MyWorkPage「⏳ 等待我」卡分区跳转——行动视角与任务视角正交（Linear Inbox 语义·聚合面只做入口）。**I178 模板包实例溯源**——project.created payload +ontology_version（增量键·旧库诚实显示「早期实例」）+ `GET /template-packs/{name}/usages`（出生版本 vs 当前·behind 徽标——VS Code/Obsidian update 语义·只做可见性不做自动迁移）。**I179 冒烟 64+审阅**。**当前验证基线：pytest 443 全绿（非 smoke 379 EXIT=0 + smoke runner 64 GREEN 对账）；冒烟 64 条 GREEN；vitest 18/build 绿。**
 
 ## 3. 现在卡在哪
 
@@ -44,8 +45,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M58 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M59 实现（下一步）**：调研已定案（docs/01 §BD + docs/10 §M59，2026-09-27）——**I177 「等待我」行动聚合**（`GET /my/attention` 纯投影三分区[待我审批=我任 owner 项目内 pending·等我恢复=可见项目 interrupted runs·我的临期项=assignee=me 且 due≤3 天未完成] + MyWorkPage「⏳ 等待我」卡分区跳转——行动视角与 MyWork 任务视角正交）→ **I178 模板包实例溯源**（project.created payload +ontology_version 增量键 + `GET /template-packs/{name}/usages`[出生版本 vs 当前·早期实例诚实标] + 模板中心「实例 N·落后 M 版」徽标——VS Code/Obsidian update 语义·只做可见性不做自动迁移）→ **I179 冒烟 64+审阅**。维持不做：watch 邮件摘要化（第二套定时窗口）、审批/Runs 页重构（聚合面只做入口）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并。
+1. ~~M24~M59 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M60 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M60 节 + 看板行 →「M60 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M60 审阅。**候选池**：①本体/角色域刷新（角色 YAML 的模型分档/上下文压缩自 M46-M48 后未刷新——角色市场/角色版本化语义）；②报表域深化（对比/健康分自 M30 后未动——跨项目健康对比、自定义聚合）；③admin/部署面（多实例治理、备份恢复演练——docs/11 部署文档对齐验证）；④新特性扫描（2027 前瞻——Gartner 洗牌期叙事已确认同向）；⑤维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化（均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**。
 
 ## 5. 有哪些坑不要再踩
@@ -87,8 +88,8 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 439 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 63 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 443 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 64 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
