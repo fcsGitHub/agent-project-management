@@ -51,6 +51,22 @@ def _proj_watch_removed(conn, e):
     )
 
 
+@on("watch.updated")
+def _proj_watch_updated(conn, e):
+    # M57-I171: in-place edit / pause (Zapier toggle semantics — paused keeps
+    # the config). Full-row upsert; created_at survives via COALESCE.
+    conn.execute(
+        "INSERT INTO watch_rules (user_id, project_id, event_type, condition_json, paused, created_at)"
+        " VALUES (?,?,?,?,?,COALESCE((SELECT created_at FROM watch_rules"
+        "  WHERE user_id = ? AND project_id = ? AND event_type = ?), ?))"
+        " ON CONFLICT(user_id, project_id, event_type) DO UPDATE SET"
+        " condition_json=excluded.condition_json, paused=excluded.paused",
+        (e.payload["user_id"], e.project_id, e.payload["event_type"],
+         e.payload.get("condition_json"), 1 if e.payload.get("paused") else 0,
+         e.payload["user_id"], e.project_id, e.payload["event_type"], e.ts),
+    )
+
+
 class WatchIn(BaseModel):
     event_type: str
     # M55-I165: optional payload conditions — flat dict, top-level payload
@@ -147,6 +163,39 @@ def remove_watch_rule(project_id: str, event_type: str) -> dict:
             "event_type": event_type, "watching": False}
 
 
+class WatchPatchIn(BaseModel):
+    # M57-I171: both optional — omit a field to keep it unchanged.
+    condition: dict | None = None
+    paused: bool | None = None
+
+
+@router.patch("/projects/{project_id}/watch-rules/{event_type}")
+def patch_watch_rule(project_id: str, event_type: str, body: WatchPatchIn) -> dict:
+    """In-place edit / pause (M57-I171, docs/01 §BB.1): change the condition or
+    toggle paused without the delete+recreate dance — the rule's identity and
+    created_at survive, one `watch.updated` fact carries the full new state,
+    and paused rules simply stop matching at the hook (config preserved)."""
+    me = _require_member(project_id)
+    conn = db.get_conn()
+    row = conn.execute(
+        "SELECT condition_json, paused FROM watch_rules"
+        " WHERE user_id = ? AND project_id = ? AND event_type = ?",
+        (me, project_id, event_type)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="not watching")
+    cond_json = _serialize_condition(body.condition) \
+        if body.condition is not None else row["condition_json"]
+    paused = bool(row["paused"]) if body.paused is None else body.paused
+    events.emit(
+        event_type="watch.updated", agg_type="project", agg_id=project_id,
+        project_id=project_id,
+        payload={"user_id": me, "event_type": event_type,
+                 "condition_json": cond_json, "paused": paused},
+    )
+    return {"project_id": project_id, "user_id": me,
+            "event_type": event_type, "paused": paused}
+
+
 @router.get("/watch-rules")
 def list_watch_rules() -> dict:
     """Own-data across projects — the bell-prefs management view."""
@@ -154,7 +203,7 @@ def list_watch_rules() -> dict:
     rows = db.get_conn().execute(
         "SELECT w.project_id AS project_id, w.event_type AS event_type,"
         " w.created_at AS created_at, COALESCE(p.name, w.project_id) AS project_name,"
-        " w.condition_json AS condition"
+        " w.condition_json AS condition, w.paused AS paused"
         " FROM watch_rules w LEFT JOIN projects p ON p.id = w.project_id"
         " WHERE w.user_id = ? ORDER BY w.created_at DESC", (me,)).fetchall()
     return {"rules": [dict(r) for r in rows]}
@@ -233,7 +282,7 @@ def _on_event(event: events.Event) -> None:
         conn = db.get_conn()
         matched = [(r["user_id"], r["condition_json"]) for r in conn.execute(
             "SELECT user_id, condition_json FROM watch_rules"
-            " WHERE project_id = ? AND event_type = ?"
+            " WHERE project_id = ? AND event_type = ? AND paused = 0"
             " ORDER BY user_id", (event.project_id, event.event_type)).fetchall()]
         if not matched:
             return

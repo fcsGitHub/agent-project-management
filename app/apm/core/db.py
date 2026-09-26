@@ -130,6 +130,10 @@ def init_db() -> None:
         # I139: 存量库补 users.currency（费率币种，成本报表折算基准币）。
         if "currency" not in ucols2:
             conn.execute("ALTER TABLE users ADD COLUMN currency TEXT")
+        # M57-I171: 存量库补 watch_rules.paused（暂停规则不丢配置）。
+        wcols = {r["name"] for r in conn.execute("PRAGMA table_info(watch_rules)").fetchall()}
+        if wcols and "paused" not in wcols:
+            conn.execute("ALTER TABLE watch_rules ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
         pcols2 = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "budget_hours" not in pcols2:
             conn.execute("ALTER TABLE projects ADD COLUMN budget_hours REAL")

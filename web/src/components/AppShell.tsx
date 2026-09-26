@@ -317,18 +317,34 @@ function WatchRulesSection() {
     if (!newPid && projects.data?.projects.length) setNewPid(projects.data.projects[0].id);
   }, [projects.data, newPid]);
 
+  const existing = (rules.data?.rules ?? []).find(
+    (r) => r.project_id === newPid && r.event_type === newType);
   const add = async () => {
     if (!newPid) return;
+    const condition: Record<string, string> = {};
+    if (condKey.trim() && condVal.trim()) condition[condKey.trim()] = condVal.trim();
     try {
-      const condition: Record<string, string> = {};
-      if (condKey.trim() && condVal.trim()) condition[condKey.trim()] = condVal.trim();
-      await api.addWatchRule(newPid, newType, condition);
-      toast.success("已添加关注");
+      if (existing) {
+        // M57-I171: 同款规则已存在 → 就地更新条件（免去删了重加）
+        await api.patchWatchRule(newPid, newType, { condition });
+        toast.success("已更新关注条件");
+      } else {
+        await api.addWatchRule(newPid, newType, condition);
+        toast.success("已添加关注");
+      }
       setCondKey("");
       setCondVal("");
       await qc.invalidateQueries({ queryKey: ["watch-rules"] });
     } catch (e) {
-      toast.error(`添加失败：${e instanceof Error ? e.message : e}`);
+      toast.error(`${existing ? "更新" : "添加"}失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const togglePause = async (pid: string, type: string, paused: boolean) => {
+    try {
+      await api.patchWatchRule(pid, type, { paused });
+      await qc.invalidateQueries({ queryKey: ["watch-rules"] });
+    } catch (e) {
+      toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
     }
   };
   const remove = async (pid: string, type: string) => {
@@ -387,13 +403,18 @@ function WatchRulesSection() {
         </label>
       </div>
       {(rules.data?.rules ?? []).map((r) => (
-        <div key={`${r.project_id}/${r.event_type}`} className="flex items-center gap-1.5 text-xs">
-          <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}${r.condition ? ` · 仅当 ${r.condition}` : ""}`}>
+        <div key={`${r.project_id}/${r.event_type}`} className={cx("flex items-center gap-1.5 text-xs", r.paused ? "opacity-50" : undefined)}>
+          <span className="flex-1 truncate" title={`${r.project_name} · ${r.event_type}${r.condition ? ` · 仅当 ${r.condition}` : ""}${r.paused ? " · 已暂停" : ""}`}>
             {r.project_name} · {labelOf(r.event_type)}
             {r.condition && (
               <span className="ml-1 rounded bg-acc/10 px-1 text-[10px] text-acc">仅当 {r.condition}</span>
             )}
+            {r.paused && <span className="ml-1 rounded bg-warn/10 px-1 text-[10px] text-warn">已暂停</span>}
           </span>
+          <button onClick={() => togglePause(r.project_id, r.event_type, !r.paused)}
+            className="text-mut hover:text-acc" title={r.paused ? "恢复关注" : "暂停关注（配置保留）"}>
+            {r.paused ? "▶" : "⏸"}
+          </button>
           <button onClick={() => remove(r.project_id, r.event_type)}
             className="text-mut hover:text-dan" title="删除该关注">✕</button>
         </div>
@@ -414,8 +435,9 @@ function WatchRulesSection() {
             <option key={w.type} value={w.type}>{w.label}</option>
           ))}
         </select>
-        <button onClick={add} className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc">
-          + 关注
+        <button onClick={add} className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc"
+          title={existing ? "同款规则已存在——保存即就地更新条件" : undefined}>
+          {existing ? "⟳ 更新" : "+ 关注"}
         </button>
       </div>
       <div className="flex items-center gap-1 text-[10px] text-mut" title="可选：对事件载荷的精确匹配，如 status_group=done 表示只关注完成">

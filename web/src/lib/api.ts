@@ -128,6 +128,7 @@ export type StatusReportEntry = {
 export type WatchRule = {
   project_id: string; project_name: string; event_type: string; created_at: string;
   condition?: string | null;
+  paused?: boolean | number;
 };
 export type ProjectReport = {
   project_id: string;
@@ -577,6 +578,11 @@ export const api = {
       { method: "POST", body: JSON.stringify({ event_type: eventType, condition }) }),
   removeWatchRule: (pid: string, eventType: string) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules/${eventType}`, { method: "DELETE" }),
+  // M57-I171: in-place condition edit / pause toggle (paused keeps the config)
+  patchWatchRule: (pid: string, eventType: string,
+                   patch: { condition?: Record<string, string>; paused?: boolean }) =>
+    req<{ paused: boolean }>(`/projects/${pid}/watch-rules/${eventType}`,
+      { method: "PATCH", body: JSON.stringify(patch) }),
   // M56-I168: share watch rules as a project-agnostic template
   exportWatchRules: () =>
     req<{ version: number; rules: { event_type: string; condition: Record<string, unknown> }[] }>(

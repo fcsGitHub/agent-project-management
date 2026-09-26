@@ -233,3 +233,66 @@ def test_watch_import_validation(client, project):
     assert client.post(f"/api/projects/{project}/watch-rules/import",
                        json={"rules": [{"event_type": "item.created"}]}).status_code == 403
     client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_patch_and_pause(client, project):
+    """M57-I171：就地改条件不删了重建（旧条件静默/新条件命中，created_at
+    保留）；暂停→匹配事件静默、配置保留；恢复→再投递；rebuild 复现含
+    paused 态；未订 404/坏条件 422。"""
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{project}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.post(f"/api/projects/{project}/watch-rules",
+                       json={"event_type": "item.status_changed",
+                             "condition": {"status": "done"}}).status_code == 200
+    # 未订 404；坏条件 422
+    assert client.patch(f"/api/projects/{project}/watch-rules/item.assigned",
+                        json={"paused": True}).status_code == 404
+    assert client.patch(f"/api/projects/{project}/watch-rules/item.status_changed",
+                        json={"condition": {"a": {"nested": 1}}}).status_code == 422
+    # 就地改条件：done → in_progress（规则不删，created_at 保留）
+    rules0 = client.get("/api/watch-rules").json()["rules"]
+    r = client.patch(f"/api/projects/{project}/watch-rules/item.status_changed",
+                     json={"condition": {"status": "in_progress"}})
+    assert r.status_code == 200 and r.json()["paused"] is False
+    rules1 = client.get("/api/watch-rules").json()["rules"]
+    assert len(rules1) == 1 and rules1[0]["created_at"] == rules0[0]["created_at"]
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    it = client.post(f"/api/projects/{project}/items",
+                     json={"concept_id": "task", "title": "改条件任务"}).json()
+    client.patch(f"/api/items/{it['id']}", json={"status": "done"})         # 旧条件→静默
+    client.patch(f"/api/items/{it['id']}", json={"status": "in_progress"})  # 新条件→命中
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    wk = [n for n in client.get("/api/notifications").json()["notifications"]
+          if n["kind"] == "watch"]
+    assert len(wk) == 1 and "改条件任务" in wk[0]["summary"]
+
+    # 暂停 → 匹配事件也静默（配置保留）
+    assert client.patch(f"/api/projects/{project}/watch-rules/item.status_changed",
+                        json={"paused": True}).json()["paused"] is True
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    it2 = client.post(f"/api/projects/{project}/items",
+                      json={"concept_id": "task", "title": "暂停期任务"}).json()
+    client.patch(f"/api/items/{it2['id']}", json={"status": "in_progress"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert len([n for n in client.get("/api/notifications").json()["notifications"]
+                if n["kind"] == "watch"]) == 1  # 暂停期静默
+
+    # rebuild 复现含 paused 态；恢复 → 下一事件再投递
+    from apm.core import projections
+    projections.ensure_handlers_registered()
+    projections.rebuild()
+    rules2 = client.get("/api/watch-rules").json()["rules"]
+    assert len(rules2) == 1 and rules2[0]["paused"] in (1, True)
+    assert rules2[0]["condition"] == '{"status": "in_progress"}'
+    assert client.patch(f"/api/projects/{project}/watch-rules/item.status_changed",
+                        json={"paused": False}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    it3 = client.post(f"/api/projects/{project}/items",
+                      json={"concept_id": "task", "title": "恢复后任务"}).json()
+    client.patch(f"/api/items/{it3['id']}", json={"status": "in_progress"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert len([n for n in client.get("/api/notifications").json()["notifications"]
+                if n["kind"] == "watch"]) == 2
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
