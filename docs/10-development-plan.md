@@ -2050,6 +2050,36 @@ agent-project-management/
 
 ---
 
+### M67 · 生态出站与权限纵深三件套（I201-I203，约 9 人日）
+
+> v3.0 新增（2026-09-28，docs/01 §BL 前置调研）。可见性仍停留项目成员制（项目可做而类目敏感——风险/成本类工作项对 contributor 一刀切放行）；通知物理通道只有 inapp/email（自托管手机推送无门）；观测数据（M62 perf ring/M60 flows）只在应用内可见——出站格式从未调研。**防重查再自证：定时触发自动化[M32-I98 已建 schedule:daily]、agent 互审[与人审 Gate 架构冲突]——候选池两次净化。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I201 | 概念级可见性（projects.concept_visibility JSON[两级：声明即 owner-only] + 读侧过滤[list/board/get/search] + 写侧 403 + 通知参与面静默 + 项目设置 UI + 单测） | docs/01 §BL.1 | cost_budget 的 project.updated 链 | 3d |
+| I202 | ntfy 推送通道（users.push_url/push_token + pusher 后台投递[mailer 镜像] + 通道矩阵第三列[pref_allows/watch channels 扩 push·静默时段适用] + 前端设置 + 单测） | docs/01 §BL.2 | mailer 队列线程模式 | 3d |
+| I203 | Prometheus 出站+冒烟 72+收尾审阅（`GET /system/metrics` 手写 exposition[metrics_enabled 默认关] + perf ring Histogram + events Counter + gauges + 冒烟 72 + 全量回归 + docs 收口 + M67 审阅） | docs/01 §BL.3 | M62 perf ring/I183 stats | 3d |
+
+#### I201 · 概念级可见性（3d）
+
+- 任务：projects.concept_visibility 列（ALTER；`{concept_id:"owner"}` JSON——声明即仅 owner/实例管理员可见·未声明全员可见·**不做角色矩阵**）+ `can_see_concept(project, concept_id, user)` 判定 + 读侧过滤（list_items/get_board/get_item/全局搜索的 items 面）+ 写侧 403（create/patch/checklist/extract）+ 通知参与面静默（restricted 概念的 comment/状态参与不投非授权成员——mention/审批/指派/watch 照常）+ 项目设置输入。
+- DoD：单测（声明→owner 可见 contributor 404/未声明全员/写侧 403/通知静默留 mention/rebuild 一致——project.updated 链）。
+- 演示路径：项目设置声明 risk 仅 owner → contributor 看板/搜索皆不见该类项 → owner 照常全见。
+
+#### I202 · ntfy 推送通道（3d）
+
+- 任务：users.push_url/push_token（ALTER + own-data 端点）+ pusher.py（队列+后台线程照 mailer——POST title/Priority/Tags/Click 头 + token 鉴权；结果 telemetry 不入流）+ 通道矩阵第三列（NOTIFY_KINDS/pref_allows 加 push·watch rules channels 白名单扩 push·mailer.enqueue 同位第五道门·静默时段与 digest 豁免照搬）+ 我的工作页推送设置卡。
+- DoD：单测（本地 stub HTTP 收投递/Priority 分档/未配置静默关闭/pref 与静默时段门/watch channels 子集/rebuild 无涉）。
+- 演示路径：填 ntfy 主题 URL → 触发审批 → 手机/ntfy web 收推送 → 静默时段内同类被门住。
+
+#### I203 · Prometheus 出站+冒烟 72+收尾审阅（3d）
+
+- 任务：`settings.metrics_enabled`（默认关=404）+ `GET /api/system/metrics` 手写 text exposition 0.0.4：`apm_http_request_duration_seconds` Histogram（M62 perf ring 桶=现成 observations）+ `apm_events_total{agg_type,event_type}` + `apm_runs_active`/`apm_db_page_count` Gauges（低基数标签纪律）+ **冒烟 72**（可见性声明三门 roundtrip→推送投递与门链→metrics 格式与数值对账）+ 全量回归 + docs 收口 + M67 审阅。
+- DoD：冒烟 72 GREEN；全量 pytest 分片收敛绿；histogram buckets 与 perf snapshot 对账。
+- 演示路径：「声明风险类仅 owner → ntfy 收审批推送 → curl /metrics 看 P99」纵深一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2250,6 +2280,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-28 M67 调研定义（§BL） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**分叉采纳面[仍缺真实使用证据——维持降级]**、**watch 摘要批量投递[M55 已裁决与周报节律重复——无新证据不重提]**、**定时触发自动化[M32-I98 已建 schedule:daily sweep 评估——防重查第四次自证：候选池里的「新缺口」早已存在]**、**agent 互审链[orchestrator 相位图+人审 Gate 已是审阅架构核心——互审与人在环裁决冲突·方向性否决]**、run 队列/并发上限[M48 并发治理邻接——增量不足]。三路 WebSearch：层级权限语义（[OpenProject](https://www.openproject.org) 角色×模块矩阵/[Jira permission schemes+issue security levels](https://confluence.atlassian.com)/[ONES 字段级综述](https://ones.com)——共识=层级收敛·多数场景只要「某类工作项保密」·**两级声明即够**）、自托管推送（[ntfy docs](https://docs.ntfy.sh)=一个带头 POST·Priority 1-5/Tags/Title/Click 语义最富+[Telegram bot](https://core.telegram.org/bots/api) 云端-only 无优先级+[Apprise](https://github.com/caronc/apprise)=胶水位但引库违零依赖——2025 工具趋势是接 Apprise 而非自写集成）、Prometheus 出站（[prometheus-fastapi-instrumentator](https://github.com/trallnag/prometheus-fastapi-instrumentator)=FastAPI 标准·命名/四类型/[低基数标签](https://oneuptime.com)·**/metrics 无内建认证须环回或代理**[vpsforlife]——手写 exposition 零依赖可行）。定案 M67=生态出站与权限纵深三件套（I201 概念级可见性/I202 ntfy 推送/I203 Prometheus 出站） |
 | **M66 工厂接入与治理三件套（I198-I200）** | 已完成 | 2026-09-28 | 2026-09-28 | 3 迭代 / 约 9 人日（docs/01 §BK + docs/10 §M66）：I198 对话树导航（`GET /projects/{id}/conversations/tree` 血缘投影[created_at 序挂 children·孤儿兜底挂根自愈·run_status 注记] + **ConversationIn 加 parent_conversation_id 写入面——自 MVP 有存储无写入方·I195 分叉复用同会话是 run 级支线·会话级分支=ChatGPT Branch in new chat 语义**[跨项目 parent 422] + ConversationsPage 列表/树形双模式[活动路径高亮=最新 updated 祖先链] + ConversationView「⑂ 分支」按钮）/ I199 PAT 机器接入（tokens.py 域·api_tokens 表+created/revoked 事件投影 rebuild 存活[哈希入事件快照·高熵单向] + **last_used_at 走投影外 side 表=遥测不进事件流** + POST/GET/DELETE /auth/tokens[display-once·过期档位 7/30/60/90/永不·他者 404] + auth_gate Bearer 旁路[**session 优先·/api/auth/* 天然排除=管理端点不走令牌**·token 即创建者身份无 scope 裁剪] + MyWorkPage「🔑 API 令牌」卡）/ I200 成本预算护栏（projects.cost_budget_usd[project.updated 链·PATCH 0=关] + engine.start_run 事前预检 `_cost_budget_gate`[**runs 自 M44 已记账——护栏纯读侧比对零新表·红利再现**·硬顶 402 语义诚实·automation 派发既有 HTTPException 兜底不炸引擎·软阈 80% warning 随响应] + GET cost-budget 读面 + ReportsPage LLM 月预算输入 + RunsPage 🪙 预算徽标）。基线：pytest **499** 全绿（非 smoke 428 EXIT=0 + smoke runner **71 GREEN** 对账）+ 冒烟 **71** + vitest **21** + build 绿 |
 | 2026-09-28 M66 调研定义（§BK） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**泳道 WIP 双限[M65 §BJ.2 已裁决「不做：自动化 set_status 闭锁已有阻塞语义·WIP 计数告警无证据」——重提违反防重查纪律·作废]**、**分叉采纳面[§BJ.1 Git 隐喻已调研+HANDOFF 自注「需真实使用证据」——I195 昨日落库无使用数据·降级留 backlog]**、出站 webhook[M10-I32/I33 已建——作废]、工作项批量操作[M22-I70 已建——作废]。三路 WebSearch：对话分支 UX（ChatGPT 2025 原生分支=编辑隐式分支+Branch in new chat·但 [Reddit](https://www.reddit.com/r/ChatGPT/comments/1d73faj/why_is_dialogue_branching_so_underused) 共识=线性 UI 藏树「极难被发现」几乎没人用·Tangent View/BranchGPT 第三方可视化器全为此补位——[Knowtree](https://knowtree.chat/blog/chatgpt-branching-vs-conversation-graphs)）、PAT 语义（[GitHub PAT docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)=过期档位 7/30/60/90/自定义/永不+per-token last_used_at 上 UI+立即吊销+display-once 库存哈希·[Duende](https://duendesoftware.com/learn/best-practices-managing-token-expiration-refresh-revocation-in-web-apis)=吊销≠过期·服务端吊销客户端不可信）、LLM 成本护栏（[LiteLLM](https://docs.litellm.ai/docs/proxy/spend_tracking) max_budget per key/user/team/model+重置周期·**硬顶=拦截调用软阈=告警回调**双层收敛于 Cloudflare/Bedrock/Portkey 全家·2025 企业 LLM 支出过 $12.5B）。定案 M66=工厂接入与治理三件套（I198 对话树导航/I199 PAT/I200 成本预算护栏） |
 | I198 对话树导航 | 已完成 | 2026-09-28 | 2026-09-28 | `GET /projects/{id}/conversations/tree` 纯投影（parent_conversation_id 血缘组树·created_at 序挂 children·**孤儿兜底挂根自愈**——parent 不在可见集[含假想 id]即落根·run_status 注记随行）+ ConversationIn 加 parent_conversation_id 写入面（**自 MVP 有存储无写入方——发现 I195 分叉复用同会话是 run 级支线·会话级分支无任何产生路径·树必须是活的**·parent 须同项目存在否则 422=Branch in new chat 语义）+ ConversationsPage 列表/树形双模式（树形缩进+⑂ 分支计数+RunBadge+**活动路径高亮=最新 updated 节点的祖先链**[先找最新再回溯标记]）+ ConversationView「⑂ 分支」按钮（子对话继承 kind/instruction/title）+ test_conversation_tree 2 项[两层树+跨项目 parent 422/孤儿兜底+rebuild 稳定——**项目 bootstrap 自带起草会话·树计数要 +1**] |

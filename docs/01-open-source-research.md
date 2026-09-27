@@ -1855,3 +1855,26 @@ M65 = **编排纵深三件套**：I195 运行分叉（checkpoint 支线——Git
 **BK.4 M66 取舍**
 
 M66 = **工厂接入与治理三件套**：I198 对话树导航（树视图——线性列表藏树是 ChatGPT 同病）/ I199 PAT 机器接入（display-once+过期+last_used+吊销——工厂的 API 门）/ I200 成本预算护栏（软阈 80% 告警+硬顶 402 拦截—— LiteLLM 范式的人工预算对称面）+ 冒烟 71 + 审阅，约 9 人日。分叉采纳面（待真实使用证据）、scope 细分、图可视化画布、树内拖拽、per-conversation 预算、自动降档留 backlog。
+
+## BL. M67 前置调研：概念级可见性 / 自托管推送通道 / Prometheus 出站（2026-09-28）
+
+> 目标协议触发：M66 完成后开启。防重查：候选池 grep——**分叉采纳面（仍缺真实使用证据——维持降级不查）**、**watch 摘要批量投递（M55 已裁决「与周报节律重复」——无新证据不重提）**、**定时触发自动化（M32-I98 已建 `schedule:daily` sweep 评估——防重查第四次自证：我以为的新缺口早已存在）**、**agent 互审链（orchestrator 相位图+人审 Gate 已是审阅架构核心——互审与「人在环」裁决冲突，方向性否决）**、run 队列/并发上限（M48 并发治理已调研邻接面——增量不足）。本轮三路新调研（**概念级可见性[可见性模型仍停留项目成员制·仅 M25 transitions 白名单触过概念维度·权限分层无调研] / 自托管推送通道[ntfy/Apprise/Telegram 零记录——IM 仅作 M58/M62/M63 的语义参照物·物理通道从未是调研对象] / Prometheus 出站[/metrics 零记录——M62 perf 是内存环·M60 flows 是投影读侧·出站格式从未调研]**），选定 **M67 = 生态出站与权限纵深三件套**。
+
+**BL.1 概念级可见性（项目内按概念类型限权——层级权限树的轻量一级）**
+
+- 产品语义（[OpenProject](https://www.openproject.org) 角色×模块权限矩阵、[Jira permission schemes](https://confluence.atlassian.com) 与 **issue security levels**、[ONES](https://ones.com) 字段级权限综述）：共识是**层级收敛**——workspace/项目/类型(模块)/字段四级，绝大多数场景只用到「某类工作项对多数成员保密」（薪酬单/风险登记/成本行项）；Jira 用 security level 在 issue 之上再盖一层，OpenProject 用「角色×模块」矩阵。痛点共性：**项目可做而类目敏感**——成员制可见性一刀切放行了不该看的人。
+- 对本项目的映射：projects 加 `concept_visibility` JSON（`{concept_id: "owner"}`——两级语义：**声明即仅 owner/实例管理员可见，未声明=全员可见**——不做角色矩阵，小本体主义）；读侧（list/board/get/search 的 items 面）过滤 + 写侧（create/patch/checklist）403 + 通知参与面静默（`_notify_muted` 同族：restricted 概念的 comment/状态参与不投非授权成员；mention/watch 照常=治理必达）。事件溯源走 project.updated 链（cost_budget 同轨）。**不做** 字段级掩码（Jira 也只是 security level 整项级）、per-member 覆盖（notify_level 已是成员维先例但组合爆炸）、historical 事件重写（可见性是读侧门，事件流零改动——审计仍全量）。
+
+**BL.2 自托管推送通道（ntfy 语义——手机收通知的第三物理通道）**
+
+- 产品现状（[ntfy docs](https://docs.ntfy.sh)、[Apprise](https://github.com/caronc/apprise)、[Tamga 用 Apprise 替换 80+ 集成](https://github.com/DogukanUrker/Tamga)）：自托管推送收敛于 **ntfy**——`POST {topic}` 一个 HTTP 调用即投递，语义最富：**Priority 1-5**（映射 Android/iOS 通知重要级）、Tags（emoji 短码）、Title、Click 跳转 URL、scheduled delivery、access token；Telegram bot 简单但云端-only 且无优先级概念；Apprise 是「统一 URL scheme 的胶水位」（2025 工具趋势=不自己写集成而接 Apprise），但引库违反零依赖哲学——而 ntfy 协议本身只是一次带头 POST。
+- 对本项目的映射：`users.push_url/push_token`（own-data 端点，email 同族运行态列）+ **pusher 模块照 mailer 抄**（队列+后台线程，网络 I/O 不阻塞写路径；投递结果 telemetry 落 API 响应不入事件流）+ **通道矩阵第三列**：NOTIFY_KINDS/pref_allows 加 `push`、watch rules channels 白名单扩 `push`、静默时段与 digest 豁免语义照搬（用户级门全部适用——推送永不越过 DND）；payload 组装 title=摘要、Priority=5 仅给 mention/审批类、Tags=kind、Click=`web_base_url` 深链。**不做** Apprise 引库、Telegram bot（云端-only）、per-watch push 与 email 的双投递去重（watch channels 本就是显式子集——用户自己选）。
+
+**BL.3 Prometheus /metrics 出站（自托管可观测性的标准门）**
+
+- 工程共识（[prometheus-fastapi-instrumentator](https://github.com/trallnag/prometheus-fastapi-instrumentator)、[OneUptime 四类型指南](https://oneuptime.com)、[VPS 监控安全实践](https://vpsforlife.com)）：命名 `namespace_subsystem_name_unit`（counter 尾 `_total`、histogram 尾 `_seconds`/`_bytes`）；四类型=Counter(累计)/Gauge(当前)/Histogram(桶+count/sum 支撑 `histogram_quantile`)/Summary；**标签低基数**（禁止 user_id 级无界标签）；**/metrics 无内建认证——环回或代理后面暴露**；FastAPI 生态标准是 instrumentator 库，但手写 text exposition（0.0.4 格式）对一个已持有观测数据的进程是零依赖小事。
+- 对本项目的映射：`GET /system/metrics`（`settings.metrics_enabled` 默认关=404 不暴露；开了也建议反代加鉴权——SSRF 家族纪律）手写 exposition：`apm_http_request_duration_seconds` Histogram（**M62 perf ring 的桶就是现成的 observations——遥测不进事件流裁决下出站是它的正确出口**）+ `apm_events_total{agg_type,event_type}` Counter（读侧 COUNT，低基数）+ `apm_runs_active`/`apm_db_page_count` Gauge。**不做** prometheus_client 引库（零依赖）、per-route 高基数标签全量导出（白名单核心路由）、pushgateway。
+
+**BL.4 M67 取舍**
+
+M67 = **生态出站与权限纵深三件套**：I201 概念级可见性（两级声明+读/写/通知三门）/ I202 ntfy 推送通道（第三物理通道——mailer 镜像+通道矩阵第三列）/ I203 Prometheus 出站+冒烟 72+审阅（perf ring 的出站正名），约 9 人日。分叉采纳面（待使用证据）、watch 批量投递（待新证据）、Telegram bot、Apprise 引库、字段级掩码、per-member 可见性覆盖、prometheus_client 引库、pushgateway 留 backlog。
