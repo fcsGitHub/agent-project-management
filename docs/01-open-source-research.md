@@ -1682,3 +1682,33 @@ M59 = **行动聚合与包治理三件套**：I177 「等待我」行动聚合�
 **BE.5 M60 取舍**
 
 M60 = **运维韧性与组合洞察三件套**：I180 备份/恢复演练工具（在线备份 API+演练闭环——灾备版的 live==replay）/ I181 组合健康趋势与流指标（Jira 原生缺口的事件内核免费午餐——健康分=结论流指标=归因）/ I182 冒烟 65+审阅，约 9 人日。Litestream 连续复制（单机手动档够用，docs/11 留连接说明）、角色市场/角色版本化（单实例 YAML 治理过度设计）、健康分权重刷新（无数据证据不动）、显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化留 backlog。
+
+## BF. M61 前置调研：事件表体积观测 / 移动端响应式审计 / 会话搜索与导出（2026-09-27）
+
+> 目标协议触发：M60 完成后开启。防重查：候选池 grep——事件表体积/归档（**§K.3 已裁决「归档=导出非删除」且导出/导入/备份工具齐备[M13-I43/M14-I45/M60-I180]，但「体积观测端点」与增长认知从未落地**）、移动端响应式（§N.2 调研过 PWA 路线[M15 选 responsive-first]，**但 M15 之后 10+ 新页/新卡从未过 375px 审计——审计刷新非重复调研**）、会话搜索/导出（§D 调研过轨迹数据模型[Langfuse/OpenInference]，**但会话消息既不可搜索也不可导出——产品化缺口非模型缺口**）、新特性扫描（BC.3/BD.3/BE.3 三轮同向，边际价值趋零，并入维持项）。本轮三路新调研（事件溯源长期运行成长治理 / 移动端审计缺口基线 / 对话历史搜索的 UX 共识），选定 **M61 = 治理观测与轨迹可寻三件套**。
+
+**BF.1 事件表体积观测（事件溯源长期运行的「先测后治」）**
+
+- 行业共识（[Event-Driven.io Marten snapshots](https://event-driven.io)/**[Kurrent/EventStoreDB](https://kurrentdb.kurrent.io)**/[CodeOpinion](https://codeopinion.com)）：成长治理三板斧=**短流优先**（按时间窗切流）→ **快照**（每 N 事件一拍，非每操作）→ **截断**（`$tb` truncate-before 元数据在快照后剪掉流前缀，剪掉的部分进冷存储归档）。同向告诫：**快照是优化不是默认**——读侧扩展靠投影/read model 解决，别过早优化（[EventSourcingDB docs](https://docs.eventsourcingdb.io)）；[Microsoft Learn Cosmos DB 事件仓 housekeeping](https://learn.microsoft.com)同构：有快照后只需快照之后的事件做 rehydrate。
+- 对本项目的映射：AgentPM 是**单一全局事件流**（非 per-aggregate 流），且 live==replay 不变量意味着**任何删除都断链**（§K.3 裁决不变）——三板斧的「截断/快照」对我们**不适用**：整库即流，M60 的 zip 备份就是快照形态，rebuild 就是 rehydrate。真正缺的是**观测**：没有端点能回答「事件表现在多大、什么类型在涨、最老的事件多老」——这是「先测后治」的第一步，也是拒绝过早优化的证据基线。`GET /system/event-store-stats` 纯读（总事件数/库体积/按 agg_type×event_type 分布/最早最晚时间戳），不改任何数据；治理动作（若未来需要）=既有导出+备份组合，无新机制。
+
+**BF.2 移动端响应式审计刷新（375px 成为默认下限之后）**
+
+- 审计基线（[Polypane overlooked breakpoints](https://polypane.app)/[NN Group breakpoints](https://www.nngroup.com)/[BrowserStack 2025](https://www.browserstack.com)）：**375px 成为大家「开始测试」的宽度，320px 设备被系统性忽略**——审计缺口是小屏本身；2026 事实标准断点 480/768/1024/1440（[RedefineWeb](https://redefineweb.com)）。企业仪表盘常见失败面（[pirateskills](https://pirateskills.com)/[skills.rest Dashboard Mobile System-First](https://skills.rest)）：**导航与内容重叠、表格/图表横向溢出、按钮出屏、字号过小**；系统优先审计法=先审共享壳层（shell/header），再把「必须移动原生」的组件（导航）单独分档。
+- 对本项目的映射：M15 选 responsive-first（Tailwind 断点）后，**新增 10+ 页/卡从未过小屏审计**（MyWork 等待我卡/Templates PackDrawer 实例区/Assets 使用洞察/Dashboard 组合趋势列/WatchRules/QuietHours/Runs WatchAgentToggle/通知折叠组…）；已知风险点=固定宽度行（如 Dashboard `w-32` 项目名列在 375px 挤压溢出）。审计动作=壳层（AppShell 侧栏）+新卡片逐页 375px 检查，修复最差三处（横向溢出/固定宽/表单挤压），**不做** PWA/原生 App（§N.2 裁决维持）。
+
+**BF.3 会话搜索与导出（「被遗忘的对话问题」的组织内解法）**
+
+- UX 共识：ChatGPT 侧栏搜索只匹配**标题+少量元数据**、Claude 只匹配标题——内容级检索两家都弱，长历史里知识持续流失（**[The forgotten conversation problem, UX Collective](https://uxdesign.cc/the-forgotten-conversation-problem-in-ai-chat-4d3d0c3ea525)**）；专门的[对话历史搜索模式库](https://aiuxplayground.com/pattern/conversation-search)总结为：按关键词/日期/项目/标签过滤，命中后**跳转定位到消息**；社区为「搜导出的 Claude 历史」专门造工具（[Reddit r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/comments/1hxwdx3/i_made_a_tool_to_search_through_claude)）——第三方补位即需求实证；数据导出（JSON 全量）被视为对抗锁定（[MacStories](https://www.macstories.net/linked/claudes-chat-history-and-app-integrations-as-a-form-of-lock-in)）。
+- 对本项目的映射：AgentPM 对话/消息**全是事件**（conversation.message 等）却接不进 ⌘K——`/search` 只索引 items+comments（M22-I68）。消息表已有投影，FTS 索引加一张 `messages_search`（CJK bigram 复用 `_bigrams`）+ `@on("conversation.message")` 投影器（注册在消息投影器之后）= 事件溯源红利第十三例；导出走**会话 Markdown 转写**（人读优先，与 NDJSON 机器导出互补——GitLab 审计事件「DB 留存+流式外送」的组织内语义）。搜索可见性沿用 `_visible` 项目裁剪（与 items/comments 同口径）。
+
+**BF.4 M61 设计映射与验证纪律（沿用）**
+
+- I183 事件表体积观测：`GET /system/event-store-stats`（COUNT/页数→字节/agg_type×event_type GROUP BY/最早最晚 ts）+ 系统面板卡（admin 可见——与 rebuild 同域）+ 单测（计数对账/分布行/空库不炸）。
+- I184 会话搜索与导出：schema 加 `messages_search` FTS + `_reindex_message` + `@on("conversation.message")` + `/search` types 加 conversations（`_visible` 裁剪）+ `GET /conversations/{id}/export`（Markdown 转写含角色/时间/actor）+ 前端（⌘K 结果含会话命中行跳转；会话详情导出按钮）+ 单测（中文 bigram 命中/不可见项目不泄漏/转写含 actor 与 parent 结构/rebuild 一致）。
+- I185 移动端审计刷新+冒烟 66+审阅：AppShell+新卡片 375px 审计，修复最差三处；冒烟 66（体积观测 roundtrip→会话中文搜索命中→导出含结构）+ 全量回归 + docs 收口 + M61 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M61 审阅 + **冒烟 66**。
+
+**BF.5 M61 取舍**
+
+M61 = **治理观测与轨迹可寻三件套**：I183 事件表体积观测（先测后治——拒绝过早优化的证据基线）/ I184 会话搜索与导出（被遗忘对话问题的组织内解法——红利第十三例）/ I185 移动端审计刷新+冒烟 66+审阅，约 9 人日。事件流截断/快照（破坏 live==replay，§K.3 裁决维持——观测替治理）、PWA/原生 App（§N.2 裁决维持）、320px 极小屏专项（375px 为审计基线，320 留证据）、会话跨项目聚合视图（`_visible` 口径已覆盖，单独视图无增量）、消息级全文高亮定位（跳转会话详情已够，N=1 证据不足）留 backlog。

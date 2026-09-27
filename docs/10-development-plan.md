@@ -1870,6 +1870,36 @@ agent-project-management/
 
 ---
 
+### M61 · 治理观测与轨迹可寻三件套（I183-I185，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BF 前置调研）。事件表只增是事件溯源的本质（§K.3：归档=导出非删除），但「多大、什么在涨、多老」从未可观测——先测后治；M15 后 10+ 新页/新卡从未过 375px 审计；对话/消息全是事件却接不进 ⌘K——被遗忘对话问题的组织内解法（红利第十三例）。截断/快照不做：live==replay 裁决维持，观测替治理。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I183 | 事件表体积观测（`GET /system/event-store-stats`[总事件数/库体积/agg_type×event_type 分布/最早最晚 ts——纯读] + 系统面板卡 + 单测） | docs/01 §BF.1 | §K.3 裁决 | 3d |
+| I184 | 会话搜索与导出（schema `messages_search` FTS[CJK bigram] + `@on("conversation.message")` 投影器 + `/search` types=conversations[`_visible` 裁剪] + `GET /conversations/{id}/export` Markdown 转写 + 前端 ⌘K 命中行/导出按钮 + 单测） | docs/01 §BF.3 | M22 FTS 范式 | 3d |
+| I185 | 移动端审计刷新+冒烟 66+收尾审阅（AppShell+新卡 375px 审计修复最差三处 + 冒烟 66[体积观测→中文搜索命中→导出结构] + 全量回归 + docs 收口 + M61 审阅） | docs/01 §BF.2 | §N.2 裁决 | 3d |
+
+#### I183 · 事件表体积观测（3d）
+
+- 任务：system.py `GET /system/event-store-stats`——`SELECT COUNT(*)` 总数、`PRAGMA page_count*page_size` 库体积、`GROUP BY agg_type, event_type` 分布行（各含计数）、`MIN(ts)/MAX(ts)` 最早最晚；纯读无副作用。前端系统/管理面板加「🗄 事件库」卡（总数+体积+Top 分布行）。admin 口径与 rebuild 端点一致。
+- DoD：单测（事件计数与 events 表对账/分布行计数求和=总数/空库不炸/rebuild 后统计不变——统计是纯读不参与投影）。
+- 演示路径：管理面板一眼看到「事件库多大、什么类型在涨、最老事件多老」。
+
+#### I184 · 会话搜索与导出（3d）
+
+- 任务：schema 加 `CREATE VIRTUAL TABLE messages_search USING fts5(message_id UNINDEXED, text)` + `_reindex_message`（读 messages.content，`@on("conversation.message")` 注册在 `_proj_message` 之后——live 与 rebuild 同序）+ `/search` types 白名单加 "conversations"（JOIN conversations 取 project_id/conversation 标题/首条摘要，`_visible` 裁剪，与 items/comments 同口径）+ `GET /conversations/{id}/export` 返回 Markdown 转写（标题/项目/每条消息角色·actor·时间·内容，parent 结构标注）+ 前端：⌘K 结果加会话命中行（跳对应项目会话）、会话详情加导出按钮（下载 .md）。
+- DoD：单测（中文 bigram 命中/英文命中/不可见项目会话不泄漏/转写含 actor 与消息序/rebuild 一致）。
+- 演示路径：⌘K 搜中文关键词命中历史会话→点进会话→导出 Markdown 转写留档。
+
+#### I185 · 移动端审计刷新+冒烟 66+收尾审阅（3d）
+
+- 任务：375px 逐页审计（AppShell 壳层+M15 后新卡：MyWork 等待我/Templates PackDrawer 实例区/Assets 使用洞察/Dashboard 组合趋势列/WatchRules/QuietHours/Runs WatchAgentToggle/通知折叠组），修复最差三处（横向溢出/固定宽挤压/表单出屏）；**冒烟 66**（event-store-stats 计数对账→会话中文搜索命中→导出转写含结构）+ 全量回归 + docs 收口 + M61 审阅。
+- DoD：冒烟 66 GREEN；全量 pytest 分片收敛绿；375px 无横向溢出壳层与新卡。
+- 演示路径：窄窗口过一遍新卡不破版；冒烟走「观测→可寻→可携」一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2070,6 +2100,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-27 M61 调研定义（§BF） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：事件表体积/归档[§K.3 裁决「归档=导出非删除」且导出/导入/备份工具齐备 M13/M14/M60——但体积观测端点从未落地]、移动端响应式[§N.2 调研过 PWA 路线 M15 选 responsive-first——但 M15 后 10+ 新页/新卡从未过 375px 审计=审计刷新非重复调研]、会话搜索/导出[§D 调研过轨迹数据模型——但消息既不可搜索也不可导出=产品化缺口非模型缺口]、新特性扫描[BC/BD/BE 三轮同向边际价值趋零并入维持项]。三路 WebSearch：事件溯源长期运行成长治理（EventStoreDB/Marten 三板斧=短流优先→快照→`$tb` 截断+冷存储归档·快照是优化不是默认读侧靠投影——AgentPM 单一全局流+live==replay 裁决=截断/快照不适用·整库即流 zip 备份即快照·缺的是「多大什么在涨多老」观测=先测后治）、移动端审计缺口（Polypane：375px 成为「开始测试」宽度 320px 被系统性忽略·企业仪表盘常见失败=导航重叠/表格横向溢出/按钮出屏/字号过小·System-First 审计法=先审壳层）、对话历史搜索 UX（ChatGPT 只搜标题+少量元数据/Claude 只搜标题——内容级检索两家都弱=forgotten conversation problem·社区为搜导出历史专门造工具=需求实证·导出被视为对抗锁定）。定案 M61=治理观测与轨迹可寻三件套（I183 体积观测/I184 会话搜索与导出/I185 移动端审计+冒烟 66） |
 | **M60 运维韧性与组合洞察三件套（I180-I182）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BE + docs/10 §M60）：I180 备份/恢复演练工具（app/apm/ops.py `create_backup`[sqlite3 backup API 在线取 WAL 一致快照——绝不直接拷活库文件 + content/ 与 assets-repo/ 全量含 Git 历史 + 生效本体目录 + manifest.json 时间/事件数→单 zip] + `restore_backup`[manifest 格式校验 + 先剥陈旧 -wal/-shm 侧车防污染恢复快照 + 本体目录仅显式给目标才覆盖——覆盖活本体是决策不是副作用] + tools/backup.py·restore.py 薄 CLI + docs/11 §5.2/5.2.1 一键备份与演练三步 + 冒烟演练闭环[备份→全新空目录恢复→event_count 对账+integrity_check+工件与本体在位——「备份会自己跑，演练是为了证明恢复仍然有效」]）/ I181 组合健康趋势与流指标（`GET /portfolio/health-trend` 纯投影[可见项目 _visible 三层口径健康史采样对齐·首→尾方向 up/down/flat·年轻项目单分数诚实 None·组合中位线] + _flow_metrics Flow Framework 三件[中位完成周期=item.created→首个 done 事件对中位天数/近 4 周吞吐=done÷4/当前 WIP=in_progress 未归档——事件对投影零埋点=红利第十二例·Jira 原生做不了跨项目要 Premium Analytics·内核免费午餐] + Dashboard 组合卡趋势列[方向 emoji+中位周期天数]）/ I182 冒烟 65+审阅（流指标算术→演练闭环 roundtrip）；Litestream[单机手动档留说明]、角色市场[过度设计]、健康分权重刷新[无数据证据不动]、显式容量、Cycles 多周期+derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化[维持]留 backlog。基线：pytest **447** 全绿（非 smoke 382 EXIT=0 + smoke runner 65 GREEN 对账）+ 冒烟 **65** + vitest **18** + build 绿 |
 | 2026-09-27 M60 调研定义（§BE） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：备份/恢复[§L.3 裁决「备份走 DB 层」后仅 docs/11 手工命令无工具无演练]、角色市场/角色版本化[无记录——单实例 YAML 治理过度设计降级不查]、组合健康趋势[M23 当前态聚合·M30 健康史按项目——跨项目趋势无调研]、健康分模型刷新[M30 后未对照行业框架]、新特性扫描[BC/BD 连续同向边际价值低并入对照]。三路 WebSearch：SQLite 自托管备份共识（绝不直接拷活库[WAL 帧丢失]——在线备份 API 取一致快照/Litestream=连续流复制标配但单机「命令+演练」已够/「backups run themselves; the drill exists to prove the RESTORE still works」）、组合层流指标（Jira 原生做不了跨项目需 Premium Analytics——标准集=中位周期/吞吐/WIP/阻塞占比[Businessmap 卖的就是这个]）、DORA/Flow 对照（DORA 四键实证框架+Flow 四指标互补；2026 研究 240 团队 75% AI 后 DORA 下滑——AI 加速产出不天然加速健康·治理是杠杆，反向确认 AgentPM 人在环路线）。定案 M60=运维韧性与组合洞察三件套（I180/I181/I182） |
 | I180 备份/恢复演练 | 已完成 | 2026-09-27 | 2026-09-27 | ops.py create_backup/restore_backup + tools 薄 CLI×2 + docs/11 演练节 + test_backup_restore（演练闭环 event_count 对账+integrity_check+工件本体在位/外源 zip 拒绝）；坑两处：content 仓工件带 artifacts/ 前缀（断言路径修正）、restore 返回值误 pop apm.db 计数（测试 KeyError 揭出）；Windows 活库文件进程持有不可删——演练「清空」用全新空目录语义 |

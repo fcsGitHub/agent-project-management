@@ -47,7 +47,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M60 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M61 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节 + docs/10 §M61 节 + 看板行 →「M61 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M61 审阅。**候选池**：①事件表体积治理与归档节奏（events 只增——体积观测端点+归档导出策略，对照事件溯源长期运行实践）；②移动端响应式审计刷新（M15 375px 断点后新增 10+ 页面/卡片未过审计——等待我卡/洞察卡/趋势列/热力条）；③会话/轨迹域刷新（对话搜索/导出——距 MVP 未大动）；④新特性扫描（并入前路）；⑤维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新（均维持不做）。
+2. **I183 事件表体积观测（下一步）**：M61 调研定义已提交（d41b365，docs/01 §BF + docs/10 §M61）。三件套=I183 `GET /system/event-store-stats`（COUNT/page_count×page_size/agg_type×event_type GROUP BY/MIN MAX ts——纯读，admin 卡与 rebuild 同域）→ I184 会话搜索与导出（schema `messages_search` FTS[CJK bigram 复用 `_bigrams`] + `@on("conversation.message")` 注册在 `_proj_message` 之后 + `/search` types=conversations[`_visible` 裁剪] + `GET /conversations/{id}/export` Markdown 转写 + ⌘K 命中行/导出按钮）→ I185 移动端审计刷新+冒烟 66+全量回归+M61 审阅。裁决沿用：截断/快照不做（live==replay——观测替治理）、PWA 不做（§N.2）、375px 为审计基线（320 留证据）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
