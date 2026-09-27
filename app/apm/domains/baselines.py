@@ -41,6 +41,7 @@ def _snapshot(project_id: str) -> dict:
     items = conn.execute(
         "SELECT id, start_date, due_date, estimate_hours FROM items"
         " WHERE project_id = ? AND (start_date IS NOT NULL OR due_date IS NOT NULL)"
+        " AND archived_at IS NULL"  # M65-I197: archived items leave the plan
         " ORDER BY id", (project_id,),
     ).fetchall()
     milestones = conn.execute(
@@ -97,6 +98,51 @@ def get_baseline(project_id: str) -> dict:
         return {"project_id": project_id, "baseline": None}
     return {"project_id": project_id, "baseline": json.loads(rows[-1]["snapshot"]),
             "created_at": rows[-1]["created_at"], "baseline_id": rows[-1]["id"]}
+
+
+@router.get("/projects/{project_id}/baselines/compare")
+def compare_baselines(project_id: str, a: str, b: str) -> dict:
+    """M65-I197 (docs/01 §BJ.3 — MS Project multi-baseline diff semantics: the
+    value of many baselines is comparing them, not storing them). Item-level
+    diff between any two snapshots: date shifts in days, items only in one of
+    the two. Read-only projection over the M24 baselines store."""
+    _require_item_project(project_id)
+    rows = {r["id"]: r for r in _list_rows(project_id)}
+    for want, label in ((a, "a"), (b, "b")):
+        if want not in rows:
+            raise HTTPException(status_code=404, detail=f"unknown baseline '{label}'")
+    sa = json.loads(rows[a]["snapshot"])["items"]
+    sb = json.loads(rows[b]["snapshot"])["items"]
+
+    def _iso(v: str | None):
+        return date.fromisoformat(v) if v else None
+
+    shifted, unchanged = [], []
+    for item_id, va in sa.items():
+        if item_id not in sb:
+            continue  # counted as removed
+        vb = sb[item_id]
+        a_start, a_due, b_start, b_due = (_iso(va[0]), _iso(va[1]), _iso(vb[0]), _iso(vb[1]))
+        s_shift = (b_start - a_start).days if (a_start and b_start) else None
+        d_shift = (b_due - a_due).days if (a_due and b_due) else None
+        entry = {"item_id": item_id,
+                 "a_start": va[0], "a_due": va[1], "b_start": vb[0], "b_due": vb[1],
+                 "start_shift_days": s_shift, "due_shift_days": d_shift}
+        if s_shift in (None, 0) and d_shift in (None, 0):
+            unchanged.append(entry)
+        else:
+            shifted.append(entry)
+    shifted.sort(key=lambda e: -(abs(e["due_shift_days"] or 0)))
+    removed = sorted(set(sa) - set(sb))
+    added = sorted(set(sb) - set(sa))
+    return {
+        "project_id": project_id, "a": a, "b": b,
+        "a_created_at": rows[a]["created_at"], "b_created_at": rows[b]["created_at"],
+        "summary": {"total": len(sa), "shifted": len(shifted),
+                    "unchanged": len(unchanged), "removed": len(removed), "added": len(added)},
+        "shifted": shifted, "unchanged": unchanged,
+        "removed": removed, "added": added,
+    }
 
 
 @router.get("/projects/{project_id}/baselines")

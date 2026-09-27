@@ -14,7 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { Item } from "../lib/api";
-import { Card, Empty, cx } from "../components/ui";
+import { Badge, Card, Empty, cx } from "../components/ui";
 import { weightedProgress } from "../lib/rollup";
 
 const DAY = 86_400_000;
@@ -50,6 +50,10 @@ export function TimelinePage() {
   const [blFilter, setBlFilter] = useState<string>("all");
   const blList = baselinesQ.data?.baselines ?? [];
   const [varianceOpen, setVarianceOpen] = useState(false);
+  // M65-I197: two-baseline diff
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [cmpA, setCmpA] = useState("");
+  const [cmpB, setCmpB] = useState("");
   // I101: CPM critical chain toggle + red-frame highlight
   const cp = useQuery({ queryKey: ["critical-path", pid], queryFn: () => api.getCriticalPath(pid!), enabled: !!pid });
   const [showCP, setShowCP] = useState(false);
@@ -336,6 +340,11 @@ export function TimelinePage() {
                 </select>
                 <button onClick={() => setVarianceOpen(true)}
                   className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc">📊 偏差表</button>
+                {blList.length > 1 && (
+                  <button onClick={() => setCompareOpen(true)}
+                    className="rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc"
+                    title="任选两条基线并排看计划漂移（M65-I197）">🔀 基线对比</button>
+                )}
               </>
             )}
             {blList.length > 0 ? (
@@ -560,6 +569,78 @@ export function TimelinePage() {
           </Card>
         </div>
       )}
+      {compareOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-6" onClick={() => setCompareOpen(false)}>
+          <Card className="mt-10 w-full max-w-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">🔀 基线对比（M65-I197：多基线的价值在比不在存）</span>
+              <button onClick={() => setCompareOpen(false)} className="text-xs text-mut hover:text-ink">✕</button>
+            </div>
+            <div className="mb-2 flex items-center gap-2 text-xs">
+              <select value={cmpA} onChange={(e) => setCmpA(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1">
+                <option value="">基线 A…</option>
+                {blList.map((b) => <option key={b.id} value={b.id}>A: {String(b.created_at ?? "").slice(5, 16).replace("T", " ")}</option>)}
+              </select>
+              <span className="text-mut">vs</span>
+              <select value={cmpB} onChange={(e) => setCmpB(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1">
+                <option value="">基线 B…</option>
+                {blList.map((b) => <option key={b.id} value={b.id}>B: {String(b.created_at ?? "").slice(5, 16).replace("T", " ")}</option>)}
+              </select>
+            </div>
+            {cmpA && cmpB && cmpA !== cmpB && <BaselineCompare pid={pid!} a={cmpA} b={cmpB} />}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/** M65-I197: two-baseline diff drawer body — summary counts + top drift rows. */
+function BaselineCompare({ pid, a, b }: { pid: string; a: string; b: string }) {
+  const cmp = useQuery({
+    queryKey: ["baseline-compare", pid, a, b],
+    queryFn: () => api.compareBaselines(pid, a, b),
+  });
+  if (cmp.isLoading) return <div className="py-6 text-center text-xs text-mut">对比中…</div>;
+  if (cmp.isError) return <div className="py-6 text-center text-xs text-dan">对比失败（两条基线需同属本项目）</div>;
+  const d = cmp.data!;
+  const fmtShift = (v: number | null) => (v == null ? "—" : v > 0 ? `+${v}` : String(v));
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="flex flex-wrap gap-2">
+        <Badge tone="neutral">共 {d.summary.total} 项</Badge>
+        <Badge tone={d.summary.shifted ? "amber" : "green"}>漂移 {d.summary.shifted}</Badge>
+        <Badge tone="green">一致 {d.summary.unchanged}</Badge>
+        {d.summary.removed > 0 && <Badge tone="red">仅 A 有 {d.summary.removed}</Badge>}
+        {d.summary.added > 0 && <Badge tone="indigo">仅 B 有 {d.summary.added}</Badge>}
+      </div>
+      {d.shifted.length > 0 && (
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-line text-mut">
+              <th className="py-1.5">任务</th><th>A 起止</th><th>B 起止</th><th className="text-right">漂移（天）</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.shifted.map((v) => (
+              <tr key={v.item_id} className="border-b border-line/60">
+                <td className="py-1.5 font-medium">{v.item_id}</td>
+                <td className="text-mut">{v.a_start ?? "—"} ~ {v.a_due ?? "—"}</td>
+                <td>{v.b_start ?? "—"} ~ {v.b_due ?? "—"}</td>
+                <td className="text-right">
+                  <span className={(v.due_shift_days ?? 0) > 0 || (v.start_shift_days ?? 0) > 0 ? "text-dan" : "text-ok"}>
+                    开 {fmtShift(v.start_shift_days)} / 止 {fmtShift(v.due_shift_days)}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {d.shifted.length === 0 && <div className="py-4 text-center text-mut">两条基线完全一致 ✓</div>}
     </div>
   );
 }

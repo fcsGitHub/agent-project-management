@@ -519,6 +519,14 @@ export const api = {
     req<{ project_id: string; baseline: { items: Record<string, [string | null, string | null]>; milestones: Record<string, string> } | null; created_at?: string; baseline_id?: string }>(`/projects/${pid}/baseline`),
   listBaselines: (pid: string) =>
     req<{ project_id: string; baselines: { id: string; created_at: string; snapshot: { items: Record<string, [string | null, string | null]>; milestones: Record<string, string> } }[] }>(`/projects/${pid}/baselines`),
+  // M65-I197: two-baseline diff (MS Project multi-baseline semantics)
+  compareBaselines: (pid: string, a: string, b: string) =>
+    req<{ project_id: string; a: string; b: string; a_created_at: string; b_created_at: string;
+          summary: { total: number; shifted: number; unchanged: number; removed: number; added: number };
+          shifted: { item_id: string; a_start: string | null; a_due: string | null; b_start: string | null; b_due: string | null;
+                     start_shift_days: number | null; due_shift_days: number | null }[];
+          unchanged: unknown[]; removed: string[]; added: string[] }>(
+      `/projects/${pid}/baselines/compare?a=${a}&b=${b}`),
   baselineVariance: (pid: string, baselineId?: string, includeSame = false) =>
     req<{ project_id: string; baseline_id: string; created_at: string; variances: { item_id: string; title: string; status: string; baseline_start: string | null; baseline_due: string | null; current_start: string | null; current_due: string | null; start_deviation: number | null; due_deviation: number | null }[]; summary: { count: number; max_due_delay: number } }>(`/projects/${pid}/baseline-variance?include_same=${includeSame}${baselineId ? `&baseline_id=${baselineId}` : ""}`),
   setBaseline: (pid: string) =>
