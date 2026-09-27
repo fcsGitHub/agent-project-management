@@ -113,6 +113,8 @@ CREATE TABLE IF NOT EXISTS users (
   quiet_start TEXT,
   quiet_end TEXT,
   hourly_rate REAL,
+  push_url TEXT,
+  push_token TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -303,6 +305,7 @@ CREATE TABLE IF NOT EXISTS notification_prefs (
   kind TEXT NOT NULL,
   inapp INTEGER NOT NULL DEFAULT 1,
   email INTEGER NOT NULL DEFAULT 1,
+  push INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (user_id, kind)
 );

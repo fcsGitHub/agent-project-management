@@ -129,7 +129,7 @@ def _parse_condition(condition_json: str | None) -> dict:
     return cond if isinstance(cond, dict) else {}
 
 
-_RULE_CHANNELS = ("inapp", "email")
+_RULE_CHANNELS = ("inapp", "email", "push")  # M67-I202: push joins the matrix
 
 
 def _serialize_channels(channels: list[str] | None) -> str | None:

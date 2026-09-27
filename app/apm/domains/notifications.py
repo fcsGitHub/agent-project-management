@@ -375,6 +375,7 @@ class KindPrefIn(BaseModel):
     kind: str
     inapp: bool
     email: bool
+    push: bool = True  # M67-I202: ntfy channel joins the matrix
 
 
 class KindPrefsIn(BaseModel):
@@ -387,7 +388,7 @@ def get_kind_prefs() -> dict:
     user_id = events.effective_actor()
     conn = db.get_conn()
     rows = {r["kind"]: r for r in conn.execute(
-        "SELECT kind, inapp, email FROM notification_prefs WHERE user_id = ?", (user_id,))}
+        "SELECT kind, inapp, email, push FROM notification_prefs WHERE user_id = ?", (user_id,))}
     pref = conn.execute(
         "SELECT email_notify FROM users WHERE id = ?", (user_id,)).fetchone()
     return {
@@ -395,7 +396,8 @@ def get_kind_prefs() -> dict:
         "kinds": [
             {"kind": k, "label": label,
              "inapp": bool(rows[k]["inapp"]) if k in rows else True,
-             "email": bool(rows[k]["email"]) if k in rows else True}
+             "email": bool(rows[k]["email"]) if k in rows else True,
+             "push": bool(rows[k]["push"]) if k in rows else True}
             for k, label in NOTIFY_KINDS.items()
         ],
     }
@@ -407,16 +409,18 @@ def put_kind_prefs(body: KindPrefsIn) -> dict:
     bad = [p.kind for p in body.prefs if p.kind not in NOTIFY_KINDS]
     if bad:
         raise HTTPException(status_code=422, detail=f"unknown kinds: {bad}")
-    if any(p.kind == "mention" and not (p.inapp and p.email) for p in body.prefs):
+    if any(p.kind == "mention" and not (p.inapp and p.email and p.push) for p in body.prefs):
         raise HTTPException(status_code=422, detail="mention notifications cannot be turned off")
     conn = db.get_conn()
     now = events.utcnow()
     for p in body.prefs:
         conn.execute(
-            "INSERT INTO notification_prefs (user_id, kind, inapp, email, updated_at)"
-            " VALUES (?,?,?,?,?) ON CONFLICT(user_id, kind) DO UPDATE SET"
-            " inapp=excluded.inapp, email=excluded.email, updated_at=excluded.updated_at",
-            (user_id, p.kind, 1 if p.inapp else 0, 1 if p.email else 0, now),
+            "INSERT INTO notification_prefs (user_id, kind, inapp, email, push, updated_at)"
+            " VALUES (?,?,?,?,?,?) ON CONFLICT(user_id, kind) DO UPDATE SET"
+            " inapp=excluded.inapp, email=excluded.email, push=excluded.push,"
+            " updated_at=excluded.updated_at",
+            (user_id, p.kind, 1 if p.inapp else 0, 1 if p.email else 0,
+             1 if p.push else 0, now),
         )
     conn.commit()
     return {"ok": True, "user_id": user_id}

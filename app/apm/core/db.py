@@ -101,6 +101,17 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN quiet_start TEXT")
         if "quiet_end" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN quiet_end TEXT")
+        # M67-I202: 存量库补 users.push_url/push_token（ntfy 推送通道，own-data）。
+        if "push_url" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN push_url TEXT")
+        if "push_token" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN push_token TEXT")
+        # M67-I202: 存量库补 notification_prefs.push（通道矩阵第三列）。
+        if any(r[0] == "notification_prefs" for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):
+            npcols = {r["name"] for r in conn.execute("PRAGMA table_info(notification_prefs)").fetchall()}
+            if "push" not in npcols:
+                conn.execute("ALTER TABLE notification_prefs ADD COLUMN push INTEGER NOT NULL DEFAULT 1")
         # Lightweight migration: 存量库补 item_relations.lag_days（M25-I78）。
         if any(r[0] == "item_relations" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

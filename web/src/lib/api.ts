@@ -881,10 +881,15 @@ export const api = {
     req<{ user_id: string; email_enabled: boolean }>("/notifications/prefs", { method: "POST", body: JSON.stringify(body) }),
   // I96: per-kind × channel matrix (GitLab Custom level); mention is locked on.
   getNotificationPrefs: () =>
-    req<{ email_enabled: boolean; kinds: { kind: string; label: string; inapp: boolean; email: boolean }[] }>(
+    req<{ email_enabled: boolean; kinds: { kind: string; label: string; inapp: boolean; email: boolean; push: boolean }[] }>(
       "/me/notification-prefs"),
-  putNotificationPrefs: (body: { prefs: { kind: string; inapp: boolean; email: boolean }[] }) =>
+  putNotificationPrefs: (body: { prefs: { kind: string; inapp: boolean; email: boolean; push?: boolean }[] }) =>
     req<{ ok: boolean }>("/me/notification-prefs", { method: "PUT", body: JSON.stringify(body) }),
+
+  // M67-I202: ntfy push target (own-data runtime preference)
+  getPushConfig: () => req<{ push_url: string | null; has_token: boolean }>("/me/push"),
+  setPushConfig: (body: { push_url?: string | null; push_token?: string | null }) =>
+    req<{ push_url: string | null; has_token: boolean }>("/me/push", { method: "POST", body: JSON.stringify(body) }),
   // I97: responsiveness (CHAOSS Time to First Response semantics); slices are
   // null when the window has no samples — honest empty state, not zero.
   // M39-I121: velocity-based completion forecast (honest nulls when unknown)

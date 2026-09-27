@@ -122,6 +122,7 @@ export function MyWorkPage() {
 
         <CalendarSubCard />
         <ApiTokenCard />
+        <PushConfigCard />
       </div>
     </div>
   );
@@ -229,6 +230,55 @@ function ApiTokenCard() {
           </div>
         ))}
         {!rows.length && <Empty title="还没有 API 令牌" hint="创建后即可用 curl / 脚本免登录调用 API" />}
+      </div>
+    </Card>
+  );
+}
+
+/** M67-I202 (docs/01 §BL.2): ntfy push target — the third physical delivery
+ * channel. Own-data runtime preference; SSRF guard applies server-side. */
+function PushConfigCard() {
+  const qc = useQueryClient();
+  const cfg = useQuery({ queryKey: ["push-config"], queryFn: api.getPushConfig });
+  const [url, setUrl] = useState("");
+  const [token, setToken] = useState("");
+  return (
+    <Card className="p-4 md:col-span-3">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold">📲 推送通知（ntfy）</span>
+        <span className="text-xs text-mut">
+          自托管 ntfy 主题 URL（https）；配置后在铃铛偏好里按事件类型开推送——静默时段对推送同样生效
+        </span>
+        {cfg.data?.push_url && <Badge tone="ok">已配置</Badge>}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <input value={url} onChange={(e) => setUrl(e.target.value)}
+          placeholder={cfg.data?.push_url ?? "https://ntfy.example.com/我的主题"}
+          className="w-72 rounded-lg border border-line bg-surface px-2 py-1" />
+        <input value={token} onChange={(e) => setToken(e.target.value)} type="password"
+          placeholder={cfg.data?.has_token ? "访问令牌已存（重填可更换）" : "访问令牌（可选）"}
+          className="w-56 rounded-lg border border-line bg-surface px-2 py-1" />
+        <Button size="sm" variant="primary" onClick={async () => {
+          try {
+            await api.setPushConfig({ push_url: url.trim() || null, push_token: token.trim() || null });
+            toast.success("推送配置已保存");
+            setUrl(""); setToken("");
+            qc.invalidateQueries({ queryKey: ["push-config"] });
+          } catch (e) {
+            toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+          }
+        }}>保存</Button>
+        {cfg.data?.push_url && (
+          <Button size="sm" variant="ghost" onClick={async () => {
+            try {
+              await api.setPushConfig({ push_url: null, push_token: null });
+              toast.success("已清除推送配置");
+              qc.invalidateQueries({ queryKey: ["push-config"] });
+            } catch (e) {
+              toast.error(`清除失败：${e instanceof Error ? e.message : e}`);
+            }
+          }}>清除</Button>
+        )}
       </div>
     </Card>
   );

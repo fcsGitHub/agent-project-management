@@ -529,9 +529,9 @@ function QuietHoursSection() {
 function KindPrefMatrix() {
   const qc = useQueryClient();
   const prefs = useQuery({ queryKey: ["notif-prefs"], queryFn: api.getNotificationPrefs });
-  const put = async (kind: string, inapp: boolean, email: boolean) => {
+  const put = async (kind: string, inapp: boolean, email: boolean, push: boolean) => {
     try {
-      await api.putNotificationPrefs({ prefs: [{ kind, inapp, email }] });
+      await api.putNotificationPrefs({ prefs: [{ kind, inapp, email, push }] });
       await qc.invalidateQueries({ queryKey: ["notif-prefs"] });
     } catch (e) {
       toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
@@ -544,15 +544,19 @@ function KindPrefMatrix() {
         <span className="flex-1">按事件类型</span>
         <span className="w-6 text-center">站内</span>
         <span className="w-6 text-center">邮件</span>
+        <span className="w-6 text-center" title="ntfy 推送（我的工作页配置主题）">推送</span>
       </div>
       {prefs.data.kinds.map((k) => (
         <div key={k.kind} className="flex items-center gap-2 text-xs">
           <span className="flex-1 truncate" title={k.kind}>{k.label}</span>
           <input type="checkbox" checked={k.inapp} disabled={k.kind === "mention"}
             title={k.kind === "mention" ? "@提及永远送达" : undefined}
-            onChange={(e) => put(k.kind, e.target.checked, k.email)} />
+            onChange={(e) => put(k.kind, e.target.checked, k.email, k.push)} />
           <input type="checkbox" checked={k.email} disabled={k.kind === "mention"}
-            onChange={(e) => put(k.kind, k.inapp, e.target.checked)} />
+            onChange={(e) => put(k.kind, k.inapp, e.target.checked, k.push)} />
+          <input type="checkbox" checked={k.push} disabled={k.kind === "mention"}
+            title={k.kind === "mention" ? "@提及永远送达" : "ntfy 推送（我的工作页配置主题）"}
+            onChange={(e) => put(k.kind, k.inapp, k.email, e.target.checked)} />
         </div>
       ))}
     </div>

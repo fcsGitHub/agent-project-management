@@ -308,12 +308,49 @@ class RateIn(BaseModel):
     currency: str | None = None  # I139: 费率币种（ISO 代码，如 USD）；空=沿用现值
 
 
+class PushIn(BaseModel):
+    push_url: str | None = None  # M67-I202: ntfy topic URL（https）
+    push_token: str | None = None  # optional access token (ntfy token auth)
+
+
 @router.get("/me/hourly-rate")
 def get_hourly_rate() -> dict:
     row = db.get_conn().execute(
         "SELECT hourly_rate, currency FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
     return {"rate": row["hourly_rate"] if row else None,
             "currency": row["currency"] if row else None}
+
+
+@router.get("/me/push")
+def get_push_config() -> dict:
+    """M67-I202: ntfy push target (own-data runtime column family)."""
+    row = db.get_conn().execute(
+        "SELECT push_url, push_token FROM users WHERE id = ?", (events.effective_actor(),)).fetchone()
+    return {"push_url": row["push_url"] if row else None,
+            "has_token": bool(row["push_token"]) if row else False}
+
+
+@router.post("/me/push")
+def set_push_config(body: PushIn) -> dict:
+    """Push topic URL + optional access token. Clearing the URL clears the
+    token too (a token without a topic is dead weight). The URL is stored
+    as-is — ntfy topics are just HTTPS endpoints (docs/01 §BL.2)."""
+    url = (body.push_url or "").strip() or None
+    if url is not None:
+        # M45 SSRF discipline: the server POSTs to this URL — the same
+        # scheme+private/loopback block as webhooks applies, and
+        # APM_WEBHOOK_ALLOW_PRIVATE=1 admits a LAN ntfy (the canonical
+        # self-hosted setup) exactly as it admits LAN webhook receivers.
+        from apm.domains.webhooks import _validate_url
+
+        _validate_url(url)
+    conn = db.get_conn()
+    conn.execute(
+        "UPDATE users SET push_url = ?, push_token = ?, updated_at = ? WHERE id = ?",
+        (url, (body.push_token or "").strip() or None if url else None,
+         events.utcnow(), events.effective_actor()))
+    conn.commit()
+    return {"push_url": url, "has_token": bool(body.push_token) if url else False}
 
 
 @router.post("/me/hourly-rate")
