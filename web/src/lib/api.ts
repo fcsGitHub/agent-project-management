@@ -129,6 +129,7 @@ export type WatchRule = {
   project_id: string; project_name: string; event_type: string; created_at: string;
   condition?: string | null;
   paused?: boolean | number;
+  channels?: string[] | null;
 };
 export type ProjectReport = {
   project_id: string;
@@ -595,15 +596,17 @@ export const api = {
   // M54-I163: user-built watch rules (人×项目×事件类型)
   listWatchRules: () =>
     req<{ rules: WatchRule[] }>("/watch-rules"),
-  addWatchRule: (pid: string, eventType: string, condition: Record<string, string> = {}) =>
+  addWatchRule: (pid: string, eventType: string, condition: Record<string, string> = {},
+                 channels: string[] | null = null) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules`,
-      { method: "POST", body: JSON.stringify({ event_type: eventType, condition }) }),
+      { method: "POST", body: JSON.stringify({ event_type: eventType, condition, channels }) }),
   removeWatchRule: (pid: string, eventType: string) =>
     req<{ watching: boolean }>(`/projects/${pid}/watch-rules/${eventType}`, { method: "DELETE" }),
   // M57-I171: in-place condition edit / pause toggle (paused keeps the config)
+  // M62-I187: channels [] = reset to follow-global; subset = override routing
   patchWatchRule: (pid: string, eventType: string,
-                   patch: { condition?: Record<string, string>; paused?: boolean }) =>
-    req<{ paused: boolean }>(`/projects/${pid}/watch-rules/${eventType}`,
+                   patch: { condition?: Record<string, string>; paused?: boolean; channels?: string[] }) =>
+    req<{ paused: boolean; channels?: string[] | null }>(`/projects/${pid}/watch-rules/${eventType}`,
       { method: "PATCH", body: JSON.stringify(patch) }),
   // M56-I168: share watch rules as a project-agnostic template
   exportWatchRules: () =>

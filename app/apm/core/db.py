@@ -134,6 +134,9 @@ def init_db() -> None:
         wcols = {r["name"] for r in conn.execute("PRAGMA table_info(watch_rules)").fetchall()}
         if wcols and "paused" not in wcols:
             conn.execute("ALTER TABLE watch_rules ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
+        # M62-I187: 存量库补 watch_rules.channels（规则级渠道路由；NULL=跟随全局）。
+        if wcols and "channels" not in wcols:
+            conn.execute("ALTER TABLE watch_rules ADD COLUMN channels TEXT")
         pcols2 = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "budget_hours" not in pcols2:
             conn.execute("ALTER TABLE projects ADD COLUMN budget_hours REAL")

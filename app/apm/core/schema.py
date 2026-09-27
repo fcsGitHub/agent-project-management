@@ -456,6 +456,7 @@ CREATE TABLE IF NOT EXISTS watch_rules (
   project_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
   condition_json TEXT,
+  channels TEXT,
   paused INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   PRIMARY KEY (user_id, project_id, event_type)

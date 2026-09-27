@@ -315,23 +315,28 @@ function WatchRulesSection() {
   const [newPid, setNewPid] = useState("");
   const [condKey, setCondKey] = useState("");
   const [condVal, setCondVal] = useState("");
+  // M62-I187: rule-level channel routing (empty = follow global prefs)
+  const [newChans, setNewChans] = useState<string[]>([]);
   useEffect(() => {
     if (!newPid && projects.data?.projects.length) setNewPid(projects.data.projects[0].id);
   }, [projects.data, newPid]);
 
   const existing = (rules.data?.rules ?? []).find(
     (r) => r.project_id === newPid && r.event_type === newType);
+  useEffect(() => {
+    setNewChans(existing?.channels ?? []);
+  }, [existing?.project_id, existing?.event_type, existing?.channels?.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const add = async () => {
     if (!newPid) return;
     const condition: Record<string, string> = {};
     if (condKey.trim() && condVal.trim()) condition[condKey.trim()] = condVal.trim();
     try {
       if (existing) {
-        // M57-I171: 同款规则已存在 → 就地更新条件（免去删了重加）
-        await api.patchWatchRule(newPid, newType, { condition });
-        toast.success("已更新关注条件");
+        // M57-I171: 同款规则已存在 → 就地更新条件/渠道（免去删了重加）
+        await api.patchWatchRule(newPid, newType, { condition, channels: newChans });
+        toast.success("已更新关注规则");
       } else {
-        await api.addWatchRule(newPid, newType, condition);
+        await api.addWatchRule(newPid, newType, condition, newChans.length ? newChans : null);
         toast.success("已添加关注");
       }
       setCondKey("");
@@ -411,6 +416,14 @@ function WatchRulesSection() {
             {r.condition && (
               <span className="ml-1 rounded bg-acc/10 px-1 text-[10px] text-acc">仅当 {r.condition}</span>
             )}
+            {/* M62-I187: rule-level routing badge */}
+            {r.channels?.length ? (
+              <span className="ml-1 rounded bg-indigo-500/10 px-1 text-[10px] text-indigo-400">
+                {r.channels.includes("inapp") ? "🔔" : ""}{r.channels.includes("email") ? "✉" : ""}
+              </span>
+            ) : (
+              <span className="ml-1 text-[10px] text-mut" title="跟随全局通知偏好">跟随全局</span>
+            )}
             {r.paused && <span className="ml-1 rounded bg-warn/10 px-1 text-[10px] text-warn">已暂停</span>}
           </span>
           <button onClick={() => togglePause(r.project_id, r.event_type, !r.paused)}
@@ -449,6 +462,22 @@ function WatchRulesSection() {
         <span>=</span>
         <input value={condVal} onChange={(e) => setCondVal(e.target.value)} placeholder="值"
           className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5" />
+      </div>
+      {/* M62-I187: rule-level channel routing — empty selection = follow global */}
+      <div className="flex items-center gap-1 text-[10px] text-mut" title="不选=跟随全局通知偏好；选择后此规则只走所选渠道">
+        <span>渠道</span>
+        {(["inapp", "email"] as const).map((c) => {
+          const on = newChans.includes(c);
+          return (
+            <button key={c}
+              onClick={() => setNewChans(on ? newChans.filter((x) => x !== c) : [...newChans, c])}
+              className={cx("rounded border px-1.5 py-0.5",
+                on ? "border-acc text-acc" : "border-line text-mut hover:text-ink")}>
+              {c === "inapp" ? "🔔 站内" : "✉ 邮件"}
+            </button>
+          );
+        })}
+        {!newChans.length && <span>跟随全局</span>}
       </div>
     </div>
   );

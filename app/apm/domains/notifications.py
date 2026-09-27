@@ -158,10 +158,18 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
     return out
 
 
-def _notify(conn, e, user_id: str, kind: str, summary: str) -> None:
+def _notify(conn, e, user_id: str, kind: str, summary: str,
+            channels: list | None = None) -> None:
     if not user_id:
         return
-    if not pref_allows(conn, user_id, kind, "inapp"):
+    # M62-I187: rule-level routing override (docs/01 §BG.2) — when the source
+    # payload carries a channels list, it replaces the kind×channel pref for
+    # this notification only (Slack per-channel "override global" semantics);
+    # absent = follow global (I96 semantics unchanged).
+    if channels is not None:
+        if "inapp" not in channels:
+            return
+    elif not pref_allows(conn, user_id, kind, "inapp"):
         return  # I96: per-kind in-app gate
     # Deterministic id (source event seq + user): rebuild reproduces the exact
     # same ids, so notification.read payload ids keep matching after replay.
@@ -187,7 +195,9 @@ def _proj_notify_approval(conn, e):
 @on("notification.sent")
 def _proj_notify_sent(conn, e):
     p = e.payload
-    _notify(conn, e, p.get("user_id"), p.get("kind", "notify"), p.get("summary", ""))
+    override = p.get("channels") if isinstance(p.get("channels"), list) else None
+    _notify(conn, e, p.get("user_id"), p.get("kind", "notify"), p.get("summary", ""),
+            channels=override)
 
 
 @on("comment.created")

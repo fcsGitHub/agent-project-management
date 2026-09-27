@@ -359,3 +359,90 @@ def test_watch_run_notification_carries_run_id(client, project):
           if n["kind"] == "watch"]
     assert len(wk) == 1 and wk[0].get("run_id") == "r_link1"
     client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_channels_override_inapp(client, project):
+    """M62-I187 规则级渠道路由：channels=["email"] → notification.sent 带
+    channels、站内投影静默；PATCH channels=[] 回退全局 → 站内恢复；
+    非法渠道 422；GET /watch-rules 透出 channels。"""
+    pid = project
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
+    assert client.post(f"/api/projects/{pid}/members",
+                       json={"user_id": "qa-wang", "role": "contributor"}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    assert client.post(f"/api/projects/{pid}/watch-rules",
+                       json={"event_type": "item.created", "channels": ["email"]}).status_code == 200
+    # 非法渠道值 422（白名单外 / 非列表）
+    assert client.post(f"/api/projects/{pid}/watch-rules",
+                       json={"event_type": "comment.created", "channels": ["sms"]}).status_code == 422
+
+    rules = client.get("/api/watch-rules").json()["rules"]
+    row = next(r for r in rules if r["event_type"] == "item.created")
+    assert row["channels"] == ["email"]
+
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    client.post(f"/api/projects/{pid}/items",
+                json={"concept_id": "task", "title": "仅邮件的动态"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    notes = client.get("/api/notifications").json()["notifications"]
+    assert not [n for n in notes if n["kind"] == "watch"]  # 站内被规则覆盖掉
+    sent = client.get("/api/events",
+                      params={"event_type": "notification.sent"}).json()["events"]
+    hit = next(e for e in sent if e["payload"].get("kind") == "watch"
+               and "仅邮件" in e["payload"].get("summary", ""))
+    assert hit["payload"]["channels"] == ["email"]  # 覆盖随事件在册
+
+    # PATCH channels=[] 回退全局 → 站内恢复（单事实携带全量新态）
+    assert client.patch(f"/api/projects/{pid}/watch-rules/item.created",
+                        json={"channels": []}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+    client.post(f"/api/projects/{pid}/items",
+                json={"concept_id": "task", "title": "回全局的动态"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    notes2 = client.get("/api/notifications").json()["notifications"]
+    assert [n for n in notes2 if n["kind"] == "watch"], "回退全局后站内应恢复"
+    rules2 = client.get("/api/watch-rules").json()["rules"]
+    row2 = next(r for r in rules2 if r["event_type"] == "item.created")
+    assert row2["channels"] is None
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+
+def test_watch_channels_email_gate_in_mailer(client, project, monkeypatch):
+    """M62-I187 邮件侧：channels 覆盖绕过 kind 邮件偏好；不含 email 则跳过；
+    无覆盖走全局门（I96 语义不变）。用户级门（邮箱地址等）不受覆盖影响。"""
+    from apm.core import events as _ev
+    from apm.domains import mailer
+    from apm.domains.notifications import pref_allows
+
+    monkeypatch.setattr(config.settings, "smtp_host", "127.0.0.1")
+    monkeypatch.setattr(config.settings, "smtp_from", "agentpm@test.local")
+    monkeypatch.setattr(config.settings, "smtp_port", 587)
+
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "email": "qa@x.local"})
+    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    # 全局偏好显式关 watch 邮件——证明覆盖确实绕过的是这扇门
+    assert client.put("/api/me/notification-prefs", json={
+        "prefs": [{"kind": "watch", "inapp": True, "email": False}]}).status_code == 200
+    client.post("/api/session/identity", json={"user_id": "u_admin"})
+
+    conn = db.get_conn()
+    assert not pref_allows(conn, "qa-wang", "watch", "email")
+
+    captured: list[dict] = []
+    monkeypatch.setattr(mailer._queue, "put_nowait", lambda item: captured.append(item))
+
+    def _evt(channels):
+        payload = {"user_id": "qa-wang", "kind": "watch", "summary": "s"}
+        if channels:
+            payload["channels"] = channels
+        return _ev.Event(id=990001, ts="2026-09-27T00:00:00+00:00", actor_type="system",
+                         actor_id="test", project_id=project, agg_type="project",
+                         agg_id=project, event_type="notification.sent",
+                         payload=payload, prev_event_id=0)
+
+    mailer.enqueue(_evt(None))
+    assert captured == []          # 无覆盖 → 全局邮件门拦下（I96 不变）
+    mailer.enqueue(_evt(["email"]))
+    assert len(captured) == 1      # 规则覆盖 → 绕过 kind 偏好入队
+    mailer.enqueue(_evt(["inapp"]))
+    assert len(captured) == 1      # 覆盖不含 email → 邮件跳过

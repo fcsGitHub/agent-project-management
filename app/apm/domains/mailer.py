@@ -54,8 +54,17 @@ def enqueue(event: events.Event) -> None:
         logger.exception("mail recipient resolution failed for #%s", event.id)
         return
     conn = db.get_conn()
+    # M62-I187: rule-level channel routing rides on notification.sent payloads
+    # (docs/01 §BG.2) — a channels list replaces the kind×channel email pref
+    # for these pairs; user-level gates (address, email_notify, quiet hours)
+    # still apply: a rule re-routes, it never overruns DND.
+    override = event.payload.get("channels") \
+        if isinstance(event.payload.get("channels"), list) else None
     for user_id, kind, summary in pairs:
-        if not pref_allows(conn, user_id, kind, "email"):
+        if override is not None:
+            if "email" not in override:
+                continue  # this rule routes away from email
+        elif not pref_allows(conn, user_id, kind, "email"):
             continue  # I96: per-kind email gate (same gate the in-app channel uses)
         row = conn.execute(
             "SELECT email, email_notify, quiet_start, quiet_end FROM users WHERE id = ?",

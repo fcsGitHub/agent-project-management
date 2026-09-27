@@ -43,10 +43,10 @@ WATCHABLE_EVENTS = (
 @on("watch.added")
 def _proj_watch_added(conn, e):
     conn.execute(
-        "INSERT INTO watch_rules (user_id, project_id, event_type, condition_json, created_at)"
-        " VALUES (?,?,?,?,?) ON CONFLICT(user_id, project_id, event_type) DO NOTHING",
+        "INSERT INTO watch_rules (user_id, project_id, event_type, condition_json, channels, created_at)"
+        " VALUES (?,?,?,?,?,?) ON CONFLICT(user_id, project_id, event_type) DO NOTHING",
         (e.payload["user_id"], e.project_id, e.payload["event_type"],
-         e.payload.get("condition_json"), e.ts),
+         e.payload.get("condition_json"), e.payload.get("channels_json"), e.ts),
     )
 
 
@@ -62,14 +62,18 @@ def _proj_watch_removed(conn, e):
 def _proj_watch_updated(conn, e):
     # M57-I171: in-place edit / pause (Zapier toggle semantics — paused keeps
     # the config). Full-row upsert; created_at survives via COALESCE.
+    # M62-I187: channels rides the same single fact (缺键=NULL=跟随全局——
+    # M57 时代的旧事件重放自然回到跟随全局，与当时状态一致).
     conn.execute(
-        "INSERT INTO watch_rules (user_id, project_id, event_type, condition_json, paused, created_at)"
-        " VALUES (?,?,?,?,?,COALESCE((SELECT created_at FROM watch_rules"
+        "INSERT INTO watch_rules (user_id, project_id, event_type, condition_json, channels, paused, created_at)"
+        " VALUES (?,?,?,?,?,?,COALESCE((SELECT created_at FROM watch_rules"
         "  WHERE user_id = ? AND project_id = ? AND event_type = ?), ?))"
         " ON CONFLICT(user_id, project_id, event_type) DO UPDATE SET"
-        " condition_json=excluded.condition_json, paused=excluded.paused",
+        " condition_json=excluded.condition_json, channels=excluded.channels,"
+        " paused=excluded.paused",
         (e.payload["user_id"], e.project_id, e.payload["event_type"],
-         e.payload.get("condition_json"), 1 if e.payload.get("paused") else 0,
+         e.payload.get("condition_json"), e.payload.get("channels_json"),
+         1 if e.payload.get("paused") else 0,
          e.payload["user_id"], e.project_id, e.payload["event_type"], e.ts),
     )
 
@@ -81,6 +85,10 @@ class WatchIn(BaseModel):
     # the rule to deliver. No expression engine: flat equality covers the
     # 80% (「只关注完成」「只看新建」) without JEXL-style over-engineering.
     condition: dict = {}
+    # M62-I187: rule-level channel routing (docs/01 §BG.2) — None = follow
+    # the global kind×channel prefs (I96 semantics unchanged); a non-empty
+    # subset of {inapp, email} overrides routing for THIS rule only.
+    channels: list[str] | None = None
 
 
 class WatchTemplateRule(BaseModel):
@@ -121,6 +129,34 @@ def _parse_condition(condition_json: str | None) -> dict:
     return cond if isinstance(cond, dict) else {}
 
 
+_RULE_CHANNELS = ("inapp", "email")
+
+
+def _serialize_channels(channels: list[str] | None) -> str | None:
+    """M62-I187: None/[] → NULL (follow global prefs); otherwise a deduped
+    subset of {inapp, email}. An empty override at create time is just "no
+    override"; muting a rule is paused's job, so patches use [] to reset."""
+    if not channels:
+        return None
+    if not isinstance(channels, list) or not all(
+            isinstance(c, str) and c in _RULE_CHANNELS for c in channels):
+        raise HTTPException(
+            status_code=422, detail=f"channels must be a subset of {_RULE_CHANNELS}")
+    import json
+    return json.dumps(list(dict.fromkeys(channels)))
+
+
+def _parse_channels(channels_json: str | None) -> list[str] | None:
+    if not channels_json:
+        return None
+    import json
+    try:
+        ch = json.loads(channels_json)
+    except Exception:
+        return None
+    return ch if isinstance(ch, list) and ch else None
+
+
 def _require_member(project_id: str) -> str:
     from apm.domains.members import member_role
     from apm.domains.projects import require_project
@@ -147,10 +183,12 @@ def add_watch_rule(project_id: str, body: WatchIn) -> dict:
         event_type="watch.added", agg_type="project", agg_id=project_id,
         project_id=project_id,
         payload={"user_id": me, "event_type": body.event_type,
-                 "condition_json": _serialize_condition(body.condition)},
+                 "condition_json": _serialize_condition(body.condition),
+                 "channels_json": _serialize_channels(body.channels)},
     )
     return {"project_id": project_id, "user_id": me,
-            "event_type": body.event_type, "watching": True}
+            "event_type": body.event_type, "watching": True,
+            "channels": _parse_channels(_serialize_channels(body.channels))}
 
 
 @router.delete("/projects/{project_id}/watch-rules/{event_type}")
@@ -172,35 +210,43 @@ def remove_watch_rule(project_id: str, event_type: str) -> dict:
 
 class WatchPatchIn(BaseModel):
     # M57-I171: both optional — omit a field to keep it unchanged.
+    # M62-I187: channels omitted = keep; [] = reset to follow-global; a
+    # non-empty subset = override routing for this rule.
     condition: dict | None = None
     paused: bool | None = None
+    channels: list[str] | None = None
 
 
 @router.patch("/projects/{project_id}/watch-rules/{event_type}")
 def patch_watch_rule(project_id: str, event_type: str, body: WatchPatchIn) -> dict:
-    """In-place edit / pause (M57-I171, docs/01 §BB.1): change the condition or
-    toggle paused without the delete+recreate dance — the rule's identity and
-    created_at survive, one `watch.updated` fact carries the full new state,
-    and paused rules simply stop matching at the hook (config preserved)."""
+    """In-place edit / pause / re-route (M57-I171 + M62-I187): change the
+    condition, toggle paused or override channels without the delete+recreate
+    dance — the rule's identity and created_at survive, one `watch.updated`
+    fact carries the full new state, and paused rules simply stop matching at
+    the hook (config preserved)."""
     me = _require_member(project_id)
     conn = db.get_conn()
     row = conn.execute(
-        "SELECT condition_json, paused FROM watch_rules"
+        "SELECT condition_json, paused, channels FROM watch_rules"
         " WHERE user_id = ? AND project_id = ? AND event_type = ?",
         (me, project_id, event_type)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="not watching")
     cond_json = _serialize_condition(body.condition) \
         if body.condition is not None else row["condition_json"]
+    channels_json = _serialize_channels(body.channels) \
+        if body.channels is not None else row["channels"]
     paused = bool(row["paused"]) if body.paused is None else body.paused
     events.emit(
         event_type="watch.updated", agg_type="project", agg_id=project_id,
         project_id=project_id,
         payload={"user_id": me, "event_type": event_type,
-                 "condition_json": cond_json, "paused": paused},
+                 "condition_json": cond_json, "paused": paused,
+                 "channels_json": channels_json},
     )
     return {"project_id": project_id, "user_id": me,
-            "event_type": event_type, "paused": paused}
+            "event_type": event_type, "paused": paused,
+            "channels": _parse_channels(channels_json)}
 
 
 @router.get("/watch-rules")
@@ -210,10 +256,15 @@ def list_watch_rules() -> dict:
     rows = db.get_conn().execute(
         "SELECT w.project_id AS project_id, w.event_type AS event_type,"
         " w.created_at AS created_at, COALESCE(p.name, w.project_id) AS project_name,"
-        " w.condition_json AS condition, w.paused AS paused"
+        " w.condition_json AS condition, w.paused AS paused, w.channels AS channels"
         " FROM watch_rules w LEFT JOIN projects p ON p.id = w.project_id"
         " WHERE w.user_id = ? ORDER BY w.created_at DESC", (me,)).fetchall()
-    return {"rules": [dict(r) for r in rows]}
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["channels"] = _parse_channels(d.get("channels"))
+        out.append(d)
+    return {"rules": out}
 
 
 @router.get("/watch-rules/export")
@@ -287,8 +338,8 @@ def _on_event(event: events.Event) -> None:
         if event.event_type not in WATCHABLE_EVENTS or not event.project_id:
             return
         conn = db.get_conn()
-        matched = [(r["user_id"], r["condition_json"]) for r in conn.execute(
-            "SELECT user_id, condition_json FROM watch_rules"
+        matched = [(r["user_id"], r["condition_json"], r["channels"]) for r in conn.execute(
+            "SELECT user_id, condition_json, channels FROM watch_rules"
             " WHERE project_id = ? AND event_type = ? AND paused = 0"
             " ORDER BY user_id", (event.project_id, event.event_type)).fetchall()]
         if not matched:
@@ -304,7 +355,7 @@ def _on_event(event: events.Event) -> None:
             except Exception:
                 return True  # 写入侧已校验；防御坏数据不吞通知
             return all(event.payload.get(k) == v for k, v in cond.items())
-        matched = [(uid, cj) for uid, cj in matched if _hit(cj)]
+        matched = [(uid, cj, chj) for uid, cj, chj in matched if _hit(cj)]
         if not matched:
             return
         # context for the summary: item title when the event is item-scoped;
@@ -329,7 +380,7 @@ def _on_event(event: events.Event) -> None:
                                 (event.project_id,)).fetchone()
         pname = name_row["name"] if name_row else event.project_id
         seen: set[str] = set()
-        for uid, _cj in matched:
+        for uid, _cj, chj in matched:
             if uid in seen:
                 continue  # 多规则命中单份（同一事件同一用户）
             seen.add(uid)
@@ -346,6 +397,12 @@ def _on_event(event: events.Event) -> None:
                 # M58-I175: the bell deep-links to the run drawer (CI "link to
                 # the logs" semantics)
                 extra["run_id"] = event.agg_id
+            # M62-I187: rule-level channel routing rides in the payload —
+            # the projector (inapp) and the mailer (email) honor it over the
+            # global kind prefs; absent = follow global (I96 semantics).
+            override = _parse_channels(chj)
+            if override:
+                extra["channels"] = override
             events.emit(
                 event_type="notification.sent", agg_type="project",
                 agg_id=event.project_id, project_id=event.project_id,
