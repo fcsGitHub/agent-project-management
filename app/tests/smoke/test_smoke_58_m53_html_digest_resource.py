@@ -89,9 +89,12 @@ def test_smoke_58_m53_html_digest_resource_buckets(client, tmp_data, isolated_on
                           json={"concept_id": "task", "title": "超期项",
                                 "due_date": "2026-01-05", "estimate_hours": 6}).json()
     assert it_late["id"]
-    today = date.today()
+    # 锚点用服务端时钟（_now 是 UTC——local 已跨日时 date.today() 会错桶：
+    # 9-28 周一 00:31 本地 = 9-27 周日 UTC，local monday+8 落出 UTC 的 14 天窗）
+    from apm.domains.reports import _now as _report_now
+    today = _report_now().date()
     monday = today - timedelta(days=today.weekday())
-    next_week = (monday + timedelta(days=8)).isoformat()  # 下下周的周二
+    next_week = (monday + timedelta(days=8)).isoformat()  # 下周的周二
     it_next = client.post(f"/api/projects/{pid}/items",
                           json={"concept_id": "task", "title": "下周项",
                                 "due_date": next_week, "estimate_hours": 12}).json()
