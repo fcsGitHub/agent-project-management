@@ -743,8 +743,14 @@ export const api = {
 
   // Project members & roles (M8-I27)
   listMembers: (pid: string) =>
-    req<{ members: { user_id: string; role: string; name?: string; created_at: string }[] }>(
+    req<{ members: { user_id: string; role: string; name?: string; created_at: string; notify_level?: string | null }[] }>(
       `/projects/${pid}/members`,
+    ),
+  // M63-I190: per-member notification level (null = 默认参与即响, "mentions_only" = 参与类静音)
+  setMemberNotifyLevel: (pid: string, userId: string, level: string | null) =>
+    req<{ user_id: string; level: string | null }>(
+      `/projects/${pid}/members/${userId}/notify-level`,
+      { method: "PATCH", body: JSON.stringify({ level }) },
     ),
   addMember: (pid: string, body: { user_id: string; role?: string }) =>
     req<{ project_id: string; user_id: string; role: string }>(

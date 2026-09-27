@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS project_members (
   project_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   role TEXT NOT NULL,
+  notify_level TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (project_id, user_id)

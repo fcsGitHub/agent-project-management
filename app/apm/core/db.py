@@ -140,6 +140,10 @@ def init_db() -> None:
         pcols2 = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "budget_hours" not in pcols2:
             conn.execute("ALTER TABLE projects ADD COLUMN budget_hours REAL")
+        # M63-I190: 存量库补 project_members.notify_level（NULL=默认参与即响）。
+        mcols = {r["name"] for r in conn.execute("PRAGMA table_info(project_members)").fetchall()}
+        if mcols and "notify_level" not in mcols:
+            conn.execute("ALTER TABLE project_members ADD COLUMN notify_level TEXT")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

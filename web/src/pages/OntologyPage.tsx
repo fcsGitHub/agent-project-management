@@ -702,11 +702,22 @@ function MembersPanel({ pid }: { pid: string }) {
       <div className="mt-3 space-y-1.5">
         {(members.data?.members ?? []).map((m) => {
           const rb = MEMBER_ROLE[m.role] ?? { label: m.role, tone: "neutral" as const };
+          const muted = m.notify_level === "mentions_only";
           return (
             <div key={m.user_id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs">
               <span className="font-medium">{m.name || m.user_id}</span>
               <span className="font-mono text-[10px] text-mut">{m.user_id}</span>
               <Badge tone={rb.tone}>{rb.label}</Badge>
+              <button
+                title={muted ? "参与类通知已静音（提及/指派/审批/到期/关注规则照常）——点击恢复默认" : "将该成员在本项目的参与类通知静音（提及与审批照达）"}
+                onClick={async () => {
+                  await api.setMemberNotifyLevel(pid, m.user_id, muted ? null : "mentions_only");
+                  invalidate();
+                }}
+                className={cx("rounded-md border px-1.5 py-0.5 text-[10px]",
+                  muted ? "border-warn bg-warn/10 text-warn" : "border-line text-mut hover:text-ink")}>
+                {muted ? "🔕 仅提及" : "🔔 默认"}
+              </button>
               {m.role !== "owner" && (
                 <span className="ml-auto flex gap-1">
                   {Object.entries(MEMBER_ROLE).filter(([r]) => r !== m.role).map(([r, def]) => (

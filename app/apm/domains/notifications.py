@@ -115,6 +115,8 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         preview = (p.get("body") or "")[:60]
         for r in conn.execute(
                 "SELECT user_id FROM item_participants WHERE item_id = ?", (item_id,)):
+            if _notify_muted(conn, e.project_id, r["user_id"]):
+                continue  # M63-I190: mentions_only member — participant noise muted
             if r["user_id"] not in skip:
                 out.append((r["user_id"], "comment",
                             f"参与的工作项「{title}」有新评论：{preview}"))
@@ -124,6 +126,8 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         title = _item_title(conn, e.agg_id)
         for r in conn.execute(
                 "SELECT user_id FROM item_participants WHERE item_id = ?", (e.agg_id,)):
+            if _notify_muted(conn, e.project_id, r["user_id"]):
+                continue  # M63-I190: mentions_only member — participant noise muted
             if r["user_id"] != e.actor_id:
                 out.append((r["user_id"], "item",
                             f"参与的工作项「{title}」状态变更为 {e.payload.get('status', '?')}"))
@@ -156,6 +160,16 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         for user_id in recipients:
             out.append((user_id, "approval_reminder", label))
     return out
+
+
+def _notify_muted(conn, project_id: str, user_id: str) -> bool:
+    """M63-I190: member-level "mentions_only" downgrade (docs/01 §BH.2) —
+    participant-kind branches consult this; mention/assignment/approval/
+    due_soon/watch-rule branches do NOT (governance must reach you)."""
+    row = conn.execute(
+        "SELECT notify_level FROM project_members WHERE project_id = ? AND user_id = ?",
+        (project_id, user_id)).fetchone()
+    return bool(row and row["notify_level"] == "mentions_only")
 
 
 def _notify(conn, e, user_id: str, kind: str, summary: str,

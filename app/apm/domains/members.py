@@ -39,6 +39,17 @@ def _proj_member_role_changed(conn, e):
     )
 
 
+@on("project.member_notify_level")
+def _proj_member_notify_level(conn, e):
+    # M63-I190: per-member notification level (docs/01 §BH.2) — NULL = default
+    # "participating" noise, "mentions_only" mutes participant-kind branches.
+    conn.execute(
+        "UPDATE project_members SET notify_level = ?, updated_at = ?"
+        " WHERE project_id = ? AND user_id = ?",
+        (e.payload.get("level"), e.ts, e.project_id, e.payload["user_id"]),
+    )
+
+
 @on("project.member_removed")
 def _proj_member_removed(conn, e):
     conn.execute(
@@ -58,7 +69,7 @@ def member_role(project_id: str, user_id: str) -> str | None:
 
 def list_members(project_id: str) -> list[dict]:
     rows = db.get_conn().execute(
-        "SELECT m.user_id, m.role, m.created_at, u.name"
+        "SELECT m.user_id, m.role, m.notify_level, m.created_at, u.name"
         " FROM project_members m LEFT JOIN users u ON u.id = m.user_id"
         " WHERE m.project_id = ? ORDER BY m.created_at, m.user_id",
         (project_id,),
@@ -189,6 +200,42 @@ def change_role(project_id: str, body: MemberRoleIn, request: Request) -> dict:
         payload={"user_id": body.user_id, "role": body.role},
     )
     return {"project_id": project_id, "user_id": body.user_id, "role": body.role}
+
+
+NOTIFY_LEVELS = (None, "mentions_only")
+
+
+class MemberNotifyLevelIn(BaseModel):
+    # M63-I190: None = 默认（参与即响）；"mentions_only" = 参与类静音。
+    level: str | None = None
+
+
+@router.patch("/projects/{project_id}/members/{user_id}/notify-level")
+def set_notify_level(project_id: str, user_id: str, body: MemberNotifyLevelIn, request: Request) -> dict:
+    """Per-member notification level (M63-I190, docs/01 §BH.2 — GitHub watch
+    三档取两档: Ignore 连提及都吞过于激进, 取 Slack「保留直接提及」语义).
+    Owner/admin may set anyone; a member may always downgrade themselves.
+    Governance-critical notifications (mention/assignment/approval/due_soon/
+    watch rules) bypass this level entirely."""
+    require_project(project_id)
+    if body.level not in NOTIFY_LEVELS:
+        raise HTTPException(status_code=422, detail=f"level must be one of {NOTIFY_LEVELS}")
+    if not member_role(project_id, user_id):
+        raise HTTPException(status_code=404, detail=f"user '{user_id}' is not a member")
+    # 本人可降级自己；否则需 owner/admin（_require_member_manager 语义）
+    caller = _session_user(request) if config.settings.auth_mode == "network" else config.settings.user_id
+    if caller != user_id:
+        _require_member_manager(project_id, request)
+    events.emit(
+        event_type="project.member_notify_level",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        actor_type="human",
+        actor_id=caller,
+        payload={"user_id": user_id, "level": body.level},
+    )
+    return {"project_id": project_id, "user_id": user_id, "level": body.level}
 
 
 @router.delete("/projects/{project_id}/members/{user_id}")
