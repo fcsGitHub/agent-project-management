@@ -59,7 +59,7 @@ export function Dashboard() {
       <Card className="p-4 md:col-span-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold">🗺 组合总览</span>
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-3">
             <Link to="/roadmap" className="text-xs text-acc hover:underline">📅 路线图</Link>
             <Link to="/workload" className="text-xs text-acc hover:underline">👥 负载</Link>
             <PrintButton />
@@ -78,7 +78,7 @@ export function Dashboard() {
             return (
             <Link key={p.project_id} to={`/p/${p.project_id}`}
               className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-xs hover:border-acc">
-              <span className="w-32 shrink-0 truncate font-medium">{p.name}</span>
+              <span className="w-24 shrink-0 truncate font-medium sm:w-32">{p.name}</span>
               <span title="项目健康评分（CHAOSS 多因子语义：超期/滞留/吞吐/Gate 四因子加权）">
                 {score != null ? (
                   <Badge tone={score >= 80 ? "green" : score >= 60 ? "amber" : "red"}>
@@ -89,7 +89,7 @@ export function Dashboard() {
                 )}
               </span>
               {/* M60-I181: 健康趋势方向 + 中位完成周期（Flow 归因入口） */}
-              <span className="w-20 shrink-0 text-right text-mut"
+              <span className="w-14 shrink-0 text-right text-mut sm:w-20"
                 title="健康趋势（近 30 天首尾对比）· 中位完成周期天数（Flow 指标）">
                 {(() => {
                   const t = trendMap.get(p.project_id);
@@ -106,8 +106,8 @@ export function Dashboard() {
                     style={{ width: `${p.items_active + p.funnel.done ? (p.funnel[k] ?? 0) / Math.max(Object.values(p.funnel).reduce((a, b) => a + b, 0), 1) * 100 : 0}%` }} />
                 ))}
               </div>
-              <span className="w-20 shrink-0 text-right text-mut">活跃 {p.items_active}</span>
-              <span className="w-16 shrink-0 text-right text-mut">⏱ {fmtMinutes(p.timelog_minutes)}</span>
+              <span className="hidden w-20 shrink-0 text-right text-mut sm:block">活跃 {p.items_active}</span>
+              <span className="hidden w-16 shrink-0 text-right text-mut md:block">⏱ {fmtMinutes(p.timelog_minutes)}</span>
               {p.overdue > 0 && <Badge tone="red">超期 {p.overdue}</Badge>}
               {p.gates_pending > 0 && <Badge tone="amber">◆ {p.gates_pending}</Badge>}
             </Link>

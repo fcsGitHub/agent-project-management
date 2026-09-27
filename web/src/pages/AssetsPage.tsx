@@ -46,7 +46,7 @@ export function AssetsPage() {
                 {l.icon} {l.label}
               </button>
             ))}
-            <Input className="w-48" placeholder="🔍 搜索资产…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input className="w-36 sm:w-48" placeholder="🔍 搜索资产…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">

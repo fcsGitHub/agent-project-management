@@ -159,7 +159,7 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
                   s.span_kind === "generation" ? "bg-indigo-400" : "bg-acc";
                 return (
                   <div key={s.id} className="group flex items-center gap-2 text-[11px]">
-                    <span className="w-52 shrink-0 truncate font-mono text-mut" title={s.name}>
+                    <span className="w-32 shrink-0 truncate font-mono text-mut sm:w-52" title={s.name}>
                       {iconOf(s.span_kind)} {s.name}
                     </span>
                     <div className="relative h-3.5 flex-1 overflow-hidden rounded bg-bg">
