@@ -1712,3 +1712,33 @@ M60 = **运维韧性与组合洞察三件套**：I180 备份/恢复演练工具�
 **BF.5 M61 取舍**
 
 M61 = **治理观测与轨迹可寻三件套**：I183 事件表体积观测（先测后治——拒绝过早优化的证据基线）/ I184 会话搜索与导出（被遗忘对话问题的组织内解法——红利第十三例）/ I185 移动端审计刷新+冒烟 66+审阅，约 9 人日。事件流截断/快照（破坏 live==replay，§K.3 裁决维持——观测替治理）、PWA/原生 App（§N.2 裁决维持）、320px 极小屏专项（375px 为审计基线，320 留证据）、会话跨项目聚合视图（`_visible` 口径已覆盖，单独视图无增量）、消息级全文高亮定位（跳转会话详情已够，N=1 证据不足）留 backlog。
+
+## BG. M62 前置调研：端点性能观测 / watch 规则渠道偏好 / Agent 用量聚合（2026-09-27）
+
+> 目标协议触发：M61 完成后开启。防重查：候选池 grep——端点性能观测（**§M25 只调研过分页扩展[keyset]，M48-I146 做过并发治理[修锁不测延迟]，M61-I183 观测的是数据体积不是耗时——端点延迟观测无记录**）、watch 规则渠道偏好（pref_allows 矩阵自 I96 是 kind×channel 全局档，**规则级覆盖无调研无实现**）、审批中心刷新（§AN.2 已调研 SLA/超时[I126 timer→reminder→escalate]+M42 升级链清账，批量审批 M2 即有——**刷新缺研究增量，降级不查**）、Agent 用量聚合（§Q/M44 调研过 Langfuse 标准面[latency/token/cost/错误率按项目模型聚合]，**但组合级聚合端点从未建——runs 投影已记账[tokens/estimated_cost_usd]只差读侧**）。本轮三路新调研（FastAPI/SQLite 延迟观测实践 / 通知路由的渠道选择 UX / LLM spend 分析面），选定 **M62 = 性能观测与用量聚合三件套**。
+
+**BG.1 端点性能观测（「先测后治」的延迟版——BF.1 姊妹题）**
+
+- 工程共识（[FastAPI Middleware](https://fastapi.tiangolo.com)/[FastAPI Observability Lab](https://pub.towardsai.net)/[TDS Observability](https://tds.s-anand.net)）：中间件「before/after 每个请求都跑」是**请求计时/慢请求日志的标准位**——`time.perf_counter()` 包 `call_next`，超阈值（如 500ms）落慢日志；p95/p99 由聚合侧算（Prometheus histogram 语义），单机不引 Prometheus 则聚合入内存环形桶或落日志。SQLite 侧（[Stackademic WAL 笔记](https://blog.stackademic.com)/[chat2db 低延迟清单](https://chat2db.ai)）：审计套路=`EXPLAIN QUERY PLAN` 看 **SCAN（全表扫）vs SEARCH ... USING INDEX**；OR 无法合并双索引时改写 UNION；热端点 WHERE/ORDER BY 列补覆盖索引，schema 变更后复查。
+- 对本项目的映射：`GET /system/slow-endpoints`（内存环形桶 per 路径计数+均值+最大耗时，超阈值样本保留——零依赖零新表，纯内存观测面）+ ASGI 计时中间件（读侧埋点不进事件流——**延迟遥测是运行时数据不是领域事实，入流会污染 live==replay**，与 token_delta 瞬态广播同理[M46 裁决]）；SQLite 索引审计=开发侧一次性动作（对热点查询跑 EXPLAIN QUERY PLAN，补缺失索引入 schema），不做在线分析器。
+
+**BG.2 watch 规则渠道偏好（规则级路由的渠道选择）**
+
+- 产品语义（[Jira+Slack 多条件路由](https://community.atlassian.com/forums/Automation-questions/Jira-Slack-Multiple-Notification-Conditions/qaq-p/1856886)/[Troopr Jira 通知指南](https://www.troopr.ai/post/jira-notifications-in-slack)/[PullNotifier GitHub 对比](https://pullnotifier.com/github-slack-integration)）：主流 UX 三型=**渠道内订阅管理**（`/github subscribe` 在频道里跑——Slack 语义，AgentPM 无第三方渠道不适用）、**自动化规则+目的地**（Jira Automation：条件→渠道，规则即路由）、**事件类型/过滤器路由**；常见痛点=规则重叠、跨实体错路由（[GitHub 社区 #196194](https://github.com/orgs/community/discussions/196194)）。Slack 自己的 per-channel preferences（[设置文档](https://slack.com/help/articles/218551037-Set-your-notification-preferences)）是「按会话覆盖全局」的母型。
+- 对本项目的映射：watch_rules 加 `channels` 列（NULL=跟随全局 pref_allows kind×channel 档[I96 语义不变]；`["inapp"]`/`["email"]`/双值=规则级覆盖）——**单事实携带全量新态**：watch.updated 事件已整行 upsert[I171]，payload 加 channels 即向后兼容（缺键=跟随全局，旧库事件自然兼容）；hook 投递侧查规则行内覆盖、无则回退 pref_allows；前端规则行加渠道多选片（站内/邮件）。**不做** 多目的地分发（一规则多渠道=复制通知，Jira Automation 语义在 N=1 单机是负担）。
+
+**BG.3 Agent 用量与成本聚合（Langfuse spend 面的组织内翻译）**
+
+- 平台现状（[Langfuse 自托管](https://langfuse.com)/[deeplake 对比](https://deeplake.ai)/[pyimagesearch RAG 可观测](https://pyimagesearch.com)）：Langfuse[MIT 自托管]提供 trace 级 token/成本聚合仪表盘（价格表自动算 cost，按 user/agent/model 过滤）；OpenLLMetry=OTel 埋点层喂给后端；轻量替代=dsh-suite 类专用 cost/token 聚合看板+预算告警。共同语义：**spend 面回答「钱花在哪类工作上了」**。
+- 对本项目的映射：**runs 投影自 M44 已记账**（total_input_tokens/total_output_tokens/estimated_cost_usd/agent_role/status/started_at）——`GET /portfolio/agent-usage` 纯读聚合（按 agent_role × 可见项目 GROUP BY：run 数/完成率/token 总量/成本合计/近 30 天窗口），**红利第十四例：账本事件已入流，聚合即得零埋点**；前端 Workload 页加「🤖 Agent 用量」卡（Top 角色行+成本+token）。**不做** 逐 run 明细第二入口（Runs 页已在）、预算告警（无消耗证据，N=1）、模型价格表管理（estimated_cost_usd 已在 run 落账时算好[M44]）。
+
+**BG.4 M62 设计映射与验证纪律（沿用）**
+
+- I186 端点性能观测：ASGI 计时中间件（perf_counter 环形桶 per 路径，阈值默认 500ms 可配）+ `GET /system/slow-endpoints`（admin 门）+ SQLite 索引审计（热点查询 EXPLAIN QUERY PLAN 核对，补缺失索引）+ 前端系统卡（Top 慢端点行）+ 单测（中间件计时/桶聚合/空态/慢样本保留/admin 403）。
+- I187 watch 规则渠道偏好：watch_rules.channels 列（ALTER 迁移）+ WatchPatchIn.channels 校验[NULL/空/双通道白名单] + hook 投递侧覆盖回退 pref_allows + watch.updated payload +channels + GET /watch-rules 透出 + 前端规则行渠道片 + 单测（覆盖生效/回退全局/旧库缺键兼容/坏值 422/rebuild）。
+- I188 Agent 用量聚合+冒烟 67+审阅：`GET /portfolio/agent-usage`（agent_role×项目聚合，_visible 口径）+ WorkloadPage「🤖 Agent 用量」卡 + 冒烟 67（慢端点观测 roundtrip→渠道覆盖与回退→用量聚合对账 runs 记账）+ 全量回归 + docs 收口 + M62 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M62 审阅 + **冒烟 67**。
+
+**BG.5 M62 取舍**
+
+M62 = **性能观测与用量聚合三件套**：I186 端点性能观测（延迟遥测运行时数据不进事件流——瞬态广播同理）/ I187 watch 规则渠道偏好（规则级覆盖回退全局——单事实携带全量新态）/ I188 Agent 用量聚合+冒烟 67+审阅（红利第十四例：runs 记账的读侧免费午餐），约 9 人日。Prometheus/Grafana 外导（单机内存桶够用）、慢请求全量落事件流（污染 live==replay）、多目的地分发、逐 run 用量第二入口、预算告警、模型价格表管理、审批中心刷新（SLA/升级链 M41/M42 已清账）留 backlog。

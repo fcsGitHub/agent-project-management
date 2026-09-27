@@ -1900,6 +1900,36 @@ agent-project-management/
 
 ---
 
+### M62 · 性能观测与用量聚合三件套（I186-I188，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BG 前置调研）。BF.1 观测了数据体积，本轮观测延迟（「先测后治」的姊妹题——中间件计时+EXPLAIN QUERY PLAN 索引审计，遥测是运行时数据不进事件流）；watch 规则加规则级渠道覆盖（回退全局 pref_allows——单事实携带全量新态）；Agent 用量聚合是 runs 记账自 M44 的读侧免费午餐（红利第十四例）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I186 | 端点性能观测（ASGI 计时中间件[perf_counter 环形桶 per 路径·阈值 500ms 可配] + `GET /system/slow-endpoints` admin 门 + SQLite 热点查询索引审计[EXPLAIN QUERY PLAN 补缺] + 系统卡 + 单测） | docs/01 §BG.1 | §BF.1 先测后治 | 3d |
+| I187 | watch 规则渠道偏好（watch_rules.channels 列[ALTER] + WatchPatchIn.channels 校验 + hook 投递覆盖回退 pref_allows + watch.updated payload +channels + 前端渠道片 + 单测） | docs/01 §BG.2 | I96/I171 | 3d |
+| I188 | Agent 用量聚合+冒烟 67+收尾审阅（`GET /portfolio/agent-usage`[agent_role×项目聚合·_visible 口径] + WorkloadPage 用量卡 + 冒烟 67[慢端点 roundtrip→渠道覆盖回退→用量对账] + 全量回归 + docs 收口 + M62 审阅） | docs/01 §BG.3 | M44 记账 | 3d |
+
+#### I186 · 端点性能观测（3d）
+
+- 任务：ASGI 计时中间件（`time.perf_counter()` 包 call_next，内存环形桶 per 请求路径：计数/均值/最大，>500ms 样本保留明细节点——**遥测不进事件流**：运行时数据非领域事实，与 token_delta 瞬态同理）+ `GET /system/slow-endpoints`（admin 门，Top 慢路径行）+ SQLite 索引审计：对热点查询（events 按 project_id/类型、items 看板、messages_search JOIN）跑 EXPLAIN QUERY PLAN，发现 SCAN 补索引入 schema；系统面板卡加「⏱ 慢端点」区。
+- DoD：单测（中间件计时记账/桶聚合正确/空态不炸/慢样本保留/admin 403/审计发现的索引生效）。
+- 演示路径：管理面板一眼看到「哪个路径最慢、慢样本长什么样」。
+
+#### I187 · watch 规则渠道偏好（3d）
+
+- 任务：watch_rules 加 `channels` TEXT 列（ALTER 迁移；NULL=跟随全局 pref_allows[I96 语义不变]；JSON 数组限 inapp/email 子集）+ WatchPatchIn.channels 可选字段校验 + post-emit hook 投递侧：规则行 channels 覆盖→无则回退 pref_allows 全局档 + `watch.updated` payload 加 channels（缺键=跟随全局——旧库事件自然兼容[I171 整行 upsert 单事实携带全量新态]）+ GET /watch-rules 透出 channels + 前端规则行渠道多选片（站内/邮件）与「跟随全局」徽标。
+- DoD：单测（规则级覆盖生效/NULL 回退全局/旧库缺键兼容/非法值 422/rebuild 一致/邮件通道真被抑制而站内保留）。
+- 演示路径：把某条关注设成「仅邮件」→ 触发事件 → 站内静默邮件照发；切回「跟随全局」恢复双通道。
+
+#### I188 · Agent 用量聚合+冒烟 67+收尾审阅（3d）
+
+- 任务：`GET /portfolio/agent-usage`（可见项目 runs 按 agent_role GROUP BY：run 数/完成率/输入输出 token/estimated_cost_usd 合计/近 30 天窗口——_visible 口径，红利第十四例）+ WorkloadPage「🤖 Agent 用量」卡（Top 角色行：run 数·token·成本徽标）+ **冒烟 67**（慢端点观测 roundtrip→渠道覆盖与回退 roundtrip→用量聚合对账 runs 记账）+ 全量回归 + docs 收口 + M62 审阅。
+- DoD：冒烟 67 GREEN；全量 pytest 分片收敛绿；用量合计与 runs 投影逐项对账。
+- 演示路径：「钱花在哪类工作上了」一眼可见；冒烟走「测得准→路得对→算得清」一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2100,6 +2130,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-27 M62 调研定义（§BG） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：端点性能观测[§M25 只调研过分页 keyset·M48-I146 并发治理修锁不测延迟·M61-I183 观测数据体积非耗时——延迟观测无记录]、watch 规则渠道偏好[pref_allows 自 I96 是 kind×channel 全局档——规则级覆盖无调研无实现]、审批中心刷新[§AN.2 SLA/超时 I126+M42 升级链已清账·批量 M2 即有——缺研究增量降级不查]、Agent 用量聚合[§Q/M44 调研过 Langfuse 标准面——组合级聚合端点从未建·runs 投影已记账只差读侧]。三路 WebSearch：端点延迟观测（FastAPI 中间件「before/after 每请求都跑」=计时/慢日志标准位·p95 聚合侧算·SQLite 审计=EXPLAIN QUERY PLAN 看 SCAN vs SEARCH USING INDEX·OR 双索引不可合并改 UNION）、通知路由渠道选择（Jira Automation 条件→目的地·Slack per-channel preferences=按会话覆盖全局母型·痛点=规则重叠与跨实体错路由——AgentPM 无第三方渠道故取「规则级覆盖回退全局」型）、LLM spend 分析（Langfuse MIT 自托管=trace 级 token/cost 聚合仪表盘·价格表自动算 cost·轻量替代=专用 cost/token 看板——spend 面回答「钱花在哪类工作上」）。定案 M62=性能观测与用量聚合三件套（I186 端点性能观测[I187 渠道偏好/I188 用量聚合]） |
 | **M61 治理观测与轨迹可寻三件套（I183-I185）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BF + docs/10 §M61）：I183 事件表体积观测（`GET /system/event-store-stats` 纯读端点[COUNT 总数 + PRAGMA page_count×page_size 库体积 + agg_type×event_type GROUP BY 分布计数降序 + MIN/MAX ts——事件日志只增是本质 §K.3 裁决归档=导出非删除·先测后治观测替治理·admin 门与 rebuild 同口径 403] + ActivityPage admin「🗄 事件库」卡[总数/体积/最早最新/Top5 分布徽标·非 admin 不渲染]——**截断/快照不做：单一全局流 live==replay 裁决维持，整库即流 zip 备份即快照**）/ I184 会话搜索与导出（schema `messages_search` FTS[CJK bigram 复用 _bigrams] + `@on("message.created")` 注册于消息投影器之后[live 追加与 rebuild 重放同序——**红利第十三例：消息本就是事件接进 ⌘K 零埋点**] + /search types=conversations[_visible 裁剪·snippet 120 字] + `GET /conversations/{id}/export` Markdown 转写[标题/项目/类型状态/起止/逐条角色·actor·时间·正文·parent 标注——人读通道与 NDJSON 机器导出互补 §K.3] + SearchPage 会话类型片与命中行 + ConversationView ⬇ 导出按钮——ChatGPT/Claude 侧栏只搜标题=forgotten conversation problem 的组织内解法）/ I185 移动端审计刷新+冒烟 66+审阅（375px 审计 M15 后新卡三处修复[Dashboard 组合行固定宽≈450px 溢出/RunsPage span 名/AssetsPage 搜索框]；壳层/通知弹层/WatchRules/等待我卡审计通过——M15 responsive-first 纪律仍成立）；端点性能观测[BF.1 姊妹题留调研]、watch 规则渠道偏好、320px 专项、消息级高亮定位[跳会话详情已够]留 backlog。基线：pytest **456** 全绿（非 smoke 390 EXIT=0 + smoke runner 66 GREEN 对账）+ 冒烟 **66** + vitest **18** + build 绿 |
 | 2026-09-27 M61 调研定义（§BF） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：事件表体积/归档[§K.3 裁决「归档=导出非删除」且导出/导入/备份工具齐备 M13/M14/M60——但体积观测端点从未落地]、移动端响应式[§N.2 调研过 PWA 路线 M15 选 responsive-first——但 M15 后 10+ 新页/新卡从未过 375px 审计=审计刷新非重复调研]、会话搜索/导出[§D 调研过轨迹数据模型——但消息既不可搜索也不可导出=产品化缺口非模型缺口]、新特性扫描[BC/BD/BE 三轮同向边际价值趋零并入维持项]。三路 WebSearch：事件溯源长期运行成长治理（EventStoreDB/Marten 三板斧=短流优先→快照→`$tb` 截断+冷存储归档·快照是优化不是默认读侧靠投影——AgentPM 单一全局流+live==replay 裁决=截断/快照不适用·整库即流 zip 备份即快照·缺的是「多大什么在涨多老」观测=先测后治）、移动端审计缺口（Polypane：375px 成为「开始测试」宽度 320px 被系统性忽略·企业仪表盘常见失败=导航重叠/表格横向溢出/按钮出屏/字号过小·System-First 审计法=先审壳层）、对话历史搜索 UX（ChatGPT 只搜标题+少量元数据/Claude 只搜标题——内容级检索两家都弱=forgotten conversation problem·社区为搜导出历史专门造工具=需求实证·导出被视为对抗锁定）。定案 M61=治理观测与轨迹可寻三件套（I183 体积观测/I184 会话搜索与导出/I185 移动端审计+冒烟 66） |
 | I183 事件表体积观测 | 已完成 | 2026-09-27 | 2026-09-27 | `GET /system/event-store-stats` 纯读端点（COUNT 总数 + PRAGMA page_count×page_size 库体积 + agg_type×event_type GROUP BY 分布[计数降序] + MIN/MAX ts 最早最晚——事件日志只增是本质[§K.3 归档=导出非删除·任何删除断 live==replay]·先测后治·治理动作若需则组合既有导出+备份无新机制·admin 门与 rebuild 同口径 403）+ ActivityPage admin「🗄 事件库」卡（总数/体积/最早最新/Top5 分布徽标·非 admin 不渲染·悬浮说明裁决语义）+ api.ts eventStoreStats + test_event_store_stats **3** 项[对账：分布求和=总数·空库 oldest/newest 诚实 None·network 登录非 admin 403·rebuild 后逐字段一致——**走真实重建端点：裸调 projections.rebuild 连 users 投影一起清掉，admin 身份随投影消失→403 坑**]；统计是纯读不参与投影 |

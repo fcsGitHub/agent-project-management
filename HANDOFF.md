@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M61 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M62 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节（§BG）+ docs/10 §M62 节 + 看板行 →「M62 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M62 审阅。**候选池**：①端点性能观测（BF.1 的姊妹题——慢请求计时/日志与 SQLite 索引审计[EXPLAIN QUERY PLAN 基线]，对照 APM 可观测性实践）；②watch 规则渠道偏好（per-rule channel override——pref_allows 矩阵是 kind×channel 全局档，增量=单规则级覆盖）；③审批中心刷新（自 M9/M42 后未大动——批量体验/SLA 面审计）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 极小屏专项、消息级全文高亮定位（均维持不做）。
+2. **I186 端点性能观测（下一步）**：M62 调研定义已提交（67def9f，docs/01 §BG + docs/10 §M62）。三件套=I186 ASGI 计时中间件（perf_counter 环形桶 per 路径·阈值 500ms·**遥测不进事件流**——运行时数据非领域事实）+ `GET /system/slow-endpoints`（admin 门）+ SQLite 热点查询 EXPLAIN QUERY PLAN 索引审计 → I187 watch 规则渠道偏好（watch_rules.channels 列[NULL=跟随全局 pref_allows·数组限 inapp/email] + hook 投递覆盖回退 + watch.updated payload 加 channels 缺键兼容 + 前端渠道片）→ I188 `GET /portfolio/agent-usage`（agent_role×项目聚合 runs 记账——红利第十四例）+ WorkloadPage 用量卡 + 冒烟 67 + 全量回归 + M62 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
