@@ -538,6 +538,10 @@ export const api = {
   patchChecklist: (itemId: string, items: { text: string; done: boolean }[]) =>
     req<{ item_id: string; checklist: { text: string; done: boolean }[]; done: number; total: number }>(
       `/items/${itemId}/checklist`, { method: "PATCH", body: JSON.stringify({ items }) }),
+  // M64-I194: checklist item → real work item (explicit click; extracted marker persists)
+  extractChecklistTask: (itemId: string, index: number) =>
+    req<{ extraction_id: string; item: { id: string; title: string }; text: string }>(
+      `/items/${itemId}/checklist/extract`, { method: "PATCH", body: JSON.stringify({ index }) }),
   // I108: saved replies — the user's own canned responses (GitHub semantics)
   listSavedReplies: () =>
     req<{ replies: { id: string; title: string; body: string; created_at: string }[] }>("/me/saved-replies"),

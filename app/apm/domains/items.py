@@ -80,6 +80,18 @@ def _proj_item_checklist(conn, e):
                  (e.payload.get("checklist"), e.agg_id))
 
 
+@on("item.checklist_extracted")
+def _proj_checklist_extracted(conn, e):
+    # M64-I194: same ledger as the comment-side extraction (I67) — one table,
+    # two sources, the source_item_id column tells them apart on rebuild.
+    p = e.payload
+    conn.execute(
+        "INSERT INTO extracted_tasks (id, comment_id, item_id, project_id, text,"
+        " source_item_id, created_at) VALUES (?,?,?,?,?,?,?)",
+        (e.agg_id, "", p["item_id"], e.project_id, p["text"], p["source_item_id"], e.ts),
+    )
+
+
 @on("item.status_changed")
 def _proj_item_status(conn, e):
     p = e.payload
@@ -923,6 +935,9 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
 class ChecklistItemIn(BaseModel):
     text: str
     done: bool = False
+    # M64-I194: spawn marker (present → rendered as "→任务" link). Round-trips
+    # through the full-list overwrite: clients must echo it back.
+    extracted: str | None = None
 
 
 class ChecklistIn(BaseModel):
@@ -944,7 +959,10 @@ def patch_checklist(item_id: str, body: ChecklistIn) -> dict:
         text = ci.text.strip()
         if not text or len(text) > 200:
             raise HTTPException(status_code=422, detail="checklist item text must be 1-200 chars")
-        norm.append({"text": text, "done": ci.done})
+        row = {"text": text, "done": ci.done}
+        if ci.extracted:
+            row["extracted"] = ci.extracted
+        norm.append(row)
     payload = json.dumps(norm, ensure_ascii=False)
     events.emit(
         event_type="item.checklist_updated",
@@ -955,6 +973,61 @@ def patch_checklist(item_id: str, body: ChecklistIn) -> dict:
     )
     done = sum(1 for ci in norm if ci["done"])
     return {"item_id": item_id, "checklist": norm, "done": done, "total": len(norm)}
+
+
+class ChecklistExtractIn(BaseModel):
+    index: int
+
+
+@router.post("/items/{item_id}/checklist/extract")
+def extract_checklist_task(item_id: str, body: ChecklistExtractIn) -> dict:
+    """Turn a checklist item into a real work item (M64-I194 — the BH.5
+    follow-up with the GitLab #363613 evidence: conversion must be an explicit
+    click, which this endpoint is; the checklist entry is marked with the
+    spawned item id, `done` stays orthogonal). Same-chain as I67's
+    comment-side extraction: extracted_tasks gains a source_item_id dimension,
+    same-item same-text is idempotent-409, and the whole path is
+    create_item's full validation chain."""
+    item = require_item(item_id)
+    try:
+        cl: list[dict] = json.loads(item.get("checklist") or "[]")
+    except ValueError:
+        cl = []
+    if not 0 <= body.index < len(cl):
+        raise HTTPException(status_code=422, detail="index out of range")
+    entry = cl[body.index]
+    text = str(entry.get("text", "")).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="checklist item has no text")
+    if entry.get("extracted"):
+        raise HTTPException(status_code=409, detail=f"already extracted to {entry['extracted']}")
+    dup = db.get_conn().execute(
+        "SELECT 1 FROM extracted_tasks WHERE source_item_id = ? AND text = ?",
+        (item_id, text)).fetchone()
+    if dup:
+        raise HTTPException(status_code=409, detail="this checklist item was already extracted")
+
+    created = create_item(project_id=item["project_id"], concept_id="task", title=text)
+    extraction_id = new_id("et")
+    events.emit(
+        event_type="item.checklist_extracted",
+        agg_type="item_extraction",
+        agg_id=extraction_id,
+        project_id=item["project_id"],
+        payload={"source_item_id": item_id, "item_id": created["id"],
+                 "text": text, "index": body.index},
+    )
+    # mark the entry with the spawned item id — full-list overwrite discipline
+    cl[body.index] = {**entry, "extracted": created["id"]}
+    events.emit(
+        event_type="item.checklist_updated",
+        agg_type="item",
+        agg_id=item_id,
+        project_id=item["project_id"],
+        payload={"checklist": json.dumps(cl, ensure_ascii=False)},
+    )
+    return {"extraction_id": extraction_id, "item": created,
+            "text": text, "checklist": cl}
 
 
 class BatchPatchIn(BaseModel):

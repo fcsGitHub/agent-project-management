@@ -95,9 +95,10 @@ def _proj_assignee_participant(conn, e):
 def _proj_task_extracted(conn, e):
     p = e.payload
     conn.execute(
-        "INSERT INTO extracted_tasks (id, comment_id, project_id, text, item_id, created_at)"
-        " VALUES (?,?,?,?,?,?)",
-        (e.agg_id, p["comment_id"], e.project_id, p["text"], p["item_id"], e.ts),
+        "INSERT INTO extracted_tasks (id, comment_id, item_id, project_id, text, source_item_id, created_at)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (e.agg_id, p.get("comment_id", ""), p["item_id"], e.project_id, p["text"],
+         p.get("source_item_id"), e.ts),
     )
 
 

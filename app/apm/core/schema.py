@@ -382,9 +382,10 @@ CREATE INDEX IF NOT EXISTS idx_item_time_entries_project ON item_time_entries(pr
 CREATE TABLE IF NOT EXISTS extracted_tasks (
   id TEXT PRIMARY KEY,
   comment_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
   project_id TEXT NOT NULL,
   text TEXT NOT NULL,
-  item_id TEXT NOT NULL,
+  source_item_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_extracted_tasks_comment ON extracted_tasks(comment_id);

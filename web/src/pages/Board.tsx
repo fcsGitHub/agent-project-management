@@ -1105,7 +1105,7 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
   const [cycle, setCycle] = useState(item.cycle_id ?? "");
   const [busy, setBusy] = useState(false);
   // M63-I191: in-item checklist (docs/01 §BH.3) — lightweight, advisory only
-  const [checklist, setChecklist] = useState<{ text: string; done: boolean }[]>(() => {
+  const [checklist, setChecklist] = useState<{ text: string; done: boolean; extracted?: string }[]>(() => {
     try { return item.checklist ? JSON.parse(item.checklist) : []; } catch { return []; }
   });
   const [newCheck, setNewCheck] = useState("");
@@ -1207,7 +1207,28 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
                 <input type="checkbox" checked={c.done} onChange={() =>
                   saveChecklist(checklist.map((x, j) => j === i ? { ...x, done: !x.done } : x))
                 } />
-                <span className={cx("min-w-0 flex-1 truncate", c.done && "text-mut line-through")}>{c.text}</span>
+                <span className={cx("min-w-0 flex-1 truncate", c.done && "text-mut line-through")}>
+                  {c.text}
+                  {"extracted" in c && c.extracted && (
+                    <Link to={`/board?item=${c.extracted}`}
+                      className="ml-1 text-[10px] text-acc hover:underline" title="已转为工作项">→任务</Link>
+                  )}
+                </span>
+                {!("extracted" in c && c.extracted) && (
+                  <button title="把这项转为真实工作项（同项目 task 概念，显式点击防误触）"
+                    onClick={async () => {
+                      try {
+                        const x = await api.extractChecklistTask(item.id, i);
+                        toast.success(`已转为任务「${x.item.title}」`);
+                        await saveChecklist(checklist.map((y, j) =>
+                          j === i ? { ...y, extracted: x.item.id } : y));
+                        onSaved();
+                      } catch (e) {
+                        toast.error(`转任务失败：${e instanceof Error ? e.message : e}`);
+                      }
+                    }}
+                    className="text-[10px] text-mut hover:text-acc">→任务</button>
+                )}
                 <button onClick={() => saveChecklist(checklist.filter((_, j) => j !== i))}
                   className="text-[10px] text-mut hover:text-dan">✕</button>
               </div>
