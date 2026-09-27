@@ -117,6 +117,8 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
                 "SELECT user_id FROM item_participants WHERE item_id = ?", (item_id,)):
             if _notify_muted(conn, e.project_id, r["user_id"]):
                 continue  # M63-I190: mentions_only member — participant noise muted
+            if _concept_hidden(conn, e.project_id, item_id, r["user_id"]):
+                continue  # M67-I201: restricted concept — participation leaks content
             if r["user_id"] not in skip:
                 out.append((r["user_id"], "comment",
                             f"参与的工作项「{title}」有新评论：{preview}"))
@@ -128,6 +130,8 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
                 "SELECT user_id FROM item_participants WHERE item_id = ?", (e.agg_id,)):
             if _notify_muted(conn, e.project_id, r["user_id"]):
                 continue  # M63-I190: mentions_only member — participant noise muted
+            if _concept_hidden(conn, e.project_id, e.agg_id, r["user_id"]):
+                continue  # M67-I201: restricted concept — participation leaks content
             if r["user_id"] != e.actor_id:
                 out.append((r["user_id"], "item",
                             f"参与的工作项「{title}」状态变更为 {e.payload.get('status', '?')}"))
@@ -160,6 +164,18 @@ def plan_notifications(conn, e) -> list[tuple[str, str, str]]:
         for user_id in recipients:
             out.append((user_id, "approval_reminder", label))
     return out
+
+
+def _concept_hidden(conn, project_id: str, item_id: str, user_id: str) -> bool:
+    """M67-I201: does a restricted concept make this item invisible to the
+    user? Participation branches consult this so notifications never carry
+    content the user cannot read. mention/assigned/approval/watch still break
+    through (治理必达) — the item itself stays 404 for them."""
+    row = conn.execute("SELECT concept_id FROM items WHERE id = ?", (item_id,)).fetchone()
+    if not row:
+        return False
+    from apm.domains.projects import can_see_concept
+    return not can_see_concept(project_id, row["concept_id"], user_id)
 
 
 def _notify_muted(conn, project_id: str, user_id: str) -> bool:

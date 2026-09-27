@@ -143,6 +143,9 @@ def init_db() -> None:
         # M66-I200: 存量库补 projects.cost_budget_usd（LLM 月成本预算，护栏读侧）。
         if "cost_budget_usd" not in pcols2:
             conn.execute("ALTER TABLE projects ADD COLUMN cost_budget_usd REAL")
+        # M67-I201: 存量库补 projects.concept_visibility（概念级可见性两级声明）。
+        if "concept_visibility" not in pcols2:
+            conn.execute("ALTER TABLE projects ADD COLUMN concept_visibility TEXT")
         # M63-I190: 存量库补 project_members.notify_level（NULL=默认参与即响）。
         mcols = {r["name"] for r in conn.execute("PRAGMA table_info(project_members)").fetchall()}
         if mcols and "notify_level" not in mcols:

@@ -82,10 +82,14 @@ def _set_field_state(conn, project_id: str, field_id: str, *, active: bool) -> N
 def _proj_project_updated(conn, e):
     p = e.payload
     sets, params = [], []
-    for key in ("name", "description", "status", "charter", "budget_hours", "cost_budget_usd"):
+    for key in ("name", "description", "status", "charter", "budget_hours", "cost_budget_usd",
+                "concept_visibility"):
         if key in p:
+            val = p[key]
+            if key == "concept_visibility" and isinstance(val, dict):
+                val = json.dumps(val)  # dict payload → JSON column (field_overrides 同族)
             sets.append(f"{key} = ?")
-            params.append(p[key])
+            params.append(val)
     if sets:
         sets.append("updated_at = ?")
         params.append(e.ts)
@@ -112,6 +116,7 @@ def get_project(project_id: str) -> dict | None:
         return None
     p = dict(row)
     p["disabled_fields"] = json.loads(p.pop("field_overrides") or "[]")
+    p["concept_visibility"] = json.loads(p.get("concept_visibility") or "{}")
     return p
 
 
@@ -120,6 +125,30 @@ def disabled_fields(project_id: str) -> set[str]:
     M7-I25). Absent override = every declared ontology field is active."""
     p = get_project(project_id)
     return set(p["disabled_fields"]) if p else set()
+
+
+def can_see_concept(project_id: str, concept_id: str | None, user_id: str) -> bool:
+    """M67-I201 (docs/01 §BL.1): two-level concept visibility — a concept
+    declared in `projects.concept_visibility` is owner/admin-only; undeclared
+    concepts stay visible to everyone the project already reaches. Jira
+    issue-security semantics at its lightest: no role matrix, no field masks.
+    Read faces filter, write faces 403/404, participation notifications stay
+    silent; mention/approval/assignment/watch break through (治理必达)."""
+    if not concept_id:
+        return True
+    p = get_project(project_id)
+    if not p:
+        return False
+    restricted = p.get("concept_visibility") or {}
+    if concept_id not in restricted:
+        return True
+    from apm.domains.members import is_instance_admin, member_role
+
+    if is_instance_admin(user_id):
+        return True
+    if member_role(project_id, user_id) == "owner":
+        return True
+    return config.settings.auth_mode == "local" and user_id == config.settings.user_id
 
 
 def require_project(project_id: str) -> dict:
@@ -206,6 +235,7 @@ class ProjectPatch(BaseModel):
     charter: str | None = None
     budget_hours: float | None = None  # I122: labor budget in hours
     cost_budget_usd: float | None = None  # I200: monthly LLM spend cap (0 = off)
+    concept_visibility: dict[str, str] | None = None  # I201: concept_id → "owner"
 
 
 @router.post("/projects")
@@ -310,6 +340,10 @@ def get_project_detail(project_id: str) -> dict:
 @router.patch("/projects/{project_id}")
 def patch_project(project_id: str, body: ProjectPatch) -> dict:
     project = require_project(project_id)
+    if body.concept_visibility is not None:
+        bad = {v for v in body.concept_visibility.values() if v != "owner"}
+        if bad:
+            raise HTTPException(status_code=422, detail=f"concept_visibility values must be 'owner' (got {sorted(bad)})")
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         return project

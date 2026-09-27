@@ -198,6 +198,8 @@ export function OntologyPage() {
 
       <FieldActivationPanel pid={pid!} concepts={o.concepts} disabled={disabledFields} />
 
+      {(myRole === "owner" || isAdmin) && <ConceptVisibilityPanel pid={pid!} concepts={o.concepts} />}
+
       <MembersPanel pid={pid!} />
 
       {(myRole === "owner" || isAdmin) && <IntakePanel pid={pid!} />}
@@ -1473,6 +1475,56 @@ function LearnPanel({
           生成带 provenance 的变更候选；勾选并应用后本体 YAML 版本 +1 并落审计事件。
         </p>
       )}
+    </Card>
+  );
+}
+
+/** M67-I201 (docs/01 §BL.1): two-level concept visibility — toggling a concept
+ * to owner-only hides that work-item type from non-owner members across the
+ * board/list/search/write faces; undeclared concepts stay fully visible. */
+function ConceptVisibilityPanel({ pid, concepts }: {
+  pid: string;
+  concepts: { id: string; name: string; icon: string }[];
+}) {
+  const qc = useQueryClient();
+  const project = useQuery({ queryKey: ["project", pid], queryFn: () => api.getProject(pid) });
+  const cv: Record<string, string> = project.data?.concept_visibility ?? {};
+  const toggle = async (conceptId: string) => {
+    const next = { ...cv };
+    if (next[conceptId]) delete next[conceptId];
+    else next[conceptId] = "owner";
+    try {
+      await api.patchProject(pid, { concept_visibility: next });
+      toast.success(next[conceptId] ? "已设为仅 Owner 可见" : "已恢复全员可见");
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">🙈 概念可见性</span>
+        <span className="text-xs text-mut">
+          声明为「仅 Owner」的概念：非 Owner 成员在看板/列表/搜索/导出中不可见、写入 403、参与通知静默（mention/审批/watch 仍送达）
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {concepts.map((c) => {
+          const restricted = !!cv[c.id];
+          return (
+            <button key={c.id} onClick={() => toggle(c.id)}
+              title={restricted ? "点击恢复全员可见" : "点击设为仅 Owner 可见"}
+              className={cx(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs",
+                restricted ? "border-dan bg-danbg font-medium text-dan" : "border-line text-mut hover:text-ink",
+              )}>
+              <span>{c.icon}</span> {c.name}
+              {restricted && <span>🔒 仅 Owner</span>}
+            </button>
+          );
+        })}
+      </div>
     </Card>
   );
 }

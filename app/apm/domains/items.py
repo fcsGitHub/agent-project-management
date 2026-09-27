@@ -14,7 +14,7 @@ from apm.core.ids import new_id
 from apm.core.projections import on
 from apm.domains.calendar import advance_to_workday
 from apm.domains.ontology import KERNEL_RELATIONS, OntologyError, load_ontology
-from apm.domains.projects import disabled_fields
+from apm.domains.projects import can_see_concept, disabled_fields
 
 router = APIRouter(tags=["items"])
 
@@ -157,6 +157,16 @@ def get_item(item_id: str) -> dict | None:
 def require_item(item_id: str) -> dict:
     item = get_item(item_id)
     if not item:
+        raise HTTPException(status_code=404, detail=f"item {item_id} not found")
+    return item
+
+
+def require_visible_item(item_id: str) -> dict:
+    """M67-I201: mutation/interaction faces on an item whose concept is hidden
+    for the caller read as 404 — existence is not revealed (GitHub private
+    repo semantics). Entitled callers are unaffected."""
+    item = require_item(item_id)
+    if not can_see_concept(item["project_id"], item["concept_id"], events.effective_actor()):
         raise HTTPException(status_code=404, detail=f"item {item_id} not found")
     return item
 
@@ -404,6 +414,9 @@ def get_board(
     )
     if "cf" in view_def:
         items = [it for it in items if _cf_hit(it, view_def["cf"])]
+    # M67-I201: hidden concepts never reach the board of a non-entitled viewer
+    _viewer = events.effective_actor()
+    items = [it for it in items if can_see_concept(project_id, it["concept_id"], _viewer)]
     _attach_spent(items)
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
@@ -727,6 +740,10 @@ class RelationIn(BaseModel):
 
 @router.post("/projects/{project_id}/items")
 def post_item(project_id: str, body: ItemIn) -> dict:
+    # M67-I201: creating an item of a restricted concept requires entitlement —
+    # the project itself is visible, so 403 (not 404) is honest here
+    if not can_see_concept(project_id, body.concept_id, events.effective_actor()):
+        raise HTTPException(status_code=403, detail=f"concept '{body.concept_id}' 在本项目仅 Owner 可见可写")
     _ensure_human_assignee(body.assignee_type, body.assignee_id)
     _validate_item_dates(body.start_date, body.due_date)
     _validate_milestone(project_id, body.milestone_id)
@@ -831,6 +848,11 @@ def get_items(
     # default — only an explicit limit slices (clamped 1-200); offset rides
     # along. total counts the fully filtered set in both modes, so clients can
     # drive "load more" against it.
+    # M67-I201: concept-level visibility — hidden concepts drop from the list
+    # for non-entitled viewers (total reflects the filtered set).
+    viewer = events.effective_actor()
+    items = [it for it in items
+             if can_see_concept(project_id, it["concept_id"], viewer)]
     total = len(items)
     if limit is not None:
         offset = max(0, offset or 0)
@@ -842,6 +864,10 @@ def get_items(
 @router.get("/items/{item_id}")
 def get_item_detail(item_id: str) -> dict:
     item = require_item(item_id)
+    # M67-I201: a hidden concept makes the item itself invisible (404 — not
+    # 403, existence is not revealed)
+    if not can_see_concept(item["project_id"], item["concept_id"], events.effective_actor()):
+        raise HTTPException(status_code=404, detail=f"item {item_id} not found")
     rels = db.get_conn().execute(
         "SELECT * FROM item_relations WHERE from_item = ? OR to_item = ?",
         (item_id, item_id),
@@ -859,7 +885,7 @@ def get_item_detail(item_id: str) -> dict:
 def archive_item(item_id: str) -> dict:
     """I103 (docs/01 §AF.3): soft delete — the item leaves every view but stays
     fully restorable from the trash (event-sourced, nothing is ever lost)."""
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     if item.get("archived_at"):
         raise HTTPException(status_code=409, detail="item already archived")
     events.emit(
@@ -873,7 +899,7 @@ def archive_item(item_id: str) -> dict:
 
 @router.post("/items/{item_id}/restore")
 def restore_item(item_id: str) -> dict:
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     if not item.get("archived_at"):
         raise HTTPException(status_code=409, detail="item is not archived")
     events.emit(
@@ -894,12 +920,15 @@ def trash_items(project_id: str) -> dict:
         "SELECT id, title, concept_id, status, archived_at FROM items"
         " WHERE project_id = ? AND archived_at IS NOT NULL ORDER BY archived_at DESC",
         (project_id,)).fetchall()
-    return {"items": [dict(r) for r in rows]}
+    # M67-I201: the trash is a read face too — hidden concepts stay hidden
+    viewer = events.effective_actor()
+    return {"items": [dict(r) for r in rows
+                      if can_see_concept(project_id, r["concept_id"], viewer)]}
 
 
 @router.patch("/items/{item_id}")
 def patch_item(item_id: str, body: ItemPatch) -> dict:
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if "custom_fields" in changes:
         onto = project_ontology(item["project_id"])
@@ -974,7 +1003,7 @@ def patch_checklist(item_id: str, body: ChecklistIn) -> dict:
     Full-list submit, whole-column overwrite (custom_fields discipline, M6-I20);
     one `item.checklist_updated` fact carries the entire new state. Advisory
     only — checklist progress never feeds health/完成率 semantics."""
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     if len(body.items) > 20:
         raise HTTPException(status_code=422, detail="checklist supports at most 20 items")
     norm: list[dict] = []
@@ -1011,7 +1040,7 @@ def extract_checklist_task(item_id: str, body: ChecklistExtractIn) -> dict:
     comment-side extraction: extracted_tasks gains a source_item_id dimension,
     same-item same-text is idempotent-409, and the whole path is
     create_item's full validation chain."""
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     try:
         cl: list[dict] = json.loads(item.get("checklist") or "[]")
     except ValueError:
@@ -1083,7 +1112,7 @@ def batch_patch_items(project_id: str, body: BatchPatchIn) -> dict:
 
 @router.post("/items/{item_id}/relations")
 def post_relation(item_id: str, body: RelationIn) -> dict:
-    item = require_item(item_id)
+    item = require_visible_item(item_id)
     target = require_item(body.to_item)
     onto = project_ontology(item["project_id"])
     valid = set(onto.relation_ids())
@@ -1233,6 +1262,9 @@ def export_items_csv(project_id: str) -> Response:
         " LEFT JOIN items p ON p.id = i.parent_id"
         " WHERE i.project_id = ? ORDER BY i.created_at", (project_id,),
     ).fetchall()
+    # M67-I201: hidden concepts don't appear in exports either
+    viewer = events.effective_actor()
+    rows = [r for r in rows if can_see_concept(project_id, r["concept_id"], viewer)]
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(IMPORT_FIELDS + ["assignee_id", "status_group"])

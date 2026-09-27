@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS projects (
   field_overrides TEXT,
   budget_hours REAL,
   cost_budget_usd REAL,
+  concept_visibility TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

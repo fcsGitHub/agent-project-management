@@ -96,6 +96,7 @@ def search(q: str, types: str = "items,comments") -> dict:
     if user is None:
         raise HTTPException(status_code=404, detail=f"unknown user '{me}'")
     from apm.domains.feed import _visible
+    from apm.domains.projects import can_see_concept
 
     match = _bigrams(query)
     conn = db.get_conn()
@@ -111,7 +112,8 @@ def search(q: str, types: str = "items,comments") -> dict:
                 " JOIN projects p ON p.id = i.project_id WHERE i.id = ?",
                 (r["item_id"],),
             ).fetchone()
-            if row and _visible(row["project_id"], user):
+            if row and _visible(row["project_id"], user) \
+                    and can_see_concept(row["project_id"], row["concept_id"], user["id"]):
                 out["items"].append(dict(row))
     if "comments" in wanted:
         for r in conn.execute(
@@ -121,14 +123,17 @@ def search(q: str, types: str = "items,comments") -> dict:
         ).fetchall():
             row = conn.execute(
                 "SELECT c.id, c.body, c.item_id, c.project_id, i.title AS item_title,"
+                " i.concept_id AS item_concept_id,"
                 " p.name AS project_name FROM item_comments c"
                 " JOIN items i ON i.id = c.item_id"
                 " JOIN projects p ON p.id = c.project_id"
                 " WHERE c.id = ? AND c.deleted_at IS NULL",
                 (r["comment_id"],),
             ).fetchone()
-            if row and _visible(row["project_id"], user):
-                out["comments"].append(dict(row))
+            if row and _visible(row["project_id"], user) \
+                    and can_see_concept(row["project_id"], row["item_concept_id"], user["id"]):
+                out["comments"].append({k: v for k, v in dict(row).items()
+                                        if k != "item_concept_id"})
     if "conversations" in wanted:
         for r in conn.execute(
             "SELECT message_id FROM messages_search WHERE messages_search MATCH ?"
