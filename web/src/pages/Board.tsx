@@ -82,9 +82,11 @@ export function Board() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewId, viewsQ.data]);
 
+  // M65-I196: swimlane — second grouping dimension (Taiga/Kanboard semantics)
+  const swimlane = params.get("swimlane") ?? "";
   const board = useQuery({
-    queryKey: ["board", pid, featureId, group, cycleId],
-    queryFn: () => api.getBoard(pid!, featureId, group || undefined, cycleId || undefined),
+    queryKey: ["board", pid, featureId, group, cycleId, swimlane],
+    queryFn: () => api.getBoard(pid!, featureId, group || undefined, cycleId || undefined, swimlane || undefined),
     enabled: !!pid,
   });
   // I119: iteration time boxes for the board filter dropdown
@@ -481,6 +483,15 @@ export function Board() {
         </select>
         <Button size="sm" variant="ghost" onClick={() => setCycleOpen(true)}
           title="新建迭代周期（Plane Cycles 语义）">＋周期</Button>
+        {/* M65-I196: swimlane selector — second grouping dimension */}
+        <select value={swimlane} onChange={(e) => setFilter("swimlane", e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
+          title="泳道：列之外的行维度（Taiga/Kanboard 语义）——按执行者/功能/优先级在列内分行">
+          <option value="">泳道：无</option>
+          <option value="assignee_id">泳道：执行者</option>
+          <option value="feature_id">泳道：功能</option>
+          <option value="priority">泳道：优先级</option>
+        </select>
         {cycleId && (
           <Button size="sm" variant="ghost" onClick={() => setRetroCycle(cycleId)}
             title="周期回顾包（完成率/拖入/超期/阻塞 top —— M48-I145）">📋 回顾</Button>
@@ -738,7 +749,76 @@ export function Board() {
                 )}
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-3">
-                {shown.map((item) => {
+                {/* M65-I196: swimlane sub-rows within the column — lane order
+                    follows the API's swimlanes (count desc); "（空）" last. */}
+                {swimlane && board.data?.swimlanes?.length
+                  ? board.data.swimlanes.map((lane) => {
+                      const laneItems = shown.filter((i) => (i as Record<string, unknown>).swimlane === lane.id);
+                      if (!laneItems.length) return null;
+                      return (
+                        <div key={lane.id} className="rounded-lg border border-line/70 p-1.5">
+                          <div className="mb-1 flex items-center justify-between px-0.5">
+                            <span className="truncate text-[10px] font-semibold text-mut"
+                              title={`泳道 ${board.data!.swimlane_by}: ${lane.id}`}>
+                              ▤ {lane.id}
+                            </span>
+                            <span className="text-[10px] text-mut">{laneItems.length}</span>
+                          </div>
+                          <div className="space-y-2">
+                            {laneItems.map((item) => {
+                              return (
+                      <Card
+                        key={item.id}
+                        data-kb={item.id}
+                        onClick={() => toggle(item.id)}
+                        className={cx(
+                          "cursor-pointer p-2.5 text-xs transition-all",
+                          selected.has(item.id) && "ring-2 ring-acc",
+                          listed[kbIndex]?.id === item.id && "ring-2 ring-warnln",
+                        )}
+                      >
+                        <div className="flex items-start gap-1.5">
+                          <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">{item.title}</div>
+                            {item.parent_id && titleMap[item.parent_id] && (
+                              <div className="mt-0.5 truncate text-[10px] text-mut" title="父任务">↳ {titleMap[item.parent_id]}</div>
+                            )}
+                            {item.checklist && (() => {
+                              try {
+                                const cl = JSON.parse(item.checklist) as { done: boolean }[];
+                                const d = cl.filter((c) => c.done).length;
+                                if (cl.length) return (
+                                  <span className="mt-0.5 inline-block text-[10px] text-mut"
+                                    title="行内清单进度（advisory，不计入健康分）">☑ {d}/{cl.length}</span>
+                                );
+                              } catch { /* corrupt row — skip badge */ }
+                              return null;
+                            })()}
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
+                              {item.blocked && <Badge tone="red" title="存在未完成的阻塞上游">🚧</Badge>}
+                              {item.priority === "high" && <Badge tone="red">高优</Badge>}
+                              {item.assignee_id && (
+                                <Badge tone={item.assignee_type === "agent" ? "violet" : "neutral"}>
+                                  {item.assignee_type === "agent" ? "🤖" : "👤"} {item.assignee_id}
+                                </Badge>
+                              )}
+                              {(item.spent_minutes ?? 0) > 0 && (
+                                <Badge tone="neutral" title="实际投入工时">⏱ {fmtMinutes(item.spent_minutes ?? 0)}</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  : null}
+                {(!swimlane || !board.data?.swimlanes?.length) && shown.map((item) => {
                   const run = runByItem.get(item.id);
                   return (
                     <Card
@@ -870,7 +950,7 @@ export function Board() {
                     </Card>
                   );
                 })}
-                {!items.length && <div className="px-2 py-4 text-center text-[11px] text-mut">空</div>}
+                {!items.length && !swimlane && <div className="px-2 py-4 text-center text-[11px] text-mut">空</div>}
                 {items.length > shown.length && (
                   <button
                     onClick={() => setColVisible((m) => ({ ...m, [col.id]: visible + COLUMN_PAGE }))}

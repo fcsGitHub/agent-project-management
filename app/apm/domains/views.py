@@ -20,7 +20,8 @@ from apm.core.projections import on
 router = APIRouter(tags=["views"])
 
 # definition keys whitelist — everything else is rejected (fail-closed)
-_ALLOWED_KEYS = ("concept_id", "status_group", "status", "assignee_id", "priority", "cf", "group_by")
+# M65-I196: swimlane_by joins the whitelist (board second grouping dimension)
+_ALLOWED_KEYS = ("concept_id", "status_group", "status", "assignee_id", "priority", "cf", "group_by", "swimlane_by")
 _STATUS_GROUPS = ("backlog", "todo", "in_progress", "done", "cancelled")
 
 

@@ -178,6 +178,8 @@ export type BoardData = {
   disabled_fields?: string[];
   wip?: Record<string, number>;
   wip_limits?: Record<string, number>;
+  swimlane_by?: string | null;
+  swimlanes?: { id: string; count: number }[] | null;
 };
 export type Ontology = {
   name: string; display_name: string; version: number; errors: string[];
@@ -558,11 +560,13 @@ export const api = {
     req<{ cancelled: string }>(`/me/time-off/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>
     req<{ project_id: string; baseline: null }>(`/projects/${pid}/baseline`, { method: "DELETE" }),
-  getBoard: (pid: string, featureId?: string, groupBy?: string, cycleId?: string) => {
+  getBoard: (pid: string, featureId?: string, groupBy?: string, cycleId?: string,
+             swimlaneBy?: string) => {
     const q = new URLSearchParams();
     if (featureId) q.set("feature_id", featureId);
     if (groupBy) q.set("group_by", groupBy);
     if (cycleId) q.set("cycle", cycleId);
+    if (swimlaneBy) q.set("swimlane_by", swimlaneBy);
     const qs = q.toString();
     return req<BoardData>(`/projects/${pid}/board${qs ? `?${qs}` : ""}`);
   },

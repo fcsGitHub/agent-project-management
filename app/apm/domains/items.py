@@ -361,6 +361,7 @@ def _group_key(value) -> str:
 def get_board(
     project_id: str, feature_id: str | None = None, group_by: str | None = None,
     view_id: str | None = None, cycle: str | None = None,
+    swimlane_by: str | None = None,
 ) -> dict:
     """Board projection: five lifecycle buckets, optionally re-grouped by a custom
     field (M6-I21: `group_by=field:<id>`, default from board_defaults.group_by).
@@ -433,6 +434,28 @@ def get_board(
         "groups": None,
         "disabled_fields": sorted(inactive),
     }
+    # M65-I196: swimlane — a second grouping dimension (Taiga/Kanboard board
+    # semantics). Columns stay the lifecycle buckets; within each bucket the
+    # items are annotated with their lane so the frontend can render sub-rows
+    # without a second query. Whitelist only; None/absent = no lanes.
+    _SWIMLANE_KEYS = ("assignee_id", "feature_id", "priority")
+    if swimlane_by is None and view_id:
+        swimlane_by = view_def.get("swimlane_by")
+    if swimlane_by:
+        if swimlane_by not in _SWIMLANE_KEYS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"swimlane_by must be one of {_SWIMLANE_KEYS} or omitted")
+        lanes: dict[str, list[str]] = {}
+        for it in items:
+            key = it.get(swimlane_by) or "（空）"
+            key = str(key)
+            lanes.setdefault(key, []).append(it["id"])
+            it["swimlane"] = key
+        resp["swimlane_by"] = swimlane_by
+        resp["swimlanes"] = [
+            {"id": k, "count": len(v)} for k, v in
+            sorted(lanes.items(), key=lambda kv: (-len(kv[1]), kv[0]))]
     # M26-I80: WIP limits (Kanboard task-limit semantics) — soft signals only.
     # The count is deliberately project-wide (ignoring board filters) and the
     # limit rides along from board_defaults; the board never blocks transitions.
