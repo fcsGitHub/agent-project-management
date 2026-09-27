@@ -35,7 +35,8 @@
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
 - **M55~M57（I165-I173，2026-09-21/27 完成，docs/01 §AZ-§BB + docs/10 §M55-§M57）**：watch 条件化（condition_json 全等匹配·红利第九例）+ 铃铛降噪折叠 + watch 导入导出 + 静默时段（跨午夜+mailer 第四道门）+ watch 规则编辑暂停（修 M55 的 409 删了重加坑）+ 资产使用洞察（红利第十例）。基线 pytest 437 / 冒烟 62。
 - **M58~M62（I174-I188，2026-09-27 完成，docs/01 §BC-§BG + docs/10 §M58-§M62）**：run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合 + 模板包实例溯源 + 备份/恢复演练工具（sqlite3 backup API——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（红利第十二例）+ 事件表体积观测（先测后治）+ 会话搜索与导出（**红利第十三例**）+ 移动端 375px 审计 + 端点性能观测（**索引审计补 idx_watch_rules_hit**）+ watch 渠道偏好（永不越过 DND）+ Agent 用量聚合（**红利第十四例**）。基线 pytest 466 / 冒烟 67。
-- **M63~M64（I189-I194，2026-09-28 完成，docs/01 §BH/§BI + docs/10 §M63/§M64）**：自动化 run_agent（第七动作·**防环三闸**[TRIGGERS 不扩/agent+runtime 事实不触发 dispatch/每规则日 ≤3 次]·Gate/审批链保留）+ 项目级通知降级（member notify_level mentions_only 静参与面·**mention/审批/指派/到期/watch 照常**）+ 工作项检查清单（整列覆盖·**advisory 不推 version**）+ run 重试对比（retry-lineage 链投影+对比抽屉——**红利第十五例：M4 retry 事件已是链锚**）+ ⌘K palette recents/facets/空态出口 + 清单转子任务（extracted_tasks 同表同链·done 与 extracted 正交）。基线 pytest 487 / 冒烟 69 / vitest 21。
+- **M63~M64（I189-I194，2026-09-28 完成，docs/01 §BH/§BI + docs/10 §M63/§M64）**：自动化 run_agent（第七动作·**防环三闸**[TRIGGERS 不扩/agent+runtime 事实不触发 dispatch/每规则日 ≤3 次]·Gate/审批链保留）+ 项目级通知降级（mentions_only 静参与面·**mention/审批/指派/到期/watch 照常**）+ 工作项检查清单（整列覆盖·**advisory 不推 version**）+ run 重试对比（retry-lineage 链投影+对比抽屉——**红利第十五例：M4 retry 事件已是链锚**）+ ⌘K palette recents/facets/空态出口 + 清单转子任务（extracted_tasks 同表同链·done 与 extracted 正交）。基线 pytest 487 / 冒烟 69 / vitest 21。
+- **M65（I195-I197，2026-09-28 完成，docs/01 §BJ + docs/10 §M65）**：运行分叉（POST /runs/{id}/fork·forked_from 血缘+start_run 先铸 id·主线不动——Git branch 隐喻·不做 state 编辑续跑）+ lineage 树感知（retry+fork 双边回溯 ?tree=1）+ 看板泳道（swimlane_by 第二维白名单·列内分行）+ 基线对比（baselines/compare a vs b 两两 diff·**修快照语义：归档项不入新基线**）。基线 pytest 495 / 冒烟 70 / vitest 21。
 
 ## 3. 现在卡在哪
 
@@ -43,8 +44,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M64 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **I195 运行分叉（下一步）**：M65 调研定义已提交（3483d11，docs/01 §BJ + docs/10 §M65）。三件套=I195 `POST /runs/{id}/fork`（forked_from 血缘+start_run 标准链·instruction ≤500 可选修正·原 run 不动）+ lineage 树感知（retry 线性+fork 支线双边回溯·`?tree=1`）→ I196 看板泳道（get_board + swimlane_by 白名单 assignee_id/feature_id/priority + 前端列内泳道行 + saved_views 加键）→ I197 `GET /projects/{id}/baselines/compare`（两两 item 级 diff）+ TimelinePage 对比抽屉 + 冒烟 70 + 全量回归 + M65 审阅。
+1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M66 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63/M65 教训：候选池勿凭印象写——回收站[M33 已建]、邮件路由[M37 已建]、批量操作[M22 已建]三轮连续被防重查证伪作废**）→ 三路并行 WebSearch → docs/01 新节（§BK）+ docs/10 §M66 节 + 看板行 →「M66 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M66 审阅。**候选池（待防重查核验）**：①分叉 run 的合并采纳面（BJ.5 留位——支线产物人审后替换主线工件，需先有真实使用证据）；②泳道 WIP 双限（Kanboard 泳道+列双限——M65 裁决 WIP 告警无证据留位）；③对话树形导航（parent_conversation_id 自 MVP 未有 UI）；④维持项（长清单见前轮，均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -94,12 +95,15 @@
 - **pydantic 输入模型丢未知键**（M64-I194）：ChecklistItemIn 无 extracted 字段时客户端回显的标记被静默剥掉（整列覆盖语义下=标记丢失）——全量提交的载荷模型必须含全部往返字段。
 - **造数 span 事件是 `run.span_opened`/`run.span_closed`**（M64-I192）：不存在 span.started/ended——合成轨迹前先 grep 投影器的事件名。
 - **满载回归中的单点瞬态假红**（M64）：test_pm_agent_run_to_gate_approval 曾报 running≠awaiting_review——emit 在全局 db 锁下事件序一致，单测与复跑全绿即负载时序抖动；复跑确认为准，非回归不追改生产码。
+- **合成 run+fork 时 run_id 由调用方先铸**（M65-I195）：fork 端点必须先发 run.forked 血缘再 start_run(run_id=...)——start_run 新增 run_id 可选参数；次序反了树回溯会漏支线。
+- **sqlite Row 的 keys 就是 SELECT 列**（M65-I195）：SELECT 漏列后 row["event_type"] 报 IndexError——遍历 rows 前核对 SELECT 清单。
+- **快照/导出类查询要跟删除语义对齐**（M65-I197）：M24 基线快照曾把归档项照入快照（先于 M33 归档语义）——新增软删除类状态后，所有旧的全量查询都要回头核对是否需要排除。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 487 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 69 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 495 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 70 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 21 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
