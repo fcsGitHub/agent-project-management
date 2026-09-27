@@ -60,14 +60,35 @@ def _proj_search_comment(conn, e):
     _reindex_comment(conn, e.agg_id)
 
 
+def _reindex_message(conn, message_id: str) -> None:
+    # M61-I184: conversations register before this module, so the messages row
+    # is fresh when this runs (live appends and rebuild replay share the order).
+    row = conn.execute(
+        "SELECT content FROM messages WHERE id = ?", (message_id,)).fetchone()
+    conn.execute("DELETE FROM messages_search WHERE message_id = ?", (message_id,))
+    if row is None:
+        return
+    conn.execute("INSERT INTO messages_search (message_id, text) VALUES (?, ?)",
+                 (message_id, _bigrams(row["content"])))
+
+
+@on("message.created")
+def _proj_search_message(conn, e):
+    _reindex_message(conn, e.agg_id)
+
+
 @router.get("/search")
 def search(q: str, types: str = "items,comments") -> dict:
     """Cross-project keyword search, scoped to the caller's visible projects
-    (`_visible`, same裁剪 as the Atom/iCal feeds). Empty query → 422."""
+    (`_visible`, same裁剪 as the Atom/iCal feeds). Empty query → 422.
+    M61-I184 adds `conversations`: message bodies (forgotten-conversation
+    problem, docs/01 §BF.3 — ChatGPT/Claude sidebar search matches titles
+    only; the event stream already holds every message, so indexing it is
+    event-sourcing dividend #13)."""
     query = q.strip()
     if not query:
         raise HTTPException(status_code=422, detail="q must not be empty")
-    wanted = {t.strip() for t in types.split(",") if t.strip()} & {"items", "comments"}
+    wanted = {t.strip() for t in types.split(",") if t.strip()} & {"items", "comments", "conversations"}
     if not wanted:
         raise HTTPException(status_code=422, detail="types must include items and/or comments")
     me = events.effective_actor()
@@ -78,7 +99,7 @@ def search(q: str, types: str = "items,comments") -> dict:
 
     match = _bigrams(query)
     conn = db.get_conn()
-    out: dict[str, list] = {"items": [], "comments": []}
+    out: dict[str, list] = {"items": [], "comments": [], "conversations": []}
     if "items" in wanted:
         for r in conn.execute(
             "SELECT item_id FROM items_search WHERE items_search MATCH ? ORDER BY rank LIMIT 50",
@@ -108,4 +129,23 @@ def search(q: str, types: str = "items,comments") -> dict:
             ).fetchone()
             if row and _visible(row["project_id"], user):
                 out["comments"].append(dict(row))
+    if "conversations" in wanted:
+        for r in conn.execute(
+            "SELECT message_id FROM messages_search WHERE messages_search MATCH ?"
+            " ORDER BY rank LIMIT 50",
+            (match,),
+        ).fetchall():
+            row = conn.execute(
+                "SELECT m.id AS message_id, m.conversation_id, c.title AS conversation_title,"
+                " c.kind AS conversation_kind, c.project_id, p.name AS project_name,"
+                " m.role, m.actor_type, m.actor_id, m.created_at,"
+                " substr(m.content, 1, 120) AS snippet"
+                " FROM messages m"
+                " JOIN conversations c ON c.id = m.conversation_id"
+                " JOIN projects p ON p.id = c.project_id"
+                " WHERE m.id = ?",
+                (r["message_id"],),
+            ).fetchone()
+            if row and _visible(row["project_id"], user):
+                out["conversations"].append(dict(row))
     return {"q": query, **out}

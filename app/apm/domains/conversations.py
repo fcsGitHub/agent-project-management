@@ -469,6 +469,48 @@ def get_conversation_messages(conversation_id: str) -> dict:
     return {"messages": get_messages(conversation_id)}
 
 
+@router.get("/conversations/{conversation_id}/export")
+def export_conversation(conversation_id: str) -> dict:
+    """M61-I184 (docs/01 §BF.3): human-readable Markdown transcript — the
+    archive/export answer to the forgotten-conversation problem. The NDJSON
+    event export stays the machine channel (§K.3: DB 留存 + 外送语义).
+    Visibility matches /search `_visible` scoping."""
+    from apm.domains.feed import _visible
+
+    conv = require_conversation(conversation_id)
+    me = events.effective_actor()
+    user = db.get_conn().execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"unknown user '{me}'")
+    if not _visible(conv["project_id"], user):
+        raise HTTPException(status_code=404, detail=f"conversation {conversation_id} not found")
+
+    msgs = get_messages(conversation_id)
+    proj = db.get_conn().execute(
+        "SELECT name FROM projects WHERE id = ?", (conv["project_id"],)).fetchone()
+    lines = [
+        f"# {conv['title'] or '会话'}",
+        "",
+        f"- 项目：{proj['name'] if proj else conv['project_id']}",
+        f"- 类型：{conv['kind']} · 状态：{conv['status']}",
+        f"- 起止：{conv['created_at']} → {conv['updated_at']}",
+        f"- 消息数：{len(msgs)}",
+        "",
+        "---",
+        "",
+    ]
+    for m in msgs:
+        actor = m["actor_id"] or m["actor_type"] or "?"
+        lines.append(f"### {m['created_at']} · {m['role']} · {actor}")
+        if m["parent_id"]:
+            lines.append(f"> ↳ 回复 {m['parent_id']}")
+        lines.extend(["", m["content"], ""])
+    return {
+        "filename": f"conversation-{conversation_id}.md",
+        "markdown": "\n".join(lines),
+    }
+
+
 @router.post("/conversations/{conversation_id}/messages")
 def post_message(conversation_id: str, body: MessageIn) -> dict:
     conv = require_conversation(conversation_id)

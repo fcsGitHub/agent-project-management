@@ -575,6 +575,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(asset_id UNINDEXED, tex
 -- Global search (M22-I68): same bigram scheme over items and comments.
 CREATE VIRTUAL TABLE IF NOT EXISTS items_search USING fts5(item_id UNINDEXED, text);
 CREATE VIRTUAL TABLE IF NOT EXISTS comments_search USING fts5(comment_id UNINDEXED, text);
+-- Conversation search (M61-I184): message bodies, same bigram scheme.
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_search USING fts5(message_id UNINDEXED, text);
 """
 
 

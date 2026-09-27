@@ -9,12 +9,13 @@ import { Badge, Card, Empty } from "../components/ui";
 const TYPES = [
   { key: "items", label: "工作项" },
   { key: "comments", label: "评论" },
+  { key: "conversations", label: "会话" },
 ] as const;
 
 export function SearchPage() {
   const [params] = useSearchParams();
   const q = (params.get("q") ?? "").trim();
-  const [types, setTypes] = useState<string>("items,comments");
+  const [types, setTypes] = useState<string>("items,comments,conversations");
 
   const results = useQuery({
     queryKey: ["search", q, types],
@@ -76,6 +77,25 @@ export function SearchPage() {
                 ))}
                 {results.data && !results.data.comments.length && (
                   <div className="py-3 text-center text-xs text-mut">没有匹配的评论</div>
+                )}
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="mb-2 text-sm font-semibold">会话 · {results.data?.conversations?.length ?? "…"}</div>
+              <div className="space-y-1.5">
+                {(results.data?.conversations ?? []).map((c) => (
+                  <Link key={c.message_id} to={`/p/${c.project_id}/c/${c.conversation_id}`}
+                    className="block rounded-lg border border-line px-3 py-2 text-xs hover:border-acc">
+                    <div className="flex items-center gap-2">
+                      <span className="w-28 shrink-0 truncate text-mut">{c.project_name}</span>
+                      <span className="flex-1 truncate font-medium">{c.conversation_title || c.conversation_kind}</span>
+                      <Badge tone="neutral">{c.role}</Badge>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-mut">{c.snippet}</div>
+                  </Link>
+                ))}
+                {results.data && !results.data.conversations?.length && (
+                  <div className="py-3 text-center text-xs text-mut">没有匹配的会话消息</div>
                 )}
               </div>
             </Card>

@@ -164,6 +164,16 @@ export function ConversationView() {
           {!hasActiveRun && c.status !== "archived" && (
             <Button size="sm" variant="outline" onClick={() => startRun()}>▶ 让 Agent 执行</Button>
           )}
+          {/* M61-I184: Markdown transcript export (docs/01 §BF.3) */}
+          <Button size="sm" variant="ghost" onClick={async () => {
+            const x = await api.exportConversation(cid);
+            const blob = new Blob([x.markdown], { type: "text/markdown;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = x.filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }}>⬇ 导出</Button>
           <Button size="sm" variant="ghost" onClick={() => setCtxOpen(true)}>-context 上下文</Button>
         </div>
       </div>

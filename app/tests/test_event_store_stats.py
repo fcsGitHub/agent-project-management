@@ -50,15 +50,22 @@ def test_event_store_stats_reconciles(client):
 
 
 def test_event_store_stats_requires_admin(client, monkeypatch):
-    # 与 rebuild 同口径：非实例 admin 403（network 模式下 qa-wang 非成员非管理员）
-    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王"})
-    client.post("/api/session/identity", json={"user_id": "qa-wang"})
+    # 与 rebuild 同口径：network 模式下已登录的非 admin 403
+    # （qa-wang 非成员非管理员；登录走真实会话而非本地身份回退）
+    config.settings.admin_password = "admin-pass"
+    from apm.domains.users import ensure_default_user
+    ensure_default_user()
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "password": "qa-pass"})
     monkeypatch.setattr(config.settings, "auth_mode", "network")
-    r = client.get("/api/system/event-store-stats")
-    monkeypatch.setattr(config.settings, "auth_mode", "local")
-    assert r.status_code == 403
-    client.post("/api/session/identity", json={"user_id": "u_admin"})
-    assert client.get("/api/system/event-store-stats").status_code == 200
+    try:
+        assert client.post("/api/auth/login",
+                           json={"user_id": "qa-wang", "password": "qa-pass"}).status_code == 200
+        assert client.get("/api/system/event-store-stats").status_code == 403
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+        assert client.get("/api/system/event-store-stats").status_code == 200
+    finally:
+        config.settings.admin_password = ""
 
 
 def test_event_store_stats_stable_after_rebuild(client):
