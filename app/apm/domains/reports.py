@@ -1340,6 +1340,79 @@ def my_attention() -> dict:
                        "due": len(due)}}
 
 
+@router.get("/portfolio/agent-usage")
+def portfolio_agent_usage(days: int = 30) -> dict:
+    """M62-I188 (docs/01 §BG.3): the Langfuse spend surface, translated
+    in-house — runs have booked tokens/cost since M44, so this endpoint is
+    purely the read-side aggregation (event-sourcing dividend #14: the ledger
+    events are already in the stream, zero instrumentation). Per agent_role
+    rollup over visible projects: run count, completion rate, tokens, and
+    estimated cost — "which kind of work is the money going to". Runs in
+    non-terminal states still count as volume; completion rate uses
+    succeeded/(succeeded+failed) so interrupted/running don't dilute it."""
+    me = events.effective_actor()
+    conn = db.get_conn()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"unknown user '{me}'")
+    days = max(1, min(days, 365))
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    from apm.domains.feed import _visible
+
+    roles: dict[str, dict] = {}
+    for r in conn.execute(
+        "SELECT r.agent_role, r.project_id, p.name AS project_name, r.status,"
+        " r.total_input_tokens AS tin, r.total_output_tokens AS tout,"
+        " r.estimated_cost_usd AS cost"
+        " FROM runs r LEFT JOIN projects p ON p.id = r.project_id"
+        " WHERE r.started_at IS NOT NULL AND r.started_at >= ?"
+        " AND r.agent_role IS NOT NULL"
+        " ORDER BY r.started_at",
+        (cutoff,),
+    ).fetchall():
+        if not _visible(r["project_id"], user):
+            continue
+        role = roles.setdefault(r["agent_role"], {
+            "agent_role": r["agent_role"], "runs": 0, "succeeded": 0, "failed": 0,
+            "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0,
+            "projects": set(),
+        })
+        role["runs"] += 1
+        if r["status"] == "succeeded":
+            role["succeeded"] += 1
+        elif r["status"] == "failed":
+            role["failed"] += 1
+        role["input_tokens"] += int(r["tin"] or 0)
+        role["output_tokens"] += int(r["tout"] or 0)
+        role["cost_usd"] += float(r["cost"] or 0)
+        role["projects"].add(r["project_id"])
+
+    out = []
+    totals = {"runs": 0, "succeeded": 0, "failed": 0,
+              "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+    for role in sorted(roles.values(), key=lambda x: (-x["cost_usd"], -x["runs"], x["agent_role"])):
+        decided = role["succeeded"] + role["failed"]
+        row = {
+            "agent_role": role["agent_role"],
+            "runs": role["runs"],
+            "succeeded": role["succeeded"],
+            "failed": role["failed"],
+            "success_rate": round(role["succeeded"] / decided, 4) if decided else None,
+            "input_tokens": role["input_tokens"],
+            "output_tokens": role["output_tokens"],
+            "cost_usd": round(role["cost_usd"], 4),
+            "projects": len(role["projects"]),
+        }
+        out.append(row)
+        totals["runs"] += row["runs"]
+        totals["succeeded"] += row["succeeded"]
+        totals["failed"] += row["failed"]
+        totals["input_tokens"] += row["input_tokens"]
+        totals["output_tokens"] += row["output_tokens"]
+        totals["cost_usd"] = round(totals["cost_usd"] + row["cost_usd"], 4)
+    return {"days": days, "roles": out, "totals": totals}
+
+
 @router.get("/my/schedule")
 def my_schedule() -> dict:
     """Personal cross-project schedule (M29-I89, docs/01 §AB.1): every item

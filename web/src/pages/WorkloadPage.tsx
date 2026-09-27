@@ -13,6 +13,8 @@ export function WorkloadPage() {
   const wl = useQuery({ queryKey: ["workload"], queryFn: api.portfolioWorkload, refetchInterval: 15_000 });
   const members = wl.data?.members ?? [];
   const maxActive = Math.max(1, ...members.map((m) => m.active));
+  // M62-I188: agent spend surface (docs/01 §BG.3) — the human side above, the agent side below
+  const usage = useQuery({ queryKey: ["agent-usage"], queryFn: () => api.agentUsage(30) });
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
@@ -28,6 +30,42 @@ export function WorkloadPage() {
       {members.map((m) => (
         <MemberRow key={m.user_id} m={m} maxActive={maxActive} />
       ))}
+
+      {usage.data && usage.data.roles.length > 0 && (
+        <Card className="p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">🤖 Agent 用量</span>
+            <span className="text-[10px] text-mut"
+              title="runs 记账（M44 起 token/成本入流）的读侧聚合——「钱花在哪类工作上」；可见性同负载口径">
+              近 {usage.data.days} 天 · 完成率=成功/(成功+失败)
+            </span>
+          </div>
+          <div className="space-y-1 text-xs">
+            {usage.data.roles.map((r) => (
+              <div key={r.agent_role} className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 truncate font-medium">🤖 {r.agent_role}</span>
+                <span className="w-16 text-right text-mut" title="运行数">{r.runs} 次</span>
+                <span className="w-20 text-right text-mut" title="完成率（成功/(成功+失败)）">
+                  {r.success_rate != null ? `✓ ${Math.round(r.success_rate * 100)}%` : "—"}
+                </span>
+                <span className="w-24 text-right text-mut" title="输入/输出 token">
+                  {r.input_tokens.toLocaleString()} / {r.output_tokens.toLocaleString()} tok
+                </span>
+                <span className="w-20 text-right font-medium" title="估算成本合计">${r.cost_usd.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 px-2.5 pt-1 text-[10px] text-mut">
+              <span className="min-w-0 flex-1">合计 {usage.data.totals.runs} 次运行</span>
+              <span className="w-20 text-right" title="成功运行数">✓ {usage.data.totals.succeeded}</span>
+              <span className="w-20" />
+              <span className="w-24 text-right" title="token 合计">
+                {usage.data.totals.input_tokens.toLocaleString()} / {usage.data.totals.output_tokens.toLocaleString()}
+              </span>
+              <span className="w-20 text-right font-medium">${usage.data.totals.cost_usd.toFixed(2)}</span>
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

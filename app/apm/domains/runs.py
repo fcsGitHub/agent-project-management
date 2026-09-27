@@ -70,12 +70,18 @@ def _proj_run_failed(conn, e):
 @on("run.tokens_recorded")
 def _proj_run_tokens(conn, e):
     """Real-provider usage accumulates per generation node (M44). The replay
-    provider never emits this, so its honest zeros survive untouched."""
+    provider never emits this, so its honest zeros survive untouched.
+    M62-I188: the payload may carry estimated_cost_usd (computed by whoever
+    knows the pricing) — the ledger accumulates it when present, so the
+    read-side aggregations (/projects/{id}/runs/report, /portfolio/
+    agent-usage) sum a real number instead of a dormant zero column."""
     p = e.payload
     conn.execute(
         "UPDATE runs SET total_input_tokens = total_input_tokens + ?,"
-        " total_output_tokens = total_output_tokens + ? WHERE id = ?",
-        (int(p.get("input_tokens", 0)), int(p.get("output_tokens", 0)), e.agg_id),
+        " total_output_tokens = total_output_tokens + ?,"
+        " estimated_cost_usd = estimated_cost_usd + ? WHERE id = ?",
+        (int(p.get("input_tokens", 0)), int(p.get("output_tokens", 0)),
+         float(p.get("estimated_cost_usd", 0) or 0), e.agg_id),
     )
 
 

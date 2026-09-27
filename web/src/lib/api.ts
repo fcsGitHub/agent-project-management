@@ -719,6 +719,12 @@ export const api = {
   slowEndpoints: () =>
     req<{ threshold_ms: number; endpoints: { path: string; count: number; mean_ms: number; max_ms: number }[];
           slow_samples: { path: string; method: string; status: number; ms: number; ts: string }[] }>("/system/slow-endpoints"),
+  // Agent spend surface (M62-I188, docs/01 §BG.3 — runs ledger read-side)
+  agentUsage: (days = 30) =>
+    req<{ days: number; roles: { agent_role: string; runs: number; succeeded: number; failed: number;
+          success_rate: number | null; input_tokens: number; output_tokens: number; cost_usd: number; projects: number }[];
+          totals: { runs: number; succeeded: number; failed: number; input_tokens: number; output_tokens: number; cost_usd: number } }>(
+      `/portfolio/agent-usage?days=${days}`),
   login: (userId: string, password: string) =>
     req<{ user_id: string; name: string }>("/auth/login", {
       method: "POST", body: JSON.stringify({ user_id: userId, password }),
