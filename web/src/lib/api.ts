@@ -647,6 +647,12 @@ export const api = {
     req<Run>("/runs", { method: "POST", body: JSON.stringify(body) }),
   retryRun: (rid: string) =>
     req<Run>(`/runs/${encodeURIComponent(rid)}/retry`, { method: "POST" }),
+  // M64-I192: retry lineage — the chain, per-link scalars (dividend #15)
+  retryLineage: (runId: string) =>
+    req<{ run_id: string; chain: { run_id: string; status: string; started_at: string | null; ended_at: string | null;
+          duration_s: number | null; steps: number; input_tokens: number; output_tokens: number;
+          estimated_cost_usd: number; artifact?: string | null }[]; length: number; retried: boolean }>(
+      `/runs/${runId}/retry-lineage`),
   getHealthHistory: (pid: string, days = 30) =>
     req<{ project_id: string; days: number;
           series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] }>(

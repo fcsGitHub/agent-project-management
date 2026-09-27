@@ -325,3 +325,85 @@ def retry_run(run_id: str) -> dict:
         instruction=run.get("input"),
     )
     return {"original": run_id, "new_run": _run_detail(new)}
+
+
+def _run_ring_scalars(run: dict) -> dict:
+    """M64-I192: one link of the retry lineage — scalar comparison surface
+    (the "what changed" answer; artifact bodies stay on the trajectory page)."""
+    from apm.core.db import get_conn
+
+    conn = get_conn()
+    spans_n = conn.execute("SELECT COUNT(*) AS n FROM spans WHERE run_id = ?",
+                           (run["id"],)).fetchone()["n"]
+    duration = None
+    if run.get("started_at") and run.get("ended_at"):
+        from datetime import datetime
+
+        try:
+            t0 = datetime.fromisoformat(run["started_at"])
+            t1 = datetime.fromisoformat(run["ended_at"])
+            duration = round((t1 - t0).total_seconds(), 1)
+        except ValueError:
+            pass
+    out = run.get("output")
+    artifact = None
+    if isinstance(out, str):
+        try:
+            out = json.loads(out)
+        except ValueError:
+            out = None
+    if isinstance(out, dict):
+        artifact = out.get("artifact") or out.get("artifact_path")
+    return {
+        "run_id": run["id"],
+        "status": run["status"],
+        "started_at": run.get("started_at"),
+        "ended_at": run.get("ended_at"),
+        "duration_s": duration,
+        "steps": spans_n,
+        "input_tokens": run.get("total_input_tokens") or 0,
+        "output_tokens": run.get("total_output_tokens") or 0,
+        "estimated_cost_usd": run.get("estimated_cost_usd") or 0,
+        "artifact": artifact,
+    }
+
+
+@router.get("/runs/{run_id}/retry-lineage")
+def retry_lineage(run_id: str) -> dict:
+    """M64-I192 (docs/01 §BI.1): the retry chain, visualized — LangGraph
+    deterministic-resume vs OpenHands independent-rollout consensus is that a
+    retry's value is "what changed vs last time", so the chain walks
+    run.retried_from_checkpoint.original links and returns per-link scalars
+    (event-sourcing dividend #15: the chain facts are already in the stream).
+    Read-only projection; the frontend diffs adjacent links."""
+    conn = db.get_conn()
+    chain_ids: list[str] = [run_id]
+    seen = {run_id}
+    # walk backwards: each retried link stores original=<predecessor>
+    cursor = run_id
+    while True:
+        row = conn.execute(
+            "SELECT payload FROM events WHERE event_type = 'run.retried_from_checkpoint'"
+            " AND agg_id = ? ORDER BY id DESC LIMIT 1", (cursor,)).fetchone()
+        if row is None:
+            break
+        prev = json.loads(row["payload"]).get("original")
+        if not prev or prev in seen:
+            break
+        chain_ids.append(prev)
+        seen.add(prev)
+        cursor = prev
+    chain_ids.reverse()  # oldest first
+
+    links = []
+    for rid in chain_ids:
+        row = conn.execute("SELECT * FROM runs WHERE id = ?", (rid,)).fetchone()
+        if row is None:
+            continue
+        links.append(_run_ring_scalars(dict(row)))
+    if not links:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    return {"run_id": run_id, "chain": links,
+            "length": len(links), "retried": len(links) > 1}

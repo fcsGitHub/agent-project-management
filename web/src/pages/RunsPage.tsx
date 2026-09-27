@@ -1,11 +1,11 @@
 /** Runs browser: list + drawer with span tree, gantt and human-machine timeline. */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { clockOf, timeAgo } from "../lib/fmt";
-import { Badge, Button, Card, Drawer, Empty, KV, cx } from "../components/ui";
+import { Badge, Button, Card, Drawer, Empty, KV, Modal, cx } from "../components/ui";
 
 const STATUS_TONE: Record<string, string> = {
   pending: "neutral", running: "violet", interrupted: "amber",
@@ -105,6 +105,10 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => api.getRun(runId!), enabled: !!runId });
   const spans = useQuery({ queryKey: ["spans", runId], queryFn: () => api.getSpans(runId!), enabled: !!runId });
   const timeline = useQuery({ queryKey: ["timeline", runId], queryFn: () => api.getTimeline(runId!), enabled: !!runId });
+  // M64-I192: retry lineage + comparison drawer
+  const lineage = useQuery({ queryKey: ["retry-lineage", runId], queryFn: () => api.retryLineage(runId!), enabled: !!runId });
+  const [comparing, setComparing] = useState(false);
+  const chain = lineage.data?.chain ?? [];
 
   const bounds = useMemo(() => {
     const list = (spans.data?.spans ?? []).filter((s) => s.ts_start);
@@ -115,6 +119,7 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
 
   if (!runId) return null;
   const r = run.data;
+  const prevLink = chain.length >= 2 ? chain[chain.length - 2] : null;
   return (
     <Drawer open onClose={onClose} title={
       <span className="flex items-center gap-2">
@@ -130,6 +135,16 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
             <KV k="工作项" v={r.item_title ?? r.item_id ?? "—"} />
             <KV k="开始/结束" v={`${r.started_at ?? "—"} → ${r.ended_at ?? (r.status === "running" ? "…" : "—")}`} />
             {r.error && <KV k="错误" v={<span className="text-dan">{r.error}</span>} />}
+            {/* M64-I192: retry lineage badge — the chain, not a second log */}
+            {prevLink && (
+              <KV k="重试自" v={
+                <button onClick={() => setComparing(true)}
+                  className="rounded border border-line px-1.5 py-0.5 text-[11px] text-acc hover:border-acc"
+                  title={`对比 ${prevLink.run_id.slice(0, 12)}… 与本次`}>
+                  ↳ {prevLink.run_id.slice(0, 12)}… · 对比
+                </button>
+              } />
+            )}
             <div className="mt-2 flex gap-2">
               <Button size="sm" variant="outline" onClick={async () => {
                 try {
@@ -137,6 +152,7 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
                   toast.success("已从检查点重试");
                   qc.invalidateQueries({ queryKey: ["runs"] });
                   qc.invalidateQueries({ queryKey: ["run", runId] });
+                  qc.invalidateQueries({ queryKey: ["retry-lineage", runId] });
                 } catch (e) {
                   toast.error("重试失败", { description: String(e) });
                 }
@@ -195,6 +211,33 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
             </div>
           </div>
         </div>
+      )}
+      {comparing && prevLink && r && (
+        <Modal open onClose={() => setComparing(false)} title="🔍 重试对比 · 与上一环差在哪">
+          <div className="space-y-2 text-xs">
+            <div className="grid grid-cols-[92px_1fr_1fr] gap-x-3 gap-y-1.5">
+              <span />
+              <span className="font-semibold text-mut">上一环 {prevLink.run_id.slice(0, 10)}…</span>
+              <span className="font-semibold text-acc">本次 {runId!.slice(0, 10)}…</span>
+              {([["状态", "status"], ["步数", "steps"], ["输入 tok", "input_tokens"], ["输出 tok", "output_tokens"],
+                 ["成本 $", "estimated_cost_usd"], ["时长 s", "duration_s"], ["工件", "artifact"]] as const).map(([label, key]) => {
+                const a = prevLink[key as keyof typeof prevLink];
+                const b = (lineage.data!.chain[lineage.data!.chain.length - 1] as Record<string, unknown>)[key];
+                const changed = String(a ?? "—") !== String(b ?? "—");
+                return (
+                  <div key={key} className="contents">
+                    <span className="text-mut">{label}</span>
+                    <span className={cx("truncate", changed && "text-dan")}>{a == null || a === "" ? "—" : String(a)}</span>
+                    <span className={cx("truncate font-medium", changed && "text-ag")}>{b == null || b === "" ? "—" : String(b)}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-line pt-1.5 text-[10px] text-mut">
+              diff 的是标量与工件清单，不 diff 正文——轨迹正文在各自时间线里。链长 {lineage.data?.length}。
+            </div>
+          </div>
+        </Modal>
       )}
     </Drawer>
   );
