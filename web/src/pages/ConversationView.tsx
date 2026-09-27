@@ -2,7 +2,7 @@
  * I138: assistant 生成内容经 run.token_delta 瞬态增量逐字渲染（不入库），
  * message.created 落库后自动切回权威全文。 */
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -18,6 +18,7 @@ const STEP_ICON: Record<string, string> = {
 
 export function ConversationView() {
   const { pid, cid } = useParams();
+  const nav = useNavigate();
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [ctxOpen, setCtxOpen] = useState(false);
@@ -163,6 +164,27 @@ export function ConversationView() {
           )}
           {!hasActiveRun && c.status !== "archived" && (
             <Button size="sm" variant="outline" onClick={() => startRun()}>▶ 让 Agent 执行</Button>
+          )}
+          {/* M66-I198: ChatGPT "Branch in new chat" — child conversation on the
+              parent_conversation_id lineage; the tree view surfaces it. */}
+          {c.status !== "archived" && (
+            <Button size="sm" variant="ghost" title="以本对话为父建立分支对话（树形视图可见血缘）"
+              onClick={async () => {
+                try {
+                  const child = await api.createConversation({
+                    project_id: c.project_id,
+                    feature_id: c.feature_id,
+                    kind: c.kind,
+                    title: `${c.title ?? "对话"} · 分支`,
+                    instruction: c.instruction,
+                    parent_conversation_id: cid,
+                  });
+                  toast.success("已建分支对话", { description: "树形列表可见血缘" });
+                  nav(`/p/${c.project_id}/c/${child.id}`);
+                } catch (e) {
+                  toast.error("分支失败", { description: String(e) });
+                }
+              }}>⑂ 分支</Button>
           )}
           {/* M61-I184: Markdown transcript export (docs/01 §BF.3) */}
           <Button size="sm" variant="ghost" onClick={async () => {

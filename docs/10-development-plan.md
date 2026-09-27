@@ -2026,15 +2026,15 @@ agent-project-management/
 
 | 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
 | --- | --- | --- | --- | --- |
-| I198 | 对话树导航（`GET /projects/{id}/conversations/tree` 血缘投影[根+children+status 注记] + ConversationsPage 线性/树形双模式[活动路径高亮+兄弟跳转] + 单测） | docs/01 §BK.1 | MVP parent_conversation_id | 3d |
+| I198 | 对话树导航（`GET /projects/{id}/conversations/tree` 血缘投影[根+children+run_status 注记] + ConversationIn 加 parent_conversation_id 写入面[**parent_conversation_id 自 MVP 从无写入方**——Branch in new chat 语义补写入] + ConversationsPage 线性/树形双模式[活动路径高亮] + ConversationView「⑂ 分支」按钮 + 单测） | docs/01 §BK.1 | MVP parent_conversation_id | 3d |
 | I199 | PAT 机器接入（api_tokens 表+created/revoked 事件 + Bearer 认证旁路 + display-once/过期/last_used/吊销 + 前端管理卡 + 单测） | docs/01 §BK.2 | M60 webhook HMAC 纪律 | 3d |
 | I200 | 成本预算护栏+冒烟 71+收尾审阅（projects.cost_budget_usd + start_run 事前预检[硬顶 402/软阈 80% warning] + 项目设置输入 + Runs 页预算徽标 + 冒烟 71 + 全量回归 + docs 收口 + M66 审阅） | docs/01 §BK.3 | I122 budget_hours/I188 用量 | 3d |
 
 #### I198 · 对话树导航（3d）
 
-- 任务：conversations.py `GET /projects/{id}/conversations/tree`（纯投影：parent_conversation_id 链组树，根=无 parent，节点带 title/status/created_at/run 状态注记；孤儿 parent 兜底挂根）+ ConversationsPage 双模式切换（树形缩进渲染 + 当前会话活动路径高亮 + 点击跳转）。
-- DoD：单测（两层树 roundtrip/孤儿兜底/rebuild 一致/线性模式不受影响）。
-- 演示路径：从主对话分叉支线（I195）→ 列表页切树形 → 分支结构一眼看清，点支线跳转。
+- 任务：conversations.py `GET /projects/{id}/conversations/tree`（纯投影：parent_conversation_id 链组树，根=无 parent，节点带 title/status/kind/created_at/run 状态注记；孤儿 parent 兜底挂根）+ **ConversationIn 加 parent_conversation_id**（可选·校验同项目存在——I195 分叉复用同一会话[run 级支线]，会话级分支此前无任何写入方，树必须是活的）+ ConversationsPage 双模式切换（树形缩进渲染 + 活动路径高亮[最新 updated 祖先链] + 点击跳转）+ ConversationView「⑂ 分支」按钮（ChatGPT Branch in new chat 语义）。
+- DoD：单测（两层树 roundtrip/跨项目 parent 422/孤儿兜底/rebuild 一致/线性模式不受影响）。
+- 演示路径：对话页点「⑂ 分支」出支线对话 → 列表页切树形 → 分支结构一眼看清，点支线跳转。
 
 #### I199 · PAT 机器接入（3d）
 

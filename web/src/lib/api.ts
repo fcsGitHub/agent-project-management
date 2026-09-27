@@ -14,6 +14,10 @@ export type Conversation = {
   id: string; project_id: string; feature_id?: string; kind: string; title?: string;
   status: string; item_id?: string; run_id?: string; instruction?: string;
   created_at: string; updated_at: string; messages?: Message[];
+  parent_conversation_id?: string | null;
+};
+export type ConversationTreeNode = Omit<Conversation, "messages"> & {
+  run_status?: string | null; children: ConversationTreeNode[];
 };
 export type Message = {
   id: string; conversation_id: string; parent_id?: string; role: string;
@@ -486,8 +490,10 @@ export const api = {
 
   listConversations: (pid: string, params?: { feature_id?: string }) =>
     req<{ conversations: Conversation[] }>(`/conversations?project_id=${pid}${params?.feature_id ? `&feature_id=${params.feature_id}` : ""}`),
+  getConversationTree: (pid: string) =>
+    req<{ project_id: string; roots: ConversationTreeNode[]; total: number }>(`/projects/${pid}/conversations/tree`),
   getConversation: (cid: string) => req<Conversation>(`/conversations/${cid}`),
-  createConversation: (body: { project_id: string; feature_id?: string; kind: string; title?: string; instruction?: string; item_id?: string }) =>
+  createConversation: (body: { project_id: string; feature_id?: string; kind: string; title?: string; instruction?: string; item_id?: string; parent_conversation_id?: string }) =>
     req<Conversation>("/conversations", { method: "POST", body: JSON.stringify(body) }),
   sendMessage: (cid: string, content: string) =>
     req<{ message: Message; interrupted: boolean }>(`/conversations/${cid}/messages`, { method: "POST", body: JSON.stringify({ content }) }),

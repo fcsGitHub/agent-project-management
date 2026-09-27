@@ -173,11 +173,16 @@ def create_conversation(
     title: str | None = None,
     instruction: str | None = None,
     item_id: str | None = None,
+    parent_conversation_id: str | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
 ) -> dict:
     if kind not in CONVERSATION_KINDS:
         raise HTTPException(status_code=422, detail=f"kind must be one of {CONVERSATION_KINDS}")
+    if parent_conversation_id is not None:
+        parent = get_conversation(parent_conversation_id)
+        if parent is None or parent["project_id"] != project_id:
+            raise HTTPException(status_code=422, detail="parent_conversation_id must be a conversation of the same project")
     cid = new_id("c")
     events.emit(
         event_type="conversation.created",
@@ -193,6 +198,7 @@ def create_conversation(
             "status": "active",
             "item_id": item_id,
             "instruction": instruction,
+            "parent_conversation_id": parent_conversation_id,
         },
     )
     return get_conversation(cid)  # type: ignore[return-value]
@@ -411,6 +417,7 @@ class ConversationIn(BaseModel):
     title: str | None = None
     instruction: str | None = None
     item_id: str | None = None
+    parent_conversation_id: str | None = None
 
 
 class MessageIn(BaseModel):
@@ -438,6 +445,7 @@ def post_conversation(body: ConversationIn) -> dict:
         title=body.title,
         instruction=body.instruction,
         item_id=body.item_id,
+        parent_conversation_id=body.parent_conversation_id,
     )
     conv["context"] = build_context(conv)
     return conv
@@ -454,6 +462,46 @@ def get_conversations(
             project_id=project_id, feature_id=feature_id, include_archived=include_archived
         )
     }
+
+
+@router.get("/projects/{project_id}/conversations/tree")
+def get_conversation_tree(project_id: str, include_archived: bool = False) -> dict:
+    """I198: lineage view over parent_conversation_id — stored since MVP and
+    grown by run forks (M65-I195), but the page was a linear list, so the tree
+    was invisible (ChatGPT's branching lesson: linear UI hides the tree).
+    Pure read projection; children ordered by creation time, roots by recency."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    convs = list_conversations(project_id=project_id, include_archived=include_archived)
+    run_status: dict[str, str] = {}
+    for r in db.get_conn().execute(
+        "SELECT conversation_id, status FROM runs WHERE project_id = ?"
+        " ORDER BY COALESCE(started_at, '')",
+        (project_id,),
+    ).fetchall():
+        if r["conversation_id"]:
+            run_status[r["conversation_id"]] = r["status"]
+    nodes = {
+        c["id"]: {k: c[k] for k in
+                  ("id", "project_id", "feature_id", "item_id", "kind", "title", "status",
+                   "instruction", "parent_conversation_id", "created_at", "updated_at")}
+        | {"run_status": run_status.get(c["id"]), "children": []}
+        for c in convs
+    }
+    roots = []
+    # created_at order ⇒ a parent is always in `nodes` before its children
+    # (parents are referenced at child creation time), so even a corrupt
+    # cycle self-heals: the later node can't find its parent mounted and
+    # falls back to a root.
+    for node in sorted(nodes.values(), key=lambda n: n["created_at"] or ""):
+        parent = nodes.get(node["parent_conversation_id"] or "")
+        if parent is not None:
+            parent["children"].append(node)
+        else:
+            roots.append(node)
+    roots.sort(key=lambda n: n["updated_at"] or "", reverse=True)
+    return {"project_id": project_id, "roots": roots, "total": len(convs)}
 
 
 @router.get("/conversations/{conversation_id}")
