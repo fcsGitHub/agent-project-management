@@ -144,6 +144,10 @@ def init_db() -> None:
         mcols = {r["name"] for r in conn.execute("PRAGMA table_info(project_members)").fetchall()}
         if mcols and "notify_level" not in mcols:
             conn.execute("ALTER TABLE project_members ADD COLUMN notify_level TEXT")
+        # M63-I191: 存量库补 items.checklist（行内清单 JSON 数组）。
+        icols = {r["name"] for r in conn.execute("PRAGMA table_info(items)").fetchall()}
+        if icols and "checklist" not in icols:
+            conn.execute("ALTER TABLE items ADD COLUMN checklist TEXT")
         # Lightweight migration: 存量库补 item_comments.edited_at（M26-I81）。
         if any(r[0] == "item_comments" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

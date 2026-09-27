@@ -758,6 +758,18 @@ export function Board() {
                           {item.parent_id && titleMap[item.parent_id] && (
                             <div className="mt-0.5 truncate text-[10px] text-mut" title="父任务">↳ {titleMap[item.parent_id]}</div>
                           )}
+                          {item.checklist && (() => {
+                            // M63-I191: checklist progress badge on the card
+                            try {
+                              const cl = JSON.parse(item.checklist) as { done: boolean }[];
+                              const d = cl.filter((c) => c.done).length;
+                              if (cl.length) return (
+                                <span className="mt-0.5 inline-block text-[10px] text-mut"
+                                  title="行内清单进度（advisory，不计入健康分）">☑ {d}/{cl.length}</span>
+                              );
+                            } catch { /* corrupt row — skip badge */ }
+                            return null;
+                          })()}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
                             {item.blocked && (
@@ -1092,8 +1104,22 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
   const [due, setDue] = useState(item.due_date ?? "");
   const [cycle, setCycle] = useState(item.cycle_id ?? "");
   const [busy, setBusy] = useState(false);
+  // M63-I191: in-item checklist (docs/01 §BH.3) — lightweight, advisory only
+  const [checklist, setChecklist] = useState<{ text: string; done: boolean }[]>(() => {
+    try { return item.checklist ? JSON.parse(item.checklist) : []; } catch { return []; }
+  });
+  const [newCheck, setNewCheck] = useState("");
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
   const cyclesQ = useQuery({ queryKey: ["cycles", item.project_id], queryFn: () => api.listCycles(item.project_id) });
+
+  const saveChecklist = async (next: { text: string; done: boolean }[]) => {
+    setChecklist(next);
+    if (next.length || item.checklist) {
+      try { await api.patchChecklist(item.id, next); } catch (e) {
+        toast.error(`清单保存失败：${e instanceof Error ? e.message : e}`);
+      }
+    }
+  };
 
   const concept = concepts.find((c) => c.id === item.concept_id);
   const states = concept?.states ?? [];
@@ -1166,6 +1192,40 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
             ))}
           </select>
         </label>
+        {/* M63-I191: checklist — 同屏轻量勾选，不做实体转换 */}
+        <div className="rounded-lg border border-line bg-bg p-2">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[10px] text-mut">☑ 清单 {checklist.filter((c) => c.done).length}/{checklist.length}</span>
+            {checklist.length > 0 && (
+              <button onClick={() => saveChecklist(checklist.filter((c) => !c.done))}
+                className="text-[10px] text-mut hover:text-dan" title="移除已完成项">清除已完成</button>
+            )}
+          </div>
+          <div className="space-y-0.5">
+            {checklist.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <input type="checkbox" checked={c.done} onChange={() =>
+                  saveChecklist(checklist.map((x, j) => j === i ? { ...x, done: !x.done } : x))
+                } />
+                <span className={cx("min-w-0 flex-1 truncate", c.done && "text-mut line-through")}>{c.text}</span>
+                <button onClick={() => saveChecklist(checklist.filter((_, j) => j !== i))}
+                  className="text-[10px] text-mut hover:text-dan">✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex items-center gap-1">
+            <input value={newCheck} onChange={(e) => setNewCheck(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter" && newCheck.trim()) {
+                  if (checklist.length >= 20) { toast.error("清单最多 20 项"); return; }
+                  await saveChecklist([...checklist, { text: newCheck.trim(), done: false }]);
+                  setNewCheck("");
+                }
+              }}
+              placeholder="添加清单项，回车确认（≤200 字）"
+              className="w-0 flex-1 rounded border border-line bg-surface px-1.5 py-0.5" />
+          </div>
+        </div>
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-mut">变更走既有 PATCH——流转白名单/闭锁/WIP 全部生效</span>
           <Button size="sm" variant="primary" disabled={busy} onClick={submit}>保存</Button>

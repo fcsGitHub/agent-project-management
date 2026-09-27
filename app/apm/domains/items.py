@@ -72,6 +72,14 @@ def _proj_item_updated(conn, e):
         conn.execute(f"UPDATE items SET {', '.join(sets)} WHERE id = ?", params)
 
 
+@on("item.checklist_updated")
+def _proj_item_checklist(conn, e):
+    # M63-I191: whole-column overwrite — the payload carries the full new list
+    # (custom_fields 整列覆盖纪律同款); no version bump (advisory surface).
+    conn.execute("UPDATE items SET checklist = ? WHERE id = ?",
+                 (e.payload.get("checklist"), e.agg_id))
+
+
 @on("item.status_changed")
 def _proj_item_status(conn, e):
     p = e.payload
@@ -909,6 +917,44 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
         propagate_reschedule(item["project_id"], item_id,
                              item.get("due_date"), changes["due_date"])
     return get_item(item_id)  # type: ignore[return-value]
+
+
+# ------------------------------------------------------------- M63-I191: checklist
+class ChecklistItemIn(BaseModel):
+    text: str
+    done: bool = False
+
+
+class ChecklistIn(BaseModel):
+    items: list[ChecklistItemIn]
+
+
+@router.patch("/items/{item_id}/checklist")
+def patch_checklist(item_id: str, body: ChecklistIn) -> dict:
+    """In-item checklist (M63-I191, docs/01 §BH.3 — GitHub tasklist semantics
+    minus the sub-issue conversion: the checklist's value is staying lightweight).
+    Full-list submit, whole-column overwrite (custom_fields discipline, M6-I20);
+    one `item.checklist_updated` fact carries the entire new state. Advisory
+    only — checklist progress never feeds health/完成率 semantics."""
+    item = require_item(item_id)
+    if len(body.items) > 20:
+        raise HTTPException(status_code=422, detail="checklist supports at most 20 items")
+    norm: list[dict] = []
+    for ci in body.items:
+        text = ci.text.strip()
+        if not text or len(text) > 200:
+            raise HTTPException(status_code=422, detail="checklist item text must be 1-200 chars")
+        norm.append({"text": text, "done": ci.done})
+    payload = json.dumps(norm, ensure_ascii=False)
+    events.emit(
+        event_type="item.checklist_updated",
+        agg_type="item",
+        agg_id=item_id,
+        project_id=item["project_id"],
+        payload={"checklist": payload},
+    )
+    done = sum(1 for ci in norm if ci["done"])
+    return {"item_id": item_id, "checklist": norm, "done": done, "total": len(norm)}
 
 
 class BatchPatchIn(BaseModel):

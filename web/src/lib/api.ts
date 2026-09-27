@@ -28,6 +28,7 @@ export type Item = {
   recurrence_days?: number | null;
   blocked?: boolean;
   custom_fields?: Record<string, unknown> | null;
+  checklist?: string | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[];
@@ -533,6 +534,10 @@ export const api = {
         samples: { date: string; pv: number }[] } | null }>(
       `/projects/${pid}/baseline-curve${qs ? `?${qs}` : ""}`);
   },
+  // M63-I191: in-item checklist (full-list submit, whole-column overwrite)
+  patchChecklist: (itemId: string, items: { text: string; done: boolean }[]) =>
+    req<{ item_id: string; checklist: { text: string; done: boolean }[]; done: number; total: number }>(
+      `/items/${itemId}/checklist`, { method: "PATCH", body: JSON.stringify({ items }) }),
   // I108: saved replies — the user's own canned responses (GitHub semantics)
   listSavedReplies: () =>
     req<{ replies: { id: string; title: string; body: string; created_at: string }[] }>("/me/saved-replies"),
