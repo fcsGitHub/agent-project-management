@@ -78,3 +78,37 @@ def llm_ping() -> dict:
         "usage": {"input": c.input_tokens, "output": c.output_tokens},
         "latency_ms": int((time.time() - t0) * 1000),
     }
+
+
+@router.get("/system/event-store-stats")
+def event_store_stats() -> dict:
+    """M61-I183 (docs/01 §BF.1, 'measure first, then treat'): the event log
+    grows forever by design (§K.3: archive = export, never delete — any prune
+    breaks live==replay), so the governance baseline is pure observation: how
+    big, what types are growing, how old the oldest event is. Read-only, no
+    new mechanisms; if treatment is ever needed it composes existing export +
+    backup tools."""
+    from apm.core import db, events
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required for event store stats")
+    conn = db.get_conn()
+    total = conn.execute("SELECT COUNT(*) AS n FROM events").fetchone()["n"]
+    page_count = conn.execute("PRAGMA page_count").fetchone()[0]
+    page_size = conn.execute("PRAGMA page_size").fetchone()[0]
+    row = conn.execute("SELECT MIN(ts) AS oldest, MAX(ts) AS newest FROM events").fetchone()
+    distribution = [
+        {"agg_type": r["agg_type"], "event_type": r["event_type"], "count": r["n"]}
+        for r in conn.execute(
+            "SELECT agg_type, event_type, COUNT(*) AS n FROM events"
+            " GROUP BY agg_type, event_type ORDER BY n DESC, event_type"
+        ).fetchall()
+    ]
+    return {
+        "total_events": total,
+        "db_bytes": page_count * page_size,
+        "oldest_ts": row["oldest"],
+        "newest_ts": row["newest"],
+        "distribution": distribution,
+    }

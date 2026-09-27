@@ -706,6 +706,10 @@ export const api = {
   // Auth (M8-I26/I28)
   authMe: () =>
     req<{ user_id: string; name: string; is_admin: boolean; source: "session" | "local" }>("/auth/me"),
+  // Event store observation (M61-I183, docs/01 §BF.1 — measure first, then treat)
+  eventStoreStats: () =>
+    req<{ total_events: number; db_bytes: number; oldest_ts: string | null; newest_ts: string | null;
+          distribution: { agg_type: string; event_type: string; count: number }[] }>("/system/event-store-stats"),
   login: (userId: string, password: string) =>
     req<{ user_id: string; name: string }>("/auth/login", {
       method: "POST", body: JSON.stringify({ user_id: userId, password }),

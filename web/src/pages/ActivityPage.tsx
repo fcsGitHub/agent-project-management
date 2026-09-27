@@ -46,11 +46,53 @@ export function ActivityPage() {
   // I115: the Atom subscription URL is the credential (feed_key, M11 semantics)
   const feedKey = useQuery({ queryKey: ["feed-key"], queryFn: api.getFeedKey });
   const atomUrl = feedKey.data ? `${location.origin}/api/portfolio/activity.atom?key=${feedKey.data.feed_key}` : null;
+  // M61-I183: instance-level event store observation, admin-only (same gate as rebuild)
+  const me = useQuery({ queryKey: ["me"], queryFn: api.authMe });
+  const stats = useQuery({
+    queryKey: ["event-store-stats"],
+    queryFn: api.eventStoreStats,
+    enabled: !!me.data?.is_admin,
+  });
+
+  const fmtBytes = (n: number) =>
+    n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : n >= 1 << 10 ? `${(n / (1 << 10)).toFixed(1)} KB` : `${n} B`;
+  const topDist = (stats.data?.distribution ?? []).slice(0, 5);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 md:p-6">
       <h1 className="text-lg font-semibold">📰 项目动态</h1>
       <p className="-mt-3 text-xs text-mut">你可见的项目里最近发生的一切——直接读事件流，谁在何时动了什么。</p>
+
+      {me.data?.is_admin && (
+        <Card className="p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">🗄 事件库</span>
+            <span className="text-[10px] text-mut" title="事件日志只增是事件溯源的本质（归档=导出非删除）；先测后治，若未来需要治理动作则组合既有导出与备份工具">
+              只增日志 · 纯读观测 · 归档=导出非删除
+            </span>
+          </div>
+          {stats.data ? (
+            <div className="space-y-1 text-xs">
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-mut">
+                <span>事件 <b className="text-ink">{stats.data.total_events.toLocaleString()}</b> 条</span>
+                <span>库体积 <b className="text-ink">{fmtBytes(stats.data.db_bytes)}</b></span>
+                {stats.data.oldest_ts && <span title={stats.data.oldest_ts}>最早 {stats.data.oldest_ts.slice(0, 10)}</span>}
+                {stats.data.newest_ts && <span title={stats.data.newest_ts}>最新 {stats.data.newest_ts.slice(0, 10)}</span>}
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {topDist.map((d) => (
+                  <span key={`${d.agg_type}/${d.event_type}`} title={`${d.agg_type} / ${d.event_type}`}
+                    className="rounded-full border border-line px-2 py-0.5 text-[10px] text-mut">
+                    {d.event_type} · {d.count.toLocaleString()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="py-1 text-xs text-mut">加载事件库统计…</div>
+          )}
+        </Card>
+      )}
 
       <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
