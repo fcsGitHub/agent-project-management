@@ -35,10 +35,8 @@
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
 - **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：watch 条件化（condition_json 全等匹配——事件溯源红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ 冒烟 60。基线 pytest 428 / 冒烟 60 / vitest 18。
 - **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：watch 规则导入导出（模板 {event_type, condition} 去重·缺补在跳·对账 imported/skipped——Jira 无内建）+ 静默时段（users.quiet_start/quiet_end + quiet_active 纯函数跨午夜 + mailer 第四道时刻门——mention/digest 突破·站内照发）+ 冒烟 61。基线 pytest 434 / 冒烟 61 / vitest 18。
-- **M57 治理收口与资产洞察三件套（I171-I173，2026-09-27 完成，docs/01 §BB + docs/10 §M57）**：watch 规则编辑与暂停（PATCH + watch.updated 整行 upsert·paused 列——修 M55 的 409 删了重加坑·Zapier 配置保留语义）+ 资产使用洞察（GET /assets/insights 读侧投影·stale=已发布+零消费+超 90 天·红利第十例）+ 冒烟 62。基线 pytest 437 / 冒烟 62 / vitest 18。
-- **M58 关注 agent 动态三件套（I174-I176，2026-09-27 完成，docs/01 §BC + docs/10 §M58）**：run 生命周期入 watch 白名单（run.succeeded/failed·interrupted 不入防与 approval 双份·payload 顶层镜像 outcome）+ 通知直达（run_id 透传·铃铛跳 runs?run=）+ RunsPage 一键关注开关 + 冒烟 63。基线 pytest 439 / 冒烟 63 / vitest 18。
-- **M59 行动聚合与包治理三件套（I177-I179，2026-09-27 完成，docs/01 §BD + docs/10 §M59）**：「等待我」行动聚合（GET /my/attention 三分区·行动视角与任务视角正交·Linear Inbox 语义）+ 模板包实例溯源（project.created +ontology_version·usages 端点·behind 徽标——只做可见性不做自动迁移）+ 冒烟 64。基线 pytest 443 / 冒烟 64 / vitest 18。
-- **M60 运维韧性与组合洞察三件套（I180-I182，2026-09-27 完成，docs/01 §BE + docs/10 §M60）**：**I180 备份/恢复演练工具**——app/apm/ops.py `create_backup`（sqlite3 backup API 在线取 WAL 一致快照——绝不直接拷活库文件 + content/ 与 assets-repo/ 全量含 Git 历史 + 生效本体目录 + manifest.json→单 zip）+ `restore_backup`（manifest 校验+剥陈旧 -wal/-shm 侧车+本体目录仅显式目标才覆盖）+ tools/backup.py·restore.py 薄 CLI + docs/11 §5.2/5.2.1 演练三步 + 冒烟演练闭环（**「备份会自己跑，演练是为了证明恢复仍然有效」**）。**I181 组合健康趋势与流指标**——`GET /portfolio/health-trend`（可见项目健康史采样对齐+组合中位线+方向）+ _flow_metrics Flow 三件（中位完成周期/近 4 周吞吐/WIP——事件对投影零埋点=**红利第十二例**；Jira 原生做不了跨项目要 Premium Analytics）+ Dashboard 组合卡趋势列。**I182 冒烟 65+审阅**。**当前验证基线：pytest 447 全绿（非 smoke 382 EXIT=0 + smoke runner 65 GREEN 对账）；冒烟 65 条 GREEN；vitest 18/build 绿。**
+- **M57~M59（I171-I179，2026-09-27 完成，docs/01 §BB-§BD + docs/10 §M57-§M59）**：watch 规则编辑与暂停（PATCH+watch.updated 整行 upsert·修 M55 的 409 删了重加坑）+ 资产使用洞察（GET /assets/insights·stale=已发布+零消费+超 90 天·红利第十例）+ run 生命周期入 watch 白名单（run.succeeded/failed·payload 顶层镜像 outcome）+ 通知直达（铃铛跳 runs?run=）+ 「等待我」行动聚合（GET /my/attention 三分区·行动视角与任务视角正交·Linear Inbox 语义）+ 模板包实例溯源（+ontology_version·behind 徽标——只做可见性不做自动迁移）+ 冒烟 62/63/64。基线 pytest 437→443 / 冒烟 62→64。
+- **M60~M61（I180-I185，2026-09-27 完成，docs/01 §BE/§BF + docs/10 §M60/§M61）**：备份/恢复演练工具（app/apm/ops.py create_backup[sqlite3 backup API 一致快照]+restore_backup+tools 薄 CLI+docs/11 演练三步——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（GET /portfolio/health-trend·_flow_metrics Flow 三件=事件对投影零埋点·红利第十二例）+ 事件表体积观测（GET /system/event-store-stats 纯读·先测后治·**截断/快照不做：单一全局流 live==replay 裁决维持**）+ 会话搜索与导出（messages_search FTS[CJK bigram]+/search types=conversations+_visible 裁剪+GET /conversations/{id}/export Markdown 转写+⌘K 命中行+⬇ 导出——**红利第十三例：消息本就是事件**·forgotten conversation problem 组织内解法）+ 移动端 375px 审计刷新（Dashboard 组合行固定宽溢出等三处修复）。基线 pytest 456 / 冒烟 66 / vitest 18。
 
 ## 3. 现在卡在哪
 
@@ -46,8 +44,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M60 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **I183 事件表体积观测（下一步）**：M61 调研定义已提交（d41b365，docs/01 §BF + docs/10 §M61）。三件套=I183 `GET /system/event-store-stats`（COUNT/page_count×page_size/agg_type×event_type GROUP BY/MIN MAX ts——纯读，admin 卡与 rebuild 同域）→ I184 会话搜索与导出（schema `messages_search` FTS[CJK bigram 复用 `_bigrams`] + `@on("conversation.message")` 注册在 `_proj_message` 之后 + `/search` types=conversations[`_visible` 裁剪] + `GET /conversations/{id}/export` Markdown 转写 + ⌘K 命中行/导出按钮）→ I185 移动端审计刷新+冒烟 66+全量回归+M61 审阅。裁决沿用：截断/快照不做（live==replay——观测替治理）、PWA 不做（§N.2）、375px 为审计基线（320 留证据）。
+1. ~~M24~M61 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M62 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节（§BG）+ docs/10 §M62 节 + 看板行 →「M62 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M62 审阅。**候选池**：①端点性能观测（BF.1 的姊妹题——慢请求计时/日志与 SQLite 索引审计[EXPLAIN QUERY PLAN 基线]，对照 APM 可观测性实践）；②watch 规则渠道偏好（per-rule channel override——pref_allows 矩阵是 kind×channel 全局档，增量=单规则级覆盖）；③审批中心刷新（自 M9/M42 后未大动——批量体验/SLA 面审计）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 极小屏专项、消息级全文高亮定位（均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -85,12 +83,15 @@
 - **排期测试日期必须锚周一网格（M47 再证）**：`_day(offset)` 锚下一个周一——任意日期会撞周末被 advance_to_workday 吞掉；且 I44 传播语义是「**移动**才传播」——上游首次设 due（old=None）不触发，必须先设旧值再改。
 - **跨项目链上事件归属（M47-I143）**：关系/传播沿链触达别的项目时，emit 的 project_id 用**被操作项自己的项目**（原 propagate_reschedule 记调用者项目，同项目场景二者相同故潜伏 M14 以来）。
 - **pytest 全量已超 10 分钟**（360+ 项）：后台命令 timeout 上限 600s 会把进程杀掉（退出码 1 + 日志截断的假失败）——用 `--ignore=tests/smoke` 分片跑 pytest + 冒烟 runner 对账。
+- **裸调 `projections.rebuild()` 会连 users 投影一起清掉**（M61-I183）：admin 身份随投影消失→后续 admin 门 403——测试里重建走 `POST /api/system/rebuild-projections`（端点内部 ensure_default_user 恢复引导管理员）。
+- **network 模式测试身份必须走 `POST /auth/login`**（M61-I184 再证）：`/api/session/identity` 是 local-mode only（422），network 下 effective_actor 无会话即 "anonymous"（403/404 会「意外通过」其实身份根本没建立）——造用户带 password + admin_password 先设再 ensure_default_user。
+- **后台命令 cwd 会漂移**（M61-I185）：run_in_background 的 shell 工作目录不保证在 repo 根，`cd app` 相对路径静默失败致回归空跑（exit 0 假绿）——后台命令一律绝对路径 `cd /d/project/agent-project-management/app`，完成后核对日志里的 passed 数。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 447 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 65 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 456 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 66 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
