@@ -33,10 +33,9 @@
 - **M52 周报分发完备三件套（I156-I158，2026-09-21 完成，docs/01 §AW + docs/10 §M52）**：I156 周报 Markdown 附件（payload 加 path/week + `_send` 工作线程 gitrepo 读工件 add_attachment[bytes 乱码→str+charset utf-8；multipart 后测试 stub 改 get_body；读失败降级]；服务端 PDF 裁决不引入）+ I157 周报订阅制（事件对+report_subscribers 投影+三端点成员门+sweep 收件人 owner∪订阅者去重+前端开关）。基线 pytest 416 / 冒烟 57。
 - **M53 分发呈现与资源面三件套（I159-I161，2026-09-21 完成，docs/01 §AX + docs/10 §M53）**：I159 digest 邮件 HTML part（`_digest_html()` 纯函数[table+内联样式+三色徽标+单 CTA 链 `web_base_url`] + `add_alternative`[alternative 必须先于 attachment；双重降级纯文本]）+ I160 跨周资源热力（workload `weeks` 两桶 ISO 锚定+estimate 求和+桶级 on_leave 整周标灰——OpenProject 17.7 轻量裁决：只做读视图不做分配层）+ I161 冒烟 58 + 修 smoke_53 日期敏感。基线 pytest 420 / 冒烟 58。
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
-- **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：watch 条件化（condition_json 全等匹配——事件溯源红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ 冒烟 60。基线 pytest 428 / 冒烟 60 / vitest 18。
-- **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：watch 规则导入导出（模板 {event_type, condition} 去重·缺补在跳·对账 imported/skipped——Jira 无内建）+ 静默时段（users.quiet_start/quiet_end + quiet_active 纯函数跨午夜 + mailer 第四道时刻门——mention/digest 突破·站内照发）+ 冒烟 61。基线 pytest 434 / 冒烟 61 / vitest 18。
+- **M55~M56（I165-I170，2026-09-21/26 完成，docs/01 §AZ/§BA + docs/10 §M55/§M56）**：watch 条件化（condition_json 全等匹配·红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ watch 规则导入导出（模板去重·缺补在跳）+ 静默时段（quiet_start/quiet_end 跨午夜+mailer 第四道时刻门——mention/digest 突破）。基线 pytest 434 / 冒烟 61。
 - **M57~M60（I171-I182，2026-09-27 完成，docs/01 §BB-§BE + docs/10 §M57-§M60）**：watch 规则编辑与暂停（PATCH+watch.updated 整行 upsert·修 M55 的 409 删了重加坑）+ 资产使用洞察（GET /assets/insights·stale=已发布+零消费+超 90 天·红利第十例）+ run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合（三分区·Linear Inbox 语义）+ 模板包实例溯源（behind 徽标）+ 备份/恢复演练工具（sqlite3 backup API+演练闭环——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（Flow 三件·红利第十二例）+ 冒烟 62→65。基线 pytest 447 / 冒烟 65。
-- **M61~M62（I183-I188，2026-09-27 完成，docs/01 §BF/§BG + docs/10 §M61/§M62）**：事件表体积观测（GET /system/event-store-stats·先测后治·截断/快照不做 live==replay 裁决维持）+ 会话搜索与导出（messages_search FTS+/search conversations+Markdown 转写——**红利第十三例：消息本就是事件**·forgotten conversation problem 解法）+ 移动端 375px 审计刷新（Dashboard 组合行溢出等三处）+ 端点性能观测（perf.py 内存环形桶+slow-endpoints+**索引审计补 idx_watch_rules_hit**——遥测不进事件流）+ watch 规则渠道偏好（channels 列·覆盖回退全局·**永不越过 DND**）+ Agent 用量聚合（/portfolio/agent-usage·**红利第十四例：runs 账本读侧零埋点**·tokens_recorded 补 estimated_cost_usd 落账）。基线 pytest 466 / 冒烟 67 / vitest 18。
+- **M61~M63（I183-I191，2026-09-27/28 完成，docs/01 §BF-§BH + docs/10 §M61-§M63）**：事件表体积观测（/system/event-store-stats·先测后治·截断/快照不做 live==replay 维持）+ 会话搜索与导出（messages_search FTS+Markdown 转写——**红利第十三例**）+ 移动端 375px 审计（三处溢出修复）+ 端点性能观测（perf.py 内存环形桶+**索引审计补 idx_watch_rules_hit**——遥测不进事件流）+ watch 规则渠道偏好（channels 覆盖回退全局·**永不越过 DND**）+ Agent 用量聚合（/portfolio/agent-usage·**红利第十四例：runs 账本读侧零埋点**·tokens_recorded 补 cost 落账）+ 自动化 run_agent（第七动作·**防环三闸**[TRIGGERS 不扩/agent+runtime 事实不触发 dispatch/每规则日 ≤3 次]——Gate/审批链保留）+ 项目级通知降级（member notify_level mentions_only 静参与面·**mention/审批/指派/到期/watch 照常**·GitHub 三档取两档）+ 工作项检查清单（item.checklist_updated 整列覆盖·**advisory 不推 version**）。基线 pytest 481 / 冒烟 68 / vitest 18。
 
 ## 3. 现在卡在哪
 
@@ -44,8 +43,8 @@
 
 ## 4. 下一步是什么（按序）
 
-1. ~~M24~M61 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **I189 自动化 run_agent 动作（下一步）**：M63 调研定义已提交（ba7e49e，docs/01 §BH + docs/10 §M63）。三件套=I189 ACTION_TYPES +run_agent（校验 role/instruction ≤200/有关联 item + dispatch 经编排链起 run·payload 标 origin=rule + **防环三闸**[TRIGGERS 不扩 run.*·dispatch guard 排除 actor_id 前缀 runtime:·每规则每日 ≤3 次事件计数]）→ I190 项目级通知降级（project_members.notify_level 列 + `project.member_notify_level` 事件 + PATCH 端点[owner 或本人] + plan_notifications 参与类分支查档——mention/审批/指派/到期/watch 照常）→ I191 items.checklist 列（item.checklist_updated 整列覆盖）+ 抽屉清单区/看板卡进度徽标 + 冒烟 68 + 全量回归 + M63 审阅。**教训：候选池收口时勿凭印象写——M63 候选「工作项批量操作」被防重查证伪（M22-I70 已建 batch-patch）而作废。**
+1. ~~M24~M63 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
+2. **M64 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63 教训：候选池勿凭印象写——「工作项批量操作」被防重查证伪[M22-I70 已建 batch-patch]而作废**）→ 三路并行 WebSearch → docs/01 新节（§BI）+ docs/10 §M64 节 + 看板行 →「M64 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M64 审阅。**候选池（待防重查核验）**：①清单项转子任务（I191 的 checklist→task 升级面——BH.5 留 backlog，证据足时再做）；②搜索域深化（facet 过滤/排序/最近搜索——⌘K 自 M22 起只扩过 conversations[M61]）；③运行页时间线增强（spans 瀑布自 M4 后未大动——对照轨迹可视化 §D）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 专项、消息级高亮、Prometheus 外导、多目的地分发、预算告警、模型价格表管理、Ignore 完整档、Slack 式 @here 细分静音（均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -89,12 +88,15 @@
 - **pytest -q 的进度点会被测试自身输出污染**（M62-I188）：`grep` 点数统计会虚高（399 项数出 408 点）——计数以 `--collect-only` 与 EXIT 码为准，点数只看有没有 F/E 混入。
 - **合成 run 事件必须带 conversation_id**（M62-I188）：runs 投影该列 NOT NULL——`run.requested` payload 缺键会 IntegrityError；token 账走 `run.tokens_recorded`（payload 可带 estimated_cost_usd，replay 诚实零）。
 - **upsert 加列时 VALUES 占位符逐列重数**（M62-I187）：watch.updated 整行 upsert 加 channels 列后少写一个 `?` 报 "6 values for 7 columns"——列数与占位符必须目视逐一对账（I20 纪律的变体）。
+- **日期敏感测试的锚点必须与被测窗口同一时钟源**（M63-I191 再证，§4 纪律升级）：workload 桶锚 `reports._now()`=UTC，测试造数用 `date.today()`=本地——本地已跨日（9-28 周一 00:31 本地=9-27 周日 UTC）时 local monday+8 落出 UTC 的 14 天窗→两桶皆 0 假红。修法=造数也从服务端时钟取锚（`from apm.domains.reports import _now`）。
+- **GET /notifications 列表含历史已读行**（M63-I190）：断言通知增量须过滤 `read` 或先 `POST /notifications/read {"all":true}` 清基线，否则基线行混入假阳。
+- **角色 id 是 `-agent` 后缀**（M63-I189）：写自动化/规则测试前先查 `agents/roles/*.yaml`（planner-agent/dev-agent/qa-agent…）——凭印象写 "planner" 会 422 假红。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 466 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 67 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 481 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 68 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
