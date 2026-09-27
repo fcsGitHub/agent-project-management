@@ -1832,3 +1832,26 @@ M64 = **溯源与升级三件套**：I192 run 重试对比（checkpoint 血缘�
 **BJ.5 M65 取舍**
 
 M65 = **编排纵深三件套**：I195 运行分叉（checkpoint 支线——Git branch 隐喻的 run 域翻译）/ I196 看板泳道（第二分组维度——列×行交叉定位瓶颈）/ I197 基线对比+冒烟 70+审阅（多基线的价值在比不在存），约 9 人日。state 级编辑续跑、分叉自动合并、泳道 WIP 告警、跨项目泳道、三条以上基线对比、回收站审计刷新（M33 已建）、邮件路由增强（M37 已建）留 backlog。
+
+## BK. M66 前置调研：对话树导航 / PAT 机器接入 / 运行成本护栏（2026-09-28）
+
+> 目标协议触发：M65 完成后开启。防重查：候选池 grep——**泳道 WIP 双限（M65 §BJ.2 已明确裁决「不做：自动化 set_status 闭锁已有阻塞语义，WIP 计数告警无证据」，重提违反防重查纪律——作废）**、**分叉采纳面（§BJ.1 Git 分支隐喻已调研+HANDOFF 自注「需真实使用证据」——I195 昨日才落库无使用数据，重查既违反纪律也无证据驱动——降级留 backlog）**、出站 webhook（M10-I32/I33 已建——作废）、工作项批量操作（M22-I70 已建——作废）。本轮三路新调研（**对话树形导航[parent_conversation_id 自 MVP 仅血缘存储无 UI 无调研] / PAT 机器接入凭证[无记录无实现——外部 agent/脚本仅有 session 登录一条路] / run 成本预算护栏[budget_hours 是人工小时预算 I122·agent_usage 是事后观测 I188——事前成本护栏无记录]**），选定 **M66 = 工厂接入与治理三件套**。
+
+**BK.1 对话树形导航（线性列表隐藏树结构——ChatGPT 分支 UI 的核心教训）**
+
+- 产品现状（[Knowtree: ChatGPT branching vs conversation graphs](https://knowtree.chat/blog/chatgpt-branching-vs-conversation-graphs)、[Tangent View](https://www.getaiworkspace.com/chatgpt-conversation-branching)、[OpenAI 论坛：分支视图请求](https://community.openai.com/t/feature-request-branching-conversation-view-for-complex-multi-threaded-dialogues/1239011)）：ChatGPT 2025 已原生分支——编辑历史消息产生隐式版本分支（箭头切换）+「Branch in new chat」三点菜单显式分支；但 [Reddit 讨论](https://www.reddit.com/r/ChatGPT/comments/1d73faj/why_is_dialogue_branching_so_underused)共识=**分支「极难被发现」（poor UI affordances），几乎没人用**——线性聊天界面把树结构藏起来了；第三方可视化器（Tangent View 交互图/BranchGPT 自动检测/highlight 活动分支）全是为此补位；社区共识=**图/树导航才是正确心智模型**。
+- 对本项目的映射：conversations.parent_conversation_id 自 MVP 有血缘存储（run.forked[M65-I195] 也发此链），但 ConversationsPage 是**线性列表——树完全不可见**，与 ChatGPT 前分支时代同病。补法=树视图切换：`GET /projects/{id}/conversations/tree`（纯投影：根=parent 为空的会话，children 按 parent 链组树，带 status/run 状态注记）+ 列表页线性/树形双模式（树形缩进渲染+活动路径高亮+兄弟分支可点跳转）。**不做** 图可视化布局（pan/zoom 画布是另一档工程）、跨项目树（会话单项目域）、树内拖拽重组（血缘是事实记录不是可编辑结构）。
+
+**BK.2 PAT 机器接入凭证（GitHub 参考设计——工厂需要 API 门）**
+
+- 参考设计（[GitHub: Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)、[Introducing fine-grained PAT](https://github.blog/security/application-security/introducing-fine-grained-personal-access-tokens-for-github)、[Duende: Token Expiration & Revocation](https://duendesoftware.com/learn/best-practices-managing-token-expiration-refresh-revocation-in-web-apis)、[OneUptime: Token Lifecycle](https://oneuptime.com/blog/post/2026-01-30-token-lifecycle-management/view)）：GitHub PAT 语义=过期档位（7/30/60/90/自定义/永不过期）+**per-token last_used_at 上 UI**（卫生清理陈旧 token 的依据）+立即吊销+**display-once**（明文只显示一次，库存哈希）；最佳实践=高权限短过期、服务端吊销（客户端不可信）、吊销≠过期（过期限时长、吊销是提前失效）；fine-grained 档=资源级 scope+组织审批——单租户产品可裁。
+- 对本项目的映射：`api_tokens` 表（name/prefix/hash[SHA-256]/user_id/expires_at/last_used_at/revoked_at）+ `api_token.created/revoked` 事件入流（rebuild 存活——哈希列存事件快照）+ `Authorization: Bearer apm_<token>` 认证依赖旁路 session（token 用户=创建者，权限即该用户权限——**不做 fine-grained scope**[单实例单用户产品，裁 GitHub 企业档]）+ 认证命中时顺手记 last_used_at（telemetry 列非事件——与 M46 遥测裁决同轨）+ 前端 token 管理卡（创建/明文一次性展示/吊销/last_used 徽标）。过期校验走读取时比对（不写定时器）。**不做** scope 细分、rate limit per token（M48 并发治理已全局覆盖）、token 级审计流（事件流已全量记录 actor）。
+
+**BK.3 run 成本预算护栏（软阈告警+硬顶拦截——LiteLLM 范式）**
+
+- 参考设计（[LiteLLM docs: spend tracking & budgets](https://docs.litellm.ai/docs/proxy/spend_tracking)、[TrueFoundry: LiteLLM Enterprise 特性](https://www.truefoundry.com/blog/litellm-enterprise)、[pirouter: 各网关预算执行对照](https://pirouter.ai)）：LiteLLM `max_budget` 支持 per key/user/team/model 粒度+重置周期（daily/monthly）；**硬顶=拦截后续调用**（429 语义+retry-after），**软阈=告警回调**（webhook/Prometheus 在硬切断前预警）；行业对照（Cloudflare/Bedrock/Vertex/Portkey）齐收敛于「软告警+硬顶」双层。2025 企业 LLM API 支出已过 $12.5B——预算护栏是标配而非可选项。
+- 对本项目的映射：projects 加 cost_budget_usd 列（**与 I122 budget_hours 人工预算对称**——一个管人时一个管 token 钱）+ 事件溯源走项目设置事件链 + **事前预检**：start_run 前 `SELECT SUM(estimated_cost_usd)` 当月该项目 runs 投影（红利再现——记账已在 runs 投影，护栏只是读侧比对），≥预算=**硬顶 402 拒绝发起**（LiteLLM 429 语义的项目域翻译；人仍可显式改预算），≥80%=软阈：响应带 warning 字段+runs 页徽标。**不做** 拦截在 LLM provider 调用层（预检在 start_run 入口已够——run 是原子单位）、per-conversation 预算（项目粒度已覆盖一人指挥场景）、自动降档模型（回退路由是网关职责，AgentPM 单 provider）。
+
+**BK.4 M66 取舍**
+
+M66 = **工厂接入与治理三件套**：I198 对话树导航（树视图——线性列表藏树是 ChatGPT 同病）/ I199 PAT 机器接入（display-once+过期+last_used+吊销——工厂的 API 门）/ I200 成本预算护栏（软阈 80% 告警+硬顶 402 拦截—— LiteLLM 范式的人工预算对称面）+ 冒烟 71 + 审阅，约 9 人日。分叉采纳面（待真实使用证据）、scope 细分、图可视化画布、树内拖拽、per-conversation 预算、自动降档留 backlog。

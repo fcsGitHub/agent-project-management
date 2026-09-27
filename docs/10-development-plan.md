@@ -2020,6 +2020,36 @@ agent-project-management/
 
 ---
 
+### M66 · 工厂接入与治理三件套（I198-I200，约 9 人日）
+
+> v3.0 新增（2026-09-28，docs/01 §BK 前置调研）。对话树 parent_conversation_id 自 MVP 血缘存储但 ConversationsPage 线性列表完全不可见（ChatGPT 分支 UI 同病：线性界面藏树结构）；外部 agent/脚本接入只有 session 登录一条路，无 PAT；项目有 budget_hours 人工预算（I122）+ agent_usage 事后观测（I188），但 LLM 成本事前护栏无记录。**候选池作废：泳道 WIP 双限[M65 §BJ.2 已裁决不做]——防重查纪律第四次自证。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I198 | 对话树导航（`GET /projects/{id}/conversations/tree` 血缘投影[根+children+status 注记] + ConversationsPage 线性/树形双模式[活动路径高亮+兄弟跳转] + 单测） | docs/01 §BK.1 | MVP parent_conversation_id | 3d |
+| I199 | PAT 机器接入（api_tokens 表+created/revoked 事件 + Bearer 认证旁路 + display-once/过期/last_used/吊销 + 前端管理卡 + 单测） | docs/01 §BK.2 | M60 webhook HMAC 纪律 | 3d |
+| I200 | 成本预算护栏+冒烟 71+收尾审阅（projects.cost_budget_usd + start_run 事前预检[硬顶 402/软阈 80% warning] + 项目设置输入 + Runs 页预算徽标 + 冒烟 71 + 全量回归 + docs 收口 + M66 审阅） | docs/01 §BK.3 | I122 budget_hours/I188 用量 | 3d |
+
+#### I198 · 对话树导航（3d）
+
+- 任务：conversations.py `GET /projects/{id}/conversations/tree`（纯投影：parent_conversation_id 链组树，根=无 parent，节点带 title/status/created_at/run 状态注记；孤儿 parent 兜底挂根）+ ConversationsPage 双模式切换（树形缩进渲染 + 当前会话活动路径高亮 + 点击跳转）。
+- DoD：单测（两层树 roundtrip/孤儿兜底/rebuild 一致/线性模式不受影响）。
+- 演示路径：从主对话分叉支线（I195）→ 列表页切树形 → 分支结构一眼看清，点支线跳转。
+
+#### I199 · PAT 机器接入（3d）
+
+- 任务：api_tokens 表（name/prefix/SHA-256 hash/user_id/expires_at/last_used_at/revoked_at）+ `api_token.created/revoked` 事件入流（rebuild 存活）+ `POST /auth/tokens`/`GET /auth/tokens`/`DELETE /auth/tokens/{id}` + Bearer 认证依赖旁路 session（token 权限=创建者用户）+ 命中记 last_used_at（telemetry 列非事件）+ 前端 token 管理卡（明文一次性展示 + last_used 徽标 + 吊销）。
+- DoD：单测（创建明文只返回一次/Bearer 可调 API/过期 401/吊销 401/last_used 更新/rebuild 一致/坏 token 401）。
+- 演示路径：建 token → curl 带 Bearer 调 API 成功 → 页面看到 last_used 更新 → 吊销后同一 curl 401。
+
+#### I200 · 成本预算护栏+冒烟 71+收尾审阅（3d）
+
+- 任务：projects.cost_budget_usd（项目设置事件链）+ start_run 事前预检（当月该项目 runs 投影 SUM(estimated_cost_usd) 对比：≥预算 402 硬顶拒绝；≥80% 响应 warning）+ 项目设置输入 + Runs 页预算徽标 + **冒烟 71**（对话树 roundtrip→PAT 建用吊→预算硬顶与软阈）+ 全量回归 + docs 收口 + M66 审阅。
+- DoD：冒烟 71 GREEN；全量 pytest 分片收敛绿；预检阈值与 runs 投影记账对账。
+- 演示路径：「分支树看清会话史 → curl 免登录调 API → 预算烧到顶新 run 被拦」工厂治理一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2220,6 +2250,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-28 M66 调研定义（§BK） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**泳道 WIP 双限[M65 §BJ.2 已裁决「不做：自动化 set_status 闭锁已有阻塞语义·WIP 计数告警无证据」——重提违反防重查纪律·作废]**、**分叉采纳面[§BJ.1 Git 隐喻已调研+HANDOFF 自注「需真实使用证据」——I195 昨日落库无使用数据·降级留 backlog]**、出站 webhook[M10-I32/I33 已建——作废]、工作项批量操作[M22-I70 已建——作废]。三路 WebSearch：对话分支 UX（ChatGPT 2025 原生分支=编辑隐式分支+Branch in new chat·但 [Reddit](https://www.reddit.com/r/ChatGPT/comments/1d73faj/why_is_dialogue_branching_so_underused) 共识=线性 UI 藏树「极难被发现」几乎没人用·Tangent View/BranchGPT 第三方可视化器全为此补位——[Knowtree](https://knowtree.chat/blog/chatgpt-branching-vs-conversation-graphs)）、PAT 语义（[GitHub PAT docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)=过期档位 7/30/60/90/自定义/永不+per-token last_used_at 上 UI+立即吊销+display-once 库存哈希·[Duende](https://duendesoftware.com/learn/best-practices-managing-token-expiration-refresh-revocation-in-web-apis)=吊销≠过期·服务端吊销客户端不可信）、LLM 成本护栏（[LiteLLM](https://docs.litellm.ai/docs/proxy/spend_tracking) max_budget per key/user/team/model+重置周期·**硬顶=拦截调用软阈=告警回调**双层收敛于 Cloudflare/Bedrock/Portkey 全家·2025 企业 LLM 支出过 $12.5B）。定案 M66=工厂接入与治理三件套（I198 对话树导航/I199 PAT/I200 成本预算护栏） |
 | **M65 编排纵深三件套（I195-I197）** | 已完成 | 2026-09-28 | 2026-09-28 | 3 迭代 / 约 9 人日（docs/01 §BJ + docs/10 §M65）：I195 运行分叉（`POST /runs/{id}/fork`[instruction ≤500 可选修正·fork 端点先铸 run_id 发 run.forked 血缘再 start_run(run_id=...)——emit 次序保证·原 run 及重试链不动=主线保留支线试验·**不做 state 级编辑续跑** Gate 审批已是人在环编辑点] + lineage `?tree=1` 树感知[retry+fork 双边回溯·depth/via 标注·默认 M64 线性不变] + Runs 页「⑂ 分叉」按钮）/ I196 看板泳道（get_board + swimlane_by[白名单 assignee_id/feature_id/priority·None 兼容·非法 422——Taiga/Kanboard 列外行语义·与 group_by 正交] + bucket 内 items 附 swimlane 标注 + swimlanes 清单计数降序（空）兜底 + saved_views 白名单加键[键 fail-closed·值语义应用时校验] + 前端泳道选择器与列内分行）/ I197 基线对比+冒烟 70+审阅（`GET /projects/{id}/baselines/compare`[a/b 快照 item 级 diff：偏移天数/removed/added/一致·反向符号互换] + **修快照语义缺口：archived_at IS NULL 归档项不再入新基线**[M24 先于 M33 归档语义] + TimelinePage「🔀 基线对比」+ BaselineCompare 抽屉）。基线：pytest **495** 全绿（非 smoke 489 EXIT=0 + smoke runner 70 GREEN 对账）+ 冒烟 **70** + vitest **21** + build 绿 |
 | 2026-09-28 M65 调研定义（§BJ） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：运行分叉[§A LangGraph update_state 已调研只留概念·对话树 parent_conversation_id 自 MVP 有血缘存储·M64 链对比后「从历史点分叉支线」执行面缺口显形——无实现无专项调研]、看板泳道[§A 记录 Taiga/Kanboard 泳道+WIP 语义·M24-I76 是时间线泳道避让非看板——看板 group_by 单维无第二维交叉·无专项调研]、回收站审计刷新[**M33-I103 已建 item.archived/restored+回收站抽屉——作废·防重查第三次自证**]、邮件路由增强[**M37-I113/I114 已建主题路由+回复转评论——作废**]。三路 WebSearch：Git 分支隐喻迁移 run 域（LangGraph update_state=从 checkpoint 改状态续跑原 run 不动分叉平行历史·Git branch=主线保留支线试验好结果合回·OpenHands rerun 无血缘——共识=试验性重跑需分支非覆盖）、看板泳道语义（Taiga/Kanboard=列外行维度按 assignee/feature/优先级切行·列×行交叉定位瓶颈·泳道+列 WIP 双限是看板法标配——痛点=纯列视图多人项目靠头像扫读）、基线对比（MS Project 多基线/OpenProject baseline diff——多基线价值在比不在存·任意两条并排看计划漂移）。定案 M65=编排纵深三件套（I195 运行分叉/I196 看板泳道/I197 基线对比） |
 | I195 运行分叉 | 已完成 | 2026-09-28 | 2026-09-28 | `POST /runs/{id}/fork`（instruction ≤500 字可选·以原 run 的 conversation/item/role/instruction 为底经 start_run 开新 run——**fork 端点先铸 run_id 发 run.forked 血缘再 start_run(run_id=...)**·emit 次序保证血缘先于 requested·原 run 及重试链不动）+ start_run 加 run_id 可选参数 + lineage `?tree=1` 树感知（retry+fork 双边回溯·depth/via 标注）+ Runs 页「⑂ 分叉」按钮（prompt 输入修正指令可空确认）+ forkRun api + test_run_fork **2** 项[分叉创建主线不动+血缘在册+422/404·树含双支线与深链+默认线性不变+rebuild 一致——**支线 run 后台执行须等终态再对比 running 态 duration 仍变**] |
