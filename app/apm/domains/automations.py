@@ -39,7 +39,7 @@ BUILTIN_CONDITION_FIELDS = {
     "overdue",  # I98: derived at sweep time (due past & not done/cancelled)
 }
 ACTION_TYPES = ("assign", "set_priority", "set_field", "set_status", "notify",
-                "create_recurring")
+                "create_recurring", "run_agent")
 _valid_trigger_events = (*TRIGGERS, SCHEDULE_TRIGGER)
 
 _dispatching: ContextVar[bool] = ContextVar("apm_automation_dispatching", default=False)
@@ -159,6 +159,23 @@ def _validate_action(onto, project_id: str, condition: dict, action: dict) -> No
         message = action.get("message")
         if message is not None and (not isinstance(message, str) or len(message) > 200):
             raise HTTPException(status_code=422, detail="notify.message must be a string ≤200 chars")
+    elif atype == "run_agent":
+        # M63-I189: rule-triggered agent run. The role must exist at write
+        # time; the instruction is the agent's brief (≤200 chars).
+        from apm.runtime import roles as _roles
+
+        role = action.get("agent_role")
+        if not role:
+            raise HTTPException(status_code=422, detail="run_agent.agent_role is required")
+        try:
+            _roles.get_role(role)
+        except KeyError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"run_agent.agent_role must be a registered role, got '{role}'")
+        instruction = action.get("instruction")
+        if not isinstance(instruction, str) or not instruction.strip() or len(instruction) > 200:
+            raise HTTPException(status_code=422, detail="run_agent.instruction must be a 1-200 char string")
     elif atype == "set_priority":
         if action.get("value") not in PRIORITIES:
             raise HTTPException(status_code=422, detail=f"priority must be one of {PRIORITIES}")
@@ -264,6 +281,8 @@ def _execute_action(rule: dict, item: dict) -> dict:
                 payload={"user_id": act["user_id"], "summary": summary, "kind": "rule_notify"},
             )
             return {"type": atype, "ok": True, "detail": f"已通知 {act['user_id']}：{summary}"}
+        if atype == "run_agent":
+            return _dispatch_run_agent(rule, item, act)
         return {"type": atype, "ok": False, "detail": f"未知动作类型 {atype}"}
     except HTTPException as e:
         return {"type": atype, "ok": False, "detail": f"动作被拒绝：{e.detail}"}
@@ -272,8 +291,13 @@ def _execute_action(rule: dict, item: dict) -> dict:
 def dispatch(event: events.Event) -> None:
     """Post-emit hook: match enabled rules for this project+event and run them.
     Never raises; automation-authored events and dispatch-time emits are skipped
-    (single-layer execution, docs/10 §M9)."""
+    (single-layer execution, docs/10 §M9). M63-I189 loop breaker: agent-authored
+    facts (actor_type=agent) and run-runtime facts (actor_id runtime:*) are the
+    CONSEQUENCES of an automation/agent acting, not user intent — re-dispatching
+    on them is the classic trigger→agent→write-back→trigger infinite loop."""
     if event.actor_type == "automation" or _dispatching.get():
+        return
+    if event.actor_type == "agent" or (event.actor_id or "").startswith("runtime:"):
         return
     if not event.project_id or event.event_type not in TRIGGERS or event.agg_type != "item":
         return
@@ -317,6 +341,62 @@ def install_automation_engine() -> None:
     if not _installed:
         events.add_post_emit_hook(dispatch)
         _installed = True
+
+
+# ---------------------------------------------------------------- M63-I189: run_agent
+_AGENT_DAILY_CAP = 3
+
+
+def _dispatch_run_agent(rule: dict, item: dict, act: dict) -> dict:
+    """run_agent action: start a real agent run against the item through the
+    standard orchestration chain (start_run), attributed to the rule. Loop
+    protection beyond the dispatch guard: a per-rule daily cap (counted from
+    automation.agent_dispatched facts — zero new tables) and governance is
+    untouched — the run walks the same Gate/approval path as a manual one."""
+    from datetime import datetime, timezone
+
+    conn = db.get_conn()
+    today = datetime.now(timezone.utc).date().isoformat()
+    fired = conn.execute(
+        "SELECT COUNT(*) AS n FROM events WHERE event_type = 'automation.agent_dispatched'"
+        " AND agg_id = ? AND ts >= ?", (rule["id"], today)).fetchone()["n"]
+    if fired >= _AGENT_DAILY_CAP:
+        return {"type": "run_agent", "ok": False,
+                "detail": f"已达每日上限（{_AGENT_DAILY_CAP} 次）——第 {fired + 1} 次未执行"}
+
+    # Reuse the item's latest conversation; create one (automation-attributed)
+    # so an item without a chat surface still gets a first-class run.
+    conv = conn.execute(
+        "SELECT id FROM conversations WHERE item_id = ?"
+        " ORDER BY created_at DESC, id DESC LIMIT 1", (item["id"],)).fetchone()
+    try:
+        if conv is None:
+            from apm.domains.conversations import create_conversation
+
+            conv_row = create_conversation(
+                project_id=item["project_id"], feature_id=item.get("feature_id"),
+                kind="executing", title=f"自动化 · {rule['name']}",
+                instruction=act["instruction"], item_id=item["id"],
+                actor_type="automation", actor_id=rule["id"])
+            conv_id = conv_row["id"]
+        else:
+            conv_id = conv["id"]
+        from apm.runtime.engine import start_run
+
+        run = start_run(
+            conversation_id=conv_id, agent_role=act["agent_role"], item_id=item["id"],
+            instruction=act["instruction"], actor_type="automation", actor_id=rule["id"])
+    except KeyError as e:
+        return {"type": "run_agent", "ok": False, "detail": f"无法启动运行：{e}"}
+    events.emit(
+        event_type="automation.agent_dispatched", agg_type="automation_rule",
+        agg_id=rule["id"], project_id=item["project_id"],
+        actor_type="automation", actor_id=rule["id"],
+        payload={"run_id": run["id"], "item_id": item["id"],
+                 "agent_role": act["agent_role"], "conversation_id": conv_id},
+    )
+    return {"type": "run_agent", "ok": True,
+            "detail": f"已让 {act['agent_role']} 执行（run {run['id']}）"}
 
 
 # ---------------------------------------------------------------- I98: daily sweep

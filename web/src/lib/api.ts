@@ -263,13 +263,13 @@ export type TemplatePack = {
 export type AutomationRule = {
   id: string; project_id: string; name: string; trigger_event: string;
   condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
-  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string; agent_role?: string; instruction?: string };
   enabled: boolean; created_at: string; updated_at: string;
 };
 export type AutomationRuleIn = {
   name: string; trigger_event: string;
   condition: { concept_id?: string; fields?: Record<string, string | number | boolean> };
-  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string };
+  action: { type: string; user_id?: string; value?: string | number | boolean | (string | number)[]; field_id?: string; status?: string; concept_id?: string; title?: string; agent_role?: string; instruction?: string };
   enabled?: boolean;
 };
 export type AutomationTestRun = {

@@ -210,7 +210,8 @@ export function OntologyPage() {
 
       <OidcPanel />
 
-      <AutomationsPanel pid={pid!} concepts={o.concepts} />
+      <AutomationsPanel pid={pid!} concepts={o.concepts}
+        agentRoles={[...new Set(o.concepts.flatMap((c) => c.agent_roles))]} />
 
       <WebhooksPanel pid={pid!} />
 
@@ -760,7 +761,7 @@ const TRIGGER_LABEL: Record<string, string> = {
 const PRIORITY_LABEL: Record<string, string> = { high: "高", medium: "中", low: "低" };
 const ACTION_LABEL: Record<string, string> = {
   assign: "指派给", set_priority: "置优先级", set_field: "设自定义字段", set_status: "改状态",
-  create_recurring: "每日建卡",
+  create_recurring: "每日建卡", run_agent: "🤖 让 Agent 执行",
 };
 
 function condSummary(r: { condition: { concept_id?: string; fields?: Record<string, unknown> } }): string {
@@ -779,14 +780,16 @@ function actionSummary(a: AutomationRule["action"]): string {
   if (a.type === "set_field") return `${a.field_id} → ${Array.isArray(a.value) ? a.value.join("、") : String(a.value)}`;
   if (a.type === "set_status") return `状态 → ${a.status}`;
   if (a.type === "create_recurring") return `每日建卡「${a.title}」`;
+  if (a.type === "run_agent") return `🤖 ${a.agent_role} 执行`;
   return a.type;
 }
 
 /** Automation rules (M9-I30): trigger → condition → action, managed per project.
  *  Backend executes on the event stream (Kanboard bindings × n8n 三段式). */
-function AutomationsPanel({ pid, concepts }: {
+function AutomationsPanel({ pid, concepts, agentRoles }: {
   pid: string;
   concepts: { id: string; name: string; states: { id: string; name: string; group: string }[]; fields?: { id: string; name: string; type: string; values?: (string | number)[] }[] }[];
+  agentRoles: string[];
 }) {
   const qc = useQueryClient();
   const rules = useQuery({ queryKey: ["automations", pid], queryFn: () => api.listAutomations(pid) });
@@ -804,6 +807,9 @@ function AutomationsPanel({ pid, concepts }: {
   const [actFieldValue, setActFieldValue] = useState("");
   const [actStatus, setActStatus] = useState("");
   const [recTitle, setRecTitle] = useState("");
+  // M63-I189: run_agent action inputs
+  const [actRole, setActRole] = useState("");
+  const [actInstruction, setActInstruction] = useState("");
   const [historyOf, setHistoryOf] = useState<string | null>(null);
 
   const declaredFields = new Map<string, { name: string; type: string; values?: (string | number)[] }>();
@@ -833,6 +839,10 @@ function AutomationsPanel({ pid, concepts }: {
     if (actionType === "create_recurring") {
       action.concept_id = conceptId;
       action.title = recTitle;
+    }
+    if (actionType === "run_agent") {
+      action.agent_role = actRole;
+      action.instruction = actInstruction.trim();
     }
     return { name: name.trim(), trigger_event: trigger, condition, action };
   };
@@ -982,7 +992,21 @@ function AutomationsPanel({ pid, concepts }: {
                 <Input className="w-36" placeholder="每日卡片标题" value={recTitle} onChange={(e) => setRecTitle(e.target.value)} />
               </>
             )}
-            <Button size="sm" className="ml-auto" disabled={!name.trim() || (actionType === "assign" && !actUserId) || (actionType === "set_field" && (!actFieldId || !actFieldValue)) || (actionType === "set_status" && !actStatus) || (actionType === "create_recurring" && (!conceptId || !recTitle.trim()))} onClick={create}>
+            {actionType === "run_agent" && (
+              <>
+                <select value={actRole} onChange={(e) => setActRole(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1.5 text-ink">
+                  <option value="">角色…</option>
+                  {agentRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <Input className="w-64" placeholder="给 Agent 的指令（≤200 字）" maxLength={200}
+                  value={actInstruction} onChange={(e) => setActInstruction(e.target.value)} />
+                <span className="text-[10px] text-mut" title="触发时对命中工作项起真实 run；Gate/审批照走；每规则每日 ≤3 次防失控">
+                  触发即起 run · Gate 照走 · 日上限 3
+                </span>
+              </>
+            )}
+            <Button size="sm" className="ml-auto" disabled={!name.trim() || (actionType === "assign" && !actUserId) || (actionType === "set_field" && (!actFieldId || !actFieldValue)) || (actionType === "set_status" && !actStatus) || (actionType === "create_recurring" && (!conceptId || !recTitle.trim())) || (actionType === "run_agent" && (!actRole || !actInstruction.trim()))} onClick={create}>
               创建规则
             </Button>
           </div>
