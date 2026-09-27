@@ -157,6 +157,20 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
                   toast.error("重试失败", { description: String(e) });
                 }
               }}>↺ 从检查点重试</Button>
+              {/* M65-I195: fork — experiment branch, mainline untouched */}
+              <Button size="sm" variant="ghost" title="以本 run 为底开支线（原 run 与重试链不动）"
+                onClick={async () => {
+                  const instruction = window.prompt("给支线的修正指令（可空）:");
+                  if (instruction === null) return;
+                  try {
+                    const x = await api.forkRun(runId, instruction || null);
+                    toast.success("已分叉支线", { description: `新 run ${x.new_run.id.slice(0, 12)}…` });
+                    qc.invalidateQueries({ queryKey: ["runs"] });
+                    qc.invalidateQueries({ queryKey: ["retry-lineage", runId] });
+                  } catch (e) {
+                    toast.error("分叉失败", { description: String(e) });
+                  }
+                }}>⑂ 分叉</Button>
             </div>
           </Card>
 

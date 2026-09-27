@@ -174,6 +174,7 @@ def start_run(
     actor_type: str = "human",
     actor_id: str | None = None,
     wait: bool = False,
+    run_id: str | None = None,
 ) -> dict:
     from apm.domains.conversations import get_conversation
 
@@ -181,7 +182,7 @@ def start_run(
     conv = get_conversation(conversation_id)
     if not conv:
         raise KeyError(f"conversation {conversation_id} not found")
-    run_id = new_id("r")
+    run_id = run_id or new_id("r")  # M65-I195: fork mints its own id first (lineage emit precedes requested)
     instruction = instruction or conv.get("instruction") or ""
     events.emit(
         event_type="run.requested",

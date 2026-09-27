@@ -657,6 +657,10 @@ export const api = {
           duration_s: number | null; steps: number; input_tokens: number; output_tokens: number;
           estimated_cost_usd: number; artifact?: string | null }[]; length: number; retried: boolean }>(
       `/runs/${runId}/retry-lineage`),
+  // M65-I195: run fork - branch off, mainline untouched
+  forkRun: (runId: string, instruction?: string | null) =>
+    req<{ forked_from: string; new_run: Run }>(`/runs/${runId}/fork`,
+      { method: "POST", body: JSON.stringify({ instruction: instruction ?? null }) }),
   getHealthHistory: (pid: string, days = 30) =>
     req<{ project_id: string; days: number;
           series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] }>(

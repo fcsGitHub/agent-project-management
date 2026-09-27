@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from apm.core import db, events
@@ -369,7 +369,7 @@ def _run_ring_scalars(run: dict) -> dict:
 
 
 @router.get("/runs/{run_id}/retry-lineage")
-def retry_lineage(run_id: str) -> dict:
+def retry_lineage(run_id: str, tree: int = 0) -> dict:
     """M64-I192 (docs/01 §BI.1): the retry chain, visualized — LangGraph
     deterministic-resume vs OpenHands independent-rollout consensus is that a
     retry's value is "what changed vs last time", so the chain walks
@@ -405,5 +405,77 @@ def retry_lineage(run_id: str) -> dict:
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+
+    # M65-I195: tree awareness — walk both lineage edges (retry + fork) so a
+    # branching history reads as a tree; default response keeps the linear
+    # retry chain (M64 semantics unchanged).
+    branches: list[dict] = []
+    if tree:
+        root = chain_ids[-1] if chain_ids else run_id
+        edges = conn.execute(
+            "SELECT event_type, agg_id, payload FROM events"
+            " WHERE event_type IN ('run.retried_from_checkpoint','run.forked')"
+            " ORDER BY id ASC").fetchall()
+        parent_of: dict[str, str] = {}
+        kinds: dict[str, str] = {}
+        for e in edges:
+            child = e["agg_id"]
+            payload = json.loads(e["payload"])
+            parent = payload.get("original") or payload.get("forked_from")
+            if parent and child not in parent_of:
+                parent_of[child] = parent
+                kinds[child] = "fork" if e["event_type"] == "run.forked" else "retry"
+
+        def _walk(node: str, depth: int, via: str | None) -> None:
+            r = conn.execute("SELECT * FROM runs WHERE id = ?", (node,)).fetchone()
+            if r is None:
+                return
+            branches.append({**_run_ring_scalars(dict(r)), "depth": depth, "via": via})
+            for child, parent in parent_of.items():
+                if parent == node:
+                    _walk(child, depth + 1, kinds.get(child))
+
+        _walk(root, 0, None)
+
     return {"run_id": run_id, "chain": links,
-            "length": len(links), "retried": len(links) > 1}
+            "length": len(links), "retried": len(links) > 1,
+            **({"tree": branches} if tree else {})}
+
+
+class ForkIn(BaseModel):
+    # M65-I195: optional correction brief for the forked branch (≤500 chars)
+    instruction: str | None = None
+
+
+@router.post("/runs/{run_id}/fork")
+def fork_run(run_id: str, body: ForkIn) -> dict:
+    """Branch a new run off an existing one (M65-I195, docs/01 §BJ.1 — the Git
+    branch metaphor for runs: keep the mainline, run the experiment on a
+    branch). The forked run inherits conversation/item/role/instruction from
+    the source, carries `forked_from` lineage, and leaves the source run and
+    its retry chain untouched. Unlike LangGraph's update_state this does NOT
+    expose checkpoint state editing — Gate approvals remain the human-in-the-
+    loop edit point."""
+    from apm.core.ids import new_id
+    from apm.runtime.engine import require_run, start_run
+
+    src = require_run(run_id)
+    if body.instruction and len(body.instruction) > 500:
+        raise HTTPException(status_code=422, detail="instruction must be ≤500 chars")
+    fork_id = new_id("r")
+    events.emit(
+        event_type="run.forked",
+        agg_type="run",
+        agg_id=fork_id,
+        project_id=src["project_id"] or "",
+        payload={"forked_from": run_id},
+    )
+    new = start_run(
+        conversation_id=src["conversation_id"],
+        agent_role=src["agent_role"] or "dev-agent",
+        item_id=src.get("item_id"),
+        graph_node_id=src.get("graph_node_id"),
+        instruction=body.instruction or src.get("input"),
+        run_id=fork_id,
+    )
+    return {"forked_from": run_id, "new_run": _run_detail(new)}
