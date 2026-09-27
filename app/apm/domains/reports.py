@@ -1032,8 +1032,10 @@ def cost_report(project_id: str) -> dict:
         })
     expense_cost = round(expense_cost, 2)
     budget = conn.execute(
-        "SELECT budget_hours FROM projects WHERE id = ?", (project_id,)).fetchone()["budget_hours"]
-    burn_ratio = round(spent_hours / budget, 4) if budget else None
+        "SELECT budget_hours, cost_budget_usd FROM projects WHERE id = ?", (project_id,)).fetchone()
+    budget_hours = budget["budget_hours"]
+    cost_budget_usd = budget["cost_budget_usd"]
+    burn_ratio = round(spent_hours / budget_hours, 4) if budget_hours else None
     return {
         "project_id": project_id,
         "base_currency": base,
@@ -1045,9 +1047,10 @@ def cost_report(project_id: str) -> dict:
         "expense_cost": expense_cost,
         "spent_hours": spent_hours,
         "total_cost": round(labor_cost + expense_cost, 2),
-        "budget_hours": budget,
+        "budget_hours": budget_hours,
         "burn_ratio": burn_ratio,
-        "over_budget": bool(budget and spent_hours > budget),
+        "over_budget": bool(budget_hours and spent_hours > budget_hours),
+        "cost_budget_usd": cost_budget_usd,
         "generated_at": _now().isoformat(),
     }
 

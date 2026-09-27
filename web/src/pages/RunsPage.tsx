@@ -45,6 +45,7 @@ export function RunsPage() {
         <span className="text-sm font-semibold">Runs · 轨迹浏览器</span>
         <span className="text-xs text-mut">{runs.data?.runs.length ?? 0} 次运行</span>
         {pid && <WatchAgentToggle pid={pid} />}
+        {pid && <CostBudgetBadge pid={pid} />}
       </div>
       {rep && rep.total > 0 && (
         <Card className="no-print mb-3 p-4">
@@ -294,5 +295,32 @@ function WatchAgentToggle({ pid }: { pid: string }) {
         allOn ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:text-ink")}>
       👁 {allOn ? "已关注 agent 动态" : "关注 agent 动态"}
     </button>
+  );
+}
+
+
+/** M66-I200 (docs/01 §BK.3): month-to-date LLM spend vs the project's cost
+ * budget — the same numbers the start_run pre-flight guard enforces (402 at
+ * 100%). Hidden entirely when no budget is set. */
+function CostBudgetBadge({ pid }: { pid: string }) {
+  const qb = useQuery({
+    queryKey: ["cost-budget", pid],
+    queryFn: () => api.getCostBudget(pid),
+    enabled: !!pid,
+    refetchInterval: 15_000,
+  });
+  if (!qb.data?.cost_budget_usd) return null;
+  const { month_spend_usd: spend, cost_budget_usd: budget, ratio } = qb.data;
+  const pct = Math.round((ratio ?? 0) * 100);
+  const over = (ratio ?? 0) >= 1;
+  const warn = !over && (ratio ?? 0) >= 0.8;
+  return (
+    <span
+      title="当月 agent 运行成本 / LLM 月预算（Reports 页可调）——达 100% 后新 run 被拦截"
+      className={cx("rounded-lg border px-2 py-0.5 text-xs",
+        over ? "border-dan bg-danbg font-medium text-dan" : warn ? "border-warn bg-warnbg text-warn" : "border-line text-mut")}
+    >
+      🪙 ${spend.toFixed(2)} / ${budget.toFixed(2)} · {pct}%{over ? " · 已硬顶" : warn ? " · 逼近预算" : ""}
+    </span>
   );
 }

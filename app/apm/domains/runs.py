@@ -130,6 +130,31 @@ def post_run(body: RunIn) -> dict:
     return _run_detail(run)
 
 
+@router.get("/projects/{project_id}/cost-budget")
+def cost_budget(project_id: str) -> dict:
+    """M66-I200 (docs/01 §BK.3): month-to-date LLM spend vs the project's cost
+    budget — the read face of the start_run pre-flight guard. ratio ≥1 is
+    where new runs get refused (402); ≥0.8 is the soft-warning band."""
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    row = db.get_conn().execute(
+        "SELECT cost_budget_usd FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    budget = row["cost_budget_usd"] if row else None
+    spend = db.get_conn().execute(
+        "SELECT COALESCE(SUM(estimated_cost_usd), 0) AS s FROM runs"
+        " WHERE project_id = ?"
+        " AND strftime('%Y-%m', COALESCE(started_at, '')) = strftime('%Y-%m', 'now')",
+        (project_id,),
+    ).fetchone()["s"]
+    return {
+        "cost_budget_usd": budget,
+        "month_spend_usd": round(spend, 4),
+        "ratio": (spend / budget) if budget and budget > 0 else None,
+    }
+
+
 @router.get("/projects/{project_id}/runs/report")
 def runs_report(project_id: str) -> dict:
     """Run aggregation report (M29-I91, docs/01 §AB.3, Langfuse observability

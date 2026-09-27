@@ -82,7 +82,7 @@ def _set_field_state(conn, project_id: str, field_id: str, *, active: bool) -> N
 def _proj_project_updated(conn, e):
     p = e.payload
     sets, params = [], []
-    for key in ("name", "description", "status", "charter", "budget_hours"):
+    for key in ("name", "description", "status", "charter", "budget_hours", "cost_budget_usd"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -205,6 +205,7 @@ class ProjectPatch(BaseModel):
     description: str | None = None
     charter: str | None = None
     budget_hours: float | None = None  # I122: labor budget in hours
+    cost_budget_usd: float | None = None  # I200: monthly LLM spend cap (0 = off)
 
 
 @router.post("/projects")

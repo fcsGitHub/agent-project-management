@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS projects (
   charter TEXT,
   field_overrides TEXT,
   budget_hours REAL,
+  cost_budget_usd REAL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

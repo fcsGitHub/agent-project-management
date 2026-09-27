@@ -182,6 +182,7 @@ def start_run(
     conv = get_conversation(conversation_id)
     if not conv:
         raise KeyError(f"conversation {conversation_id} not found")
+    budget_warning = _cost_budget_gate(conv["project_id"])  # M66-I200
     run_id = run_id or new_id("r")  # M65-I195: fork mints its own id first (lineage emit precedes requested)
     instruction = instruction or conv.get("instruction") or ""
     events.emit(
@@ -227,7 +228,43 @@ def start_run(
         engine.execute()
     else:
         threading.Thread(target=engine.execute, daemon=True).start()
-    return get_run(run_id)  # type: ignore[return-value]
+    run = get_run(run_id)  # type: ignore[return-value]
+    if budget_warning:
+        run["budget_warning"] = budget_warning  # ≥80% soft threshold (hard cap raised 402 above)
+    return run
+
+
+def _cost_budget_gate(project_id: str) -> dict | None:
+    """M66-I200 (docs/01 §BK.3): pre-flight LLM spend guard. The runs
+    projection has kept the cost ledger since M44, so the guard is a pure
+    read-side comparison — LiteLLM semantics: hard cap at 100% (HTTPException
+    402; the automation dispatch path already fails soft on HTTPException),
+    soft warning at 80% riding on the API response. Budget is a project
+    setting (project.updated chain); UTC month window matches started_at."""
+    from fastapi import HTTPException
+
+    from apm.core import db
+
+    row = db.get_conn().execute(
+        "SELECT cost_budget_usd FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    budget = row["cost_budget_usd"] if row else None
+    if not budget or budget <= 0:
+        return None
+    spend = db.get_conn().execute(
+        "SELECT COALESCE(SUM(estimated_cost_usd), 0) AS s FROM runs"
+        " WHERE project_id = ?"
+        " AND strftime('%Y-%m', COALESCE(started_at, '')) = strftime('%Y-%m', 'now')",
+        (project_id,),
+    ).fetchone()["s"]
+    if spend >= budget:
+        raise HTTPException(
+            status_code=402,
+            detail=f"本月 LLM 成本 ${spend:.2f} 已达预算 ${budget:.2f}，新 run 被拦截——调高项目预算后可继续",
+        )
+    if spend >= budget * 0.8:
+        return {"month_spend_usd": round(spend, 4), "cost_budget_usd": budget}
+    return None
 
 
 def _item_status_for_start(role_id: str) -> str:

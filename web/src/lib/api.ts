@@ -3,6 +3,7 @@ export type Project = {
   id: string; name: string; description?: string; ontology: string; template: string;
   status: string; charter?: string; created_at: string; updated_at: string;
   budget_hours?: number | null;
+  cost_budget_usd?: number | null;
   features?: Feature[]; item_counts?: Record<string, number>; bootstrap?: Record<string, string>;
   disabled_fields?: string[]; gates_pending?: number;
 };
@@ -477,7 +478,7 @@ export const api = {
   deleteTimeEntry: (id: string) => req<{ deleted: string }>(`/time_entries/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
-  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter" | "budget_hours">>) =>
+  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter" | "budget_hours" | "cost_budget_usd">>) =>
     req<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   getPhases: (id: string) =>
     req<{ phases: { id: string; name: string; gate?: string; gate_label?: string; status: string }[] }>(`/projects/${id}/phases`),
@@ -915,6 +916,7 @@ export const api = {
       labor_cost: number; expense_cost: number;
       spent_hours: number; total_cost: number;
       budget_hours: number | null; burn_ratio: number | null; over_budget: boolean;
+      cost_budget_usd: number | null;
       generated_at: string;
     }>(`/projects/${pid}/cost-report`),
   listExpenses: (pid: string, itemId?: string) => {
@@ -979,6 +981,10 @@ export const api = {
     req<{ user_id: string; feed_key: string; created: boolean }>("/me/feed-key"),
   rotateFeedKey: () =>
     req<{ user_id: string; feed_key: string }>("/me/feed-key/rotate", { method: "POST" }),
+
+  // M66-I200: monthly LLM cost budget read face (the guard itself lives in start_run)
+  getCostBudget: (pid: string) =>
+    req<{ cost_budget_usd: number | null; month_spend_usd: number; ratio: number | null }>(`/projects/${pid}/cost-budget`),
 
   // M66-I199: personal access tokens (GitHub PAT semantics — display once)
   listTokens: () => req<{ tokens: ApiToken[] }>("/auth/tokens"),

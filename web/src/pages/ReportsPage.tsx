@@ -371,6 +371,7 @@ function CostCard({ pid }: { pid: string }) {
   const qc = useQueryClient();
   const cr = useQuery({ queryKey: ["cost-report", pid], queryFn: () => api.getCostReport(pid!) });
   const [budget, setBudget] = useState("");
+  const [llmBudget, setLlmBudget] = useState("");
   const [busy, setBusy] = useState(false);
   const d = cr.data;
   const maxCost = Math.max(1, ...(d?.by_user ?? []).map((u) => u.cost));
@@ -452,6 +453,24 @@ function CostCard({ pid }: { pid: string }) {
                   toast.success("预算已更新");
                   setBudget("");
                   await qc.invalidateQueries({ queryKey: ["cost-report", pid] });
+                } catch (e) {
+                  toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+                } finally { setBusy(false); }
+              }}>保存</Button>
+            <span className="ml-3 text-[10px] text-mut">LLM 月预算（USD）</span>
+            <input type="number" min="0" step="0.01" value={llmBudget}
+              onChange={(e) => setLlmBudget(e.target.value)}
+              placeholder={d.cost_budget_usd != null ? String(d.cost_budget_usd) : "未设置"}
+              className="w-24 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink"
+              title="当月 agent 运行成本达到该值后新 run 会被拦截（80% 起提醒）" />
+            <Button size="sm" variant="outline" disabled={busy || llmBudget === ""}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await api.patchProject(pid, { cost_budget_usd: Number(llmBudget) });
+                  toast.success("LLM 月预算已更新");
+                  setLlmBudget("");
+                  await qc.invalidateQueries();
                 } catch (e) {
                   toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
                 } finally { setBusy(false); }
