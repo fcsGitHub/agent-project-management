@@ -1,6 +1,7 @@
 """AgentPM FastAPI application assembly."""
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -101,6 +102,27 @@ def create_app() -> FastAPI:
         finally:
             if actor_token is not None:
                 events.reset_current_actor(actor_token)
+
+    # 定义序=包裹序：perf 在 auth 之后定义 → perf 在外层，耗时含鉴权开销。
+    @app.middleware("http")
+    async def perf_gate(request: Request, call_next):
+        """M62-I186 (docs/01 §BG.1): per-route latency accounting. Telemetry
+        stays in memory (apm.runtime.perf) — runtime metrics are not domain
+        facts, so they never enter the event stream (token_delta 同理)."""
+        t0 = time.perf_counter()
+        response = None
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            route = request.scope.get("route")
+            # route.path 不含挂载前缀——所有 router 均挂在 /api 下，补齐可读路径
+            path = getattr(route, "path", None)
+            path = f"/api{path}" if path else request.scope.get("path", "?")
+            status = response.status_code if response is not None else 500
+            from apm.runtime import perf
+
+            perf.record(path, request.method, status, (time.perf_counter() - t0) * 1000)
 
     app.add_middleware(
         CORSMiddleware,

@@ -460,6 +460,11 @@ CREATE TABLE IF NOT EXISTS watch_rules (
   created_at TEXT NOT NULL,
   PRIMARY KEY (user_id, project_id, event_type)
 );
+-- M62-I186 index audit (docs/01 §BG.1): the post-emit hook queries rules per
+-- emitted event (project+type+paused) — the hottest write-path lookup; the
+-- PK leads with user_id so it can't serve this. EXPLAIN QUERY PLAN showed
+-- SCAN before this index.
+CREATE INDEX IF NOT EXISTS idx_watch_rules_hit ON watch_rules(project_id, event_type, paused);
 
 -- I107: processed mail Message-IDs (projection of imap.message_processed —
 -- in drop_projections so rebuild reproduces them; idempotency per Message-ID).

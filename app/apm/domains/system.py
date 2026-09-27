@@ -112,3 +112,18 @@ def event_store_stats() -> dict:
         "newest_ts": row["newest"],
         "distribution": distribution,
     }
+
+
+@router.get("/system/slow-endpoints")
+def slow_endpoints() -> dict:
+    """M62-I186 (docs/01 §BG.1): in-memory latency view — per-route
+    count/mean/max ordered by max, plus the bounded slow-sample ring. The
+    middleware (main.perf_gate) does the accounting; this is a pure read with
+    the same admin gate as the other system surfaces."""
+    from apm.core import events
+    from apm.domains.members import is_instance_admin
+    from apm.runtime import perf
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required for slow endpoints")
+    return perf.snapshot()

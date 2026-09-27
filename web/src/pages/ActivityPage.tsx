@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
-import { Card, Empty } from "../components/ui";
+import { Card, Empty, cx } from "../components/ui";
 
 const KINDS = [
   { value: "", label: "全部类型" },
@@ -53,6 +53,13 @@ export function ActivityPage() {
     queryFn: api.eventStoreStats,
     enabled: !!me.data?.is_admin,
   });
+  // M62-I186: endpoint latency observation, admin-only (in-memory ring buckets)
+  const slow = useQuery({
+    queryKey: ["slow-endpoints"],
+    queryFn: api.slowEndpoints,
+    enabled: !!me.data?.is_admin,
+    refetchInterval: 15_000,
+  });
 
   const fmtBytes = (n: number) =>
     n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : n >= 1 << 10 ? `${(n / (1 << 10)).toFixed(1)} KB` : `${n} B`;
@@ -91,6 +98,34 @@ export function ActivityPage() {
           ) : (
             <div className="py-1 text-xs text-mut">加载事件库统计…</div>
           )}
+        </Card>
+      )}
+
+      {me.data?.is_admin && slow.data && (
+        <Card className="p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">⏱ 慢端点</span>
+            <span className="text-[10px] text-mut" title={`内存环形桶按路径记账（阈值 ${slow.data.threshold_ms}ms 保样本）；遥测是运行时数据不进事件流`}>
+              阈值 {slow.data.threshold_ms}ms · 内存观测 · 不进事件流
+            </span>
+          </div>
+          <div className="space-y-1 text-xs">
+            {slow.data.endpoints.slice(0, 5).map((e) => (
+              <div key={e.path} className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate text-[11px]" title={e.path}>{e.path}</code>
+                <span className="w-14 text-right text-mut">{e.count} 次</span>
+                <span className="w-20 text-right text-mut" title="平均耗时">均 {e.mean_ms}ms</span>
+                <span className={cx("w-20 text-right", e.max_ms >= slow.data!.threshold_ms ? "text-dan" : "text-mut")}
+                  title="最大耗时">最 {e.max_ms}ms</span>
+              </div>
+            ))}
+            {!slow.data.endpoints.length && <div className="py-1 text-mut">尚无请求记录——有流量后按路径聚合</div>}
+            {slow.data.slow_samples.length > 0 && (
+              <div className="border-t border-line pt-1 text-[10px] text-mut">
+                慢样本 {slow.data.slow_samples.length}：最新 {slow.data.slow_samples[0].method} {slow.data.slow_samples[0].path} · {slow.data.slow_samples[0].ms}ms
+              </div>
+            )}
+          </div>
         </Card>
       )}
 

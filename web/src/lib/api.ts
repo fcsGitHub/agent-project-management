@@ -712,6 +712,10 @@ export const api = {
   eventStoreStats: () =>
     req<{ total_events: number; db_bytes: number; oldest_ts: string | null; newest_ts: string | null;
           distribution: { agg_type: string; event_type: string; count: number }[] }>("/system/event-store-stats"),
+  // Endpoint latency observation (M62-I186, docs/01 §BG.1 — in-memory ring buckets)
+  slowEndpoints: () =>
+    req<{ threshold_ms: number; endpoints: { path: string; count: number; mean_ms: number; max_ms: number }[];
+          slow_samples: { path: string; method: string; status: number; ms: number; ts: string }[] }>("/system/slow-endpoints"),
   login: (userId: string, password: string) =>
     req<{ user_id: string; name: string }>("/auth/login", {
       method: "POST", body: JSON.stringify({ user_id: userId, password }),
