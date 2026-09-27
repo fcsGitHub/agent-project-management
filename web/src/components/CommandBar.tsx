@@ -8,6 +8,18 @@ import { Badge, Button, cx } from "./ui";
 
 type ParsedAction = { action: string; label?: string; description?: string; params: Record<string, unknown>; read_only: boolean; status?: string };
 
+// M64-I193: recent search terms — personal UI state, localStorage only
+// (same ruling as perf telemetry: not domain facts, never the event stream)
+const RECENTS_KEY = "apm-search-recents";
+function loadRecents(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]"); } catch { return []; }
+}
+function pushRecent(term: string): string[] {
+  const next = [term, ...loadRecents().filter((t) => t !== term)].slice(0, 5);
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  return next;
+}
+
 export function CommandBar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { pid } = useParams();
   const [params] = useSearchParams();
@@ -17,11 +29,13 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
   const [q, setQ] = useState("");
   const [nlResult, setNlResult] = useState<{ id: string; actions: ParsedAction[]; requires_confirmation: boolean; parser?: "rules" | "llm"; reply?: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // M64-I193: palette recents (empty-input state) — Linear/Raycast semantics
+  const [recents, setRecents] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setQ(""); setMode("command"); setNlResult(null);
+      setQ(""); setMode("command"); setNlResult(null); setRecents(loadRecents());
       setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
@@ -53,9 +67,9 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()));
 
-  // M22-I68: with a query typed, offer the global search jump first
+  // M22-I68: with a query typed, offer the global search jump first (I193: record recents)
   const entries = q.trim()
-    ? [{ id: "global-search", label: `🔍 搜索 '${q.trim()}'`, run: () => navigate(`/search?q=${encodeURIComponent(q.trim())}`) }, ...filtered]
+    ? [{ id: "global-search", label: `🔍 搜索 '${q.trim()}'`, run: () => { pushRecent(q.trim()); navigate(`/search?q=${encodeURIComponent(q.trim())}`); } }, ...filtered]
     : filtered;
 
   if (!open) return null;
@@ -137,6 +151,23 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
 
         <div className="max-h-96 overflow-y-auto p-2">
+          {mode === "command" && !q.trim() && recents.length > 0 && (
+            <div className="mb-1">
+              <div className="flex items-center justify-between px-3 py-1">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-mut">最近搜索</span>
+                <button onClick={() => { localStorage.removeItem(RECENTS_KEY); setRecents([]); }}
+                  className="text-[10px] text-mut hover:text-dan" title="清空最近搜索">清空</button>
+              </div>
+              {recents.map((t) => (
+                <button key={t}
+                  onClick={() => { pushRecent(t); navigate(`/search?q=${encodeURIComponent(t)}`); onClose(); }}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-bg">
+                  🕘 {t}
+                </button>
+              ))}
+              <div className="mx-3 my-1 border-t border-line" />
+            </div>
+          )}
           {mode === "command" &&
             entries.map((c) => (
               <button
@@ -147,9 +178,14 @@ export function CommandBar({ open, onClose }: { open: boolean; onClose: () => vo
                 {c.label}
               </button>
             ))}
-          {mode === "command" && !entries.length && (
+          {mode === "command" && !entries.length && q.trim() && (
             <div className="px-3 py-6 text-center text-xs text-mut">
-              没有匹配动作——按 Tab 切到「自然语言」模式试试
+              没有匹配动作——
+              <button className="text-acc hover:underline"
+                onClick={() => { pushRecent(q.trim()); navigate(`/search?q=${encodeURIComponent(q.trim())}`); onClose(); }}>
+                以 '{q.trim()}' 跳全局搜索
+              </button>
+              ，或按 Tab 切「自然语言」模式
             </div>
           )}
 
