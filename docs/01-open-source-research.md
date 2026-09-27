@@ -1802,3 +1802,33 @@ M63 = **编排与降噪三件套**：I189 自动化 run_agent（防环三闸—�
 **BI.5 M64 取舍**
 
 M64 = **溯源与升级三件套**：I192 run 重试对比（checkpoint 血缘可视化——红利第十五例）/ I193 ⌘K 搜索深化（recents/facets/空态出口——palette 三标配）/ I194 清单转子任务+冒烟 69+审阅（BH.5 证据续期——显式点击防 hover 误触，与 I67 同构同链），约 9 人日。update_state 编辑续跑、跨链合并视图、前缀分域、服务端 fuzzy、批量选中转换、转换后自动勾选、运行时间线增强（M4 面已够）留 backlog。
+
+## BJ. M65 前置调研：运行分叉 / 看板泳道 / 计划快照对比（2026-09-28）
+
+> 目标协议触发：M64 完成后开启。防重查：候选池 grep——运行分叉（**§A LangGraph update_state「续跑前改状态」已调研但只留概念；对话树 parent_conversation_id 自 MVP 就有血缘存储；M64-I192 做了链对比后「从历史点分叉新支线」的执行面缺口显形——无实现无专项调研**）、看板泳道（**§A 记录 Taiga/Kanboard 泳道+WIP 语义，M24-I76 做的是时间线泳道避让不是看板——看板已有 group_by 单维[saved_views 白名单]但无第二维交叉，防重查证实无专项调研**）、回收站审计刷新（**M33-I103 已建 item.archived/restored+回收站抽屉——候选作废**，防重查纪律第三次自证）、邮件路由增强（**M37-I113/I114 已建主题路由+回复转评论——作废**）。本轮三路新调研（Git 分支模型对 agent 运行的隐喻迁移 / 看板泳道与 WIP 的看板语义 / 基线对比与计划快照），选定 **M65 = 编排纵深三件套**。
+
+**BJ.1 运行分叉（从 checkpoint 开支线——Git branch 的 run 域翻译）**
+
+- 产品语义（[LangGraph time travel](https://forum.langchain.com)/[rpabotsworld](https://rpabotsworld.com)/[OpenHands](https://www.openhands.dev)）：LangGraph 的 update_state 允许**从任意 checkpoint 改状态续跑**——原 run 不动、分叉出平行历史（fork 语义）；Git 的 branch 是同构隐喻：主线保留、支线试验、好结果合回。OpenHands 则每次 rerun 都是独立 rollout（无血缘）。共识=**试验性重跑需要分支而非覆盖**。
+- 对本项目的映射：`POST /runs/{run_id}/fork`（body: instruction 可选≤500 字——分叉时的修正指令）——以原 run 的 conversation+item+role+instruction 为底**开新 run**（start_run 标准链·新 run_id·payload 加 `forked_from: run_id`），原 run 及其 lineage 不动；retry-lineage 扩展为**树感知**（沿 retried_from_checkpoint 与 forked_from 双边回溯，`GET /runs/{id}/lineage` 保留 retry 线性语义、新 `?tree=1` 返回分叉树）。防环沿用 M64 guard。**不做** state 级编辑续跑（update_state 需 checkpointer state 序列化——SqliteSaver 已有但暴露 state 编辑面是治理决策，Gate 审批已是人在环编辑点）、分叉自动合并（合并=人看对比抽屉后采纳，无自动写回）。
+
+**BJ.2 看板泳道（第二分组维度——Taiga/Kanboard 的看板语义）**
+
+- 产品语义（[Taiga](https://taiga.io)/[Kanboard docs](https://kanboard.org)）：泳道=列（status）之外的**行维度**（按 assignee/feature/优先级切行），列×行交叉定位瓶颈；Kanboard 泳道+列 WIP 双限是看板法标配。共同痛点=纯列视图多人同项目时「谁在做什么」要靠卡片头像扫读。
+- 对本项目的映射：`get_board` 已支持 `group_by` 单维（M6-I21：状态生命周期或 `field:<id>`）——本轮加**第二维 `swimlane_by`**（`assignee_id`/`feature_id`/`priority` 白名单三选一，None=无泳道）；投影零改动（纯读分组），前端看板列内按泳道小标题分行（行头显示维度值+计数）；saved_views 定义加 swimlane_by 键（视图持久化白名单扩一键）。**不做** 泳道级 WIP 限制（自动化里 set_status 闭锁已有阻塞语义，WIP 计数告警无证据）、跨项目泳道（board 单项目域）。
+
+**BJ.3 计划快照对比（多基线存了，横向对比没做）**
+
+- 产品语义（MS Project 多基线/[OpenProject baseline diff](https://www.openproject.org)）：多基线的价值不在存而在**比**——任意两条基线并排看「计划如何漂移」；M24-I76 已做多基线存储+切换显隐+拖拽幽灵，但「基线 A vs 基线 B」的横向对比表未建。
+- 对本项目的映射：`GET /projects/{id}/baselines/compare?a=&b=`——两条基线的 item 级 diff（日期偏移/新增消失项计数）+ TimelinePage「📊 对比」入口选两条基线出对比抽屉。baselines 投影自 M24 未动——纯读聚合。**不做** 三条以上对比（两两对比已覆盖诊断语义）、基线自动diff报告（周报已有偏差面 I127）。
+
+**BJ.4 M65 设计映射与验证纪律（沿用）**
+
+- I195 运行分叉：`POST /runs/{id}/fork`（forked_from 血缘+标准 start_run 链）+ lineage 树感知（双边回溯）+ Runs 页「⑂ 分叉」按钮与指令输入 + 单测（分叉 run 创建且原 run 不动/forked_from 在事件与投影可见/树回溯含支线/rebuild 一致/防环 guard 覆盖 forked 事件）。
+- I196 看板泳道：get_board + swimlane_by（白名单校验·None 兼容）+ 前端列内泳道行渲染 + saved_views 白名单+1 键 + 单测（assignee 分行/feature 分行/None 无泳道/视图存取 roundtrip/rebuild 无涉——纯读）。
+- I197 基线对比+冒烟 70+审阅：`GET /projects/{id}/baselines/compare`（两两 item 级 diff：日期偏移/新增/消失）+ TimelinePage 对比入口+抽屉 + **冒烟 70**（fork 分叉→树回溯→泳道分组→基线对比）+ 全量回归 + docs 收口 + M65 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M65 审阅 + **冒烟 70**。
+
+**BJ.5 M65 取舍**
+
+M65 = **编排纵深三件套**：I195 运行分叉（checkpoint 支线——Git branch 隐喻的 run 域翻译）/ I196 看板泳道（第二分组维度——列×行交叉定位瓶颈）/ I197 基线对比+冒烟 70+审阅（多基线的价值在比不在存），约 9 人日。state 级编辑续跑、分叉自动合并、泳道 WIP 告警、跨项目泳道、三条以上基线对比、回收站审计刷新（M33 已建）、邮件路由增强（M37 已建）留 backlog。

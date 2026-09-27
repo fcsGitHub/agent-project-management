@@ -44,7 +44,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M64 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M65 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63 教训：候选池勿凭印象写——「工作项批量操作」曾被证伪[M22-I70 已建]**）→ 三路并行 WebSearch → docs/01 新节（§BJ）+ docs/10 §M65 节 + 看板行 →「M65 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M65 审阅。**候选池（待防重查核验）**：①运行分叉 fork（BI.1 留位——从任意 run 起新链并 inherit 上下文，LangGraph update_state 的轻量面）；②搜索 fuzzy 前端化（BI.2 留位——导航项子序列过滤，内容面 FTS 已够）；③回收站/软删除审计刷新（items archived_at 自 M22 后未动——对照 Jira trash 30 天语义）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 专项、消息级高亮、Prometheus 外导、多目的地分发、预算告警、模型价格表管理、Ignore 完整档、批量转换、转换自动勾选（均维持不做）。
+2. **I195 运行分叉（下一步）**：M65 调研定义已提交（3483d11，docs/01 §BJ + docs/10 §M65）。三件套=I195 `POST /runs/{id}/fork`（forked_from 血缘+start_run 标准链·instruction ≤500 可选修正·原 run 不动）+ lineage 树感知（retry 线性+fork 支线双边回溯·`?tree=1`）→ I196 看板泳道（get_board + swimlane_by 白名单 assignee_id/feature_id/priority + 前端列内泳道行 + saved_views 加键）→ I197 `GET /projects/{id}/baselines/compare`（两两 item 级 diff）+ TimelinePage 对比抽屉 + 冒烟 70 + 全量回归 + M65 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
