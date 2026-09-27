@@ -44,7 +44,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M63 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M64 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63 教训：候选池勿凭印象写——「工作项批量操作」被防重查证伪[M22-I70 已建 batch-patch]而作废**）→ 三路并行 WebSearch → docs/01 新节（§BI）+ docs/10 §M64 节 + 看板行 →「M64 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M64 审阅。**候选池（待防重查核验）**：①清单项转子任务（I191 的 checklist→task 升级面——BH.5 留 backlog，证据足时再做）；②搜索域深化（facet 过滤/排序/最近搜索——⌘K 自 M22 起只扩过 conversations[M61]）；③运行页时间线增强（spans 瀑布自 M4 后未大动——对照轨迹可视化 §D）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 专项、消息级高亮、Prometheus 外导、多目的地分发、预算告警、模型价格表管理、Ignore 完整档、Slack 式 @here 细分静音（均维持不做）。
+2. **I192 run 重试对比（下一步）**：M64 调研定义已提交（305e839，docs/01 §BI + docs/10 §M64）。三件套=I192 `GET /runs/{id}/retry-lineage`（沿 run.retried_from_checkpoint.original 回溯链·每环标量+工件清单——红利第十五例）+ Runs 页「↳ 重试自」徽标+两列对比抽屉 → I193 ⌘K palette 三标配（recents localStorage 上限 5 + 结果页项目 facets 纯前端聚合 + 空态转全局出口）→ I194 `POST /items/{id}/checklist/extract`（index→create_item 全校验链 + extracted_tasks 加 item_id 维度·409 幂等 + checklist 项标 extracted + 显式「→任务」按钮防 hover 误触）+ 冒烟 69 + 全量回归 + M64 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩

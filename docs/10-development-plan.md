@@ -1960,6 +1960,36 @@ agent-project-management/
 
 ---
 
+### M64 · 溯源与升级三件套（I192-I194，约 9 人日）
+
+> v3.0 新增（2026-09-28，docs/01 §BI 前置调研）。M4 建了 retry-from-checkpoint 但「重试链+前后对比」从未建——LangGraph 确定性 resume vs OpenHands 独立 rollout 的共识是重试价值在「与上次差哪」（链事实已在流中=红利第十五例）；⌘K 补 palette 三标配（recents/facets/空态出口）；清单转子任务是 BH.5 的证据续期（GitLab hover 误触教训=显式点击，与 I67 评论面同构同链）。运行时间线增强降级不查（M4 span 树+甘特已够）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I192 | run 重试对比（`GET /runs/{id}/retry-lineage` 纯读投影[沿 run.retried_from_checkpoint.original 回溯整链+每环 status/步数/token/时长/工件] + Runs 页「↳ 重试自」徽标+对比抽屉[两列标量/工件清单 diff] + 单测） | docs/01 §BI.1 | M4 retry 事件 | 3d |
+| I193 | ⌘K 搜索深化（palette recents[localStorage 上限 5·可清空——个人 UI 态不进事件流] + 结果页项目 facets[纯前端聚合零后端] + 空态「转全局搜索」出口 + 组件测试） | docs/01 §BI.2 | M22/M61 搜索 | 3d |
+| I194 | 清单转子任务+冒烟 69+收尾审阅（`POST /items/{id}/checklist/extract`[index→create_item 全校验链 + extracted_tasks 复用加 item_id 维度·409 幂等 + checklist 项标记 extracted[整列覆盖]] + 清单行显式「→任务」按钮 + 冒烟 69[重试链→recents→清单转任务] + 全量回归 + docs 收口 + M64 审阅） | docs/01 §BI.3 | I67 同构同链 | 3d |
+
+#### I192 · run 重试对比（3d）
+
+- 任务：runs.py `GET /runs/{id}/retry-lineage`——沿 `run.retried_from_checkpoint` payload.original 回溯整链（每环 run 标量：status/started_at/spans 计数/tokens/时长 + 产出工件清单）；Runs 页 run 卡「↳ 重试自 {短id}」徽标 + 点击开对比抽屉（相邻两环两列并排：标量行 diff 高亮 + 工件清单各自列出——diff 标量与清单不 diff 正文）。
+- DoD：单测（两级链回溯完整/每环标量与 runs 投影一致/工件清单齐全/无链 run 返回单环/rebuild 一致）。
+- 演示路径：重跑一次 run → 卡片出现「↳ 重试自」→ 对比抽屉一眼看出「这次多 3 步、token 翻倍、多了两个工件」。
+
+#### I193 · ⌘K 搜索深化（3d）
+
+- 任务：CommandBar palette——recents 置顶（最近 5 条搜索词 localStorage `apm-search-recents`·去重最新在前·可清空——个人 UI 态本地存，遥测同理不进事件流）；SearchPage 结果按项目聚合 facet chips（点选过滤·纯前端·零后端改动）；palette 与结果页空态加「以 'q' 跳全局搜索」出口（palette 死角的 Linear 语义）。
+- DoD：vitest 组件测试（recents 读写/去重/上限截断/清空）；facets 过滤手验。
+- 演示路径：⌘K 空态浮出最近搜索→点即搜；结果页按项目一筛即窄。
+
+#### I194 · 清单转子任务+冒烟 69+收尾审阅（3d）
+
+- 任务：items.py `POST /items/{id}/checklist/extract`（body: index；校验 index 在界→create_item 全校验链创建 task 概念项[标题=项文本]→extracted_tasks 复用（加 item_id 维度·同 item 同文本 409 幂等——I67 同构）→checklist 项标记 `"extracted": item_id` 整列覆盖）；QuickEditModal 清单行 hover 显式「→任务」按钮（点击确认非 hover 直转——GitLab #363613 教训）+ 已转项显链接徽标；**冒烟 69**（重试链 roundtrip→recents 语义→清单转任务 roundtrip+rebuild）+ 全量回归 + docs 收口 + M64 审阅。
+- DoD：冒烟 69 GREEN；全量 pytest 分片收敛绿；转任务后 checklist 项标记持久（rebuild 存活）。
+- 演示路径：「重跑对比一眼差 → ⌘K 最近直达 → 清单项一键升任务」溯源与升级一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2160,6 +2190,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-28 M64 调研定义（§BI） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：run 重试对比[§A LangGraph time-travel 已调研·M4 建 retry-from-checkpoint·但重试链可视化+前后 diff 从未调研从未建——OpenHands 把重试当独立 rollout 事后比·AgentPM 有 checkpointer 天然能做成链]、⌘K 搜索深化[§U.1 (M22) 调研过全局搜索·M61 补 conversations——facet/recents/模糊导航无调研]、清单转子任务[BH.5 明示证据足再做·I67 已建评论面转子任务链——item 行内 checklist[M63]→task 是同构缺口·防重查证实无调研无实现]、运行时间线增强[M4 已有 span 树+甘特+人机时间线——缺增量降级不查]。三路 WebSearch：run 重试语义（LangGraph=确定性 checkpoint resume[get_state_history/任意点重放/update_state 改状态续跑] vs OpenHands=独立 rollout 事后比[多尝试 60.6%→66.4%]——共识=重试可视价值在「与上次差哪」带血缘对照·[LangChain 论坛](https://forum.langchain.com)/[OpenHands](https://www.openhands.dev)）、Cmd-K palette 设计（setproduct 十例拆解[Linear/Raycast/Vercel]——三标配=模糊匹配/recents 置顶/前缀分域·常见失败态=空态无 recents/无结果无转全局出口·[setproduct](https://www.setproduct.com)/[VS Code](https://code.visualstudio.com)）、清单转实体（GitLab #363613 hover「Convert to Work Item」太易误触成长期抱怨·Linear 选中清单 Cmd+Shift+O 批量转·WCAG 1.4.13 hover 内容易意外触发——共识=转换须显式低频·转换后原位留痕可跳转）。定案 M64=溯源与升级三件套（I192 重试对比/I193 palette 三标配/I194 清单转子任务） |
 | **M63 编排与降噪三件套（I189-I191）** | 已完成 | 2026-09-27 | 2026-09-28 | 3 迭代 / 约 9 人日（docs/01 §BH + docs/10 §M63）：I189 自动化 run_agent 动作（ACTION_TYPES 第七动作[写入侧 fail-closed：role 须注册/instruction 1-200 字·坏值 422] + `_dispatch_run_agent`[复用工作项最近会话·无会话建 automation 归账新会话·经 start_run 标准链——Gate/审批/token 记账不受影响] + **防环三闸**[TRIGGERS 不扩 run.*·dispatch guard 排除 actor_type=agent 与 runtime:* 前缀——agent 写回是果不是因·每规则每日 ≤3 次事件计数零新表·第 4 次诚实拒绝] + AutomationsPanel「🤖 让 Agent 执行」）/ I190 项目级通知降级（project_members.notify_level 列 + member_notify_level 事件+投影 + PATCH 端点[本人可降级自己·他人 owner/admin] + plan_notifications 参与类分支 `_notify_muted` 查档——**mention/指派/审批/到期/watch 照常=治理必达不静音**·GitHub 三档取两档 Ignore 不取 + 成员面板🔔/🔕 切换）/ I191 检查清单+冒烟 68+审阅（items.checklist 列[≤20 项/项 1-200 字] + `item.checklist_updated` 事件+投影[全量提交整列覆盖·**advisory only 不推 version 不发 item.updated**——完成率/健康分/automation 不受勾选干扰] + QuickEditModal 清单区 + 看板卡「☑ n/m」徽标）。基线：pytest **481** 全绿（非 smoke 477 EXIT=0 + smoke runner 68 GREEN 对账）+ 冒烟 **68** + vitest **18** + build 绿 |
 | 2026-09-27 M63 调研定义（§BH） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：**工作项批量操作[上轮候选池误判——§U.3 (M22) 已完整调研且 I70 已建 batch-patch 端点·勾选批量条+逐事件逐项结果，候选作废——防重查纪律再次自证]**、自动化触发 Agent 运行[ACTION_TYPES 六动作无 agent·编排只能靠人点或依赖续——规则面缺口无调研]、项目级通知降级[watch/pref 都是 opt-in 面与全局档——opt-out 参与即响的降级无调研]、工作项检查清单[schema 无 checklist·I67 只覆盖评论面转子任务]。三路 WebSearch：工作流自动化×agent 防环（Zapier 官方「agent 别监听自己写回的数据」+n8n 双向同步头号 bug=无限环·共识五件套=自家写回不打标不触发/硬迭代上限/Error Trigger 兜底/不可逆前 HITL/限速——[Zapier](https://help.zapier.com/hc/en-us/articles/45697420326285)/[n8n 实践](https://nirajiitr.com)/[安全清单](https://n8nlab.io)）、GitHub-Slack 通知分档（GitHub 仓库级 All Activity/Participating & @mentions/Ignore 三档·Ignore 连提及都吞·Slack 频道级覆盖全局——痛点=参与即订阅太宽缺 opt-out·[GitHub Docs](https://docs.github.com/subscriptions-and-notifications/get-started/configuring-notifications)）、GitHub tasklist→sub-issues 收敛（清单项一键转子 issue·社区分化：sub-issue 列表丢「同屏勾选轻量感」——[About tasklists](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)/[HN](https://news.ycombinator.com/item?id=42725692)）。定案 M63=编排与降噪三件套（I189 run_agent 防环三闸/I190 通知降级取两档/I191 检查清单轻量不做实体转换） |
 | I189 自动化 run_agent 动作 | 已完成 | 2026-09-27 | 2026-09-27 | ACTION_TYPES 第七动作 run_agent（`_validate_action` 写入侧 fail-closed[role 须在 agents/roles 注册·instruction 1-200 字·缺角色/空指令/超长 422] + `_dispatch_run_agent`[复用工作项最近会话起 run·无会话建 automation 归账新会话[kind=executing]·经 start_run 标准链——Gate/审批/token 记账不受影响·payload origin 可溯]）+ **防环三闸**[①TRIGGERS 不扩 run.*——watch 先例 ②dispatch guard 排除 actor_type=agent 与 actor_id runtime:* 前缀——agent 写回与运行时事实是果不是因 ③每规则每日 ≤3 次——automation.agent_dispatched 事件计数零新表·第 4 次拒发 rule_fired 诚实记录] + AutomationsPanel 动作下拉「🤖 让 Agent 执行」（角色池=本体 concepts agent_roles 并集）+ test_automation_run_agent **4** 项[写入侧校验/真实 run+automation 归账+agent/runtime 不再触发/日上限诚实拒绝（**/api/events 为 id 降序——fired[-1] 是首次不是末次坑**）/会话复用与新建·**角色 id 是 planner-agent 非 planner——写测试前先查 agents/roles 注册表**] |

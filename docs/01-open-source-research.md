@@ -1772,3 +1772,33 @@ M62 = **性能观测与用量聚合三件套**：I186 端点性能观测（延�
 **BH.5 M63 取舍**
 
 M63 = **编排与降噪三件套**：I189 自动化 run_agent（防环三闸——反馈环是自动化×agent 头号事故源）/ I190 项目级通知降级（GitHub 三档取两档——Ignore 连提及都吞过于激进）/ I191 检查清单+冒烟 68+审阅（轻量勾选不做实体转换——GitHub 收敛教训反向指导），约 9 人日。触发白名单扩 run.*、Ignore 完整档、清单转子任务、清单进健康分、Slack 式 @here 细分静音留 backlog。
+
+## BI. M64 前置调研：run 重试对比 / ⌘K 搜索深化 / 清单转子任务（2026-09-28）
+
+> 目标协议触发：M63 完成后开启。防重查：候选池 grep——run 重试对比（**§A LangGraph「interrupt→resume/time travel」已调研，M4 建了 retry-from-checkpoint，但「重试链可视化+前后 diff」从未调研从未建**——OpenHands 把重试当独立 rollout 事后比，AgentPM 有 checkpointer 天然能做成链）、⌘K 搜索深化（**§U.1 (M22) 调研过全局搜索形态，M61 补 conversations 类型；facet 过滤/最近搜索/模糊导航无调研**）、清单转子任务（**BH.5 明示「证据足时再做」：I67 已建评论面转子任务链[extracted_tasks+渲染替换+409 幂等]，item 行内 checklist[M63]→task 是同构缺口，防重查证实无既有调研无实现**）、运行时间线增强（M4 已有 span 树+甘特+人机时间线，§D 轨迹模型已调研——**缺增量，降级不查**）。本轮三路新调研（LangGraph time-travel vs OpenHands 重试语义 / Cmd-K palette 设计模式 / 清单转实体的 hover 误触证据），选定 **M64 = 溯源与升级三件套**。
+
+**BI.1 run 重试对比（「重跑后哪里变了」——checkpoint 语义的可视化）**
+
+- 产品语义（**[LangGraph time travel](https://forum.langchain.com)**/[rpabotsworld 教程](https://rpabotsworld.com)/[OpenHands 评估](https://www.openhands.dev)）：LangGraph 是**确定性 checkpoint resume**——`get_state_history()` 取历史、从任意 checkpoint 重放、`update_state()` 可在续跑前改状态（fork 历史）；OpenHands 则把重跑当**独立 rollout** 事后比（多尝试 60.6%→66.4%），对比靠轨迹 JSONL。两派共识：**重试的可视价值在「与上次差在哪」**——不是第二份独立日志，而是带血缘的对照。
+- 对本项目的映射：M4-I13 的 `run.retried_from_checkpoint` 事件已是链锚（payload.original 指向原 run）——`GET /runs/{id}/retry-lineage` 纯读投影（沿 original 回溯整链 + 每环 status/step 数/token/时长/产出工件），**红利第十五例：链事实已在流中，投影即得**；Runs 页重试卡片显示「↳ 重试自 run_xxx」+ 点击开对比抽屉（两列并排：状态/token/步骤数/工件列表——**diff 的是标量与清单不是正文**，正文在各自轨迹页）。**不做** state 编辑续跑（update_state 语义——Gate 审批已是人在环编辑点，第二编辑面属重复）、跨链合并视图（一条链一个抽屉）。
+
+**BI.2 ⌘K 搜索深化（Linear/Raycast 式 palette 的三件补课）**
+
+- UX 模式（**[setproduct.com palette 解剖](https://www.setproduct.com)**[Linear/Raycast/Vercel 十例拆解]/[VS Code docs](https://code.visualstudio.com)）：power-user palette 三标配=**模糊匹配**（fuzzy subsequence，非全等子串）、**recents 置顶**（最近命令/搜索默认浮出、可清空）、**前缀分域**（`>` 命令、`@` 人、`#` scope——一个入口多层语义）；常见失败态=空态无 recents、加载无骨架、无结果无「转全局搜索」出口。
+- 对本项目的映射：⌘K 结果已含 items/comments/conversations/资产导航（M22/M61 累积），本轮补三件：①**recents 置顶**（最近 5 条搜索词 localStorage 本地存——搜索行为是个人 UI 态不进事件流，与 perf 遥测同理）；②**结果页 facets**（/search 返回已有 project 维度——前端按项目聚合 chips 过滤，零后端改动）；③**空态转出口**（无结果时一键「以 'q' 跳全局搜索」——palette 死角的 Linear 语义）。**不做** 前缀分域（单机 N=1 无多人 @ 语义，`#` 与既有「搜索 'x'」指令重叠）、服务端 fuzzy（FTS bigram 已够，前端子序列过滤导航项即可）。
+
+**BI.3 清单转子任务（BH.5 的证据续期——hover 误触是 documented 反例）**
+
+- UX 证据（**[GitLab #363613](https://gitlab.com)**：hover「Convert to Work Item」太易误触成社区长期抱怨/[Linear](https://linear.app)：选中清单 Cmd+Shift+O 批量转子 issue/[Atlassian Tick](https://community.atlassian.com)：清单项一键转 issue 解决复制粘贴)/[WCAG 1.4.13](https://www.w3.org)：hover 内容易意外触发与不可发现)——共识=**转换必须是显式低频动作**：hover 可发现但不可易触，转换后原位留痕可跳转。
+- 对本项目的映射：与 I67 评论面转子任务**同构同链**——`POST /items/{id}/checklist/extract`（body: index；checklist 项 → 创建 task 概念工作项[标题=项文本] + `extracted_tasks` 复用[加 item_id 维度·同 item 同文本 409 幂等·与 comment 面共表] + checklist 项标记 `extracted: item_id`[整列覆盖纪律]）；UI=清单行 hover 出「→任务」（显式点击非 hover 直转·GitLab 教训）+ 卡片徽标不变；**不做** 批量选中转换（Linear Cmd+Shift+O——单机 N=1 频次不足）、转换后自动勾选（原始意图保留——done 与 extracted 正交）。
+
+**BI.4 M64 设计映射与验证纪律（沿用）**
+
+- I192 run 重试对比：`GET /runs/{id}/retry-lineage`（链回溯+每环标量）+ runs 投影不加列（链沿事件查）+ Runs 页「↳ 重试自」徽标与对比抽屉（两列并排标量/工件清单 diff）+ 单测（链回溯完整/多级链/diff 标量正确/无链单环 404 语义/rebuild 一致）。
+- I193 ⌘K 搜索深化：palette recents（localStorage·上限 5·可清空）+ 结果页项目 facets（纯前端聚合）+ 空态转全局搜索出口 + 单测/组件测试（recents 读写/去重/上限——vitest 侧）。
+- I194 清单转子任务+冒烟 69+审阅：`POST /items/{id}/checklist/extract`（index → create_item 全校验链 + extracted_tasks 复用加 item_id 维度 + 409 幂等 + checklist 项标记 extracted）+ 清单行「→任务」显式按钮 + **冒烟 69**（重试链 roundtrip→palette recents 语义→清单转任务 roundtrip+rebuild）+ 全量回归 + docs 收口 + M64 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M64 审阅 + **冒烟 69**。
+
+**BI.5 M64 取舍**
+
+M64 = **溯源与升级三件套**：I192 run 重试对比（checkpoint 血缘可视化——红利第十五例）/ I193 ⌘K 搜索深化（recents/facets/空态出口——palette 三标配）/ I194 清单转子任务+冒烟 69+审阅（BH.5 证据续期——显式点击防 hover 误触，与 I67 同构同链），约 9 人日。update_state 编辑续跑、跨链合并视图、前缀分域、服务端 fuzzy、批量选中转换、转换后自动勾选、运行时间线增强（M4 面已够）留 backlog。
