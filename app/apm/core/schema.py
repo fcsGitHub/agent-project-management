@@ -391,6 +391,27 @@ CREATE TABLE IF NOT EXISTS extracted_tasks (
 CREATE INDEX IF NOT EXISTS idx_extracted_tasks_comment ON extracted_tasks(comment_id);
 CREATE INDEX IF NOT EXISTS idx_extracted_tasks_project ON extracted_tasks(project_id);
 
+-- M66-I199: personal access tokens for machine access (GitHub PAT semantics,
+-- docs/01 §BK.2). The raw token is shown once at creation; only the SHA-256
+-- hash is stored (in the event payload too — one-way for high-entropy tokens).
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  prefix TEXT NOT NULL,
+  hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
+-- last_used_at is telemetry, not a domain fact — it lives outside the
+-- projection so rebuilds don't wipe it (perf/recents 同理).
+CREATE TABLE IF NOT EXISTS api_token_usage (
+  token_id TEXT PRIMARY KEY,
+  last_used_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS baselines (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -612,6 +633,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "non_working_days",
         "report_subscribers",
         "watch_rules",
+        "api_tokens",
         "imap_seen",
         "user_time_off",
         "project_cycles",

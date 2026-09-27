@@ -73,6 +73,13 @@ def create_app() -> FastAPI:
             user_id = None
             if path.startswith("/api/") and not path.startswith("/api/auth/"):
                 user_id = session_user(request.cookies.get(SESSION_COOKIE))
+                if not user_id:
+                    # M66-I199: Bearer PAT acts as its creator (docs/01 §BK.2).
+                    authz = request.headers.get("authorization") or ""
+                    if authz.startswith("Bearer "):
+                        from apm.domains.tokens import api_token_user
+
+                        user_id = api_token_user(authz[len("Bearer "):].strip())
                 if request.method not in ("GET", "HEAD", "OPTIONS"):
                     if not user_id:
                         return JSONResponse({"detail": "login required"}, status_code=401)
@@ -138,6 +145,7 @@ def create_app() -> FastAPI:
     from apm.domains.automations import router as automations_router
     from apm.domains.auth_api import router as auth_router
     from apm.domains.conversations import router as conversations_router
+    from apm.domains.tokens import router as tokens_router
     from apm.domains.events_api import router as events_router
     from apm.domains.expense import router as expense_router
     from apm.domains.features import router as features_router
@@ -177,6 +185,7 @@ def create_app() -> FastAPI:
 
     app.include_router(system_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(tokens_router, prefix="/api")
     app.include_router(events_router, prefix="/api")
     app.include_router(expense_router, prefix="/api")
     app.include_router(stream_router, prefix="/api")

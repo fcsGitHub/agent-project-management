@@ -5,7 +5,7 @@
  * M21-I66: iCal calendar subscription card (docs/01 §T.3). */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { fmtMinutes } from "../components/TimeLogModal";
 import { api } from "../lib/api";
@@ -121,6 +121,7 @@ export function MyWorkPage() {
         </Card>
 
         <CalendarSubCard />
+        <ApiTokenCard />
       </div>
     </div>
   );
@@ -158,6 +159,76 @@ function CalendarSubCard() {
               }}>换发密钥</Button>
           </>
         )}
+      </div>
+    </Card>
+  );
+}
+
+/** M66-I199: personal access tokens (docs/01 §BK.2) — machine access with
+ * GitHub PAT semantics: raw shown once, optional expiry, last-used badge,
+ * immediate revoke. Bearer acts as this user; fine-grained scopes cut. */
+function ApiTokenCard() {
+  const qc = useQueryClient();
+  const tokens = useQuery({ queryKey: ["api-tokens"], queryFn: api.listTokens });
+  const [name, setName] = useState("");
+  const [days, setDays] = useState<string>("30");
+  const [fresh, setFresh] = useState<{ token: string } | null>(null);
+  const rows = tokens.data?.tokens ?? [];
+  return (
+    <Card className="p-4 md:col-span-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">🔑 API 令牌</span>
+        <span className="text-xs text-mut">外部脚本/agent 以你的身份调 API：请求头 Authorization: Bearer apm_…（明文只显示一次）</span>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="用途，如 CI 发布脚本"
+          className="w-48 rounded-lg border border-line bg-surface px-2 py-1" />
+        <select value={days} onChange={(e) => setDays(e.target.value)}
+          className="rounded-lg border border-line bg-surface px-2 py-1">
+          <option value="7">7 天过期</option>
+          <option value="30">30 天过期</option>
+          <option value="60">60 天过期</option>
+          <option value="90">90 天过期</option>
+          <option value="">永不过期</option>
+        </select>
+        <Button size="sm" variant="primary" onClick={async () => {
+          if (!name.trim()) { toast.error("先填令牌用途名"); return; }
+          try {
+            const r = await api.createToken({ name: name.trim(), expires_in_days: days ? Number(days) : null });
+            setFresh({ token: r.token });
+            setName("");
+            qc.invalidateQueries({ queryKey: ["api-tokens"] });
+          } catch (e) { toast.error(`创建失败：${e instanceof Error ? e.message : e}`); }
+        }}>创建令牌</Button>
+        {fresh && (
+          <code data-testid="fresh-token" className="max-w-md truncate rounded bg-accbg px-2 py-1 font-medium text-acc"
+            title="关闭后无法再次查看，请立即复制">
+            {fresh.token}
+          </code>
+        )}
+        {fresh && <Button size="sm" onClick={async () => {
+          try { await navigator.clipboard.writeText(fresh.token); toast.success("已复制令牌"); }
+          catch { toast.error("复制失败——请手动选择"); }
+        }}>复制</Button>}
+      </div>
+      <div className="space-y-1.5">
+        {rows.map((t) => (
+          <div key={t.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs">
+            <code className="shrink-0 text-mut">{t.prefix}…</code>
+            <span className="flex-1 truncate font-medium">{t.name}</span>
+            <Badge tone={t.revoked_at ? "dan" : t.expires_at && t.expires_at <= new Date().toISOString() ? "amber" : "ok"}>
+              {t.revoked_at ? "已吊销" : t.expires_at ? `至 ${t.expires_at.slice(0, 10)}` : "永不过期"}
+            </Badge>
+            <span className="shrink-0 text-mut">{t.last_used_at ? `最近使用 ${timeAgo(t.last_used_at)}` : "从未使用"}</span>
+            {!t.revoked_at && (
+              <Button size="sm" variant="ghost" onClick={async () => {
+                try { await api.revokeToken(t.id); toast.success("已吊销"); qc.invalidateQueries({ queryKey: ["api-tokens"] }); }
+                catch (e) { toast.error(`吊销失败：${e instanceof Error ? e.message : e}`); }
+              }}>吊销</Button>
+            )}
+          </div>
+        ))}
+        {!rows.length && <Empty title="还没有 API 令牌" hint="创建后即可用 curl / 脚本免登录调用 API" />}
       </div>
     </Card>
   );

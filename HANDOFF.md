@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M66 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63/M65 教训：候选池勿凭印象写——回收站[M33 已建]、邮件路由[M37 已建]、批量操作[M22 已建]三轮连续被防重查证伪作废**）→ 三路并行 WebSearch → docs/01 新节（§BK）+ docs/10 §M66 节 + 看板行 →「M66 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M66 审阅。**候选池（待防重查核验）**：①分叉 run 的合并采纳面（BJ.5 留位——支线产物人审后替换主线工件，需先有真实使用证据）；②泳道 WIP 双限（Kanboard 泳道+列双限——M65 裁决 WIP 告警无证据留位）；③对话树形导航（parent_conversation_id 自 MVP 未有 UI）；④维持项（长清单见前轮，均维持不做）。
+2. **I198 对话树导航（下一步）**：M66 调研定义已提交（97f22a1，docs/01 §BK + docs/10 §M66）。三件套=I198 `GET /projects/{id}/conversations/tree`（parent_conversation_id 血缘组树+孤儿兜底+ConversationsPage 树形模式[活动路径高亮+点击跳转]）→ I199 PAT 机器接入（api_tokens 表+created/revoked 事件+Bearer 认证旁路+display-once/过期/last_used/吊销+前端管理卡）→ I200 成本预算护栏（projects.cost_budget_usd+start_run 事前预检[硬顶 402/软阈 80% warning]）+ 冒烟 71 + 全量回归 + M66 审阅。**防重查已收口**：泳道 WIP 双限[M65 §BJ.2 裁决不做]、分叉采纳面[需真实使用证据]均作废。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩

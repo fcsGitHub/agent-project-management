@@ -19,6 +19,10 @@ export type Conversation = {
 export type ConversationTreeNode = Omit<Conversation, "messages"> & {
   run_status?: string | null; children: ConversationTreeNode[];
 };
+export type ApiToken = {
+  id: string; name: string; prefix: string; expires_at?: string | null;
+  revoked_at?: string | null; created_at: string; last_used_at?: string | null;
+};
 export type Message = {
   id: string; conversation_id: string; parent_id?: string; role: string;
   actor_type?: string; actor_id?: string; content: string; span_id?: string; created_at: string;
@@ -975,6 +979,12 @@ export const api = {
     req<{ user_id: string; feed_key: string; created: boolean }>("/me/feed-key"),
   rotateFeedKey: () =>
     req<{ user_id: string; feed_key: string }>("/me/feed-key/rotate", { method: "POST" }),
+
+  // M66-I199: personal access tokens (GitHub PAT semantics — display once)
+  listTokens: () => req<{ tokens: ApiToken[] }>("/auth/tokens"),
+  createToken: (body: { name: string; expires_in_days?: number | null }) =>
+    req<{ id: string; token: string; prefix: string; expires_at?: string | null }>("/auth/tokens", { method: "POST", body: JSON.stringify(body) }),
+  revokeToken: (id: string) => req<{ ok: boolean }>(`/auth/tokens/${id}`, { method: "DELETE" }),
 
   exportOntology: (name: string) =>
     req<Record<string, unknown>>(`/ontologies/${name}/export`),
