@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-27 更新 · M60 运维韧性与组合洞察三件套 完成，下一步 M61 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-28 更新 · M66 工厂接入与治理三件套 完成，下一步 M67 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -35,8 +35,8 @@
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
 - **M55~M57（I165-I173，2026-09-21/27 完成，docs/01 §AZ-§BB + docs/10 §M55-§M57）**：watch 条件化（condition_json 全等匹配·红利第九例）+ 铃铛降噪折叠 + watch 导入导出 + 静默时段（跨午夜+mailer 第四道门）+ watch 规则编辑暂停（修 M55 的 409 删了重加坑）+ 资产使用洞察（红利第十例）。基线 pytest 437 / 冒烟 62。
 - **M58~M62（I174-I188，2026-09-27 完成，docs/01 §BC-§BG + docs/10 §M58-§M62）**：run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合 + 模板包实例溯源 + 备份/恢复演练工具（sqlite3 backup API——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（红利第十二例）+ 事件表体积观测（先测后治）+ 会话搜索与导出（**红利第十三例**）+ 移动端 375px 审计 + 端点性能观测（**索引审计补 idx_watch_rules_hit**）+ watch 渠道偏好（永不越过 DND）+ Agent 用量聚合（**红利第十四例**）。基线 pytest 466 / 冒烟 67。
-- **M63~M64（I189-I194，2026-09-28 完成，docs/01 §BH/§BI + docs/10 §M63/§M64）**：自动化 run_agent（第七动作·**防环三闸**[TRIGGERS 不扩/agent+runtime 事实不触发 dispatch/每规则日 ≤3 次]·Gate/审批链保留）+ 项目级通知降级（mentions_only 静参与面·**mention/审批/指派/到期/watch 照常**）+ 工作项检查清单（整列覆盖·**advisory 不推 version**）+ run 重试对比（retry-lineage 链投影+对比抽屉——**红利第十五例：M4 retry 事件已是链锚**）+ ⌘K palette recents/facets/空态出口 + 清单转子任务（extracted_tasks 同表同链·done 与 extracted 正交）。基线 pytest 487 / 冒烟 69 / vitest 21。
-- **M65（I195-I197，2026-09-28 完成，docs/01 §BJ + docs/10 §M65）**：运行分叉（POST /runs/{id}/fork·forked_from 血缘+start_run 先铸 id·主线不动——Git branch 隐喻·不做 state 编辑续跑）+ lineage 树感知（retry+fork 双边回溯 ?tree=1）+ 看板泳道（swimlane_by 第二维白名单·列内分行）+ 基线对比（baselines/compare a vs b 两两 diff·**修快照语义：归档项不入新基线**）。基线 pytest 495 / 冒烟 70 / vitest 21。
+- **M63~M65（I189-I197，2026-09-27/28 完成，docs/01 §BH-§BJ + docs/10 §M63-§M65）**：自动化 run_agent（第七动作·**防环三闸**）+ 项目级通知降级（mentions_only 静参与面）+ 工作项检查清单（advisory 不推 version）+ run 重试对比（**红利第十五例**）+ ⌘K palette recents/facets + 清单转子任务 + 运行分叉（forked_from 血缘·主线不动——Git branch 隐喻）+ lineage 树感知 + 看板泳道（第二维白名单）+ 基线对比（**修快照语义：归档项不入新基线**）。基线 pytest 495 / 冒烟 70 / vitest 21。
+- **M66（I198-I200，2026-09-28 完成，docs/01 §BK + docs/10 §M66）**：对话树导航（`GET /projects/{id}/conversations/tree` 血缘投影·孤儿兜底 + **ConversationIn 加 parent_conversation_id 写入面**——自 MVP 有存储无写入方·Branch in new chat 语义 + 列表/树形双模式活动路径高亮 +「⑂ 分支」按钮）+ PAT 机器接入（tokens.py 域·display-once+过期档位+last_used+吊销·**last_used 走投影外 side 表=遥测不进事件流**·auth_gate Bearer 旁路[session 优先·/api/auth/* 排除]·单实例裁 scope）+ run 成本预算护栏（projects.cost_budget_usd + start_run 事前预检[**runs 自 M44 已记账——护栏纯读侧比对·红利再现**·硬顶 402/软阈 80% warning·automation 派发既有 HTTPException 兜底] + ReportsPage 预算输入 + RunsPage 🪙 徽标）。基线 pytest 499 / 冒烟 71 / vitest 21。
 
 ## 3. 现在卡在哪
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **I198 对话树导航（下一步）**：M66 调研定义已提交（97f22a1，docs/01 §BK + docs/10 §M66）。三件套=I198 `GET /projects/{id}/conversations/tree`（parent_conversation_id 血缘组树+孤儿兜底+ConversationsPage 树形模式[活动路径高亮+点击跳转]）→ I199 PAT 机器接入（api_tokens 表+created/revoked 事件+Bearer 认证旁路+display-once/过期/last_used/吊销+前端管理卡）→ I200 成本预算护栏（projects.cost_budget_usd+start_run 事前预检[硬顶 402/软阈 80% warning]）+ 冒烟 71 + 全量回归 + M66 审阅。**防重查已收口**：泳道 WIP 双限[M65 §BJ.2 裁决不做]、分叉采纳面[需真实使用证据]均作废。
+2. **M67 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63/M65/M66 教训：候选池勿凭印象写——回收站[M33 已建]、邮件路由[M37 已建]、批量操作[M22 已建]、泳道 WIP 双限[M65 已裁决不做]、出站 webhook[M10 已建]连续被防重查证伪作废**）→ 三路并行 WebSearch → docs/01 新节（§BL）+ docs/10 §M67 节 + 看板行 →「M67 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M67 审阅。**候选池（待防重查核验）**：①分叉 run 的合并采纳面（BJ.5 留位——支线产物人审后替换主线工件，需先有真实使用证据，仍缺）；②watch 摘要批量投递（M55 已裁决「与周报节律重复」——重提需新证据）；③本体概念级权限/可见性；④维持项（长清单见前轮，均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -98,12 +98,17 @@
 - **合成 run+fork 时 run_id 由调用方先铸**（M65-I195）：fork 端点必须先发 run.forked 血缘再 start_run(run_id=...)——start_run 新增 run_id 可选参数；次序反了树回溯会漏支线。
 - **sqlite Row 的 keys 就是 SELECT 列**（M65-I195）：SELECT 漏列后 row["event_type"] 报 IndexError——遍历 rows 前核对 SELECT 清单。
 - **快照/导出类查询要跟删除语义对齐**（M65-I197）：M24 基线快照曾把归档项照入快照（先于 M33 归档语义）——新增软删除类状态后，所有旧的全量查询都要回头核对是否需要排除。
+- **树/计类断言要算上项目 bootstrap 自带会话**（M66-I198）：建项目即产生一个 drafting 会话——`/conversations/tree` 的 roots/total 断言要 +1，否则 5≠4 假红。
+- **rebuild 清 users 投影后只恢复引导管理员**（M66-I199 再证）：凭据不进事件流，POST /users 造的用户随 rebuild 消失——网络模式测试的会话操作（建 token/吊销/读卡）必须排在 rebuild 之前，rebuild 用 u_admin+admin_password 登录执行。
+- **session cookie 会掩护 Bearer 断言**（M66-I199）：auth_gate 里 session 优先、无会话才看 Bearer——登出前用 Bearer 头发请求会因 cookie 命中而 200，401 断言前必须先 POST /auth/logout。
+- **PATCH 的 changes 过滤 None**（M66-I200）：`{k: v for k, v in body... if v is not None}` 无法把数值档位清成 NULL——「0=关闭」是既定语义，新档位字段照此办。
+- **第三方产品名常与 id 后缀不符、端点序常有 DESC**（M66 汇总重申）：写测试前 grep 注册表/投影器与既有断言方向，勿凭记忆。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 495 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 70 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 499 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 71 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 21 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
