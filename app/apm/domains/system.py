@@ -127,3 +127,63 @@ def slow_endpoints() -> dict:
     if not is_instance_admin(events.effective_actor()):
         raise HTTPException(status_code=403, detail="admin role required for slow endpoints")
     return perf.snapshot()
+
+
+# M67-I203 (docs/01 §BL.3): Prometheus scrape door — a hand-rolled text
+# exposition (format 0.0.4, zero dependencies; prometheus_client is a no for
+# this). Sources are the in-process telemetry the app already keeps: the M62
+# perf ring becomes a latency histogram, the event ledger a per-type counter
+# (红利十六：账本已在流中，出站只是读侧), plus two honest gauges. No built-in
+# auth — config-gated and meant to sit behind a reverse proxy / loopback.
+@router.get("/system/metrics")
+def metrics() -> Response:
+    if not config.settings.metrics_enabled:
+        raise HTTPException(status_code=404, detail="metrics disabled (APM_METRICS_ENABLED)")
+    from apm.core import db
+    from apm.runtime import perf
+
+    lines: list[str] = []
+
+    # --- latency histogram (global; label cardinality stays flat) -----------
+    h = perf.histogram()
+    seconds = 1000.0
+    lines.append("# HELP apm_http_request_duration_seconds HTTP request latency.")
+    lines.append("# TYPE apm_http_request_duration_seconds histogram")
+    for ub_ms, n in h["buckets"].items():
+        le = "+Inf" if ub_ms == "+Inf" else f"{float(ub_ms) / seconds:g}"
+        lines.append(f'apm_http_request_duration_seconds_bucket{{le="{le}"}} {n}')
+    lines.append(f"apm_http_request_duration_seconds_count {h['count']}")
+    lines.append(f"apm_http_request_duration_seconds_sum {h['total_ms'] / seconds:.6f}")
+
+    # --- per-route request counter (bounded by the app's own route count) ---
+    lines.append("# HELP apm_http_requests_total Requests accounted by route.")
+    lines.append("# TYPE apm_http_requests_total counter")
+    for route, n in sorted(h["per_route"].items()):
+        lines.append(f'apm_http_requests_total{{route="{route}"}} {n}')
+
+    # --- event ledger counter (low cardinality: agg_type × event_type) ------
+    lines.append("# HELP apm_events_total Domain events in the append-only ledger.")
+    lines.append("# TYPE apm_events_total counter")
+    rows = db.get_conn().execute(
+        "SELECT agg_type, event_type, COUNT(*) AS n FROM events"
+        " GROUP BY agg_type, event_type ORDER BY agg_type, event_type").fetchall()
+    for r in rows:
+        lines.append(f'apm_events_total{{agg_type="{r["agg_type"]}",'
+                     f'event_type="{r["event_type"]}"}} {r["n"]}')
+
+    # --- gauges -------------------------------------------------------------
+    running = db.get_conn().execute(
+        "SELECT COUNT(*) AS n FROM runs WHERE status = 'running'").fetchone()["n"]
+    pages = db.get_conn().execute("PRAGMA page_count").fetchone()[0]
+    page_size = db.get_conn().execute("PRAGMA page_size").fetchone()[0]
+    lines.append("# HELP apm_runs_active Runs currently in the running state.")
+    lines.append("# TYPE apm_runs_active gauge")
+    lines.append(f"apm_runs_active {running}")
+    lines.append("# HELP apm_db_bytes SQLite database size (page_count × page_size).")
+    lines.append("# TYPE apm_db_bytes gauge")
+    lines.append(f"apm_db_bytes {pages * page_size}")
+
+    from fastapi import Response
+
+    return Response(content="\n".join(lines) + "\n",
+                    media_type="text/plain; version=0.0.4; charset=utf-8")

@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     # I98 daily-sweep ticker: enabled in production by default; the test suite
     # turns it off (conftest) so background sweeps can't race explicit ones.
     scheduler_enabled: bool = True
+    # M67-I203: Prometheus scrape door — /system/metrics answers only when
+    # this is on; the exposition has no built-in auth, so the reverse proxy
+    # (or loopback bind) in front of AgentPM owns access control.
+    metrics_enabled: bool = False
     # I105 due-date reminder window (days ahead, inclusive of today).
     due_soon_days: int = 3
     # I118 overload flag on the workload page: strictly more active items than
