@@ -1930,6 +1930,36 @@ agent-project-management/
 
 ---
 
+### M63 · 编排与降噪三件套（I189-I191，约 9 人日）
+
+> v3.0 新增（2026-09-27，docs/01 §BH 前置调研）。自动化规则面缺 agent 动作（六动作里没有 run_agent——编排只能靠人点或依赖续）；「参与即响」缺 opt-out 一档（GitHub watch 三档取两档：Ignore 连提及都吞过于激进）；item 行内清单域缺失（I67 只覆盖评论面转子任务——GitHub tasklist→sub-issues 收敛的反教训：清单价值在轻量）。防环是 I189 第一设计约束：反馈环是自动化×agent 的头号事故源。**候选池纠错：工作项批量操作经防重查证实已建（M22-I70 batch-patch）——上轮候选池误判，防重查纪律再次自证。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I189 | 自动化 run_agent 动作（ACTION_TYPES +7 + 校验[role 存在/instruction ≤200/有关联 item] + dispatch 分支经 orchestrator 起 run + **防环三闸**[TRIGGERS 不扩 run.*·runtime:* actor 不触发 dispatch·每规则每日 ≤3 次] + 面板动作选项 + 单测） | docs/01 §BH.1 | M9 引擎/M2 编排 | 3d |
+| I190 | 项目级通知降级（project_members.notify_level 列[ALTER] + `project.member_notify_level` 事件+投影 + PATCH 端点[owner 或本人] + plan_notifications 参与类分支查档[参与类静音·提及/指派/审批/到期/watch 照常] + 成员面板档位切换 + 单测） | docs/01 §BH.2 | GitHub watch 语义 | 3d |
+| I191 | 检查清单+冒烟 68+收尾审阅（items.checklist 列[ALTER·JSON 数组上限 20] + `item.checklist_updated` 事件+投影[整列覆盖] + PATCH 端点 + 抽屉清单区+看板卡进度徽标 + 冒烟 68[run_agent 防环→降级档 roundtrip→清单 roundtrip] + 全量回归 + docs 收口 + M63 审阅） | docs/01 §BH.3 | custom_fields 覆盖纪律 | 3d |
+
+#### I189 · 自动化 run_agent 动作（3d）
+
+- 任务：automations.py ACTION_TYPES 加 `run_agent`（payload: agent_role + instruction ≤200 字；目标=event 关联工作项，无项 422）；校验入 `validate_action`；dispatch 分支：经既有编排链起 run（payload 带 origin=rule id——审计可溯）；**防环三闸**：①TRIGGERS 不扩（run.* 永不触发——watch 先例）②dispatch guard 排除 actor_id 前缀 `runtime:` 的事件（agent 写回是果不是因）③每规则每日触发计数 ≥3 拒发（事件查询计数零新表）；自动化面板动作下拉加「🤖 让 Agent 执行」（选角色+指令输入）。
+- DoD：单测（规则命中起 run·无项 422/角色不存在 422·agent 写回事件不再触发 dispatch·同规则日上限第 4 次拒·Gate/审批链不受影响·rebuild 一致）。
+- 演示路径：建规则「item.assigned 且 priority=high → run_agent(planner)」→ 指派高优项 → run 自动起 → Gate 照挂等人。
+
+#### I190 · 项目级通知降级（3d）
+
+- 任务：project_members 加 `notify_level` TEXT 列（ALTER 迁移；NULL=默认参与即响；`mentions_only`=参与类静音）；`project.member_notify_level` 事件+投影（members 域第四事件）；`PATCH /projects/{id}/members/{uid}/notify-level`（owner 或本人，档位白名单校验）；plan_notifications 参与类分支（comment 参与/item 状态参与）查档跳过——mention/approval/assignment/due_soon/watch 分支不查（治理必达与显式订阅保留）；成员面板加档位切换（默认/仅提及）。
+- DoD：单测（mentions_only 静参与留提及/默认档零影响/非本人非 owner 403/坏档 422/rebuild 一致/邮件同门）。
+- 演示路径：把自己在吵闹项目切「仅提及」→ 参与项的状态变更不再响铃 → @提及与审批照达。
+
+#### I191 · 检查清单+冒烟 68+收尾审阅（3d）
+
+- 任务：items 加 `checklist` TEXT 列（ALTER；JSON 数组 [{text, done}] ≤20 项/项 ≤200 字）；`item.checklist_updated` 事件+投影（整列覆盖——custom_fields 纪律同款）；`PATCH /items/{id}/checklist`（全量提交+校验）；工作项抽屉清单区（添加/勾选/删除/进度）+ 看板卡「✓n/m」徽标（有清单才显示）；**冒烟 68**（run_agent 触发起 run→agent 写回不触发 dispatch→日上限→降级档 roundtrip→清单 roundtrip+rebuild）+ 全量回归 + docs 收口 + M63 审阅。
+- DoD：冒烟 68 GREEN；全量 pytest 分片收敛绿；清单 roundtrip 幂等。
+- 演示路径：「规则触发 Agent→人审 Gate→清单勾进度」一线走通——编排与降噪同时在场。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2130,6 +2160,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-27 M63 调研定义（§BH） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：**工作项批量操作[上轮候选池误判——§U.3 (M22) 已完整调研且 I70 已建 batch-patch 端点·勾选批量条+逐事件逐项结果，候选作废——防重查纪律再次自证]**、自动化触发 Agent 运行[ACTION_TYPES 六动作无 agent·编排只能靠人点或依赖续——规则面缺口无调研]、项目级通知降级[watch/pref 都是 opt-in 面与全局档——opt-out 参与即响的降级无调研]、工作项检查清单[schema 无 checklist·I67 只覆盖评论面转子任务]。三路 WebSearch：工作流自动化×agent 防环（Zapier 官方「agent 别监听自己写回的数据」+n8n 双向同步头号 bug=无限环·共识五件套=自家写回不打标不触发/硬迭代上限/Error Trigger 兜底/不可逆前 HITL/限速——[Zapier](https://help.zapier.com/hc/en-us/articles/45697420326285)/[n8n 实践](https://nirajiitr.com)/[安全清单](https://n8nlab.io)）、GitHub-Slack 通知分档（GitHub 仓库级 All Activity/Participating & @mentions/Ignore 三档·Ignore 连提及都吞·Slack 频道级覆盖全局——痛点=参与即订阅太宽缺 opt-out·[GitHub Docs](https://docs.github.com/subscriptions-and-notifications/get-started/configuring-notifications)）、GitHub tasklist→sub-issues 收敛（清单项一键转子 issue·社区分化：sub-issue 列表丢「同屏勾选轻量感」——[About tasklists](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)/[HN](https://news.ycombinator.com/item?id=42725692)）。定案 M63=编排与降噪三件套（I189 run_agent 防环三闸/I190 通知降级取两档/I191 检查清单轻量不做实体转换） |
 | **M62 性能观测与用量聚合三件套（I186-I188）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BG + docs/10 §M62）：I186 端点性能观测（app/apm/runtime/perf.py 内存环形桶[per 路由 count/mean/max+500ms 阈值有界慢样本环——遥测是运行时数据不进事件流=token_delta 瞬态同理·零依赖零新表·record 永不抛进请求路径] + main.py perf_gate ASGI 计时中间件[定义序=包裹序·route.path 补 /api 前缀] + `GET /system/slow-endpoints` admin 门 + **SQLite 索引审计落点**：EXPLAIN QUERY PLAN 十热点查询核对——watch_rules post-emit hook 查询 SCAN→补 idx_watch_rules_hit verified SEARCH·events 尾部 SCAN=rowid 逆序假阳性·其余复核通过 + ActivityPage「⏱ 慢端点」卡）/ I187 watch 规则渠道偏好（watch_rules.channels 列[ALTER 迁移·NULL=跟随全局 I96 不变] + WatchIn/WatchPatchIn.channels[非空子集限 inapp/email·[] 重置回全局·非法 422] + watch.added/updated payload +channels_json 缺键兼容[整行 upsert 单事实携带全量新态] + hook 注入 notification.sent payload + 投影器覆盖含 inapp 才落站内 + mailer 覆盖含 email 才绕 kind 偏好[**用户级门邮箱/quiet hours 不受覆盖——规则重路由永不越过 DND**] + 前端渠道徽标与渠道片）/ I188 Agent 用量聚合+冒烟 67+审阅（`GET /portfolio/agent-usage`[agent_role×可见项目汇总 run 数/完成率=成功/(成功+失败) 非终态不稀释/token/成本·_visible 口径·红利第十四例：M44 起账本已在流中聚合零埋点] + tokens_recorded 投影器补 estimated_cost_usd 累加[M44 休眠列从 payload 可选键落账] + WorkloadPage「🤖 Agent 用量」卡）。基线：pytest **466** 全绿（非 smoke 399 EXIT=0 + smoke runner 67 GREEN 对账）+ 冒烟 **67** + vitest **18** + build 绿 |
 | 2026-09-27 M62 调研定义（§BG） | 已完成 | 2026-09-27 | 2026-09-27 | 防重查：端点性能观测[§M25 只调研过分页 keyset·M48-I146 并发治理修锁不测延迟·M61-I183 观测数据体积非耗时——延迟观测无记录]、watch 规则渠道偏好[pref_allows 自 I96 是 kind×channel 全局档——规则级覆盖无调研无实现]、审批中心刷新[§AN.2 SLA/超时 I126+M42 升级链已清账·批量 M2 即有——缺研究增量降级不查]、Agent 用量聚合[§Q/M44 调研过 Langfuse 标准面——组合级聚合端点从未建·runs 投影已记账只差读侧]。三路 WebSearch：端点延迟观测（FastAPI 中间件「before/after 每请求都跑」=计时/慢日志标准位·p95 聚合侧算·SQLite 审计=EXPLAIN QUERY PLAN 看 SCAN vs SEARCH USING INDEX·OR 双索引不可合并改 UNION）、通知路由渠道选择（Jira Automation 条件→目的地·Slack per-channel preferences=按会话覆盖全局母型·痛点=规则重叠与跨实体错路由——AgentPM 无第三方渠道故取「规则级覆盖回退全局」型）、LLM spend 分析（Langfuse MIT 自托管=trace 级 token/cost 聚合仪表盘·价格表自动算 cost·轻量替代=专用 cost/token 看板——spend 面回答「钱花在哪类工作上」）。定案 M62=性能观测与用量聚合三件套（I186 端点性能观测[I187 渠道偏好/I188 用量聚合]） |
 | I186 端点性能观测 | 已完成 | 2026-09-27 | 2026-09-27 | app/apm/runtime/perf.py 内存环形桶（per 路由 count/total/max + 500ms 阈值有界慢样本 deque[maxlen=50]——遥测是运行时数据不是领域事实绝不进事件流=token_delta 瞬态同理 M46 裁决·零依赖零新表·record 永不抛进请求路径）+ main.py perf_gate ASGI 计时中间件[定义序=包裹序在 auth 之后定义故外层含鉴权开销·route.path 补 /api 挂载前缀（route.path 不含 router prefix 坑）·finally 读 status] + `GET /system/slow-endpoints`（admin 门·per 路由 count/mean/max 按 max 降序+慢样本环）+ **SQLite 索引审计**（EXPLAIN QUERY PLAN 十热点查询：watch_rules post-emit hook 查询 SCAN→idx_watch_rules_hit(project_id,event_type,paused) verified SEARCH——PK 以 user_id 打头服务不了该查询·events 尾部 SCAN=rowid 逆序走假阳性·items/notifications/spans/messages FTS JOIN 等复核通过）+ ActivityPage admin「⏱ 慢端点」卡 + test_slow_endpoints **4** 项[per 路由聚合模板路径不爆炸·阈值与慢样本环·record 直灌+network 登录 admin 403·索引生效断言] |

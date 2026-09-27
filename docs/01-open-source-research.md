@@ -1742,3 +1742,33 @@ M61 = **治理观测与轨迹可寻三件套**：I183 事件表体积观测（�
 **BG.5 M62 取舍**
 
 M62 = **性能观测与用量聚合三件套**：I186 端点性能观测（延迟遥测运行时数据不进事件流——瞬态广播同理）/ I187 watch 规则渠道偏好（规则级覆盖回退全局——单事实携带全量新态）/ I188 Agent 用量聚合+冒烟 67+审阅（红利第十四例：runs 记账的读侧免费午餐），约 9 人日。Prometheus/Grafana 外导（单机内存桶够用）、慢请求全量落事件流（污染 live==replay）、多目的地分发、逐 run 用量第二入口、预算告警、模型价格表管理、审批中心刷新（SLA/升级链 M41/M42 已清账）留 backlog。
+
+## BH. M63 前置调研：自动化触发 Agent 运行 / 项目级通知降级 / 工作项检查清单（2026-09-27）
+
+> 目标协议触发：M62 完成后开启。防重查：候选池 grep——**工作项批量操作[上轮候选池误判：§U.3 (M22) 已完整调研且 I70 已建 batch-patch 端点——勾选批量条+逐事件逐项结果，候选作废]**、自动化触发 Agent 运行（ACTION_TYPES 六动作 assign/set_priority/set_field/set_status/notify/create_recurring——**无 agent 动作；编排只能靠人点「让 Agent 执行」或依赖链接续，规则面缺口**）、项目级通知降级（§Q/M44 调研过 watch/pref 语义但都是 opt-in 面与全局档——**opt-out 的「参与即响」降级无调研**）、工作项检查清单（schema 无 checklist；I67 只做评论清单项转子任务——**item 行内清单域缺失**）。本轮三路新调研（工作流自动化触发 agent 的防环共识 / GitHub-Slack 通知分档语义 / GitHub tasklist→sub-issues 演化），选定 **M63 = 编排与降噪三件套**。
+
+**BH.1 自动化触发 Agent 运行（规则面补上 agent 动作——防环是第一设计约束）**
+
+- 工程共识（[Zapier Agents 意外活动](https://help.zapier.com/hc/en-us/articles/45697420326285-Zapier-Agents-unexpected-activity-usage)/[n8n AI Agent 节点](https://www.cyberclick.net)/[n8n 防环实践](https://nirajiitr.com)）：**反馈环是自动化×agent 组合的头号事故源**——「agent 触发的写回恰恰是它自己监听的数据」；共识防环五件套=**自家写回不打标不触发**（"modified by automation" 标签/过滤）→ **硬迭代上限**（IF+Wait 封顶重试）→ **Error Trigger 兜底**（失败走告警而非静默重试）→ **不可逆动作前 HITL 审批** → 重复动作间限速（[n8nlab 安全清单](https://n8nlab.io)）。
+- 对本项目的映射：ACTION_TYPES 加第七动作 `run_agent`（payload: agent_role + instruction ≤200 字；目标=event 关联的工作项，无项则 422——自动化挂在工作项上而非凭空开跑）；**防环三闸**：①触发白名单不扩（run.requested 等 run.* 永不入 TRIGGERS——watch 先例）②**agent 运行自身产生的事件[actor_id 前缀 runtime:]不触发 dispatch**——agent 写回是自动化的果不是因，加了它才可能成环（现有 guard 只挡 actor_type=automation）③**每规则每日硬上限**（当日该规则触发的 run 计数 ≥3 拒发——计数走事件查询零新表）。治理不降级：自动化触发的 run 与手点同链——Gate 照挂、审批照走、token 照记账（HITL 语义天然内建）。
+
+**BH.2 项目级通知降级（GitHub watch 三档的组织内取两档）**
+
+- 产品语义（[GitHub Docs 配置通知](https://docs.github.com/subscriptions-and-notifications/get-started/configuring-notifications)/[Slack 频道级设置](https://slack.com/help/articles/360056534254-Manage-notifications-for-specific-channels-and-direct-messages)/[社区讨论 #66334](https://github.com/orgs/community/discussions/66334)）：GitHub 仓库级 watch 三档=**All Activity / Participating & @mentions / Ignore**（仓库档覆盖全局默认；Ignore 连 @mentions 都吞）；Slack 频道级=覆盖全局+静音（可细到「静 @here 留 @user」）。共同痛点：参与即订阅太宽（评论一次就永久订阅），**缺的是 opt-out 一档而非 opt-in**。
+- 对本项目的映射：project_members 加 `notify_level` 列（NULL=默认参与即响[现状]；`mentions_only`=**参与类通知静音**——comment 参与面/item 状态参与面不响；**mention/assignment/approval.requested/due_soon/watch 规则照常**——治理必达与显式订阅不静音）。**GitHub 的 Ignore 档不取**：连提及都吞会让审批漏接（approval 不该能被静音），取 Slack「保留直接提及」语义；All Activity 档即现状（参与者自动订阅已是最宽）。事件=`project.member_notify_level`（成员域第四事件，投影整行更新——单事实携带全量新态）；门插在 plan_notifications 的参与类分支。
+
+**BH.3 工作项检查清单（GitHub tasklist→sub-issues 演化的反教训）**
+
+- 产品语义（[GitHub About tasklists](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)/[Adding sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues)/[HN 讨论](https://news.ycombinator.com/item?id=42725692)）：GitHub 正把 Markdown tasklist 收敛为 **sub-issues 层级**（清单项一键转子 issue）；社区反馈分化——sub-issue 列表丢失了「同屏勾选的轻量感」（[讨论 #151832](https://github.com/orgs/community/discussions/151832)）。教训：**清单的价值在轻量（不打断、同屏勾），转实体是有重量的一步**。
+- 对本项目的映射：items 加 `checklist` TEXT 列（JSON 数组 [{text, done}]，上限 20 项/单项 ≤200 字）；事件=`item.checklist_updated`（**整列覆盖**——custom_fields 整列覆盖纪律同款，payload 携带全量新清单）；投影=直接写列；UI=工作项抽屉清单区（添加/勾选/删除/进度 n/m）+ 看板卡「✓n/m」进度徽标（有清单才显示）。**不做**：清单项转子任务/独立实体（I67 extracted_tasks 已覆盖「升级」面——评论清单转 task；checklist→task 转换同款留 backlog）、清单进度影响完成率口径（advisory only——健康分不认它）。
+
+**BH.4 M63 设计映射与验证纪律（沿用）**
+
+- I189 自动化 run_agent：ACTION_TYPES +7、校验（role 存在/instruction ≤200/有关联 item）+ dispatch 分支（经 orchestrator 起 run·payload 标 origin=rule id）+ 防环三闸（TRIGGERS 不扩/runtime:* actor 不触发/每规则每日 ≤3 次）+ 自动化面板动作选项 + 单测（起 run 成功/无项 422/agent 写回不再触发/日上限/审批链保留）。
+- I190 项目级通知降级：project_members.notify_level 列（ALTER）+ `project.member_notify_level` 事件+投影 + 成员门端点 PATCH /projects/{id}/members/{uid}/notify-level（owner 或本人）+ plan_notifications 参与类分支查档 + 成员面板档位切换 + 单测（mentions_only 静参与留提及/默认不变/rebuild 一致/非本人非 owner 403）。
+- I191 检查清单+冒烟 68+审阅：items.checklist 列（ALTER）+ `item.checklist_updated` 事件+投影[整列覆盖] + PATCH 端点 + 抽屉清单区+看板卡进度徽标 + **冒烟 68**（run_agent 触发→防环→降级档 roundtrip→清单 roundtrip）+ 全量回归 + docs 收口 + M63 审阅。
+- 验证纪律：每迭代只跑相关测试；全量收敛至 M63 审阅 + **冒烟 68**。
+
+**BH.5 M63 取舍**
+
+M63 = **编排与降噪三件套**：I189 自动化 run_agent（防环三闸——反馈环是自动化×agent 头号事故源）/ I190 项目级通知降级（GitHub 三档取两档——Ignore 连提及都吞过于激进）/ I191 检查清单+冒烟 68+审阅（轻量勾选不做实体转换——GitHub 收敛教训反向指导），约 9 人日。触发白名单扩 run.*、Ignore 完整档、清单转子任务、清单进健康分、Slack 式 @here 细分静音留 backlog。
