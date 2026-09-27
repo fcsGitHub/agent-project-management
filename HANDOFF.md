@@ -35,8 +35,8 @@
 - **M54 自定义关注三件套（I162-I164，2026-09-21 完成，docs/01 §AY + docs/10 §M54）**：I162 watch 规则域（新域 watch.py：`人×项目×事件类型` 用户自建通知规则[白名单 13 类排除通知机制自身防递归 + 事件对+投影 rebuild 复现 + 三端点 own-data+成员门 + post-emit hook→notification.sent kind=watch：自事件抑制/多规则单份]）+ I163 偏好门+前端（NOTIFY_KINDS 第九员 `watch` + 铃铛偏好浮层管理区）+ I164 冒烟 59 + 修 test_retrospective 日期敏感（同族第三例）。基线 pytest 426 / 冒烟 59。
 - **M55 关注精修与降噪三件套（I165-I167，2026-09-21 完成，docs/01 §AZ + docs/10 §M55）**：watch 条件化（condition_json 全等匹配——事件溯源红利第九例）+ 铃铛降噪折叠（bundleWatch 展示层）+ 冒烟 60。基线 pytest 428 / 冒烟 60 / vitest 18。
 - **M56 关注共享与免打扰三件套（I168-I170，2026-09-26 完成，docs/01 §BA + docs/10 §M56）**：watch 规则导入导出（模板 {event_type, condition} 去重·缺补在跳·对账 imported/skipped——Jira 无内建）+ 静默时段（users.quiet_start/quiet_end + quiet_active 纯函数跨午夜 + mailer 第四道时刻门——mention/digest 突破·站内照发）+ 冒烟 61。基线 pytest 434 / 冒烟 61 / vitest 18。
-- **M57~M59（I171-I179，2026-09-27 完成，docs/01 §BB-§BD + docs/10 §M57-§M59）**：watch 规则编辑与暂停（PATCH+watch.updated 整行 upsert·修 M55 的 409 删了重加坑）+ 资产使用洞察（GET /assets/insights·stale=已发布+零消费+超 90 天·红利第十例）+ run 生命周期入 watch 白名单（run.succeeded/failed·payload 顶层镜像 outcome）+ 通知直达（铃铛跳 runs?run=）+ 「等待我」行动聚合（GET /my/attention 三分区·行动视角与任务视角正交·Linear Inbox 语义）+ 模板包实例溯源（+ontology_version·behind 徽标——只做可见性不做自动迁移）+ 冒烟 62/63/64。基线 pytest 437→443 / 冒烟 62→64。
-- **M60~M61（I180-I185，2026-09-27 完成，docs/01 §BE/§BF + docs/10 §M60/§M61）**：备份/恢复演练工具（app/apm/ops.py create_backup[sqlite3 backup API 一致快照]+restore_backup+tools 薄 CLI+docs/11 演练三步——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（GET /portfolio/health-trend·_flow_metrics Flow 三件=事件对投影零埋点·红利第十二例）+ 事件表体积观测（GET /system/event-store-stats 纯读·先测后治·**截断/快照不做：单一全局流 live==replay 裁决维持**）+ 会话搜索与导出（messages_search FTS[CJK bigram]+/search types=conversations+_visible 裁剪+GET /conversations/{id}/export Markdown 转写+⌘K 命中行+⬇ 导出——**红利第十三例：消息本就是事件**·forgotten conversation problem 组织内解法）+ 移动端 375px 审计刷新（Dashboard 组合行固定宽溢出等三处修复）。基线 pytest 456 / 冒烟 66 / vitest 18。
+- **M57~M60（I171-I182，2026-09-27 完成，docs/01 §BB-§BE + docs/10 §M57-§M60）**：watch 规则编辑与暂停（PATCH+watch.updated 整行 upsert·修 M55 的 409 删了重加坑）+ 资产使用洞察（GET /assets/insights·stale=已发布+零消费+超 90 天·红利第十例）+ run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合（三分区·Linear Inbox 语义）+ 模板包实例溯源（behind 徽标）+ 备份/恢复演练工具（sqlite3 backup API+演练闭环——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（Flow 三件·红利第十二例）+ 冒烟 62→65。基线 pytest 447 / 冒烟 65。
+- **M61~M62（I183-I188，2026-09-27 完成，docs/01 §BF/§BG + docs/10 §M61/§M62）**：事件表体积观测（GET /system/event-store-stats·先测后治·截断/快照不做 live==replay 裁决维持）+ 会话搜索与导出（messages_search FTS+/search conversations+Markdown 转写——**红利第十三例：消息本就是事件**·forgotten conversation problem 解法）+ 移动端 375px 审计刷新（Dashboard 组合行溢出等三处）+ 端点性能观测（perf.py 内存环形桶+slow-endpoints+**索引审计补 idx_watch_rules_hit**——遥测不进事件流）+ watch 规则渠道偏好（channels 列·覆盖回退全局·**永不越过 DND**）+ Agent 用量聚合（/portfolio/agent-usage·**红利第十四例：runs 账本读侧零埋点**·tokens_recorded 补 estimated_cost_usd 落账）。基线 pytest 466 / 冒烟 67 / vitest 18。
 
 ## 3. 现在卡在哪
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M61 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **I186 端点性能观测（下一步）**：M62 调研定义已提交（67def9f，docs/01 §BG + docs/10 §M62）。三件套=I186 ASGI 计时中间件（perf_counter 环形桶 per 路径·阈值 500ms·**遥测不进事件流**——运行时数据非领域事实）+ `GET /system/slow-endpoints`（admin 门）+ SQLite 热点查询 EXPLAIN QUERY PLAN 索引审计 → I187 watch 规则渠道偏好（watch_rules.channels 列[NULL=跟随全局 pref_allows·数组限 inapp/email] + hook 投递覆盖回退 + watch.updated payload 加 channels 缺键兼容 + 前端渠道片）→ I188 `GET /portfolio/agent-usage`（agent_role×项目聚合 runs 记账——红利第十四例）+ WorkloadPage 用量卡 + 冒烟 67 + 全量回归 + M62 审阅。
+2. **M63 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查 → 三路并行 WebSearch → docs/01 新节（§BH）+ docs/10 §M63 节 + 看板行 →「M63 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M63 审阅。**候选池**：①工作项批量操作（bulk change——§M24 调研已记录「看板多选只有批量让 Agent 做与审批批量决策，无批量字段编辑」的缺口，Jira bulk change 语义）；②搜索域深化（facet 过滤/排序/最近搜索——⌘K 自 M22 后只扩过 conversations[M61]）；③本体/角色域刷新（CQ 检查/归纳 learn 自 M46-M48 后未动——语义复核与增量）；④维持项：显式容量、Cycles 多周期、derived、多节律报告、站内跨 kind 合并、watch 邮件摘要化、角色市场、Litestream、健康分权重刷新、320px 专项、消息级高亮定位、Prometheus 外导、多目的地分发、预算告警、模型价格表管理（均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -86,12 +86,15 @@
 - **裸调 `projections.rebuild()` 会连 users 投影一起清掉**（M61-I183）：admin 身份随投影消失→后续 admin 门 403——测试里重建走 `POST /api/system/rebuild-projections`（端点内部 ensure_default_user 恢复引导管理员）。
 - **network 模式测试身份必须走 `POST /auth/login`**（M61-I184 再证）：`/api/session/identity` 是 local-mode only（422），network 下 effective_actor 无会话即 "anonymous"（403/404 会「意外通过」其实身份根本没建立）——造用户带 password + admin_password 先设再 ensure_default_user。
 - **后台命令 cwd 会漂移**（M61-I185）：run_in_background 的 shell 工作目录不保证在 repo 根，`cd app` 相对路径静默失败致回归空跑（exit 0 假绿）——后台命令一律绝对路径 `cd /d/project/agent-project-management/app`，完成后核对日志里的 passed 数。
+- **pytest -q 的进度点会被测试自身输出污染**（M62-I188）：`grep` 点数统计会虚高（399 项数出 408 点）——计数以 `--collect-only` 与 EXIT 码为准，点数只看有没有 F/E 混入。
+- **合成 run 事件必须带 conversation_id**（M62-I188）：runs 投影该列 NOT NULL——`run.requested` payload 缺键会 IntegrityError；token 账走 `run.tokens_recorded`（payload 可带 estimated_cost_usd，replay 诚实零）。
+- **upsert 加列时 VALUES 占位符逐列重数**（M62-I187）：watch.updated 整行 upsert 加 channels 列后少写一个 `?` 报 "6 values for 7 columns"——列数与占位符必须目视逐一对账（I20 纪律的变体）。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 456 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 66 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 466 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 67 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 18 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
