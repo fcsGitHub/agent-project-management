@@ -1947,3 +1947,26 @@ M69 = **实时与复用三件套**：I207 看板运行实时徽章（SSE 接入�
 **BO.4 M70 取舍**
 
 M70 = **可见性与可达三件套**：I210 资产版本历史与 diff（git 账本读侧·侧栏版本列表+两版 diff+append-only 恢复）/ I211 项目设置中心（混合 IA hub·组件搬家零后端改动·原页回链）/ I212 run 发起工件绑定面（显式上下文选择·一次性语义）+ 冒烟 75 + 审阅，约 9 人日。行内编辑器、设置迁移、实例设置页、多工件绑定、事件流浏览器（AuditPage 已是）、自动化历史（rule_history 已是）留 backlog。
+
+## BP. M71 前置调研：工件全文搜索 / 工件预览通用入口 / 指令模板导入导出（2026-09-29）
+
+> 目标协议触发：M70 完成后开启。防重查：候选池 grep——**分叉采纳面（连续多轮无使用证据——继续降级）**、**审批前工件预览（ApprovalsPage 已有 openPreview+Markdown 渲染+diff——作废）**、模板导入导出（grep 证实 prompt_templates.py 零导出导入端点·watch.py 有 /watch-rules/export+/import 先例——**对称面缺口属实**）、工件预览通用入口（grep 证实 getArtifact 全功能响应[content+history+diff_vs_previous]只有 FeaturePage 消费；Board/ConversationView/RunsPage 零命中——**非 feature 工件前端零预览入口·半截链第四例**）。重新核验出第三候选：**工件内容全文搜索（SearchPage 类型清单 items/comments/conversations 三类·search.py 无 artifact——工厂核心知识资产 PRD/WBS/报告写进 git 即不可寻·FTS5 基建齐备就是没接）**。本轮三路新调研（**模板库导入导出形态 / 工件预览的 UX 模式 / 知识库搜索范围共识**），选定 **M71 = 可寻与可看三件套**。
+
+**BP.1 工件内容全文搜索（第四类——知识资产写进 git 不进坟场）**
+
+- 产品共识（[KnowledgeScout 跨类型全文检索](https://knowledgescout.io)（articles+documents+slides 统一搜索+权限隔离）、[ServiceNow 角色域搜索](https://www.servicenow.com)、[Document360](https://docs.document360.com)）：知识库搜索的共识=**跨内容类型统一入口+按权限域过滤**——产出文档与结构化实体同权重可寻，搜索范围缺哪类哪类就是坟场。
+- 对本项目的映射：工件（PRD/WBS/报告）是工厂积累的核心知识资产，M22 建全局搜索时只收 items/comments、M61 补 conversations——**artifacts 至今缺席**，而基建三件全在（FTS5 表惯例/items_search 同款 bigram/工件端点本就返回 content）。补法=artifacts_search FTS 表（artifact.created/human_edited/updated 投影器同步索引[title+path+content]）+ search 端点第四 type + SearchPage「工件」chip（命中跳 FeaturePage 工件 tab 或通用预览抽屉[见 BP.2]）+ 权限=项目成员语义照既有。**不做** 资产库入全局搜索（assets_fts 独立面已有[M57]）、CJK 分词升级（bigram 方案 M22 已裁决沿用）、工件版本索引（只索引当前版）。
+
+**BP.2 工件预览通用入口（inline preview——Cloudscape 正式模式）**
+
+- 产品共识（[AWS Cloudscape: Artifact Previews](https://cloudscape.design/gen-ai/patterns/artifact-previews)——**正式 UX design pattern：inline preview 强调快速理解+上下文内操作**、[Google Antigravity Artifact Detail Viewer](https://antigravity.google/docs/cli/artifacts)、[Manus 产出 UX 拆解](https://aiuxplayground.com/teardowns/manus/output)）：agent 产出的预览触点应长在**产出出现的地方**（聊天/运行详情/评论），点开即看不下载不跳转。
+- 对本项目的映射：getArtifact 端点全功能（content+history+diff）但唯一入口挂 FeaturePage 工件 tab——I209 回流评论只贴路径文本（看到也点不开）、RunsPage 详情不显示产出工件。补法=**通用 ArtifactPreviewDrawer 组件**（抽 web/src/components/，Markdown 渲染+版本史 sha 链+diff 块——FeaturePage 现有内联实现保持不动）+ 两处接入：CommentsModal 渲染时正则识别 `artifacts/…` 路径→可点徽标开抽屉；RunsPage 详情 output.artifact_path→「📄 产出」可点开抽屉。**不做** FeaturePage 改造（其内联实现已是使用现场）、HTML/代码工件高亮（Markdown 渲染覆盖产出主体）、资产抽屉复用（资产是库实体非项目工件，I210 已有独立面）。
+
+**BP.3 指令模板导入导出（JSON 对称面——跨项目迁移常用指令）**
+
+- 产品现状（[Notion export](https://www.notion.com/help/export-your-content)/[Duplicate as template](https://www.notion.com/help/duplicate-public-pages)（分享靠复制非文件导出）、[Obsidian 模板=纯 MD 文件夹](https://ones.com/blog)（git 同步即共享））：模板共享的共识=**平台内复制/同步为主、文件导出为辅**；跨工具交换 Markdown 是通用格式，结构化数据走 API/JSON。
+- 对本项目的映射：模板每项目一套（项目域隔离），一工厂多项目重复建同样的模板=重复劳动；watch 规则已有 /watch-rules/export+/import JSON 先例（M55-I164）。补法=**照搬 watch 对称面**：GET /projects/{pid}/prompt-templates/export（JSON 清单）+ POST /projects/{pid}/prompt-templates/import（逐条走 create 链·重名跳过+计数返回）——模板是结构化 title/body/role 三元组，JSON 是正形。**不做** Markdown 打包交换（结构化三元组非文档）、全局模板池（项目域隔离是 I208 定案）、跨实例迁移（导入按项目成员门）。
+
+**BP.4 M71 取舍**
+
+M71 = **可寻与可看三件套**：I213 工件内容全文搜索（第四类 FTS·知识资产可寻回）/ I214 工件预览通用入口（Cloudscape inline preview·评论路径+run 产出两触点）/ I215 指令模板导入导出（watch 对称面 JSON）+ 冒烟 76 + 审阅，约 9 人日。资产入全局搜索、CJK 分词升级、FeaturePage 改造、Markdown 模板交换、全局模板池、分叉合并采纳面（继续等证据）留 backlog。
