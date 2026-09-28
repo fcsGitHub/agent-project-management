@@ -119,6 +119,13 @@ def _validate(title: str, body: str, agent_role: str | None) -> tuple[str, str]:
 def create_template(project_id: str, body_in: TemplateIn) -> dict:
     me = _require_member(project_id)
     title, body = _validate(body_in.title, body_in.body, body_in.agent_role)
+    return _create_row(project_id, me, title, body, body_in.agent_role)
+
+
+def _create_row(project_id: str, me: str, title: str, body: str,
+                agent_role: str | None) -> dict:
+    """Shared emit+git path for the API create and the import (I215) — one
+    code path so imported templates are indistinguishable from manual ones."""
     from apm import config as apm_config
     from apm.core.ids import new_id
     from apm.content import prompts as prompt_files
@@ -132,12 +139,57 @@ def create_template(project_id: str, body_in: TemplateIn) -> dict:
         project_id=project_id,
         actor_type="human",
         actor_id=me,
-        payload={"title": title, "agent_role": body_in.agent_role,
+        payload={"title": title, "agent_role": agent_role,
                  "git_path": git_path, "content": body, "version": 1},
     )
     prompt_files.write_prompt(project_id, git_path, body,
                               actor_type="human", actor_id=me or apm_config.settings.user_id)
     return get_template_row(project_id, tid)
+
+
+# ------------------------------------------- M71-I215: JSON export/import
+# (watch-rules mirror, M56-I168): one project's template set re-applies to
+# any project the importer is a member of; same-title rows are skipped, never
+# clobbered — the count report keeps the outcome honest.
+
+@router.get("/projects/{project_id}/prompt-templates/export")
+def export_templates(project_id: str) -> dict:
+    _require_member(project_id)
+    rows = db.get_conn().execute(
+        "SELECT title, agent_role, git_path FROM prompt_templates"
+        " WHERE project_id = ? ORDER BY updated_at DESC, id",
+        (project_id,),
+    ).fetchall()
+    return {"version": 1, "templates": [
+        {"title": r["title"], "agent_role": r["agent_role"],
+         "body": read_template_body(project_id, r["git_path"])}
+        for r in rows
+    ]}
+
+
+class TemplateImportIn(BaseModel):
+    templates: list[TemplateIn]
+
+
+@router.post("/projects/{project_id}/prompt-templates/import")
+def import_templates(project_id: str, body: TemplateImportIn) -> dict:
+    me = _require_member(project_id)
+    if len(body.templates) > 50:
+        raise HTTPException(status_code=422, detail="template supports at most 50 templates")
+    imported = skipped = 0
+    for i, t in enumerate(body.templates):
+        try:
+            title, tpl_body = _validate(t.title, t.body, t.agent_role)
+        except HTTPException as e:
+            raise HTTPException(status_code=422, detail=f"templates[{i}]: {e.detail}")
+        if db.get_conn().execute(
+                "SELECT 1 FROM prompt_templates WHERE project_id = ? AND title = ?",
+                (project_id, title)).fetchone():
+            skipped += 1  # same title already there — import never clobbers
+            continue
+        _create_row(project_id, me, title, tpl_body, t.agent_role)
+        imported += 1
+    return {"imported": imported, "skipped": skipped}
 
 
 @router.patch("/prompt-templates/{tid}")

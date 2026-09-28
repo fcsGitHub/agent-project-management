@@ -579,6 +579,41 @@ function TemplatesDrawer({ pid, onClose }: { pid: string; onClose: () => void })
           <Empty icon="📋" title="还没有指令模板"
             hint="把高频发起指令（如「生成 XX 功能 PRD」）存为模板，对话输入框输入 / 即可唤起" />
         )}
+        {/* I215: watch-rules 对称面——导出项目无关 JSON，导入他项目（重名跳过） */}
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={!templates.data?.templates.length}
+            onClick={async () => {
+              try {
+                const x = await api.exportPromptTemplates(pid);
+                const blob = new Blob([JSON.stringify(x, null, 2)], { type: "application/json" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `prompt-templates-${pid}.json`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              } catch (e) {
+                toast.error(`导出失败：${e instanceof Error ? e.message : e}`);
+              }
+            }}>⬇ 导出</Button>
+          <label className="cursor-pointer rounded-lg border border-line px-2 py-1 text-[11px] hover:border-acc">
+            ⬆ 导入 JSON
+            <input type="file" accept=".json,application/json" className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  const parsed = JSON.parse(await f.text());
+                  const r = await api.importPromptTemplates(pid, parsed.templates ?? []);
+                  toast.success(`导入完成：新增 ${r.imported} · 重名跳过 ${r.skipped}`);
+                  qc.invalidateQueries({ queryKey: ["prompt-templates", pid] });
+                } catch (err) {
+                  toast.error(`导入失败：${err instanceof Error ? err.message : err}`);
+                }
+              }} />
+          </label>
+          <span className="text-[10px] text-mut">导入到其他项目时重名模板自动跳过，不会覆盖本地修改</span>
+        </div>
         <div className="space-y-2 rounded-xl border border-line p-2.5">
           <div className="font-medium">{editId ? "✎ 编辑模板" : "＋ 新建模板"}</div>
           <div className="flex gap-2">

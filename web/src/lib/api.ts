@@ -753,6 +753,10 @@ export const api = {
     req<PromptTemplate>(`/prompt-templates/${tid}`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePromptTemplate: (tid: string) =>
     req<{ ok: boolean }>(`/prompt-templates/${tid}`, { method: "DELETE" }),
+  exportPromptTemplates: (pid: string) =>
+    req<{ version: number; templates: { title: string; agent_role: string | null; body: string }[] }>(`/projects/${pid}/prompt-templates/export`),
+  importPromptTemplates: (pid: string, templates: { title: string; agent_role: string | null; body: string }[]) =>
+    req<{ imported: number; skipped: number }>(`/projects/${pid}/prompt-templates/import`, { method: "POST", body: JSON.stringify({ templates }) }),
 
   // M70-I210: asset version history read side (append-only restore)
   getAssetHistory: (aid: string) =>
