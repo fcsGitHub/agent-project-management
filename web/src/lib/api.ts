@@ -115,6 +115,7 @@ export type Run = {
   item_id?: string; status: string; started_at?: string; ended_at?: string;
   error?: string; input?: string; conversation_title?: string; item_title?: string;
   total_input_tokens?: number; total_output_tokens?: number;
+  output?: { artifact_path?: string; outcome?: string } | null;
 };
 export type Span = {
   id: string; run_id: string; parent_id?: string; span_kind: string; name: string;

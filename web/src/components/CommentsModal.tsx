@@ -10,6 +10,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { renderCommentMd } from "../lib/md";
+import { artifactShortName, extractArtifactRefs } from "../lib/artifactRefs";
+import { ArtifactPreviewDrawer } from "./ArtifactPreviewDrawer";
 import { Button, Modal, cx } from "./ui";
 
 const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_input]:mr-1 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
@@ -40,6 +42,7 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [historyId, setHistoryId] = useState<string | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
   // I108: GitHub Saved Replies — filterable panel + insert at caret
   const [repliesOpen, setRepliesOpen] = useState(false);
   const [replyFilter, setReplyFilter] = useState("");
@@ -295,9 +298,24 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
                   </div>
                 </div>
               ) : (
-                <div className={MD_BODY}
-                  onClick={onBodyClick(c.id)}
-                  dangerouslySetInnerHTML={{ __html: renderComment(c) }} />
+                <>
+                  <div className={MD_BODY}
+                    onClick={onBodyClick(c.id)}
+                    dangerouslySetInnerHTML={{ __html: renderComment(c) }} />
+                  {/* I214: 评论正文引用的工件路径 → 可点预览徽标（Cloudscape
+                      inline preview——预览长在产出出现的地方） */}
+                  {extractArtifactRefs(c.body).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {extractArtifactRefs(c.body).map((p) => (
+                        <button key={p} title={`预览 ${p}`}
+                          onClick={() => setPreviewPath(p)}
+                          className="rounded-full border border-line bg-bg px-2 py-0.5 font-mono text-[10px] text-acc hover:border-acc">
+                          📄 {artifactShortName(p)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               {historyId === c.id && (
                 <div className="mt-1 space-y-1 rounded-lg bg-bg px-2 py-1.5">
@@ -432,6 +450,9 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
           <Button size="sm" variant="primary" disabled={!draft.trim()} onClick={submit}>发送</Button>
         </div>
       </div>
+      {previewPath && pid && (
+        <ArtifactPreviewDrawer pid={pid} path={previewPath} onClose={() => setPreviewPath(null)} />
+      )}
     </Modal>
   );
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "../lib/api";
 import { clockOf, timeAgo } from "../lib/fmt";
 import { Badge, Button, Card, Drawer, Empty, KV, Modal, cx } from "../components/ui";
+import { ArtifactPreviewDrawer } from "../components/ArtifactPreviewDrawer";
 
 const STATUS_TONE: Record<string, string> = {
   pending: "neutral", running: "violet", interrupted: "amber",
@@ -109,6 +110,8 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
   // M64-I192: retry lineage + comparison drawer
   const lineage = useQuery({ queryKey: ["retry-lineage", runId], queryFn: () => api.retryLineage(runId!), enabled: !!runId });
   const [comparing, setComparing] = useState(false);
+  // I214: 产出工件预览
+  const [artifactPath, setArtifactPath] = useState<string | null>(null);
   const chain = lineage.data?.chain ?? [];
 
   const bounds = useMemo(() => {
@@ -134,6 +137,15 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
           <Card className="p-3">
             <KV k="对话" v={<Link className="text-acc hover:underline" to={`/p/${pid}/c/${r.conversation_id}`}>{r.conversation_title ?? r.conversation_id} →</Link>} />
             <KV k="工作项" v={r.item_title ?? r.item_id ?? "—"} />
+            {r.output?.artifact_path && (
+              <KV k="产出" v={
+                <button onClick={() => setArtifactPath(r.output!.artifact_path!)}
+                  className="font-mono text-[11px] text-acc hover:underline"
+                  title="预览工件（内容 + 版本史 + 相对上一版 diff）">
+                  📄 {r.output.artifact_path}
+                </button>
+              } />
+            )}
             <KV k="开始/结束" v={`${r.started_at ?? "—"} → ${r.ended_at ?? (r.status === "running" ? "…" : "—")}`} />
             {r.error && <KV k="错误" v={<span className="text-dan">{r.error}</span>} />}
             {/* M64-I192: retry lineage badge — the chain, not a second log */}
@@ -226,6 +238,9 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
             </div>
           </div>
         </div>
+      )}
+      {artifactPath && pid && (
+        <ArtifactPreviewDrawer pid={pid} path={artifactPath} onClose={() => setArtifactPath(null)} />
       )}
       {comparing && prevLink && r && (
         <Modal open onClose={() => setComparing(false)} title="🔍 重试对比 · 与上一环差在哪">

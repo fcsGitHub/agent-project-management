@@ -7,6 +7,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { Badge, Card, Empty, cx } from "../components/ui";
+import { ArtifactPreviewDrawer } from "../components/ArtifactPreviewDrawer";
 
 const TYPES = [
   { key: "items", label: "工作项" },
@@ -21,6 +22,8 @@ export function SearchPage() {
   const [types, setTypes] = useState<string>("items,comments,conversations,artifacts");
   // M64-I193: project facet — pure frontend aggregation over returned rows
   const [facet, setFacet] = useState<string>("");
+  // I214: 工件命中 → 通用预览抽屉（SearchPage 在 AppShell 外无 pid——用命中行自己的 project_id）
+  const [preview, setPreview] = useState<{ pid: string; path: string } | null>(null);
 
   const results = useQuery({
     queryKey: ["search", q, types],
@@ -155,12 +158,12 @@ export function SearchPage() {
               <div className="mb-2 text-sm font-semibold">工件 · {fArtifacts.length}{facet && ` / ${results.data?.artifacts?.length ?? 0}`}</div>
               <div className="space-y-1.5">
                 {fArtifacts.map((a) => (
-                  <Link key={`${a.project_id}:${a.path}`} to={`/p/${a.project_id}/audit`}
-                    className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-acc"
-                    title="打开项目动态查看工件事件（预览抽屉见运行详情与评论）">
+                  <button key={`${a.project_id}:${a.path}`}
+                    onClick={() => setPreview({ pid: a.project_id, path: a.path })}
+                    className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-acc">
                     <span className="w-28 shrink-0 truncate text-mut">{a.project_name}</span>
-                    <span className="flex-1 truncate font-mono">📄 {a.path}</span>
-                  </Link>
+                    <span className="flex-1 truncate text-left font-mono">📄 {a.path}</span>
+                  </button>
                 ))}
                 {results.data && !fArtifacts.length && (
                   <div className="py-3 text-center text-xs text-mut">没有匹配的工件</div>
@@ -175,6 +178,9 @@ export function SearchPage() {
           </>
         )}
       </div>
+      {preview && (
+        <ArtifactPreviewDrawer pid={preview.pid} path={preview.path} onClose={() => setPreview(null)} />
+      )}
     </div>
   );
 }
