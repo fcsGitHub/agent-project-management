@@ -210,6 +210,8 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api")
     from apm.domains.watch import router as watch_router
     app.include_router(watch_router, prefix="/api")
+    from apm.domains.prompt_templates import router as prompt_templates_router
+    app.include_router(prompt_templates_router, prefix="/api")
     app.include_router(members_router, prefix="/api")
     app.include_router(calendar_router, prefix="/api")
     app.include_router(cycles_router, prefix="/api")

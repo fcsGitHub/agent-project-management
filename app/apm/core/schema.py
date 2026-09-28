@@ -498,6 +498,21 @@ CREATE TABLE IF NOT EXISTS watch_rules (
 -- SCAN before this index.
 CREATE INDEX IF NOT EXISTS idx_watch_rules_hit ON watch_rules(project_id, event_type, paused);
 
+-- M69-I208 (docs/01 §BN.2): reusable instruction templates — saved prompts
+-- for conversation/run kickoff (Copilot .prompt.md semantics). Body lives in
+-- the project repo via the prompts/ pipeline; this projection keeps metadata
+-- (in drop_projections so rebuild reproduces it).
+CREATE TABLE IF NOT EXISTS prompt_templates (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  agent_role TEXT,
+  git_path TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_project ON prompt_templates(project_id, updated_at);
+
 -- I107: processed mail Message-IDs (projection of imap.message_processed —
 -- in drop_projections so rebuild reproduces them; idempotency per Message-ID).
 CREATE TABLE IF NOT EXISTS imap_seen (
@@ -640,6 +655,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "non_working_days",
         "report_subscribers",
         "watch_rules",
+        "prompt_templates",
         "api_tokens",
         "imap_seen",
         "user_time_off",

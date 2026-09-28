@@ -133,6 +133,10 @@ export type AEvent = {
   id: number; ts: string; actor_type: string; actor_id: string; project_id: string;
   agg_type: string; agg_id: string; event_type: string; payload: Record<string, unknown>;
 };
+export type PromptTemplate = {
+  id: string; title: string; agent_role: string | null;
+  body: string; version: number; updated_at: string;
+};
 export type StatusReportEntry = {
   path: string; commit: string; ts: string; actor_type: string;
   source: string; week: string | null; ai_summary: boolean;
@@ -738,6 +742,16 @@ export const api = {
     req<{ instructions: { agent_role: string; content: string; version: number; updated_at: string }[] }>(`/projects/${pid}/role-instructions`),
   putRoleInstruction: (pid: string, body: { agent_role: string; content: string }) =>
     req<{ ok: boolean; agent_role: string }>(`/projects/${pid}/role-instructions`, { method: "PUT", body: JSON.stringify(body) }),
+
+  // M69-I208: reusable instruction templates (saved prompts for kickoff)
+  listPromptTemplates: (pid: string) =>
+    req<{ templates: PromptTemplate[] }>(`/projects/${pid}/prompt-templates`),
+  createPromptTemplate: (pid: string, body: { title: string; body: string; agent_role?: string | null }) =>
+    req<PromptTemplate>(`/projects/${pid}/prompt-templates`, { method: "POST", body: JSON.stringify(body) }),
+  updatePromptTemplate: (tid: string, body: { title?: string; body?: string; agent_role?: string | null }) =>
+    req<PromptTemplate>(`/prompt-templates/${tid}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deletePromptTemplate: (tid: string) =>
+    req<{ ok: boolean }>(`/prompt-templates/${tid}`, { method: "DELETE" }),
 
   // Ontology learning (M4-I14, docs/08 §8)
   learnOntology: (name: string) =>

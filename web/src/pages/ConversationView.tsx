@@ -27,6 +27,21 @@ export function ConversationView() {
   // I138: 当前 run 的流式增量缓冲——message.created 落库后清空（权威全文接管）
   const [streamBuf, setStreamBuf] = useState("");
   const [streamNode, setStreamNode] = useState<string | null>(null);
+  // I208: `/` 唤起指令模板浮层（草稿非快捷键——选中填入可改后发送）
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplIndex, setTplIndex] = useState(0);
+  const [mgrOpen, setMgrOpen] = useState(false);
+
+  const templatesQ = useQuery({
+    queryKey: ["prompt-templates", pid],
+    queryFn: () => api.listPromptTemplates(pid!),
+    enabled: !!pid,
+  });
+  const tplMatches = (templatesQ.data?.templates ?? []).filter((t) => {
+    if (!text.startsWith("/")) return false;
+    const q = text.slice(1).trim().toLowerCase();
+    return !q || t.title.toLowerCase().includes(q);
+  });
 
   const conv = useQuery({
     queryKey: ["conversation", cid],
@@ -196,6 +211,8 @@ export function ConversationView() {
             a.click();
             URL.revokeObjectURL(a.href);
           }}>⬇ 导出</Button>
+          <Button size="sm" variant="ghost" onClick={() => setMgrOpen(true)}
+            title="指令模板库——常用指令存为可复用草稿（Copilot .prompt.md 语义）">📋 模板</Button>
           <Button size="sm" variant="ghost" onClick={() => setCtxOpen(true)}>-context 上下文</Button>
         </div>
       </div>
@@ -259,13 +276,39 @@ export function ConversationView() {
 
       {/* composer */}
       <div className="border-t border-line p-3">
-        <div className="flex items-end gap-2">
+        <div className="relative flex items-end gap-2">
+          {tplOpen && tplMatches.length > 0 && (
+            <div className="absolute bottom-full left-0 z-30 mb-1 w-96 rounded-xl border border-line bg-surface p-1 shadow-lg">
+              <div className="px-2 py-1 text-[10px] text-mut">指令模板（↑↓ 选择 · Enter 填入 · Esc 关闭）——填入后可编辑再发送</div>
+              {tplMatches.map((t, i) => (
+                <button key={t.id}
+                  className={cx("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs",
+                    i === tplIndex ? "bg-accbg text-acc" : "hover:bg-bg")}
+                  onMouseEnter={() => setTplIndex(i)}
+                  onClick={() => pickTemplate(t)}>
+                  <span className="font-medium">📋 {t.title}</span>
+                  {t.agent_role && <Badge tone="violet">{t.agent_role}</Badge>}
+                  <span className="min-w-0 flex-1 truncate text-[10px] text-mut">{t.body}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <Textarea
             rows={2}
-            placeholder={c.status === "running" ? "输入消息（发送即打断并注入）…" : "输入消息…"}
+            placeholder={c.status === "running" ? "输入消息（发送即打断并注入）…（/ 唤起指令模板）" : "输入消息…（/ 唤起指令模板）"}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              setTplOpen(e.target.value.startsWith("/"));
+              setTplIndex(0);
+            }}
             onKeyDown={(e) => {
+              if (tplOpen && tplMatches.length > 0) {
+                if (e.key === "ArrowDown") { e.preventDefault(); setTplIndex((i) => (i + 1) % tplMatches.length); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setTplIndex((i) => (i - 1 + tplMatches.length) % tplMatches.length); return; }
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pickTemplate(tplMatches[tplIndex]); return; }
+                if (e.key === "Escape") { e.preventDefault(); setTplOpen(false); return; }
+              }
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
             }}
           />
@@ -274,8 +317,14 @@ export function ConversationView() {
       </div>
 
       <ContextDrawer open={ctxOpen} onClose={() => setCtxOpen(false)} cid={cid} ctx={ctx.data} />
+      {mgrOpen && <TemplatesDrawer pid={pid!} onClose={() => setMgrOpen(false)} />}
     </div>
   );
+
+  function pickTemplate(t: import("../lib/api").PromptTemplate) {
+    setText(t.body);
+    setTplOpen(false);
+  }
 }
 
 function MessageRow({ m, pid }: { m: import("../lib/api").Message; pid?: string }) {
@@ -416,6 +465,103 @@ function ContextDrawer({
 
 function kindName(kind: string) {
   return { drafting: "起草", executing: "执行", reviewing: "评审", adhoc: "临时", ui_command: "操作" }[kind] ?? kind;
+}
+
+/** I208: 指令模板管理抽屉——列表/新建/编辑/删除。模板是草稿不是快捷键：
+ * body 填入输入框后仍可编辑，发送前的人审不绕过。 */
+function TemplatesDrawer({ pid, onClose }: { pid: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const templates = useQuery({
+    queryKey: ["prompt-templates", pid],
+    queryFn: () => api.listPromptTemplates(pid),
+  });
+  const onto = useQuery({
+    queryKey: ["ontology", pid],
+    queryFn: () => api.getOntology(pid, true),
+  });
+  const roleOptions = [...new Set((onto.data?.concepts ?? []).flatMap((c) => c.agent_roles ?? []))];
+  const [editId, setEditId] = useState<string | null>(null); // null=新建
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [role, setRole] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const openNew = () => { setEditId(null); setTitle(""); setBody(""); setRole(""); };
+  const openEdit = (t: import("../lib/api").PromptTemplate) => {
+    setEditId(t.id); setTitle(t.title); setBody(t.body); setRole(t.agent_role ?? "");
+  };
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      if (editId) await api.updatePromptTemplate(editId, { title, body, agent_role: role || null });
+      else await api.createPromptTemplate(pid, { title, body, agent_role: role || null });
+      toast.success(editId ? "模板已更新" : "模板已创建");
+      qc.invalidateQueries({ queryKey: ["prompt-templates", pid] });
+      openNew();
+    } catch (e) {
+      toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (t: import("../lib/api").PromptTemplate) => {
+    if (!window.confirm(`删除模板「${t.title}」？`)) return;
+    try {
+      await api.deletePromptTemplate(t.id);
+      if (editId === t.id) openNew();
+      qc.invalidateQueries({ queryKey: ["prompt-templates", pid] });
+      toast.info("模板已删除");
+    } catch (e) {
+      toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  return (
+    <Drawer open onClose={onClose} title="📋 指令模板库" width="48%">
+      <div className="space-y-3 text-xs">
+        {(templates.data?.templates ?? []).map((t) => (
+          <div key={t.id} className={cx("rounded-xl border p-2.5", editId === t.id ? "border-acc" : "border-line")}>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">📋 {t.title}</span>
+              {t.agent_role && <Badge tone="violet">{t.agent_role}</Badge>}
+              <span className="text-[10px] text-mut">v{t.version} · {clockOf(t.updated_at)}</span>
+              <span className="ml-auto flex gap-1">
+                <button className="text-[11px] text-mut hover:text-acc" onClick={() => openEdit(t)}>✎ 编辑</button>
+                <button className="text-[11px] text-mut hover:text-dan" onClick={() => remove(t)}>🗑</button>
+              </span>
+            </div>
+            <div className="mt-1 whitespace-pre-wrap text-[11px] text-mut">{t.body}</div>
+          </div>
+        ))}
+        {!templates.data?.templates.length && (
+          <Empty icon="📋" title="还没有指令模板"
+            hint="把高频发起指令（如「生成 XX 功能 PRD」）存为模板，对话输入框输入 / 即可唤起" />
+        )}
+        <div className="space-y-2 rounded-xl border border-line p-2.5">
+          <div className="font-medium">{editId ? "✎ 编辑模板" : "＋ 新建模板"}</div>
+          <div className="flex gap-2">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="模板名称（如：生成 PRD）"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 py-1.5" />
+            <select value={role} onChange={(e) => setRole(e.target.value)}
+              className="rounded-lg border border-line bg-bg px-2 py-1.5" title="建议角色（可选）">
+              <option value="">角色：不限</option>
+              {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)}
+            placeholder="指令内容——选中后填入输入框，可改再发送" />
+          <div className="flex justify-end gap-2">
+            {editId && <Button size="sm" variant="ghost" onClick={openNew}>取消编辑</Button>}
+            <Button size="sm" variant="primary" disabled={busy || !title.trim() || !body.trim()} onClick={submit}>
+              {editId ? "保存" : "创建"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Drawer>
+  );
 }
 
 function roleForKind(kind: string) {
