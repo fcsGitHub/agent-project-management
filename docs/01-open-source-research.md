@@ -1924,3 +1924,26 @@ M68 = **工厂个性化与沉淀三件套**：I204 项目级角色指令层（L1
 **BN.4 M69 取舍**
 
 M69 = **实时与复用三件套**：I207 看板运行实时徽章（SSE 接入最大未接页面·item 关联卡片脉冲指示）/ I208 指令模板库（saved prompts·`/` 唤起·草稿非快捷键）/ I209 run 产物回流工作项（write-back 正统·同 run 幂等·失败不评）+ 冒烟 74 + 审阅，约 9 人日。presence 光标、变量插值模板、全局模板、自动改状态、分叉合并采纳面（继续等证据）留 backlog。
+
+## BO. M70 前置调研：资产版本历史 / 项目设置中心 / run 发起工件绑定（2026-09-29）
+
+> 目标协议触发：M69 完成后开启。防重查：候选池 grep——**事件流浏览器 UI（AuditPage 职责即「event stream with filters, payload expansion, CSV export」——候选当场作废·防重查第五次自证：我以为的缺口早已存在）**、**自动化执行历史面板（`GET /projects/{pid}/automations/{rule_id}/runs` 规则命中历史端点已存在[automation.rule_fired 事件+limit 50 查询]——数据面读面俱在，作废）**、**分叉采纳面（连续多轮无使用证据——继续降级）**。本轮重新核验出新三候选：**资产版本历史（write_asset 每次 git commit+assets.version 自增——读侧零历史端点零 diff 零回滚，「写侧版本化齐全读侧缺失」半截链第二例）** / **项目设置中心（设置散布 MyWork/Ontology/Reports/Runs 四页无集中入口，grep 证实无 SettingsPage）** / **run 发起工件绑定面（start_run item_id 参数后端通·前端只透传 conv.item_id 预绑定值——「临时对话指定工件执行」无入口，半截链第三例）**。本轮三路新调研（**设置页信息架构 / agent 任务绑定 UX / 文档版本历史 UI**），选定 **M70 = 可见性与可达三件套**。
+
+**BO.1 资产版本历史与 diff（git 已在记账——读侧把账翻开）**
+
+- 产品共识（[LogRocket: recovery-oriented design](https://blog.logrocket.com)（版本历史+回滚让用户敢编辑的恢复导向框架）、[Figma Dev Mode compare changes](https://help.figma.com)（版本点间比较）、[ux.stackexchange diff 视图讨论](https://ux.stackexchange.com)、[slite: Confluence 对比](https://slite.com)（详尽页面历史与版本控制是 table stakes））：**侧栏版本列表**（Notion/Figma 式：时间戳+作者+逐版预览+restore）与 **diff 视图**（GitHub/Confluence 式：两版间增删高亮）是两大正统；历史与回滚成对出现=编辑安全感。
+- 对本项目的映射：资产每次 write_asset 都是 git commit（sha 已返回并存 assets.commit），assets.version 自增——**git 就是现成的版本账本，读侧却只有最新版**。补法=`GET /assets/{id}/history`（git log 该资产路径：sha+ts+status 快照）+ `GET /assets/{id}/diff?from=&to=`（两版 unified diff，复用工件域的 diff 惯例）+ AssetsPage 详情抽屉「🕘 历史」标签页（版本列表+点选两版看 diff）+ **恢复=write_asset 旧 body 重写新版本**（append-only 语义：不回滚历史只追加恢复版——与事件溯源同构）。**不做** 行内编辑器（资产由 agent 产出或 deposit，人改走重新沉淀）、逐行评论（资产评审走 Gate 快照）。
+
+**BO.2 项目设置中心（混合 IA——hub 收纳 + 场景回链）**
+
+- 产品共识（[figr.design 交互设计案例](https://figr.design)（settings 页是经典 IA 案例）、GitHub 三作用域模型 user→org→repo 各带 /settings 树）：**集中 hub + 场景内联**的混合模式是收敛共识——低频高后果设置（安全/令牌/预算）进集中 hub 保可发现可审计，高频场景控制留在使用现场但**回链 hub 保持单一事实源**；hub 内左栏分区+作用域切换。
+- 对本项目的映射：设置现状散布四页（auto_deposit/concept_visibility/role-instructions 在 OntologyPage、report_template/cost_budget 在 ReportsPage、push/PAT 在 MyWorkPage、WIP/泳道在看板 URL）——功能越加可发现性越差。补法=**新 SettingsPage**（左栏分区：项目配置/权限与可见性/预算与成本/通知与接入）聚合既有面板组件（组件搬家不重写——PATCH 端点零改动）+ 各原页面留「⚙ 设置 →」回链深链（?section= 锚点）。**不做** 设置项迁移改造（PATCH 语义零改动=风险零）、实例级设置页（instance 配置是 env 文件职责）、设置搜索（面板数 <10 无需）。
+
+**BO.3 run 发起工件绑定（显式上下文选择——`#` mention 的发起面）**
+
+- 产品共识（[GitHub Blog: assign Copilot an issue](https://github.blog)（issue 即绑定任务上下文）、[VS Code: context in AI agents](https://code.visualstudio.com)（`#`/Add Context 显式绑定文件引导 agent）、Devin 会话开始选目标 repo[外部实践]、[The Neuron: session scoping](https://www.theneuron.co)（一 session 一任务防上下文污染））：**显式目标绑定是 agent 任务发起的标配**——不绑=靠模型猜，绑=行为可预期；绑定发生在发起时（assign/选 repo/#提及）而非事后。
+- 对本项目的映射：start_run 的 item_id 参数后端通（M4 依赖链接续），但前端只透传 conv.item_id 对话预绑定值——**临时对话想指定工件执行无入口**（只能去对话树建对话再…也没有绑定 UI）。补法=ConversationView「▶ 让 Agent 执行」旁工件选择器（下拉列项目活跃工件项[concept 有 artifact_kinds 的概念]·选中即以该 item_id 发起 run·不写回对话绑定——一次性语义）+ RunsPage 运行行已透出 item 标题（get_run item_title 既有）。**不做** 多工件绑定（一 run 一工件=runs.item_id 单列语义）、对话永久改绑（create_conversation item_id 已有面）、看板反向发起对话（batch-start 已覆盖看板场景）。
+
+**BO.4 M70 取舍**
+
+M70 = **可见性与可达三件套**：I210 资产版本历史与 diff（git 账本读侧·侧栏版本列表+两版 diff+append-only 恢复）/ I211 项目设置中心（混合 IA hub·组件搬家零后端改动·原页回链）/ I212 run 发起工件绑定面（显式上下文选择·一次性语义）+ 冒烟 75 + 审阅，约 9 人日。行内编辑器、设置迁移、实例设置页、多工件绑定、事件流浏览器（AuditPage 已是）、自动化历史（rule_history 已是）留 backlog。

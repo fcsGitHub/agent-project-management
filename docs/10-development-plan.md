@@ -2140,6 +2140,36 @@ agent-project-management/
 
 ---
 
+### M70 · 可见性与可达三件套（I210-I212，约 9 人日）
+
+> v3.0 新增（2026-09-29，docs/01 §BO 前置调研）。资产 git 版本化齐全但读侧只有最新版（半截链第二例）；设置散布四页无集中入口；start_run 的 item_id 后端通但前端无发起时绑定入口（半截链第三例）。**防重查：事件流浏览器[AuditPage 即是——作废·防重查第五次自证]、自动化执行历史[rule_history 端点已存在——作废]、分叉采纳面[继续降级]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I210 | 资产版本历史与 diff（GET /assets/{id}/history[git log 该资产路径] + GET /assets/{id}/diff?from=&to= + AssetsPage 详情抽屉 🕘 历史标签页[版本列表+两版 diff] + 恢复=旧 body 重写新版本 append-only + 单测） | docs/01 §BO.1 | assetsrepo git 管道/gitrepo.diff 惯例 | 3d |
+| I211 | 项目设置中心（新 SettingsPage 左栏分区[项目配置/权限可见性/预算成本/通知接入]聚合既有面板组件搬家+原页 ⚙ 回链深链 + vitest） | docs/01 §BO.2 | 既有面板组件零后端改动 | 3d |
+| I212 | run 发起工件绑定面+冒烟 75+收尾审阅（ConversationView 让 Agent 执行旁工件选择器[活跃工件项下拉·一次性 item_id 不改对话绑定] + 冒烟 75 + 全量回归 + docs 收口 + M70 审阅） | docs/01 §BO.3 | start_run item_id 参数 | 3d |
+
+#### I210 · 资产版本历史与 diff（3d）
+
+- 任务：assetsrepo 加 `asset_log(library_id, asset_id)`（git log --follow 该路径：sha/ts/message）与 `asset_diff(..., from, to)`（git diff unified——**资产在独立 assets repo，gitrepo.diff 是项目 repo 侧不能直接用**）+ assets 域两读端点（成员可见性沿用资产读门）+ 恢复端点复用 update（旧 body 写新版本 version+1）+ AssetsPage 详情抽屉「🕘 历史」区（版本列表 sha 短码+时间+点两版出 diff pre 块）。
+- DoD：单测（两次写→history 两条且 version 递增/diff 增删行可见/恢复产生新版本不删旧/rebuild 无关纯 git 读）。
+- 演示路径：资产被 deposit 两次不同内容 → 历史页两版本 → 选中对比见增删 → 恢复旧版出第三条（append-only）。
+
+#### I211 · 项目设置中心（3d）
+
+- 任务：新 SettingsPage（AppShell 路由 /p/:pid/settings）左栏四区锚点（⚙ 项目配置[auto_deposit/报告模板/成本预算]/🔒 权限与可见性[concept_visibility/角色指令]/🔔 通知与接入[push/PAT 入口链接]/👁 看板偏好[WIP 说明+视图链接]）——**聚合既有面板组件搬家不重写**（PATCH 端点零改动）+ OntologyPage/ReportsPage/MyWorkPage 原位留「⚙ 已移至设置页 →」深链（?section= 锚点直达）。
+- DoD：vitest（设置页渲染+锚点导航）；既有面板所属页面的既有测试零回归。
+- 演示路径：设置页一处改 auto_deposit+预算+可见性 → 原页面点 ⚙ 直达对应分区。
+
+#### I212 · run 发起工件绑定面+冒烟 75+收尾审阅（3d）
+
+- 任务：ConversationView「▶ 让 Agent 执行」旁工件选择器（下拉列本项目活跃工件项——concept 声明 artifact_kinds 的概念下的 open~in_progress 项·选中以该 item_id 发起 run·**一次性语义不写回对话绑定**·不选走默认 conv.item_id）+ 发起后 toast 带 run 链接 + **冒烟 75**（资产历史 diff 恢复→设置页聚合读→start_run 带 item_id 的回流链）+ 全量回归 + docs 收口 + M70 审阅。
+- DoD：冒烟 75 GREEN；绑定工件发起 run 后工件项收到产出评论（I209 链路闭环）。
+- 演示路径：临时对话选「认证功能」工件 → 让 Agent 执行 → 完成后工件项出现产出评论 → 点开工件路径审阅。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2340,6 +2370,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-29 M70 调研定义（§BO） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**事件流浏览器 UI[AuditPage 职责即「event stream with filters, payload expansion, CSV export」——候选当场作废·防重查第五次自证]**、**自动化执行历史面板[`GET /projects/{pid}/automations/{rule_id}/runs` 规则命中历史端点已存在·automation.rule_fired 事件+limit 50 查询——数据面读面俱在·作废]**、**分叉采纳面[连续多轮无使用证据——继续降级]**。重新核验出新三候选（**均 grep 证实**）：资产版本历史[write_asset 每次 git commit+version 自增·读侧零历史端点零 diff 零回滚——**半截链第二例**]/项目设置中心[设置散布 MyWork/Ontology/Reports/Runs 四页·无 SettingsPage]/run 发起工件绑定[start_run item_id 后端通·前端只透传 conv.item_id——**半截链第三例**]。三路 WebSearch：设置 IA（[figr.design](https://figr.design)/GitHub 三作用域模型——**混合模式是共识：低频高后果进集中 hub 保可发现·高频场景控制留原地但回链 hub**）、agent 任务绑定（[GitHub Blog assign Copilot](https://github.blog)/[VS Code context](https://code.visualstudio.com)/Devin 会话选 repo——**显式目标绑定是发起标配·绑=行为可预期·不绑=靠模型猜**）、版本历史 UI（[LogRocket recovery-oriented](https://blog.logrocket.com)/[Figma compare changes](https://help.figma.com)/Notion 侧栏列表——**版本列表+两版 diff+restore 成对出现=编辑安全感**）。定案 M70=可见性与可达三件套（I210 资产版本历史/I211 项目设置中心/I212 run 发起工件绑定面） |
 | **M69 实时与复用三件套（I207-I209）** | 已完成 | 2026-09-29 | 2026-09-29 | 3 迭代 / 约 9 人日（docs/01 §BN + docs/10 §M69）：I207 看板运行实时徽章（lib/runlive.ts 纯函数[SSE run 事件归约——**run.requested 绑 run→item[item_id+agent_role 只在 requested 载荷·终态靠 agg_id 回查]**·interrupted 挂起无 TTL·succeeded/failed 结果态 8s 收敛回落 runByItem] + Board.tsx 接 onStreamEvent[**SSE 直驱 overlay 不等投影 refetch·requested 一到即亮**] + 两处卡片 🤖 脉冲徽标[CONV_STATUS 惯例同色]）/ I208 指令模板库（新域 prompt_templates[**投影器签名两连坑：handler(conn,e) 双参·Event 对象非 dict**·body 走 prompts/ git 管道 I204 惯例] + CRUD[成员门/角色白名单 422/删除只撤投影 git 历史保留] + 对话输入框 `/` 唤起浮层[↑↓ Enter Esc·选中填入可改后发送=**草稿非快捷键人审不绕过**] + 📋 管理抽屉）/ I209 run 产物回流工作项（comments.py install_run_writeback post-emit hook[**同步轻量只发事件不排队——hook 族第六员**·runs 投影 item_id × artifact_path → 工件项自动评论·同 run 幂等 body 引 run id 查重·**rebuild 走投影重放不重触发 hook**·失败不评=产不可信] + **冒烟 74**）。基线：pytest **526** 全绿（非 smoke 452 EXIT=0 + smoke runner **74 GREEN** 对账）+ vitest **25** + build 绿 |
 | 2026-09-29 M69 调研定义（§BN） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**分叉采纳面[连续多轮无真实使用证据——继续维持降级]**、看板运行徽章[**grep 证实 Board.tsx 零 SSE 接入**[sse.ts token_delta 只走对话视图失效归零]——看板面缺口属实非重复]、指令模板库[**grep 证实无调研记录**·与 M35 常用回复[评论面]/M4 模板包[项目实例化层]/模板中心[ontologies pack]三层皆不同——对话/运行发起指令复用层空缺]、补充验证发现第四候选 runs.item_id 自 M4 有存储但 run.succeeded 只走 scheduler[**产出回流工作项半截链**]。三路 WebSearch：看板实时指示（[Atlassian kanban](https://www.atlassian.com/agile/kanban/boards)/[Nulab kanban cards](https://nulab.com/learn/project-management/kanban-cards)/[Tmetric](https://tmetric.com/glossary/kanban-time-tracking)——**数字看板共识=卡片实时同步·presence dot/live avatar[Linear]/行内状态徽标[Jira]是成熟惯例**·增量全在接入面）、指令模板（[index.dev Copilot .prompt.md](https://www.index.dev)/[GitHub Docs](https://docs.github.com)/[VS Code Copilot instruction system](https://gist.github.com)——**`.prompt.md` 官方形态：指令与数据同库版本化+slash 调用贴近工作流**·PromptLayer 类 SaaS 重炮一人工厂不需要）、产出回写（[Slack Code 多人 agent 通道](https://www.eneralabs.com)/Copilot coding agent assign issue→PR→**issue 与 PR 双侧发进度评论**——**write-back to issue 已是 2026 coding agent 标准闭环**·人的原始工单保持为评审面·产出以评论+链接回流）。定案 M69=实时与复用三件套（I207 看板运行实时徽章/I208 指令模板库/I209 run 产物回流工作项） |
 | I207 看板运行实时徽章 | 已完成 | 2026-09-29 | 2026-09-29 | web/src/lib/runlive.ts 纯函数（applyRunEvent 归约——**run.requested 是 run→item 绑定唯一机会[item_id+agent_role 只在 requested 载荷]**·无 item 不入 overlay·started/resumed 回 running·interrupted 挂起无 TTL[待人行动态]·succeeded/failed 结果态 RESULT_TTL_MS=8s；pruneLiveRuns 过期清除未到期**返回原引用防空渲染**；liveBadgeFor 取该工件最新一条）+ Board.tsx `onStreamEvent` 订阅（**SSE 直驱 overlay 不等投影 refetch——requested 一到即亮**·runByItem 轮询数据仍是回落）+ 两处卡片（泳道卡+普通卡）徽标行插 🤖 脉冲徽标[violet 运行中带角色名/amber 挂起待审/green·red 终态——CONV_STATUS 同色惯例] + runlive.test 4 断言 + vitest 25/build 绿 |
