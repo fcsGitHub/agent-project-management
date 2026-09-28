@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { api, type AutomationRule, type DeliveryRecord, type OntologyDiff, type OntologyLearnResult } from "../lib/api";
-import { Badge, Button, Card, Input, Modal, cx } from "../components/ui";
+import { Badge, Button, Card, Empty, Input, Modal, cx } from "../components/ui";
 
 export function OntologyPage() {
   const { pid } = useParams();
@@ -199,6 +199,9 @@ export function OntologyPage() {
       <FieldActivationPanel pid={pid!} concepts={o.concepts} disabled={disabledFields} />
 
       {(myRole === "owner" || isAdmin) && <ConceptVisibilityPanel pid={pid!} concepts={o.concepts} />}
+
+      <RoleInstructionPanel pid={pid!}
+        agentRoles={[...new Set(o.concepts.flatMap((c) => c.agent_roles))]} />
 
       <MembersPanel pid={pid!} />
 
@@ -1524,6 +1527,71 @@ function ConceptVisibilityPanel({ pid, concepts }: {
             </button>
           );
         })}
+      </div>
+    </Card>
+  );
+}
+
+/** M68-I204 (docs/01 §BM.1): L1.5 project × role standing instructions — the
+ * AGENTS.md nested model: deeper scope refines the global role prompt. */
+function RoleInstructionPanel({ pid, agentRoles }: {
+  pid: string;
+  agentRoles: string[];
+}) {
+  const qc = useQueryClient();
+  const layers = useQuery({ queryKey: ["role-instructions", pid], queryFn: () => api.getRoleInstructions(pid) });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const rows = layers.data?.instructions ?? [];
+  const byRole = new Map(rows.map((r) => [r.agent_role, r]));
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-semibold">📌 项目角色指令</span>
+        <span className="text-xs text-mut">
+          项目对本项目某 Agent 角色的常驻附加指令（L1.5 层——比全局角色提示词更具体，注入该项目全部 run）
+        </span>
+      </div>
+      <div className="space-y-2">
+        {agentRoles.map((role) => {
+          const row = byRole.get(role);
+          const open = editing === role;
+          return (
+            <div key={role} className="rounded-lg border border-line px-3 py-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">🤖 {role}</span>
+                {row && <Badge tone="ok">v{row.version}</Badge>}
+                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => {
+                  setEditing(open ? null : role);
+                  setText(row?.content ?? "");
+                }}>{open ? "收起" : row ? "编辑" : "新增"}</Button>
+              </div>
+              {open && (
+                <div className="mt-2 space-y-2">
+                  <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4}
+                    placeholder="例：本项目的 dev-agent 一律使用 pytest，禁止引入 unittest 用例。"
+                    className="w-full rounded-lg border border-line bg-surface px-2 py-1.5" />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="primary" onClick={async () => {
+                      try {
+                        await api.putRoleInstruction(pid, { agent_role: role, content: text });
+                        toast.success("项目角色指令已保存");
+                        setEditing(null);
+                        qc.invalidateQueries({ queryKey: ["role-instructions", pid] });
+                      } catch (e) {
+                        toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+                      }
+                    }}>保存</Button>
+                  </div>
+                </div>
+              )}
+              {!open && row && (
+                <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-mut">{row.content}</div>
+              )}
+            </div>
+          );
+        })}
+        {!agentRoles.length && <Empty title="本体未声明 agent_roles" hint="在本体 YAML 里给概念配置 agent_roles 后这里可编辑" />}
       </div>
     </Card>
   );

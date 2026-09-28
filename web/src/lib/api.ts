@@ -731,6 +731,12 @@ export const api = {
     req<Ontology>(isProject ? `/projects/${nameOrPid}/ontology` : `/ontologies/${nameOrPid}`),
   listOntologies: () => req<{ ontologies: { name: string; display_name: string; valid: boolean; errors: string[] }[] }>("/ontologies"),
 
+  // M68-I204: L1.5 project × role standing instructions
+  getRoleInstructions: (pid: string) =>
+    req<{ instructions: { agent_role: string; content: string; version: number; updated_at: string }[] }>(`/projects/${pid}/role-instructions`),
+  putRoleInstruction: (pid: string, body: { agent_role: string; content: string }) =>
+    req<{ ok: boolean; agent_role: string }>(`/projects/${pid}/role-instructions`, { method: "PUT", body: JSON.stringify(body) }),
+
   // Ontology learning (M4-I14, docs/08 §8)
   learnOntology: (name: string) =>
     req<OntologyLearnResult>(`/ontologies/${name}/learn`, { method: "POST" }),

@@ -471,6 +471,16 @@ class RunEngine:
     def _messages(self, state: RunState) -> list[dict]:
         ctx = self._context(state)
         system = self.role.system_prompt()
+        # M68-I204: L1.5 project × role instruction — deeper scope refines the
+        # global role prompt (AGENTS.md semantics); appended so it can override
+        try:
+            from apm.domains.conversations import get_role_instruction
+
+            proj = get_role_instruction(self.project_id, self.role.id)
+            if proj:
+                system += f"\n\n[L1.5 项目角色指令]\n{proj}"
+        except Exception:  # prompt assembly must never crash the run
+            pass
         user = f"任务指令：{ctx['instruction']}"
         if ctx["constraints"]:
             user += "\n补充约束：\n" + "\n".join(f"- {c}" for c in ctx["constraints"])

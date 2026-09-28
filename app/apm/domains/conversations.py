@@ -306,10 +306,24 @@ def build_context(conversation: dict) -> dict:
     instruction = conversation.get("instruction")
     l1_over = len(charter) > 2000
     l2_over = bool(brief and len(brief) > 3200)
+    # M68-I204: L1.5 — project × role standing instructions sit between the
+    # charter and the feature brief (AGENTS.md deep-scope-wins semantics)
+    role_rows = db.get_conn().execute(
+        "SELECT agent_role FROM prompt_layers WHERE project_id = ?"
+        " AND level = 'L1.5_role_project' ORDER BY agent_role",
+        (conversation["project_id"],),
+    ).fetchall()
+    l15_parts = []
+    for r in role_rows:
+        body = get_role_instruction(conversation["project_id"], r["agent_role"])
+        if body:
+            l15_parts.append(f"[{r['agent_role']}]\n{body}")
+    l15 = "\n\n".join(l15_parts)
     merged = (
         f"[L0 全局系统提示]\n{L0_SYSTEM}\n\n"
         f"[L1 项目宪章 · {project.get('name', '')}]\n{charter}\n\n"
-        f"[L2 功能简报]\n{brief or '（无）'}\n\n"
+        + (f"[L1.5 项目角色指令]\n{l15}\n\n" if l15 else "")
+        + f"[L2 功能简报]\n{brief or '（无）'}\n\n"
         f"[L3 会话指令]\n{instruction or '（无）'}\n\n"
         "[L4 角色提示词]\n（由 Run 的角色 YAML 提供，见 agents/roles/*.md）"
     )
@@ -407,6 +421,90 @@ def update_prompt_layer(conversation: dict, level: str, content: str) -> dict:
     else:
         raise HTTPException(status_code=422, detail=f"level '{level}' is not editable in MVP (L1/L3 only)")
     return build_context(get_conversation(conversation["id"]))  # type: ignore[arg-type]
+
+
+# ------------------------------------------------------ M68-I204: L1.5 role layer
+_ROLE_INSTRUCTION_MAX = 4000
+
+
+def get_role_instruction(project_id: str, role_id: str) -> str | None:
+    """M68-I204: L1.5 — the project × role standing instruction (docs/01
+    §BM.1, AGENTS.md nested model): deeper scope refines the global role
+    prompt. Content lives in the project repo (git-versioned like L1/L3)."""
+    row = db.get_conn().execute(
+        "SELECT git_path FROM prompt_layers WHERE project_id = ?"
+        " AND level = 'L1.5_role_project' AND agent_role = ?",
+        (project_id, role_id),
+    ).fetchone()
+    if not row:
+        return None
+    from apm.content import prompts as prompt_files
+
+    return prompt_files.read_prompt(project_id, row["git_path"])
+
+
+@router.get("/projects/{project_id}/role-instructions")
+def get_role_instructions(project_id: str) -> dict:
+    from apm.domains.projects import require_project
+
+    require_project(project_id)
+    rows = db.get_conn().execute(
+        "SELECT agent_role, version, updated_at FROM prompt_layers"
+        " WHERE project_id = ? AND level = 'L1.5_role_project' ORDER BY agent_role",
+        (project_id,),
+    ).fetchall()
+    return {"instructions": [
+        {"agent_role": r["agent_role"],
+         "content": get_role_instruction(project_id, r["agent_role"]) or "",
+         "version": r["version"], "updated_at": r["updated_at"]}
+        for r in rows
+    ]}
+
+
+class RoleInstructionIn(BaseModel):
+    agent_role: str
+    content: str
+
+
+@router.put("/projects/{project_id}/role-instructions")
+def put_role_instruction(project_id: str, body: RoleInstructionIn) -> dict:
+    from apm import config as apm_config
+    from apm.content import prompts as prompt_files
+    from apm.domains.projects import require_project
+    from apm.runtime import roles as _roles
+
+    require_project(project_id)
+    try:
+        _roles.get_role(body.agent_role)
+    except KeyError:
+        raise HTTPException(
+            status_code=422,
+            detail=f"agent_role must be a registered role, got '{body.agent_role}'")
+    content = body.content.strip()
+    if not content or len(content) > _ROLE_INSTRUCTION_MAX:
+        raise HTTPException(
+            status_code=422,
+            detail=f"content must be a 1-{_ROLE_INSTRUCTION_MAX} char string")
+    git_path = f"prompts/roles/{body.agent_role}.project.md"
+    events.emit(
+        event_type="prompt.updated",
+        agg_type="project",
+        agg_id=project_id,
+        project_id=project_id,
+        actor_type="human",
+        actor_id=events.effective_actor(),
+        payload={
+            "level": "L1.5_role_project",
+            "agent_role": body.agent_role,
+            "git_path": git_path,
+            "content": content,
+        },
+    )
+    prompt_files.write_prompt(
+        project_id, git_path, content,
+        actor_type="human", actor_id=events.effective_actor())
+    return {"ok": True, "agent_role": body.agent_role,
+            "content": get_role_instruction(project_id, body.agent_role)}
 
 
 # ------------------------------------------------------------------ models
