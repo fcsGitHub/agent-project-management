@@ -144,6 +144,7 @@ def deposit(
     tags: list[str] | None = None,
     body: str | None = None,
     conversation_id: str | None = None,
+    run_id: str | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
 ) -> dict:
@@ -175,6 +176,10 @@ def deposit(
          "status": "draft", "owner": actor_id or config.settings.user_id},
         body,
     )
+    provenance: dict = {"project_id": source_project_id, "path": artifact_path,
+                        "commit": commit, "conversation_id": conversation_id}
+    if run_id:
+        provenance["run_id"] = run_id  # M68-I205: auto deposits trace to their run
     events.emit(
         event_type="asset.drafted",
         agg_type="asset",
@@ -193,10 +198,137 @@ def deposit(
         actor_type=actor_type,
         actor_id=actor_id or config.settings.user_id,
         payload={"type": "provenance", "target_type": "artifact",
-                 "target": {"project_id": source_project_id, "path": artifact_path,
-                            "commit": commit, "conversation_id": conversation_id}},
+                 "target": provenance},
     )
     return get_asset(aid)  # type: ignore[return-value]
+
+
+# ------------------------------------------- M68-I205: auto deposit (docs/01 §BM.2)
+# run.succeeded × projects.auto_deposit → the run's artifact becomes a draft
+# asset automatically. CAS discipline: git already content-addresses the
+# bodies, so dedup is a plain sha256 compare — exact match only (SimHash
+# fuzzy matching is deliberately out). The review gate is NOT bypassed:
+# auto deposits stop at draft. Queue + worker thread: deposit does git I/O
+# and must never block the write path (mailer/pusher mirror).
+import logging
+import queue
+import threading
+
+logger = logging.getLogger(__name__)
+
+_ad_queue: "queue.Queue[dict]" = queue.Queue(maxsize=200)
+_ad_worker: threading.Thread | None = None
+
+
+def install_auto_deposit() -> None:
+    """Idempotent: wire the run.succeeded hook + start the worker."""
+    global _ad_worker
+    events.add_post_emit_hook(_auto_deposit_enqueue)
+    if _ad_worker is None or not _ad_worker.is_alive():
+        _ad_worker = threading.Thread(target=_ad_worker_loop, name="apm-autodeposit", daemon=True)
+        _ad_worker.start()
+
+
+def _auto_deposit_enqueue(event: events.Event) -> None:
+    """Post-emit hook: cheap checks inline (project setting + payload shape),
+    git work deferred to the worker. Never raises into the request path."""
+    if event.event_type != "run.succeeded" or not event.project_id:
+        return
+    output = event.payload.get("output") if isinstance(event.payload, dict) else None
+    path = output.get("artifact_path") if isinstance(output, dict) else None
+    if not path:
+        return
+    row = db.get_conn().execute(
+        "SELECT auto_deposit FROM projects WHERE id = ?", (event.project_id,)).fetchone()
+    if not row or not row["auto_deposit"]:
+        return
+    try:
+        _ad_queue.put_nowait({"project_id": event.project_id,
+                              "run_id": event.agg_id, "path": path})
+    except queue.Full:
+        logger.warning("auto-deposit queue full; dropping %s", path)
+
+
+def _ad_worker_loop() -> None:
+    while True:
+        item = _ad_queue.get()
+        try:
+            _auto_deposit(item)
+        except Exception:  # the worker must survive anything
+            logger.exception("auto deposit crashed on %s", item)
+        finally:
+            _ad_queue.task_done()
+
+
+def _auto_deposit(item: dict) -> None:
+    from apm.content import gitrepo
+    from apm.domains.ontology import load_ontology
+
+    try:
+        body = gitrepo.read_file(item["project_id"], item["path"])
+    except (FileNotFoundError, gitrepo.GitError):
+        return  # artifact unreadable — nothing to deposit
+    import hashlib
+
+    # normalize like read_asset_body (strips) so both sides hash identically
+    sha = hashlib.sha256(body.strip().encode("utf-8")).hexdigest()
+    # dedup: exact body match among assets already provenance-linked to this project
+    conn = db.get_conn()
+    linked = conn.execute(
+        "SELECT asset_id, target_ref FROM asset_links WHERE type = 'provenance'").fetchall()
+    for link in linked:
+        try:
+            target = json.loads(link["target_ref"] or "{}")
+        except ValueError:
+            continue
+        if target.get("project_id") != item["project_id"]:
+            continue
+        row = conn.execute("SELECT library_id FROM assets WHERE id = ?",
+                           (link["asset_id"],)).fetchone()
+        if not row:
+            continue
+        try:
+            existing = assetsrepo.read_asset_body(row["library_id"], link["asset_id"])
+        except FileNotFoundError:
+            continue
+        if hashlib.sha256(existing.strip().encode("utf-8")).hexdigest() == sha:
+            logger.info("auto deposit: deduped %s (same content as asset %s)",
+                        item["path"], link["asset_id"])
+            return
+
+    project = conn.execute("SELECT ontology FROM projects WHERE id = ?",
+                           (item["project_id"],)).fetchone()
+    if not project:
+        return
+    onto = load_ontology(project["ontology"])
+    parts = item["path"].split("/")
+    kind_id = parts[1] if len(parts) > 2 and parts[0] == "artifacts" else ""
+    # artifact kind → deposits_to ASSET kind → the library that accepts it
+    asset_kind = None
+    for c in onto.concepts.values():
+        for ak in c.artifact_kinds:
+            if ak.get("id") == kind_id and ak.get("deposits_to"):
+                asset_kind = ak["deposits_to"]
+    if not asset_kind:
+        logger.info("auto deposit: kind '%s' has no deposits_to — skipping", kind_id)
+        return
+    library = next((l["id"] for l in onto.libraries
+                    if asset_kind in l.get("accepts", [])), None)
+    if not library:
+        logger.info("auto deposit: no library accepts asset kind '%s'", asset_kind)
+        return
+    deposit(
+        source_project_id=item["project_id"],
+        artifact_path=item["path"],
+        commit=None,
+        library=library,
+        kind=asset_kind,
+        title=f"自动沉淀 · {parts[-1]}",
+        tags=["auto"],
+        run_id=item["run_id"],
+        actor_type="system",
+        actor_id=f"runtime:{item['run_id']}",
+    )
 
 
 def submit_review(asset_id: str) -> dict:

@@ -83,7 +83,7 @@ def _proj_project_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("name", "description", "status", "charter", "budget_hours", "cost_budget_usd",
-                "concept_visibility"):
+                "concept_visibility", "auto_deposit"):
         if key in p:
             val = p[key]
             if key == "concept_visibility" and isinstance(val, dict):
@@ -236,6 +236,7 @@ class ProjectPatch(BaseModel):
     budget_hours: float | None = None  # I122: labor budget in hours
     cost_budget_usd: float | None = None  # I200: monthly LLM spend cap (0 = off)
     concept_visibility: dict[str, str] | None = None  # I201: concept_id → "owner"
+    auto_deposit: bool | None = None  # I205: auto-deposit run artifacts as draft assets
 
 
 @router.post("/projects")

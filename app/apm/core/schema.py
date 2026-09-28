@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS projects (
   budget_hours REAL,
   cost_budget_usd REAL,
   concept_visibility TEXT,
+  auto_deposit INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

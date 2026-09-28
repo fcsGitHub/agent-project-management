@@ -200,6 +200,8 @@ export function OntologyPage() {
 
       {(myRole === "owner" || isAdmin) && <ConceptVisibilityPanel pid={pid!} concepts={o.concepts} />}
 
+      <AutoDepositPanel pid={pid!} />
+
       <RoleInstructionPanel pid={pid!}
         agentRoles={[...new Set(o.concepts.flatMap((c) => c.agent_roles))]} />
 
@@ -1592,6 +1594,35 @@ function RoleInstructionPanel({ pid, agentRoles }: {
           );
         })}
         {!agentRoles.length && <Empty title="本体未声明 agent_roles" hint="在本体 YAML 里给概念配置 agent_roles 后这里可编辑" />}
+      </div>
+    </Card>
+  );
+}
+
+/** M68-I205 (docs/01 §BM.2): run artifacts auto-deposit — when on, a
+ * succeeded run's artifact becomes a draft asset (deduped by content);
+ * the review gate is never bypassed. */
+function AutoDepositPanel({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const project = useQuery({ queryKey: ["project", pid], queryFn: () => api.getProject(pid) });
+  const on = !!project.data?.auto_deposit;
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold">⚙ 运行产物自动沉淀</span>
+        <span className="text-xs text-mut">
+          run 成功且产物有 deposits_to 归属时，自动以草稿资产入册（内容去重；评审门不绕过）
+        </span>
+        <Button size="sm" variant={on ? "outline" : "primary"} disabled={!project.data}
+          className="ml-auto" onClick={async () => {
+            try {
+              await api.patchProject(pid, { auto_deposit: !on });
+              toast.success(on ? "已关闭自动沉淀" : "已开启自动沉淀");
+              qc.invalidateQueries({ queryKey: ["project", pid] });
+            } catch (e) {
+              toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+            }
+          }}>{on ? "关闭" : "开启"}</Button>
       </div>
     </Card>
   );

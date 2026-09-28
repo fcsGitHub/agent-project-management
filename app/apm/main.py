@@ -44,6 +44,9 @@ def create_app() -> FastAPI:
         from apm.domains.mailer import install_mailer
 
         install_mailer()  # 邮件通道入队 hook + 后台发送线程（幂等，M11-I35）
+        from apm.domains.assets import install_auto_deposit
+
+        install_auto_deposit()  # 运行产物自动沉淀入队 hook + 后台线程（幂等，M68-I205）
         from apm.domains.pusher import install_pusher
 
         install_pusher()  # ntfy 推送通道入队 hook + 后台投递线程（幂等，M67-I202）
