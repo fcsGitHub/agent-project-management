@@ -77,6 +77,38 @@ def _proj_search_message(conn, e):
     _reindex_message(conn, e.agg_id)
 
 
+def _artifact_key(project_id: str, path: str) -> str:
+    return f"{project_id}|{path}"
+
+
+def _match_expr(query: str) -> str:
+    """FTS5 MATCH expression with every token double-quoted — latin tokens
+    from _bigrams keep their '-'（feature-auth、prd/… 无斜杠但连字符在），
+    unquoted FTS5 would parse '-' as NOT syntax ('no such column: auth')."""
+    return " ".join('"%s"' % t.replace('"', '""') for t in _bigrams(query).split())
+
+
+def _reindex_artifact(conn, project_id: str, path: str) -> None:
+    # M71-I213: 工件无投影行——内容从 git 读当前版（事件低频，O(1)/次；
+    # rebuild 重放同一 path 多次提交时以最后一次为准 = 只索引当前版）。
+    key = _artifact_key(project_id, path)
+    conn.execute("DELETE FROM artifacts_search WHERE artifact_key = ?", (key,))
+    from apm.content import gitrepo
+
+    try:
+        content = gitrepo.read_file(project_id, path)
+    except Exception:
+        return  # repo/file unavailable — leave unindexed
+    conn.execute("INSERT INTO artifacts_search (artifact_key, text) VALUES (?, ?)",
+                 (key, _bigrams(f"{path} {content}")))
+
+
+@on("artifact.committed", "artifact.human_edited")
+def _proj_search_artifact(conn, e):
+    path = e.payload.get("path") or e.agg_id
+    _reindex_artifact(conn, e.project_id, path)
+
+
 @router.get("/search")
 def search(q: str, types: str = "items,comments") -> dict:
     """Cross-project keyword search, scoped to the caller's visible projects
@@ -88,7 +120,7 @@ def search(q: str, types: str = "items,comments") -> dict:
     query = q.strip()
     if not query:
         raise HTTPException(status_code=422, detail="q must not be empty")
-    wanted = {t.strip() for t in types.split(",") if t.strip()} & {"items", "comments", "conversations"}
+    wanted = {t.strip() for t in types.split(",") if t.strip()} & {"items", "comments", "conversations", "artifacts"}
     if not wanted:
         raise HTTPException(status_code=422, detail="types must include items and/or comments")
     me = events.effective_actor()
@@ -100,7 +132,7 @@ def search(q: str, types: str = "items,comments") -> dict:
 
     match = _bigrams(query)
     conn = db.get_conn()
-    out: dict[str, list] = {"items": [], "comments": [], "conversations": []}
+    out: dict[str, list] = {"items": [], "comments": [], "conversations": [], "artifacts": []}
     if "items" in wanted:
         for r in conn.execute(
             "SELECT item_id FROM items_search WHERE items_search MATCH ? ORDER BY rank LIMIT 50",
@@ -153,4 +185,23 @@ def search(q: str, types: str = "items,comments") -> dict:
             ).fetchone()
             if row and _visible(row["project_id"], user):
                 out["conversations"].append(dict(row))
+    if "artifacts" in wanted:
+        # M71-I213: git 工件正文（当前版）——键 "project_id|path"；
+        # 权限=项目可见性（工件不挂概念，can_see_concept 不适用）。
+        for r in conn.execute(
+            "SELECT artifact_key FROM artifacts_search WHERE artifacts_search MATCH ?"
+            " ORDER BY rank LIMIT 50",
+            (_match_expr(query),),
+        ).fetchall():
+            pid, _, path = r["artifact_key"].partition("|")
+            row = conn.execute(
+                "SELECT p.id AS project_id, p.name AS project_name FROM projects p"
+                " WHERE p.id = ?",
+                (pid,),
+            ).fetchone()
+            if row and _visible(row["project_id"], user):
+                out["artifacts"].append({
+                    "project_id": row["project_id"], "project_name": row["project_name"],
+                    "path": path, "title": path.rsplit("/", 1)[-1],
+                })
     return {"q": query, **out}

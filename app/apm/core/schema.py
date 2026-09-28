@@ -629,6 +629,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_search USING fts5(item_id UNINDEXED, te
 CREATE VIRTUAL TABLE IF NOT EXISTS comments_search USING fts5(comment_id UNINDEXED, text);
 -- Conversation search (M61-I184): message bodies, same bigram scheme.
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_search USING fts5(message_id UNINDEXED, text);
+-- Artifact content search (M71-I213): git 工件正文（PRD/WBS/报告——工厂的
+-- 知识资产），键 = "project_id|path"，只索引当前版。工件无投影表，索引在
+-- 投影器里从 git 读当前内容（低频事件 O(1)/次；rebuild 重放以最后一次为准，
+-- 与「只索引当前版」语义一致）。
+CREATE VIRTUAL TABLE IF NOT EXISTS artifacts_search USING fts5(artifact_key UNINDEXED, text);
 """
 
 

@@ -12,12 +12,13 @@ const TYPES = [
   { key: "items", label: "工作项" },
   { key: "comments", label: "评论" },
   { key: "conversations", label: "会话" },
+  { key: "artifacts", label: "工件" },
 ] as const;
 
 export function SearchPage() {
   const [params] = useSearchParams();
   const q = (params.get("q") ?? "").trim();
-  const [types, setTypes] = useState<string>("items,comments,conversations");
+  const [types, setTypes] = useState<string>("items,comments,conversations,artifacts");
   // M64-I193: project facet — pure frontend aggregation over returned rows
   const [facet, setFacet] = useState<string>("");
 
@@ -40,6 +41,7 @@ export function SearchPage() {
     d.items.forEach((x) => bump(x.project_id, x.project_name));
     d.comments.forEach((x) => bump(x.project_id, x.project_name));
     (d.conversations ?? []).forEach((x) => bump(x.project_id, x.project_name));
+    (d.artifacts ?? []).forEach((x) => bump(x.project_id, x.project_name));
     return [...counts.entries()]
       .map(([pid, e]) => ({ pid, ...e }))
       .sort((a, b) => b.n - a.n);
@@ -50,9 +52,11 @@ export function SearchPage() {
   const fItems = (results.data?.items ?? []).filter((x) => inFacet(x.project_id));
   const fComments = (results.data?.comments ?? []).filter((x) => inFacet(x.project_id));
   const fConvs = (results.data?.conversations ?? []).filter((x) => inFacet(x.project_id));
+  const fArtifacts = (results.data?.artifacts ?? []).filter((x) => inFacet(x.project_id));
   const totalHits = (results.data?.items.length ?? 0)
     + (results.data?.comments.length ?? 0)
-    + (results.data?.conversations?.length ?? 0);
+    + (results.data?.conversations?.length ?? 0)
+    + (results.data?.artifacts?.length ?? 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -147,9 +151,25 @@ export function SearchPage() {
                 )}
               </div>
             </Card>
+            <Card className="p-4">
+              <div className="mb-2 text-sm font-semibold">工件 · {fArtifacts.length}{facet && ` / ${results.data?.artifacts?.length ?? 0}`}</div>
+              <div className="space-y-1.5">
+                {fArtifacts.map((a) => (
+                  <Link key={`${a.project_id}:${a.path}`} to={`/p/${a.project_id}/audit`}
+                    className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs hover:border-acc"
+                    title="打开项目动态查看工件事件（预览抽屉见运行详情与评论）">
+                    <span className="w-28 shrink-0 truncate text-mut">{a.project_name}</span>
+                    <span className="flex-1 truncate font-mono">📄 {a.path}</span>
+                  </Link>
+                ))}
+                {results.data && !fArtifacts.length && (
+                  <div className="py-3 text-center text-xs text-mut">没有匹配的工件</div>
+                )}
+              </div>
+            </Card>
             {results.data && totalHits === 0 && (
               <div className="pb-4 text-center text-xs text-mut">
-                三类内容都没有命中——试试更短的关键词，或检查类型片是否全被关掉
+                四类内容都没有命中——试试更短的关键词，或检查类型片是否全被关掉
               </div>
             )}
           </>
