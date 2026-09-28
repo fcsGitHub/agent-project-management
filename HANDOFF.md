@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M70 可见性与可达三件套 调研定义完成，下一步 I210 开工）
+# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M70 可见性与可达三件套 完成，下一步 M71 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -36,7 +36,7 @@
 - **M55~M57（I165-I173，2026-09-21/27 完成，docs/01 §AZ-§BB + docs/10 §M55-§M57）**：watch 条件化（condition_json 全等匹配·红利第九例）+ 铃铛降噪折叠 + watch 导入导出 + 静默时段（跨午夜+mailer 第四道门）+ watch 规则编辑暂停（修 M55 的 409 删了重加坑）+ 资产使用洞察（红利第十例）。基线 pytest 437 / 冒烟 62。
 - **M58~M62（I174-I188，2026-09-27 完成，docs/01 §BC-§BG + docs/10 §M58-§M62）**：run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合 + 模板包实例溯源 + 备份/恢复演练工具（sqlite3 backup API——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（红利第十二例）+ 事件表体积观测（先测后治）+ 会话搜索与导出（**红利第十三例**）+ 移动端 375px 审计 + 端点性能观测（**索引审计补 idx_watch_rules_hit**）+ watch 渠道偏好（永不越过 DND）+ Agent 用量聚合（**红利第十四例**）。基线 pytest 466 / 冒烟 67。
 - **M63~M65（I189-I197，2026-09-27/28 完成，docs/01 §BH-§BJ + docs/10 §M63-§M65）**：自动化 run_agent（第七动作·**防环三闸**）+ 项目级通知降级 + 工作项检查清单 + run 重试对比（**红利第十五例**）+ ⌘K palette 深化 + 清单转子任务 + 运行分叉（forked_from 血缘）+ lineage 树感知 + 看板泳道 + 基线对比（**修快照语义：归档项不入新基线**）。
-- **M66~M69（I198-I209，2026-09-28/29 完成，docs/01 §BK-§BN + docs/10 §M66-§M69）**：对话树导航（**parent_conversation_id 自 MVP 有存储无写入方——补 Branch in new chat 写入面**）+ PAT 机器接入（display-once+Bearer 旁路）+ run 成本预算护栏（硬顶 402/软阈 80%）+ 概念级可见性（两级声明+读写通知三门）+ ntfy 推送通道（mailer 镜像+SSRF 门复用+通道矩阵第三列）+ Prometheus 出站（**红利十六：events 账本出站只是读侧**）+ 项目级角色指令层（prompt_layers L1.5——**AGENTS.md 嵌套语义深层优先**）+ 运行产物自动沉淀（**git blob sha 去重·评审门不绕过止步 draft**）+ 报告模板定制（段落开关+自定义标题·手动与周报同源）+ 看板运行实时徽章（**SSE 直驱 overlay·run.requested 是 run→item 绑定唯一机会**）+ 指令模板库（**`.prompt.md` 语义·草稿非快捷键人审不绕过**）+ run 产物回流工作项（**write-back to issue 正统·同步 hook 第六员·同 run 幂等**）。基线 pytest 526 / 冒烟 74 / vitest 25。
+- **M66~M70（I198-I212，2026-09-28/29 完成，docs/01 §BK-§BO + docs/10 §M66-§M70）**：对话树导航（**parent_conversation_id 自 MVP 有存储无写入方——补 Branch in new chat 写入面**）+ PAT 机器接入（display-once+Bearer 旁路）+ run 成本预算护栏（硬顶 402/软阈 80%）+ 概念级可见性（两级声明+读写通知三门）+ ntfy 推送通道（mailer 镜像+SSRF 门复用+通道矩阵第三列）+ Prometheus 出站（**红利十六：events 账本出站只是读侧**）+ 项目级角色指令层（prompt_layers L1.5——**AGENTS.md 嵌套语义深层优先**）+ 运行产物自动沉淀（**git blob sha 去重·评审门不绕过止步 draft**）+ 报告模板定制（段落开关+自定义标题·手动与周报同源）+ 看板运行实时徽章（**SSE 直驱 overlay·run.requested 是 run→item 绑定唯一机会**）+ 指令模板库（**`.prompt.md` 语义·草稿非快捷键人审不绕过**）+ run 产物回流工作项（**write-back to issue 正统·同步 hook 第六员·同 run 幂等**）+ 资产版本历史与 diff（**append-only 恢复·半截链第二例**）+ 项目设置中心（**混合 IA hub·原页零改动**）+ run 发起工件绑定面（**一次性语义·半截链第三例**）。基线 pytest 529 / 冒烟 75 / vitest 27。
 
 ## 3. 现在卡在哪
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M70 实施（下一步，I210 起步）**：调研定义已提交（32dfee0，docs/01 §BO + docs/10 §M70 节）。三迭代：**I210 资产版本历史与 diff**（assetsrepo 加 asset_log/asset_diff——**资产在独立 assets repo，gitrepo.diff 是项目 repo 侧不能直接用**；GET /assets/{id}/history 与 /diff + AssetsPage 详情抽屉 🕘 区 + 恢复=旧 body 重写新版本 append-only）；**I211 项目设置中心**（新 SettingsPage 左栏四区聚合既有面板组件搬家**零后端改动** + 原页 ⚙ 深链回链 ?section=）；**I212 run 发起工件绑定面**（ConversationView 让 Agent 执行旁工件选择器[活跃工件项下拉·一次性 item_id 不改对话绑定] + 冒烟 75[资产历史 diff 恢复→设置页→start_run 带 item_id 回流链]）。然后全量回归 + docs/10 看板行闭环 + M70 审阅。
+2. **M71 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M70 教训：候选池勿凭印象写——两连大案：事件流浏览器[AuditPage 即是·第五次自证]/自动化执行历史[rule_history 端点已在]当场作废；半截链模式两连中：资产版本历史[git commit 齐全读侧零面]/run 发起工件绑定[后端通前端无入口]——「写侧/后端早已存在、读侧/前端缺位」的 grep 套路[写函数+读函数配对、API 参数与前端调用点配对]值得沿用**）→ 三路并行 WebSearch → docs/01 新节（§BP）+ docs/10 §M71 节 + 看板行 →「M71 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M71 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；②对话/运行启动模板的导入导出（watch 规则[M55]与报告已有导出先例——prompt_templates 是否缺对称面待查）；③工件项的产物预览（FeaturePage 工件是否已有渲染预览待查）；④维持项（长清单见前轮，均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -114,13 +114,16 @@
 - **投影器签名是 `handler(conn, e)` 双参且 Event 是对象非 dict**（M69-I208 两连修）：新域写投影器照 watch.py 惯例（`e.payload`/`e.agg_id`/`e.project_id`/`e.ts` 属性访问），凭 dict 下标写会在首次事件时 TypeError。
 - **runs 列表端点是 `/runs?project_id=` 不是 `/projects/{pid}/runs`**（M69-I209 再证）：端点序/路径勿凭印象，写测试前 grep `@router.get`。
 - **post-emit hook 与 rebuild 的边界**（M69-I209）：hook 只在运行时 emit 触发，rebuild 走 projections.apply 不重触发——运行时产生的衍生事件（回流评论）已在流中，重放原样恢复不会重复；hook 内的查重是防运行时双发的第二道保险。
+- **资产在独立 assets repo，gitrepo.diff/file_history 是项目 repo 侧不能直接用**（M70-I210）：资产历史/_diff 走 assetsrepo 自己的 asset_log/asset_diff（镜像惯例但 cwd=assets repo）。
+- **restore 类端点返回详情形状**（M70-I210）：get_asset 不含 content 键（只有 get_asset_detail 加）——端点返回什么形状测试才能断言什么键。
+- **设置中心类 hub 页零回归的做法**（M70-I211）：原页面板一行不动，hub 内联实现简单项（开关/数字 PATCH）+复杂项深链原页锚点——混合 IA 的「场景控制留原地」本就是共识语义。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 526 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 74 条，应 GREEN（repo 根目录跑）
-cd web && pnpm vitest run             # 前端单测 25 项；pnpm build 须绿
+cd app && python -m pytest            # 529 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 75 条，应 GREEN（repo 根目录跑）
+cd web && pnpm vitest run             # 前端单测 27 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
