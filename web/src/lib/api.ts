@@ -6,6 +6,7 @@ export type Project = {
   cost_budget_usd?: number | null;
   concept_visibility?: Record<string, string> | null;
   auto_deposit?: boolean | number | null;
+  report_template?: { sections: { key: string; enabled: boolean; heading?: string }[] } | null;
   features?: Feature[]; item_counts?: Record<string, number>; bootstrap?: Record<string, string>;
   disabled_fields?: string[]; gates_pending?: number;
 };
@@ -480,7 +481,7 @@ export const api = {
   deleteTimeEntry: (id: string) => req<{ deleted: string }>(`/time_entries/${id}`, { method: "DELETE" }),
   patchProjectFields: (id: string, body: { field_id: string; active: boolean }) =>
     req<Project>(`/projects/${id}/fields`, { method: "PATCH", body: JSON.stringify(body) }),
-  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter" | "budget_hours" | "cost_budget_usd" | "concept_visibility" | "auto_deposit">>) =>
+  patchProject: (id: string, body: Partial<Pick<Project, "name" | "description" | "charter" | "budget_hours" | "cost_budget_usd" | "concept_visibility" | "auto_deposit" | "report_template">>) =>
     req<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   getPhases: (id: string) =>
     req<{ phases: { id: string; name: string; gate?: string; gate_label?: string; status: string }[] }>(`/projects/${id}/phases`),

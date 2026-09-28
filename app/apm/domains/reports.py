@@ -31,6 +31,7 @@ from apm import config
 from apm.core import db, events
 from apm.core.projections import on
 from apm.domains.items import BUCKET_NAMES
+from apm.domains.projects import REPORT_SECTION_KEYS
 from apm.domains.members import is_instance_admin, member_role
 from apm.domains.milestones import milestone_progress
 
@@ -1479,32 +1480,64 @@ def _collect_status_metrics(conn, project, today: str) -> dict:
             "budget_hours": project["budget_hours"], "recent_done": recent_done}
 
 
+_DEFAULT_HEADINGS = {"health": "总体健康", "done": "最近完成", "advice": "待办与建议"}
+
+
+def _report_sections(project) -> dict[str, dict]:
+    """M68-I206 (docs/01 §BM.3): per-project template over the fixed skeleton.
+    NULL/missing = every section on with its default heading (backward
+    compatible with every report generated before templates existed)."""
+    raw = project["report_template"] if not isinstance(project, dict) else project.get("report_template")
+    cfg = {k: {"enabled": True, "heading": None} for k in REPORT_SECTION_KEYS}
+    if not raw:
+        return cfg
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError:
+        return cfg
+    for sec in (parsed or {}).get("sections") or []:
+        key = sec.get("key")
+        if key in cfg:
+            cfg[key] = {"enabled": bool(sec.get("enabled", True)),
+                        "heading": (sec.get("heading") or "").strip() or None}
+    return cfg
+
+
 def _render_status_lines(project, today: str, m: dict) -> list[str]:
     """I150: rendering half of the report core — pure function of the
-    metrics dict, no queries (manual and weekly share the exact layout)."""
+    metrics dict, no queries (manual and weekly share the exact layout).
+    M68-I206: section toggles and custom headings come from the project's
+    report_template; the data layer below is untouched."""
     funnel, done_pct = m["funnel"], m["done_pct"]
     overdue, gates_pending = m["overdue"], m["gates_pending"]
     timelog, expense_cost = m["timelog"], m["expense_cost"]
     budget_hours = m["budget_hours"]
+    sec = _report_sections(project)
     lines = [
         f"# 项目状态报告 · {project['name']}",
         f"（生成于 {today} · 覆盖全部活跃工作项）", "",
-        "## 总体健康", "",
-        f"- 工作项漏斗：待办 {funnel['backlog']} · 就绪 {funnel['todo']} · 进行中 {funnel['in_progress']}"
-        f" · 完成 {funnel['done']} · 取消 {funnel['cancelled']}（完成度约 {done_pct}%）",
-        f"- 超期未结：**{overdue}** 项 · 挂起 Gate：**{gates_pending}** 个 · 开放风险：**{m['risks_open']}** 条",
-        f"- 工时投入 {round(timelog / 60, 1)}h"
-        + (f" / 预算 {budget_hours}h（消耗 {round(timelog / 60 / budget_hours * 100)}%）" if budget_hours else "")
-        + f" · 费用行合计 {round(expense_cost, 2)}",
-        "",
-        "## 最近完成", "",
     ]
-    lines += [f"- {t}" for t in m["recent_done"]] or ["-（暂无）"]
-    lines += ["", "## 待办与建议", "",
-              f"- {gates_pending} 个 Gate 待审批，先清审批墙" if gates_pending
-              else "- 审批墙干净，可推进新一批任务",
-              f"- 关注 {overdue} 项超期工作的原因归类（排期过满 / 依赖阻塞 / 范围蔓延）" if overdue
-              else "- 无超期项，节奏健康"]
+    if sec["health"]["enabled"]:
+        lines += [
+            f"## {sec['health']['heading'] or _DEFAULT_HEADINGS['health']}", "",
+            f"- 工作项漏斗：待办 {funnel['backlog']} · 就绪 {funnel['todo']} · 进行中 {funnel['in_progress']}"
+            f" · 完成 {funnel['done']} · 取消 {funnel['cancelled']}（完成度约 {done_pct}%）",
+            f"- 超期未结：**{overdue}** 项 · 挂起 Gate：**{gates_pending}** 个 · 开放风险：**{m['risks_open']}** 条",
+            f"- 工时投入 {round(timelog / 60, 1)}h"
+            + (f" / 预算 {budget_hours}h（消耗 {round(timelog / 60 / budget_hours * 100)}%）" if budget_hours else "")
+            + f" · 费用行合计 {round(expense_cost, 2)}",
+            "",
+        ]
+    if sec["done"]["enabled"]:
+        lines += [f"## {sec['done']['heading'] or _DEFAULT_HEADINGS['done']}", ""]
+        lines += [f"- {t}" for t in m["recent_done"]] or ["-（暂无）"]
+    if sec["advice"]["enabled"]:
+        h = sec["advice"]["heading"] or _DEFAULT_HEADINGS["advice"]
+        lines += ["", f"## {h}", "",
+                  f"- {gates_pending} 个 Gate 待审批，先清审批墙" if gates_pending
+                  else "- 审批墙干净，可推进新一批任务",
+                  f"- 关注 {overdue} 项超期工作的原因归类（排期过满 / 依赖阻塞 / 范围蔓延）" if overdue
+                  else "- 无超期项，节奏健康"]
     return lines
 
 

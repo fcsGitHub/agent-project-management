@@ -92,6 +92,7 @@ export function ReportsPage() {
               title="汇编健康/Gate/完成/超期/预算等投影数据为 Markdown 报告，工件入 git（M49-I148）">
               {generating ? "生成中…" : "📝 生成状态报告"}
             </Button>
+            <ReportTemplateButton pid={pid!} />
             <PrintButton />
             <span className="text-xs text-mut">按五桶状态机计数 · 实时投影</span>
           </span>
@@ -849,5 +850,80 @@ function TimelogCard({ pid }: { pid: string }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** M68-I206 (docs/01 §BM.3): per-project report template — toggle the fixed
+ * skeleton's sections and optionally rename their headings; the data layer
+ * is untouched. NULL template = every section on with default headings. */
+const REPORT_SECTIONS: { key: string; label: string }[] = [
+  { key: "health", label: "总体健康" },
+  { key: "done", label: "最近完成" },
+  { key: "advice", label: "待办与建议" },
+];
+
+function ReportTemplateButton({ pid }: { pid: string }) {
+  const qc = useQueryClient();
+  const project = useQuery({ queryKey: ["project", pid], queryFn: () => api.getProject(pid) });
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Record<string, { enabled: boolean; heading: string }>>({});
+  const tpl = project.data?.report_template?.sections ?? [];
+  const current = (key: string) => {
+    if (draft[key]) return draft[key];
+    const saved = tpl.find((s) => s.key === key);
+    return { enabled: saved ? !!saved.enabled : true, heading: saved?.heading ?? "" };
+  };
+  const set = (key: string, patch: Partial<{ enabled: boolean; heading: string }>) =>
+    setDraft((d) => ({ ...d, [key]: { ...current(key), ...patch } }));
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => { setOpen(true); setDraft({}); }}
+        title="段落开关与自定义标题——数据汇编层不变（M68-I206）">🧩 报告模板</Button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-6" onClick={() => setOpen(false)}>
+          <Card className="mt-10 w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-semibold">🧩 报告模板</span>
+              <button onClick={() => setOpen(false)} className="text-xs text-mut hover:text-ink">✕</button>
+            </div>
+            <div className="space-y-2">
+              {REPORT_SECTIONS.map((s) => {
+                const v = current(s.key);
+                return (
+                  <div key={s.key} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-xs">
+                    <input type="checkbox" checked={v.enabled}
+                      onChange={(e) => set(s.key, { enabled: e.target.checked })} />
+                    <input value={v.heading} placeholder={s.label}
+                      onChange={(e) => set(s.key, { heading: e.target.value })}
+                      className="flex-1 rounded border border-line bg-bg px-2 py-1" />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+              <Button size="sm" variant="primary" onClick={async () => {
+                try {
+                  await api.patchProject(pid, {
+                    report_template: {
+                      sections: REPORT_SECTIONS.map((sec) => ({
+                        key: sec.key,
+                        enabled: current(sec.key).enabled,
+                        heading: current(sec.key).heading || undefined,
+                      })),
+                    },
+                  });
+                  toast.success("报告模板已保存");
+                  setOpen(false);
+                  qc.invalidateQueries({ queryKey: ["project", pid] });
+                } catch (e) {
+                  toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+                }
+              }}>保存</Button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </>
   );
 }

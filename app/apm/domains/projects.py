@@ -83,10 +83,10 @@ def _proj_project_updated(conn, e):
     p = e.payload
     sets, params = [], []
     for key in ("name", "description", "status", "charter", "budget_hours", "cost_budget_usd",
-                "concept_visibility", "auto_deposit"):
+                "concept_visibility", "auto_deposit", "report_template"):
         if key in p:
             val = p[key]
-            if key == "concept_visibility" and isinstance(val, dict):
+            if key in ("concept_visibility", "report_template") and isinstance(val, dict):
                 val = json.dumps(val)  # dict payload → JSON column (field_overrides 同族)
             sets.append(f"{key} = ?")
             params.append(val)
@@ -117,6 +117,7 @@ def get_project(project_id: str) -> dict | None:
     p = dict(row)
     p["disabled_fields"] = json.loads(p.pop("field_overrides") or "[]")
     p["concept_visibility"] = json.loads(p.get("concept_visibility") or "{}")
+    p["report_template"] = json.loads(p["report_template"]) if p.get("report_template") else None
     return p
 
 
@@ -237,6 +238,13 @@ class ProjectPatch(BaseModel):
     cost_budget_usd: float | None = None  # I200: monthly LLM spend cap (0 = off)
     concept_visibility: dict[str, str] | None = None  # I201: concept_id → "owner"
     auto_deposit: bool | None = None  # I205: auto-deposit run artifacts as draft assets
+    report_template: dict | None = None  # I206: {"sections": [{key, enabled, heading?}]}
+
+
+# M68-I206: the status-report skeleton's editable section keys (the renderer
+# in reports.py consumes them; defined here so PATCH validation needs no
+# cross-domain import).
+REPORT_SECTION_KEYS = ("health", "done", "advice")
 
 
 @router.post("/projects")
@@ -345,6 +353,17 @@ def patch_project(project_id: str, body: ProjectPatch) -> dict:
         bad = {v for v in body.concept_visibility.values() if v != "owner"}
         if bad:
             raise HTTPException(status_code=422, detail=f"concept_visibility values must be 'owner' (got {sorted(bad)})")
+    if body.report_template is not None:
+        sections = body.report_template.get("sections") if isinstance(body.report_template, dict) else None
+        if not isinstance(sections, list):
+            raise HTTPException(status_code=422, detail="report_template.sections must be a list")
+        for sec in sections:
+            if not isinstance(sec, dict) or sec.get("key") not in REPORT_SECTION_KEYS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"report_template section keys must be among {sorted(REPORT_SECTION_KEYS)}")
+            if not isinstance(sec.get("enabled", True), bool):
+                raise HTTPException(status_code=422, detail="section.enabled must be a boolean")
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         return project
