@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M70 可见性与可达三件套 完成，下一步 M71 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M71 可寻与可看三件套 调研定义完成，下一步 I213 开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M71 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M70 教训：候选池勿凭印象写——两连大案：事件流浏览器[AuditPage 即是·第五次自证]/自动化执行历史[rule_history 端点已在]当场作废；半截链模式两连中：资产版本历史[git commit 齐全读侧零面]/run 发起工件绑定[后端通前端无入口]——「写侧/后端早已存在、读侧/前端缺位」的 grep 套路[写函数+读函数配对、API 参数与前端调用点配对]值得沿用**）→ 三路并行 WebSearch → docs/01 新节（§BP）+ docs/10 §M71 节 + 看板行 →「M71 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M71 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；②对话/运行启动模板的导入导出（watch 规则[M55]与报告已有导出先例——prompt_templates 是否缺对称面待查）；③工件项的产物预览（FeaturePage 工件是否已有渲染预览待查）；④维持项（长清单见前轮，均维持不做）。
+2. **M71 实施（下一步，I213 起步）**：调研定义已提交（8d3122a，docs/01 §BP + docs/10 §M71 节）。三迭代：**I213 工件内容全文搜索**（artifacts_search FTS5 表入 drop_projections + artifact.created/human_edited 投影器同步索引[items_search 同款 bigram] + search 端点第四 type + SearchPage 工件 chip——**只索引当前版·多项目隔离照既有**）；**I214 工件预览通用入口**（新 components/ArtifactPreviewDrawer[getArtifact content+history+diff] + CommentsModal 正则识别 `artifacts/…` 反引号引用可点 + RunsPage 产出行可点——**FeaturePage/审批面零改动**）；**I215 指令模板导入导出**（watch M55 对称面照搬：GET export/POST import JSON·重名跳过计数 + TemplatesDrawer 按钮 + 冒烟 76[工件写→搜索命中→预览端点→导出→他项目导入重名跳过]）。然后全量回归 + docs/10 看板行闭环 + M71 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
