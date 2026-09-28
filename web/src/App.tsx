@@ -16,6 +16,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { OntologyPage } from "./pages/OntologyPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { MyWorkPage } from "./pages/MyWorkPage";
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="audit" element={<AuditPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="ontology" element={<OntologyPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/templates" element={<TemplatesPage />} />

@@ -1,7 +1,7 @@
 /** Ontology page: read-only browsing of the project's type system + validation
  *  + the ontology-learning flywheel (M4-I14, docs/08 §8: scan → review → apply)
  *  + versioning with semantic diff & impact analysis (M4-I15). */
-import { useParams } from "react-router-dom";
+import { useSearchParams, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
@@ -11,6 +11,12 @@ import { Badge, Button, Card, Empty, Input, Modal, cx } from "../components/ui";
 export function OntologyPage() {
   const { pid } = useParams();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
+  // I211: 设置中心深链 ?section=visibility|roles → 滚动定位对应面板
+  useEffect(() => {
+    const s = searchParams.get("section");
+    if (s) document.getElementById(`onto-${s}`)?.scrollIntoView({ block: "start" });
+  }, [searchParams]);
   const me = useQuery({ queryKey: ["me"], queryFn: api.authMe });
   const members = useQuery({ queryKey: ["members", pid], queryFn: () => api.listMembers(pid!), enabled: !!pid });
   const myRole = (members.data?.members ?? []).find((m) => m.user_id === me.data?.user_id)?.role;
@@ -1507,7 +1513,7 @@ function ConceptVisibilityPanel({ pid, concepts }: {
     }
   };
   return (
-    <Card className="p-4">
+    <Card className="p-4" id="onto-visibility">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-semibold">🙈 概念可见性</span>
         <span className="text-xs text-mut">
@@ -1547,7 +1553,7 @@ function RoleInstructionPanel({ pid, agentRoles }: {
   const rows = layers.data?.instructions ?? [];
   const byRole = new Map(rows.map((r) => [r.agent_role, r]));
   return (
-    <Card className="p-4">
+    <Card className="p-4" id="onto-roles">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-semibold">📌 项目角色指令</span>
         <span className="text-xs text-mut">

@@ -34,7 +34,8 @@ const RAIL = [
   { to: "/assets", label: "Assets", icon: Library, global: true },
   { to: "/templates", label: "模板", icon: Shapes, global: true },
   { to: "/audit", label: "Audit", icon: ScrollText },
-  { to: "/ontology", label: "本体", icon: SettingsIcon, page: true },
+  { to: "/settings", label: "设置", icon: SettingsIcon, page: true },
+  { to: "/ontology", label: "本体", icon: Shapes, page: true },
 ];
 
 export function AppShell() {
