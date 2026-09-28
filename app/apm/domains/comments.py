@@ -366,3 +366,61 @@ def extract_task(comment_id: str, body: ExtractIn) -> dict:
         payload={"comment_id": comment_id, "item_id": created["id"], "text": text},
     )
     return {"extraction_id": extraction_id, "item": created, "text": text}
+
+
+# --------------------------------------- M69-I209: run artifact write-back
+# (docs/01 §BN.3) — the Copilot coding agent pattern: the human's original
+# work item stays the review surface, the agent's output flows back to it as
+# a comment citing the artifact path + run id. Runs carry item_id since M4
+# (dependency-chained kickoff) but run.succeeded only fed the scheduler — the
+# return half of the chain was missing. Comments are cheap (one event, no
+# git/network I/O), so this hook emits inline instead of queueing a worker
+# (mailer/pusher/auto-deposit mirror, sixth member). Failed/interrupted runs
+# never comment: untrustworthy output is noise, not news.
+
+def install_run_writeback() -> None:
+    """Idempotent: wire the run.succeeded hook (called from app lifespan)."""
+    events.add_post_emit_hook(_run_writeback)
+
+
+def _run_writeback(event: events.Event) -> None:
+    if event.event_type != "run.succeeded" or not event.project_id:
+        return
+    output = event.payload.get("output") if isinstance(event.payload, dict) else None
+    path = output.get("artifact_path") if isinstance(output, dict) else None
+    if not path:
+        return
+    run_id = event.agg_id
+    conn = db.get_conn()
+    run = conn.execute("SELECT item_id FROM runs WHERE id = ?", (run_id,)).fetchone()
+    if not run or not run["item_id"]:
+        return  # run not bound to a work item — nothing to flow back to
+    # idempotency: one write-back per run (the comment cites the run id;
+    # rebuilds replay projections without re-firing post-emit hooks)
+    dup = conn.execute(
+        "SELECT 1 FROM item_comments WHERE item_id = ? AND body LIKE ? AND deleted_at IS NULL",
+        (run["item_id"], f"%{run_id}%")).fetchone()
+    if dup:
+        return
+    outcome = event.payload.get("outcome") or "ok"
+    body = (
+        f"🤖 Agent 产出已回流（run `{run_id}`）\n\n"
+        f"- 工件路径：`{path}`\n"
+        f"- 结果：{outcome}\n\n"
+        f"完整产出见对应对话与运行轨迹；人工评审后可沉淀入资产库。"
+    )
+    events.emit(
+        event_type="comment.created",
+        agg_type="comment",
+        agg_id=new_id("cm"),
+        project_id=event.project_id,
+        actor_type="system",
+        actor_id=f"runtime:{run_id}",
+        payload={
+            "item_id": run["item_id"],
+            "author_id": f"runtime:{run_id}",
+            "body": body,
+            "mentions_json": "[]",
+            "author_name": "Agent 产出",
+        },
+    )

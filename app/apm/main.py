@@ -53,6 +53,9 @@ def create_app() -> FastAPI:
         from apm.domains.watch import install_watcher
 
         install_watcher()  # watch 规则匹配 hook（幂等，M54-I162——规则是数据不是代码）
+        from apm.domains.comments import install_run_writeback
+
+        install_run_writeback()  # run 产物回流工作项评论 hook（幂等，M69-I209——同步轻量只发事件）
         from apm.domains.automations import install_scheduler
 
         if config.settings.scheduler_enabled:
