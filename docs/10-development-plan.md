@@ -2080,6 +2080,36 @@ agent-project-management/
 
 ---
 
+### M68 · 工厂个性化与沉淀三件套（I204-I206，约 9 人日）
+
+> v3.0 新增（2026-09-28，docs/01 §BM 前置调研）。prompt 分层 L0~L4 之间「项目×角色」一格空缺（AGENTS.md 嵌套模型=深层优先）；资产库只有手动 deposit（run 完成后产物躺在 output JSON 里）；M50 报告骨架固定（用户无可编辑表达）。**防重查：运行排队与并发上限[M48 §AS.3 已研究 configured capacity 面]——作废。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I204 | 项目级角色指令层（prompt_layers L1.5：project×role 一条 + build_context 组装插入 L1/L2 之间 + GET/PUT 端点 + 版本沿用 git 管道 + OntologyPage 编辑面板 + 单测） | docs/01 §BM.1 | prompt_layers project_id+agent_role 列 | 3d |
+| I205 | 运行产物自动沉淀（projects.auto_deposit 设置 + run.succeeded post-emit hook→deposit Path A + git blob sha 去重 + draft 止步 + 单测） | docs/01 §BM.2 | assets.deposit/M44 记账 | 3d |
+| I206 | 报告模板定制+冒烟 73+收尾审阅（projects.report_template JSON[段落开关+自定义标题] + 汇编核读模板 + ReportsPage 模板编辑 + 冒烟 73 + 全量回归 + docs 收口 + M68 审阅） | docs/01 §BM.3 | M50 汇编核 | 3d |
+
+#### I204 · 项目级角色指令层（3d）
+
+- 任务：prompt_layers 复用（level='role_project'·project_id+agent_role 既有列）+ `GET/PUT /projects/{id}/role-instructions`（role 白名单=本体 concepts agent_roles 并集·内容 1-4000 字）+ build_context 在 L1 与 L2 之间插入 `[L1.5 项目角色指令 · {role}]` 段（按 run 的 agent_role 取）+ 版本化沿 prompt_layers git 管道 + OntologyPage「📌 项目角色指令」面板（按角色 textarea+保存）。
+- DoD：单测（写入→build_context 含该段/未配置角色无段/版本递增/rebuild 一致/role 未注册 422）。
+- 演示路径：给 dev-agent 写「本项目用 pytest」→ 发起 run → 上下文抽屉 L1.5 段可见。
+
+#### I205 · 运行产物自动沉淀（3d）
+
+- 任务：projects.auto_deposit 列（默认关·project.updated 链）+ assets 域 post-emit hook 监听 run.succeeded（output.artifact_path 存在且设置开→deposit Path A 自动 draft·provenance 带 run id）+ **git blob sha 去重**（同 project 同 sha 已沉淀→跳过+deduped 标记）+ 失败/中断 run 不沉淀 + 项目设置开关 UI（OntologyPage 可见性面板旁）。
+- DoD：单测（设置开+有产物→draft 资产入册+provenance 含 run/设置关→不沉淀/同 sha 二次→跳过 deduped/失败 run 不沉淀/rebuild 一致）。
+- 演示路径：开 auto_deposit → 跑 run 出工件 → 资产库出现 draft（provenance 指 run）→ 重跑同产物 → 资产库不重复。
+
+#### I206 · 报告模板定制+冒烟 73+收尾审阅（3d）
+
+- 任务：projects.report_template JSON（sections 缺省=现行骨架全开·向后兼容 NULL）+ 汇编核按模板跳段/替换标题（手动端点与 sweep 周报同源）+ 段 key 白名单校验 + ReportsPage 模板编辑抽屉（段落 toggle+标题输入）+ **冒烟 73**（角色指令入上下文→产物自动沉淀去重→模板关段出报告）+ 全量回归 + docs 收口 + M68 审阅。
+- DoD：冒烟 73 GREEN；全量 pytest 分片收敛绿；关段后报告正文不含该段标题。
+- 演示路径：「项目角色指令改行为 → run 产物自动进资产库 → 周报按模板只出我要的段」个性化一线。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2280,6 +2310,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-28 M68 调研定义（§BM） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**分叉采纳面[连续多轮无使用证据——维持降级]**、**运行排队与项目级并发上限[M48 §AS.3 已研究「configured capacity ≠ effective concurrency」与互斥边界——排队上限正是其 configured capacity 面·作废]**、**watch 摘要批量投递[M55 已裁决——维持]**。三路 WebSearch：项目级 agent 指令（[dev.to](https://dev.to)/[Towards AI](https://pub.towardsai.net)/[aihero.dev](https://www.aihero.dev)——**AGENTS.md 成开放标准·嵌套合并+深层优先·工具薄包装**=按作用域收窄的常驻指令·具体覆盖全局）、产物去重（[ResearchGate 去重综述](https://www.researchgate.net)/[OneUptime 容器层缓存](https://oneuptime.com)/[DVC 内容寻址](https://celso.ch)——**CAS/SHA256 是正统·SimHash 仅近重复**·git blob 即现成指纹）、报告模板（[Atlassian](https://www.atlassian.com)/[ONES](https://ones.com)/[PPM Express](https://ppmexpress.com)/[Jotform](https://www.jotform.com)——Jira/OpenProject 原生无用户自定义段构建器·独立工具补位·**模板=段落清单数据仍平台汇编**）。定案 M68=工厂个性化与沉淀三件套（I204 项目级角色指令/I205 产物自动沉淀/I206 报告模板定制） |
 | **M67 生态出站与权限纵深三件套（I201-I203）** | 已完成 | 2026-09-28 | 2026-09-28 | 3 迭代 / 约 9 人日（docs/01 §BL + docs/10 §M67）：I201 概念级可见性（projects.concept_visibility 两级声明[声明即 owner-only·值白名单 422·project.updated 链 dict→json.dumps] + `can_see_concept`[admin/owner/local 三分支与 _visible 同构] + 读面过滤[list/board/CSV/trash·total 反映过滤后] + 写面 **403/404 语义分野**[create 概念受限 403·隐匿项变更面 require_visible_item 全 404 不泄露存在性] + 搜索 items+comments 双面过滤 + 参与类通知静默[mention/审批/watch 照常·项本身仍 404=GitHub 私库语义] + OntologyPage 🙈 owner 面板）/ I202 ntfy 推送通道（pusher.py **mailer 物理通道镜像**[hook+队列 500+后台线程·POST Title/Priority/Tags/Click·mention·approval=Priority5] + users.push_url/push_token[**复用 webhook `_validate_url` 同一 SSRF 门·allow_private 逃生门收内网自托管**] + 通道矩阵第三列[prefs.push 列·pref_allows 列名直接生效·watch channels 扩 push·静默时段+digest 豁免照搬] + push.notified/failed 与 email.notified 同族入流[**审计 trail 跨物理通道一致**] + 铃铛推送列 + MyWorkPage 📲 卡）/ I203 Prometheus 出站（config.metrics_enabled 默认关=404 + `GET /system/metrics` 手写 exposition 0.0.4 零依赖[perf ring 桶→histogram 全局无路由标签·events 账本→counter·**红利十六：账本已在流中出站只是读侧**·runs/db gauge] + **冒烟 72**）。基线：pytest **509** 全绿（非 smoke 437 EXIT=0 + smoke runner **72 GREEN** 对账）+ vitest **21** + build 绿 |
 | 2026-09-28 M67 调研定义（§BL） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**分叉采纳面[仍缺真实使用证据——维持降级]**、**watch 摘要批量投递[M55 已裁决与周报节律重复——无新证据不重提]**、**定时触发自动化[M32-I98 已建 schedule:daily sweep 评估——防重查第四次自证：候选池里的「新缺口」早已存在]**、**agent 互审链[orchestrator 相位图+人审 Gate 已是审阅架构核心——互审与人在环裁决冲突·方向性否决]**、run 队列/并发上限[M48 并发治理邻接——增量不足]。三路 WebSearch：层级权限语义（[OpenProject](https://www.openproject.org) 角色×模块矩阵/[Jira permission schemes+issue security levels](https://confluence.atlassian.com)/[ONES 字段级综述](https://ones.com)——共识=层级收敛·多数场景只要「某类工作项保密」·**两级声明即够**）、自托管推送（[ntfy docs](https://docs.ntfy.sh)=一个带头 POST·Priority 1-5/Tags/Title/Click 语义最富+[Telegram bot](https://core.telegram.org/bots/api) 云端-only 无优先级+[Apprise](https://github.com/caronc/apprise)=胶水位但引库违零依赖——2025 工具趋势是接 Apprise 而非自写集成）、Prometheus 出站（[prometheus-fastapi-instrumentator](https://github.com/trallnag/prometheus-fastapi-instrumentator)=FastAPI 标准·命名/四类型/[低基数标签](https://oneuptime.com)·**/metrics 无内建认证须环回或代理**[vpsforlife]——手写 exposition 零依赖可行）。定案 M67=生态出站与权限纵深三件套（I201 概念级可见性/I202 ntfy 推送/I203 Prometheus 出站） |
 | I201 概念级可见性 | 已完成 | 2026-09-28 | 2026-09-28 | projects.concept_visibility（schema+ALTER·两级声明 {concept_id:"owner"}=声明即仅 owner/实例管理员可见·值白名单 422·**dict 载荷投影器 json.dumps/读侧 json.loads 对偶**）+ `can_see_concept` 判定 + 读面过滤[list/board/CSV/trash·total 反映过滤后集] + 写面 require_visible_item 六变更面全 404（**存在性不泄露**）+ create 概念受限 403（项目可见而类目拒）+ 搜索 items+comments 双面过滤（评论带出项标题同样泄漏）+ 参与类通知静默 `_concept_hidden`（**mention/审批/指派/watch 照常=治理必达·项本身仍 404**）+ OntologyPage「🙈 概念可见性」面板（owner 限定·概念 toggle🔒）+ test_concept_visibility 3 项[六读面/写面/参与静默+rebuild 存活——**用 I199 PAT 做 rebuild 后身份验证（凭据行消失但 token 事件重放）·u_admin cookie 会掩护 Bearer 断言须先登出（M66 坑第二次现身）**] |

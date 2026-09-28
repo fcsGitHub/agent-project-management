@@ -1878,3 +1878,26 @@ M66 = **工厂接入与治理三件套**：I198 对话树导航（树视图—�
 **BL.4 M67 取舍**
 
 M67 = **生态出站与权限纵深三件套**：I201 概念级可见性（两级声明+读/写/通知三门）/ I202 ntfy 推送通道（第三物理通道——mailer 镜像+通道矩阵第三列）/ I203 Prometheus 出站+冒烟 72+审阅（perf ring 的出站正名），约 9 人日。分叉采纳面（待使用证据）、watch 批量投递（待新证据）、Telegram bot、Apprise 引库、字段级掩码、per-member 可见性覆盖、prometheus_client 引库、pushgateway 留 backlog。
+
+## BM. M68 前置调研：项目级角色指令 / 运行产物自动沉淀 / 报告模板定制（2026-09-28）
+
+> 目标协议触发：M67 完成后开启。防重查：候选池 grep——**分叉采纳面（仍无真实使用证据——连续多轮维持降级）**、**运行排队与项目级并发上限（M48 §AS.3 已研究「configured capacity ≠ effective concurrency」与互斥边界划分——排队上限正是其 configured capacity 面，作废）**、**watch 摘要批量投递（M55 已裁决——维持）**。本轮三路新调研（**项目级角色指令层[prompt 分层 L0 全局/L1 项目宪章/L2 功能简报/L3 会话指令/L4 角色提示词——「项目×角色」这一格空缺·无调研] / 运行产物自动沉淀[assets 有手动 deposit Path A·run 完成后产物无自动入库名·去重无调研] / 报告模板定制[M50 调研了骨架共识与分发链·用户可编辑的定制面无记录]**），选定 **M68 = 工厂个性化与沉淀三件套**。
+
+**BM.1 项目级角色指令层（AGENTS.md 嵌套模型——specificity wins）**
+
+- 产品现状（[dev.to: AGENTS.md vs CLAUDE.md vs .cursorrules](https://dev.to)、[Towards AI: 单一事实源](https://pub.towardsai.net)、[aihero.dev 指南](https://www.aihero.dev)）：**AGENTS.md 已成为工具无关的开放标准**（OpenAI Codex/Devin/Cursor/Aider 采纳；Claude Code 2.1.277+ 无 CLAUDE.md 时回退读它）；**嵌套合并+深层优先**是共同语义（`frontend/AGENTS.md` 与根文件合并、更具体的指令胜出）；2025+ 最佳实践=AGENTS.md 单一事实源+各工具薄包装。本质：**按作用域逐层收窄的常驻指令，作用域越深优先级越高**。
+- 对本项目的映射：prompt 分层 L0 全局→L1 项目宪章→L2 功能简报→L3 会话指令→L4 角色提示词（实例 YAML）——「**项目×角色**」一格空缺（「本项目的 dev-agent 一律 pytest」无处安放）。补法=prompt_layers 表已有 project_id+agent_role 列（粒度现成）：新层 **L1.5 项目角色指令**（按 project×role 一条，git 版本化沿用 prompt_layers 管道），组装时插在 L1 与 L2 之间、先于 L3/L4——**具体作用域覆盖全局角色提示词**（AGENTS.md 深层优先的直接翻译）。**不做** 功能级×角色双维嵌套（两层足够，深层组合爆炸）、per-tool 包装（单运行时无此需求）、大编辑器（textarea+版本列表沿用既有 prompt 层 UI 惯例）。
+
+**BM.2 运行产物自动沉淀（CAS 去重零成本——git blob 即指纹）**
+
+- 工程共识（[ResearchGate: 存储去重综述](https://www.researchgate.net)、[OneUptime: 容器层缓存](https://oneuptime.com)、[celso.ch: DVC 内容寻址](https://celso.ch)）：**内容寻址存储（CAS）是制品注册表的去重正统**——OCI 镜像层按 SHA256 摘要寻址、相同内容全局只存一份；近重复检测才需要 SimHash 类模糊指纹；DVC 把「加密哈希+内容寻址+远端去重」做成模型工件版本管理的标准件。
+- 对本项目的映射：工件本就入 git——**git blob SHA 就是现成内容指纹，去重零成本**（CAS 已在存储层）。补法=project 设置 `auto_deposit`（默认关）：run.succeeded 且 output 带 artifact_path → 走既有 deposit Path A 自动建 draft 资产（provenance 链带 run id）；同 project 同 blob sha 已沉淀过 → 跳过并标 deduped（**不做 SimHash 近重复**——工件是文本，精确去重覆盖主场景，模糊匹配误召回归属资产评审）。人工评审门不绕过：自动沉淀止步 draft，publish 仍走既有 Gate；触发点=post-emit hook 监听 run.succeeded（mailer/pusher 同族——hook 只入队不阻塞写路径）；失败/中断 run 不沉淀（产物不可信）。
+
+**BM.3 报告模板定制（骨架可配置——汇编视图的用户表达权）**
+
+- 产品现状（[Atlassian DC roadmap](https://www.atlassian.com)、[ONES: OpenProject 上手](https://ones.com)、[PPM Express](https://ppmexpress.com)/[Jotform 报表构建器](https://www.jotform.com)）：Jira/OpenProject **原生均无用户自定义报告段的构建器**——Jira 靠自定义报表（服务项目）+Marketplace 应用，OpenProject 靠自定义字段+过滤器；「用户自定义段落的报告模板」由独立工具补位（PPM Express 状态报告自动化、Jotform 拖拽构建器、Mastt AI 模板工作室）。共识=**模板=段落清单（开关+自定义标题），数据仍由平台汇编**。
+- 对本项目的映射：M50 汇编核已按固定骨架（健康结论→完成/计划→风险→指标）分层组装——补一层**项目级模板**：projects.report_template JSON（`sections: [{key: health|done|planned|risks|metrics|comments, enabled, heading?}]`，缺省=现行骨架全开，向后兼容）；手动报告端点与 sweep 周报同读此模板——段开关跳过、自定义标题替换默认标题，数据层零改动。**不做** 自由拖拽排序（段落固定序已满足骨架共识）、per-subscriber 模板（I157 订阅制语义是「谁收」不是「收什么」）、多模板并存（一项目一模板=一人指挥语境够用）。
+
+**BM.4 M68 取舍**
+
+M68 = **工厂个性化与沉淀三件套**：I204 项目级角色指令层（L1.5——AGENTS.md 深层优先的翻译）/ I205 运行产物自动沉淀（CAS 去重零成本·评审门不绕过）/ I206 报告模板定制（段落开关+自定义标题·数据层零改动）+ 冒烟 73 + 审阅，约 9 人日。SimHash 近重复、功能级×角色双维嵌套、拖拽排序模板、per-subscriber 模板、运行排队与并发上限（M48 面）留 backlog。
