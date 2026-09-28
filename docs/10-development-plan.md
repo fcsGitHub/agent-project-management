@@ -2110,6 +2110,36 @@ agent-project-management/
 
 ---
 
+### M69 · 实时与复用三件套（I207-I209，约 9 人日）
+
+> v3.0 新增（2026-09-29，docs/01 §BN 前置调研）。Board.tsx 是最大未接 SSE 页面（run 生命周期对看板不可见）；高频发起指令每次手敲（与 M35 评论常用回复/M4 模板包三层互斥的空缺层）；runs.item_id 自 M4 有存储但 run.succeeded 只走 scheduler——产出回流工作项半截链。**防重查：分叉采纳面[连续多轮无使用证据——维持降级]、看板徽章[Board.tsx 零 SSE 属实]、指令模板[无调研记录非重复]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I207 | 看板运行实时徽章（Board.tsx 接 SSE run 生命周期[item_id 关联卡渲染 🤖 脉冲徽标+结果短徽标·随失效收敛] + 单测） | docs/01 §BN.1 | I138 SSE 总线/失效通道 | 3d |
+| I208 | 指令模板库（新域 prompt_templates[project×title×body×role 可选] + CRUD 端点 + 对话输入框 `/` 唤起选择选中即填 + OntologyPage 或对话页管理面 + 单测） | docs/01 §BN.2 | prompts git 管道/M35 交互惯例 | 3d |
+| I209 | run 产物回流工作项+冒烟 74+收尾审阅（run.succeeded post-emit hook[run 带 item_id 且有 artifact→工件项自动评论带路径+run 溯源·同 run 幂等·失败不评] + 冒烟 74 + 全量回归 + docs 收口 + M69 审阅） | docs/01 §BN.3 | I205 hook 族/comments 域 | 3d |
+
+#### I207 · 看板运行实时徽章（3d）
+
+- 任务：Board.tsx 订阅 SSE run.requested/started/succeeded/failed（既有 useSSE hook）+ 卡片 item_id 匹配渲染 🤖 运行中脉冲徽标（角色名 tooltip）+ 成功/失败短暂结果徽标后失效收敛（invalidateItemData 同族）+ 卡片详情抽屉运行中状态透出。
+- DoD：单测（SSE 事件驱动徽标出现/消失/失败红色态/失效收敛后徽标清除）；看板无 SSE 时零回归。
+- 演示路径：看板停在某项目 → 对话发起带 item 的 run → 卡片即时亮 🤖 脉冲 → 完成后短徽标收敛。
+
+#### I208 · 指令模板库（3d）
+
+- 任务：prompt_templates 表+投影器（template.created/updated/deleted 事件·project 域）+ CRUD 端点（成员门·body 1-4000·agent_role 可选白名单校验）+ git 版本化沿 prompts/ 管道 + 对话输入框 `/` 唤起模板选择浮层（↑↓ 导航回车选中即填入输入框可改后发送）+ 模板管理面板（对话页侧栏或 OntologyPage）。
+- DoD：单测（CRUD→rebuild 一致/角色白名单 422/成员门 403）；`/` 唤起不误伤普通输入。
+- 演示路径：存「生成 XX 功能 PRD」模板 → 新对话输入 `/` → 选中填入 → 改两笔发送 → run 照常走。
+
+#### I209 · run 产物回流工作项+冒烟 74+收尾审阅（3d）
+
+- 任务：run.succeeded post-emit hook（run 带 item_id 且 output.artifact_path→工件项 comment.created 自动评论[路径+摘要+run 溯源·actor_type=system]·同 run 幂等查重·失败/中断 run 不评）+ 通知面沿用既有订阅（不新增 kind）+ **冒烟 74**（看板徽章亮灭→模板 `/` 填入→run 回流评论）+ 全量回归 + docs 收口 + M69 审阅。
+- DoD：冒烟 74 GREEN；同 run 重放不重复评论；失败 run 工件项零痕迹。
+- 演示路径：工件的 run 完成后回到工件项——产出评论已在，人原地点开路径审阅。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2310,6 +2340,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-29 M69 调研定义（§BN） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**分叉采纳面[连续多轮无真实使用证据——继续维持降级]**、看板运行徽章[**grep 证实 Board.tsx 零 SSE 接入**[sse.ts token_delta 只走对话视图失效归零]——看板面缺口属实非重复]、指令模板库[**grep 证实无调研记录**·与 M35 常用回复[评论面]/M4 模板包[项目实例化层]/模板中心[ontologies pack]三层皆不同——对话/运行发起指令复用层空缺]、补充验证发现第四候选 runs.item_id 自 M4 有存储但 run.succeeded 只走 scheduler[**产出回流工作项半截链**]。三路 WebSearch：看板实时指示（[Atlassian kanban](https://www.atlassian.com/agile/kanban/boards)/[Nulab kanban cards](https://nulab.com/learn/project-management/kanban-cards)/[Tmetric](https://tmetric.com/glossary/kanban-time-tracking)——**数字看板共识=卡片实时同步·presence dot/live avatar[Linear]/行内状态徽标[Jira]是成熟惯例**·增量全在接入面）、指令模板（[index.dev Copilot .prompt.md](https://www.index.dev)/[GitHub Docs](https://docs.github.com)/[VS Code Copilot instruction system](https://gist.github.com)——**`.prompt.md` 官方形态：指令与数据同库版本化+slash 调用贴近工作流**·PromptLayer 类 SaaS 重炮一人工厂不需要）、产出回写（[Slack Code 多人 agent 通道](https://www.eneralabs.com)/Copilot coding agent assign issue→PR→**issue 与 PR 双侧发进度评论**——**write-back to issue 已是 2026 coding agent 标准闭环**·人的原始工单保持为评审面·产出以评论+链接回流）。定案 M69=实时与复用三件套（I207 看板运行实时徽章/I208 指令模板库/I209 run 产物回流工作项） |
 | **M68 工厂个性化与沉淀三件套（I204-I206）** | 已完成 | 2026-09-28 | 2026-09-28 | 3 迭代 / 约 9 人日（docs/01 §BM + docs/10 §M68）：I204 项目级角色指令层（prompt_layers L1.5_role_project——**project_id+agent_role 列自建表就有·只差 level 语义** + 内容走 git 不进投影表[read_prompt] + GET/PUT role-instructions[角色注册表 422·1-4000 字] + build_context L1/L2 之间插段 + **engine._messages system 追加=深层作用域细化全局角色提示词**[AGENTS.md 嵌套语义·try 包裹] + OntologyPage 📌 面板）/ I205 运行产物自动沉淀（projects.auto_deposit + run.succeeded post-emit hook 入队+后台 worker[**mailer/pusher 同族第五员**] + 解析链 artifact kind→deposits_to 资产 kind→accepts 库 + **sha256 内容去重[read_asset_body strip 归一化]** + provenance 带 run_id/actor=runtime:* 不回环 + **评审门不绕过止步 draft** + 失败 run 不沉淀 + ⚙ 开关卡）/ I206 报告模板定制（projects.report_template[REPORT_SECTION_KEYS 定义在 projects 供校验·reports 反向导入无环] + _render_status_lines 段开关+自定义标题[**手动与 sweep 周报同读一个模板·数据层零改动**·NULL 全开向后兼容] + ReportsPage 🧩 抽屉 + **冒烟 73**）。基线：pytest **519** 全绿（非 smoke 446 EXIT=0 + smoke runner **73 GREEN** 对账）+ vitest **21** + build 绿 |
 | 2026-09-28 M68 调研定义（§BM） | 已完成 | 2026-09-28 | 2026-09-28 | 防重查：**分叉采纳面[连续多轮无使用证据——维持降级]**、**运行排队与项目级并发上限[M48 §AS.3 已研究「configured capacity ≠ effective concurrency」与互斥边界——排队上限正是其 configured capacity 面·作废]**、**watch 摘要批量投递[M55 已裁决——维持]**。三路 WebSearch：项目级 agent 指令（[dev.to](https://dev.to)/[Towards AI](https://pub.towardsai.net)/[aihero.dev](https://www.aihero.dev)——**AGENTS.md 成开放标准·嵌套合并+深层优先·工具薄包装**=按作用域收窄的常驻指令·具体覆盖全局）、产物去重（[ResearchGate 去重综述](https://www.researchgate.net)/[OneUptime 容器层缓存](https://oneuptime.com)/[DVC 内容寻址](https://celso.ch)——**CAS/SHA256 是正统·SimHash 仅近重复**·git blob 即现成指纹）、报告模板（[Atlassian](https://www.atlassian.com)/[ONES](https://ones.com)/[PPM Express](https://ppmexpress.com)/[Jotform](https://www.jotform.com)——Jira/OpenProject 原生无用户自定义段构建器·独立工具补位·**模板=段落清单数据仍平台汇编**）。定案 M68=工厂个性化与沉淀三件套（I204 项目级角色指令/I205 产物自动沉淀/I206 报告模板定制） |
 | I204 项目级角色指令层 | 已完成 | 2026-09-28 | 2026-09-28 | prompt_layers L1.5_role_project（**project_id+agent_role 列自建表就有·只差 level 语义**——layer_id 走通用分支）+ **内容在 git 不在投影表**（get_role_instruction 走 read_prompt——prompt_layers 只存指针/版本）+ GET/PUT /projects/{id}/role-instructions（角色注册表 get_role 校验 422·1-4000 字·prompt.updated 事件+write_prompt git 版本化）+ build_context L1/L2 之间插 [L1.5 项目角色指令] 段（未配置零段零噪声）+ **engine._messages system 追加 L1.5**（深层作用域细化全局角色提示词·try 包裹绝不炸 run）+ OntologyPage「📌 项目角色指令」面板（角色 textarea+v 徽标）+ test_role_instructions 3 项[写入读回+merged_preview 顺序+版本递增/校验+真实 run 挂 Gate 终态/rebuild 存活——**context 键是 merged_preview 非 merged**] |

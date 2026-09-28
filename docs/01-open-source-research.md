@@ -1901,3 +1901,26 @@ M67 = **生态出站与权限纵深三件套**：I201 概念级可见性（两�
 **BM.4 M68 取舍**
 
 M68 = **工厂个性化与沉淀三件套**：I204 项目级角色指令层（L1.5——AGENTS.md 深层优先的翻译）/ I205 运行产物自动沉淀（CAS 去重零成本·评审门不绕过）/ I206 报告模板定制（段落开关+自定义标题·数据层零改动）+ 冒烟 73 + 审阅，约 9 人日。SimHash 近重复、功能级×角色双维嵌套、拖拽排序模板、per-subscriber 模板、运行排队与并发上限（M48 面）留 backlog。
+
+## BN. M69 前置调研：看板运行实时徽章 / 指令模板库 / run 产物回流工作项（2026-09-29）
+
+> 目标协议触发：M68 完成后开启。防重查：候选池 grep——**分叉 run 合并采纳面（连续多轮无真实使用证据——继续维持降级）**、看板运行徽章（grep 证实 Board.tsx 零 SSE 接入[sse.ts 的 token_delta 处理只走对话视图失效归零]——**看板面缺口属实非重复**）、指令模板库（grep 证实无调研记录；与 M35 常用回复[评论面 canned replies]、M4 项目模板包[项目实例化层]、模板中心[ontologies pack]三层皆不同——**对话/运行发起指令的复用层空缺**）。本轮补充验证发现第四候选：runs 投影 item_id 列与 get_run 详情透出早已存在（M4 起依赖链接续），但 engine run.succeeded 完成路径只走 scheduler——**产出回流工作项的半截链**。本轮三路新调研（**看板卡片实时运行指示 / 可复用指令模板的产品形态 / agent 产出回写 issue 的业界共识**），选定 **M69 = 实时与复用三件套**。
+
+**BN.1 看板卡片运行实时徽章（presence dot——看板面的 agent 活动可见性）**
+
+- 产品现状（[Atlassian kanban](https://www.atlassian.com/agile/kanban/boards)、[Nulab kanban cards](https://nulab.com/learn/project-management/kanban-cards)、[Tmetric 实时看板](https://tmetric.com/glossary/kanban-time-tracking)）：数字看板共识是「卡片实时同步——成员在别处拖动/更新，你面前即时变化」；**进行中指示器**的经典形态是 presence dot / live avatar（Linear 在卡上显示谁在看、Figma 光标级 presence）、行内状态徽标（Jira inline status）与 SLA 实时计时。**卡片级实时状态徽章是成熟惯例而非新发明**——增量全在接入面。
+- 对本项目的映射：SSE 总线（I138 `run.token_delta` 瞬态）+ 失效通道早于看板存在，Board.tsx 是**最大的未接 SSE 页面**。补法=Board 订阅 run 生命周期事件（run.requested/started/succeeded/failed），对 **item_id 关联的卡片**渲染 🤖 运行中徽标（进行中=脉冲点+角色名；成功/失败=短暂结果徽标后随失效收敛）——一人在看板上扫一眼即知哪些工件的 agent 正在干活。**不做** 卡上逐字 token 流（对话视图已有，看板是总览面）、全卡片轮询（SSE 事件驱动已够）、presence 光标（单人多 agent 语境无协作 presence 语义）。
+
+**BN.2 指令模板库（saved prompts——把好用的指令沉淀为工厂资产）**
+
+- 产品现状（[index.dev: Copilot code review](https://www.index.dev)、[GitHub Docs: Where to use Copilot](https://docs.github.com)、[VS Code Copilot instruction system 分析](https://gist.github.com)）：**GitHub Copilot 的 `.prompt.md` 文件已是官方形态**——把可复用指令存为文件，slash 调用，与 custom instructions 组合保证复杂任务一致执行；Copilot Memory 沉淀仓库事实与用户偏好。共识=**指令与数据同库版本化 + 调用入口贴近工作流**（slash/palette），而非独立 prompt 管理平台（PromptLayer 类是 SaaS 重炮，一人工厂不需要）。
+- 对本项目的映射：与 M35 常用回复（评论面）、M4 模板包（项目实例化）三层互斥，缺的是**对话/运行发起指令的复用**——「帮我生成 XX 功能的 PRD」这类高频指令每次手敲。补法=新域 prompt_templates（project×title×body×可选 agent_role，git 版本化沿用 prompts/ 管道）；对话页输入框 `/` 唤起选择、选中即填入（可改后发送）——**模板是草稿不是快捷键**，发送前可编辑保留人审。**不做** 变量插值模板引擎（{{field}} 拼写面收益低风险高）、全局跨项目模板（项目域已足够隔离）、使用计数（M57 资产使用洞察教训：等真实使用再谈）。
+
+**BN.3 run 产物回流工作项（write-back to issue——业界已收敛的正统）**
+
+- 产品现状（[Slack Code: 多人 agent 通道](https://www.eneralabs.com)、Copilot coding agent 官方行为[assign issue → PR → **在 issue 与 PR 双侧发进度评论**]）：**「产出回写到人的原始上下文」已是 2026 年 coding agent 的标准闭环**——Copilot 把进度评论发回 issue、Devin 把结果（PR/分析）贴回发起的 Slack 线程；共识语义=**人的原始工单保持为评审面，agent 产出以评论+链接形式回流，人原地审阅**。
+- 对本项目的映射：runs.item_id 存储与详情透出自 M4 就有（依赖链接续的启动半截），但 run.succeeded 只走 scheduler——**产出回流半截链缺位**：agent 在对话里干完活，关联工件项上毫无痕迹。补法=post-emit hook 监听 run.succeeded（auto_deposit 同族钩子）：run 带 item_id 且产出 artifact_path → 工件项自动评论（产出路径+摘要+run 溯源链接，actor_type="system"）；**失败 run 不评论**（产不可信，同 I205 语义）；已有产出评论不重复（同 run 幂等）。**不做** 自动附件（工件在 git，评论带路径即可）、自动改状态（set_status 自动化已是 M63 用户可配语义，不越权代设）、失败也评论（噪声）。
+
+**BN.4 M69 取舍**
+
+M69 = **实时与复用三件套**：I207 看板运行实时徽章（SSE 接入最大未接页面·item 关联卡片脉冲指示）/ I208 指令模板库（saved prompts·`/` 唤起·草稿非快捷键）/ I209 run 产物回流工作项（write-back 正统·同 run 幂等·失败不评）+ 冒烟 74 + 审阅，约 9 人日。presence 光标、变量插值模板、全局模板、自动改状态、分叉合并采纳面（继续等证据）留 backlog。
