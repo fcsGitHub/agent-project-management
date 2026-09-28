@@ -753,6 +753,15 @@ export const api = {
   deletePromptTemplate: (tid: string) =>
     req<{ ok: boolean }>(`/prompt-templates/${tid}`, { method: "DELETE" }),
 
+  // M70-I210: asset version history read side (append-only restore)
+  getAssetHistory: (aid: string) =>
+    req<{ asset_id: string; library_id: string; version: number; history: { commit: string; date: string; message: string }[] }>(`/assets/${aid}/history`),
+  getAssetDiff: (aid: string, fromCommit: string, toCommit: string) =>
+    req<{ asset_id: string; from_commit: string; to_commit: string; patch: string }>(
+      `/assets/${aid}/diff?from_commit=${encodeURIComponent(fromCommit)}&to_commit=${encodeURIComponent(toCommit)}`),
+  restoreAssetVersion: (aid: string, commit: string) =>
+    req<Asset & { content?: string | null }>(`/assets/${aid}/restore`, { method: "POST", body: JSON.stringify({ commit }) }),
+
   // Ontology learning (M4-I14, docs/08 §8)
   learnOntology: (name: string) =>
     req<OntologyLearnResult>(`/ontologies/${name}/learn`, { method: "POST" }),

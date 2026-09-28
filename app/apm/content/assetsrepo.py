@@ -57,3 +57,37 @@ def read_asset_body(library_id: str, asset_id: str) -> str:
         if end > 0:
             return text[end + 3:].strip()
     return text
+
+
+def asset_log(library_id: str, asset_id: str, limit: int = 50) -> list[dict]:
+    """M70-I210: version history of one asset — every write_asset is a commit,
+    so the ledger already exists; this is its read side (gitrepo.file_history
+    mirror, but against the assets repo, not a project repo)."""
+    rel = asset_path(library_id, asset_id)
+    out = _run(
+        ["log", f"-{limit}", "--format=%H|%ad|%s", "--date=iso", "--", rel], cwd=repo_root()
+    )
+    history = []
+    for line in out.strip().splitlines():
+        if not line.strip():
+            continue
+        sha, date, subject = line.split("|", 2)
+        history.append({"commit": sha, "date": date, "message": subject})
+    return history
+
+
+def asset_diff(library_id: str, asset_id: str, from_commit: str, to_commit: str) -> str:
+    rel = asset_path(library_id, asset_id)
+    out = _run(["diff", from_commit, to_commit, "--", rel], cwd=repo_root())
+    return out
+
+
+def asset_body_at(library_id: str, asset_id: str, commit: str) -> str:
+    """Body at a historical commit (frontmatter stripped like read_asset_body)."""
+    rel = asset_path(library_id, asset_id)
+    text = _run(["show", f"{commit}:{rel}"], cwd=repo_root())
+    if text.startswith("---"):
+        end = text.find("---", 3)
+        if end > 0:
+            return text[end + 3:].strip()
+    return text

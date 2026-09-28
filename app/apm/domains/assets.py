@@ -56,7 +56,7 @@ def _fts_query(q: str) -> list[str]:
 
 
 # ------------------------------------------------------------ projections
-@on("asset.drafted", "asset.in_review", "asset.published", "asset.deprecated", "asset.archived")
+@on("asset.drafted", "asset.in_review", "asset.published", "asset.deprecated", "asset.archived", "asset.restored")
 def _proj_asset_upsert(conn, e):
     p = e.payload
     existing = conn.execute("SELECT version FROM assets WHERE id = ?", (e.agg_id,)).fetchone()
@@ -580,6 +580,69 @@ def get_asset_detail(asset_id: str) -> dict:
     except FileNotFoundError:
         asset["content"] = None
     return asset
+
+
+# ------------------------------------------- M70-I210: version history read side
+# Every write_asset is a git commit and assets.version bumps — the ledger
+# always existed, these endpoints just open it. Restore is NOT a rollback:
+# it re-writes the old body as a NEW version (append-only, same discipline
+# as the event stream).
+
+@router.get("/assets/{asset_id}/history")
+def get_asset_history(asset_id: str) -> dict:
+    asset = require_asset(asset_id)
+    try:
+        history = assetsrepo.asset_log(asset["library_id"], asset_id)
+    except assetsrepo.GitError:
+        raise HTTPException(status_code=404, detail="asset history unavailable (repo missing)")
+    return {"asset_id": asset_id, "library_id": asset["library_id"],
+            "version": asset["version"], "history": history}
+
+
+@router.get("/assets/{asset_id}/diff")
+def get_asset_diff(asset_id: str, from_commit: str, to_commit: str) -> dict:
+    asset = require_asset(asset_id)
+    if not from_commit or not to_commit:
+        raise HTTPException(status_code=422, detail="from_commit and to_commit are required")
+    try:
+        patch = assetsrepo.asset_diff(asset["library_id"], asset_id, from_commit, to_commit)
+    except assetsrepo.GitError as e:
+        raise HTTPException(status_code=422, detail=f"diff failed: {e}")
+    return {"asset_id": asset_id, "from_commit": from_commit,
+            "to_commit": to_commit, "patch": patch}
+
+
+class RestoreIn(BaseModel):
+    commit: str
+
+
+@router.post("/assets/{asset_id}/restore")
+def restore_asset_version(asset_id: str, body: RestoreIn) -> dict:
+    """Append-only restore: the historical body is re-written as a NEW version
+    (version+1 via the asset.restored projection) — history is never rewound,
+    the same discipline the event stream itself follows."""
+    asset = require_asset(asset_id)
+    try:
+        old_body = assetsrepo.asset_body_at(asset["library_id"], asset_id, body.commit)
+    except (assetsrepo.GitError, FileNotFoundError) as e:
+        raise HTTPException(status_code=422, detail=f"restore failed: {e}")
+    sha = assetsrepo.write_asset(
+        asset["library_id"], asset_id,
+        {"title": asset["title"], "kind": asset["kind"], "library": asset["library_id"],
+         "tags": json.loads(asset["tags"] or "[]"), "status": asset["status"]},
+        old_body,
+    )
+    events.emit(
+        event_type="asset.restored",
+        agg_type="asset",
+        agg_id=asset_id,
+        actor_type="human",
+        actor_id=config.settings.user_id,
+        payload={"title": asset["title"], "kind": asset["kind"], "library": asset["library_id"],
+                 "tags": json.loads(asset["tags"] or "[]"), "status": asset["status"],
+                 "commit": sha, "restored_from": body.commit},
+    )
+    return get_asset_detail(asset_id)
 
 
 @router.post("/assets/{asset_id}/link")

@@ -178,8 +178,75 @@ function AssetDrawer({ id, onClose }: { id: string | null; onClose: () => void }
                 : <div className="text-mut">—</div>}
             </Card>
           </div>
+          <AssetHistoryCard id={id} version={a.version} />
         </div>
       )}
     </Drawer>
+  );
+}
+
+/** I210: 版本历史读侧——write_asset 每次 commit，账本早就在，这里翻开它。
+ * 恢复是 append-only：旧版重写为新版本（version+1），历史永不回卷。 */
+function AssetHistoryCard({ id, version }: { id: string; version: number }) {
+  const qc = useQueryClient();
+  const [sel, setSel] = useState<string[]>([]);
+  const hist = useQuery({
+    queryKey: ["asset-history", id],
+    queryFn: () => api.getAssetHistory(id),
+  });
+  const from = sel.length === 2 ? sel[1] : null;
+  const to = sel.length === 2 ? sel[0] : null;
+  const diff = useQuery({
+    queryKey: ["asset-diff", id, from, to],
+    queryFn: () => api.getAssetDiff(id, from!, to!),
+    enabled: !!from && !!to,
+  });
+  const rows = hist.data?.history ?? [];
+  const toggle = (sha: string) =>
+    setSel((s) => (s.includes(sha) ? s.filter((x) => x !== sha) : [...s, sha].slice(-2)));
+  const restore = async (sha: string) => {
+    if (!window.confirm(`恢复到 ${sha.slice(0, 7)}？将以新版本追加（历史不回卷）。`)) return;
+    try {
+      await api.restoreAssetVersion(id, sha);
+      toast.success("已恢复为新版本");
+      setSel([]);
+      qc.invalidateQueries({ queryKey: ["asset-history", id] });
+      qc.invalidateQueries({ queryKey: ["asset", id] });
+    } catch (e) {
+      toast.error(`恢复失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  return (
+    <Card className="p-2 text-xs">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="font-semibold text-mut">🕘 版本历史（v{version}）</span>
+        <span className="text-[10px] text-mut">点选两版对比 · 恢复=追加新版</span>
+      </div>
+      {rows.length ? (
+        <div className="space-y-0.5">
+          {rows.map((h) => (
+            <div key={h.commit} className={cx("flex items-center gap-2 rounded px-1 py-0.5", sel.includes(h.commit) && "bg-accbg")}>
+              <button className="font-mono text-acc hover:underline" title="选中对比" onClick={() => toggle(h.commit)}>
+                {h.commit.slice(0, 7)}
+              </button>
+              <span className="min-w-0 flex-1 truncate text-mut" title={h.message}>{h.message}</span>
+              <span className="text-[10px] text-mut">{h.date?.slice(0, 16).replace("T", " ")}</span>
+              <button className="text-[10px] text-mut hover:text-acc" title="恢复此版本（追加新版）"
+                onClick={() => restore(h.commit)}>↩ 恢复</button>
+            </div>
+          ))}
+        </div>
+      ) : <div className="text-mut">—</div>}
+      {from && to && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] text-mut">
+            对比 {from.slice(0, 7)} → {to.slice(0, 7)}
+          </div>
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-bg p-2 font-mono text-[10px] leading-relaxed">
+            {diff.data?.patch || "（两版内容相同）"}
+          </pre>
+        </div>
+      )}
+    </Card>
   );
 }
