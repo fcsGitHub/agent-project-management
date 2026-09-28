@@ -1,7 +1,7 @@
 /** Conversation view: persistent, interruptible human-agent interaction (docs/06 §3.3).
  * I138: assistant 生成内容经 run.token_delta 瞬态增量逐字渲染（不入库），
  * message.created 落库后自动切回权威全文。 */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -60,12 +60,19 @@ export function ConversationView() {
     enabled: !!cid,
   });
 
-  const startRun = async (role?: string) => {
+  const startRun = async (role?: string, itemIdOverride?: string | null) => {
     const kind = conv.data?.kind ?? "adhoc";
     const agentRole = role ?? roleForKind(kind);
     try {
-      await api.startRun({ conversation_id: cid!, agent_role: agentRole, item_id: conv.data?.item_id });
-      toast.success(`已启动 ${agentRole}`);
+      // I212: 一次性工件绑定——选择器指定的 item 只作用于本次 run，
+      // 不写回对话的预绑定（conv.item_id 语义不变）。
+      await api.startRun({
+        conversation_id: cid!, agent_role: agentRole,
+        item_id: itemIdOverride !== undefined ? itemIdOverride : conv.data?.item_id,
+      });
+      toast.success(`已启动 ${agentRole}`, {
+        description: itemIdOverride ? "本次运行绑定所选工件" : undefined,
+      });
     } catch (e) {
       toast.error(`启动 ${agentRole} 失败`, { description: String(e) });
     }
@@ -74,6 +81,26 @@ export function ConversationView() {
   };
 
   const hasActiveRun = (runs.data ?? []).some((r) => ["running", "interrupted", "pending"].includes(r.status));
+
+  // I212: 工件选择器数据源——本体声明 artifact_kinds 的概念下的活跃工件项
+  const ontoQ = useQuery({
+    queryKey: ["ontology", pid],
+    queryFn: () => api.getOntology(pid!, true),
+    enabled: !!pid,
+  });
+  const artifactConcepts = useMemo(
+    () => new Set((ontoQ.data?.concepts ?? []).filter((c) => (c.artifact_kinds ?? []).length).map((c) => c.id)),
+    [ontoQ.data],
+  );
+  const artifactItems = useQuery({
+    queryKey: ["items", pid, "artifact-picker"],
+    queryFn: () => api.listItems(pid!, { limit: 200 }),
+    enabled: !!pid && artifactConcepts.size > 0,
+    select: (d: { items: import("../lib/api").Item[] }) =>
+      d.items.filter((i) => artifactConcepts.has(i.concept_id)
+        && ["open", "ready", "in_progress"].includes(i.status)),
+  });
+  const [pickItem, setPickItem] = useState("");
   const approvals = useQuery({
     queryKey: ["approvals", cid],
     queryFn: () => api.listApprovals({ status: "pending" }),
@@ -178,7 +205,20 @@ export function ConversationView() {
             }}>▸ 继续</Button>
           )}
           {!hasActiveRun && c.status !== "archived" && (
-            <Button size="sm" variant="outline" onClick={() => startRun()}>▶ 让 Agent 执行</Button>
+            <>
+              {artifactItems.data && artifactItems.data.length > 0 && (
+                <select value={pickItem} onChange={(e) => setPickItem(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1 text-xs"
+                  title="本次运行绑定的工件（一次性——不改变对话的预绑定）">
+                  <option value="">工件：{c.item_id ? "对话预绑定" : "不绑定"}</option>
+                  {artifactItems.data.map((i) => (
+                    <option key={i.id} value={i.id}>📌 {i.title}</option>
+                  ))}
+                </select>
+              )}
+              <Button size="sm" variant="outline"
+                onClick={() => startRun(undefined, pickItem || undefined)}>▶ 让 Agent 执行</Button>
+            </>
           )}
           {/* M66-I198: ChatGPT "Branch in new chat" — child conversation on the
               parent_conversation_id lineage; the tree view surfaces it. */}
