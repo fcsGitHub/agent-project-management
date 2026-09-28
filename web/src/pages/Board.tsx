@@ -10,6 +10,8 @@ import { api, API_BASE } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { isTypingTarget } from "../lib/shortcuts";
 import { weightedProgress } from "../lib/rollup";
+import { onStreamEvent } from "../lib/sse";
+import { applyRunEvent, liveBadgeFor, pruneLiveRuns, type LiveRunState } from "../lib/runlive";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
 import { Badge, Button, Card, Drawer, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
@@ -149,6 +151,37 @@ export function Board() {
     }
     return m;
   }, [runs.data]);
+
+  // I207: SSE 直驱的实时运行徽标（overlay）——run.requested 一到即亮，
+  // 不等投影 refetch；结果态短暂展示后由 pruneLiveRuns 收敛，回落 runByItem。
+  const [live, setLive] = useState<LiveRunState>({ runs: {} });
+  useEffect(
+    () =>
+      onStreamEvent((e) => {
+        if (!e.event_type.startsWith("run.")) return;
+        setLive((s) => pruneLiveRuns(applyRunEvent(s, e)));
+      }),
+    [],
+  );
+  // I207: 徽标形态与 CONV_STATUS 惯例同色（running 紫/挂起琥珀/终态绿红）。
+  const liveRunBadge = (itemId: string) => {
+    const lb = liveBadgeFor(live, itemId);
+    if (!lb) return null;
+    if (lb.status === "running")
+      return (
+        <Badge tone="violet" title={`🤖 ${lb.role || "agent"} 运行中（实时）`}>
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+          🤖 {lb.role || "agent"} 运行中
+        </Badge>
+      );
+    if (lb.status === "interrupted")
+      return <Badge tone="amber" title="运行挂起——等待审批或恢复">⏸ 挂起待审</Badge>;
+    return lb.status === "succeeded" ? (
+      <Badge tone="green" title="Agent 运行成功（实时）">✓ 已完成</Badge>
+    ) : (
+      <Badge tone="red" title="Agent 运行失败（实时）">✗ 失败</Badge>
+    );
+  };
 
   // 备忘化过滤：matches/listed 依赖 board.data 与过滤参数，避免勾选/键盘等
   // 任意重渲染都重跑全量 O(n) 过滤（下游 scopedListed/listRows 全链失效）。
@@ -795,9 +828,10 @@ export function Board() {
                               } catch { /* corrupt row — skip badge */ }
                               return null;
                             })()}
-                            <div className="mt-1 flex flex-wrap items-center gap-1">
-                              <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
-                              {item.blocked && <Badge tone="red" title="存在未完成的阻塞上游">🚧</Badge>}
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
+                            {liveRunBadge(item.id)}
+                            {item.blocked && <Badge tone="red" title="存在未完成的阻塞上游">🚧</Badge>}
                               {item.priority === "high" && <Badge tone="red">高优</Badge>}
                               {item.assignee_id && (
                                 <Badge tone={item.assignee_type === "agent" ? "violet" : "neutral"}>
@@ -852,6 +886,7 @@ export function Board() {
                           })()}
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
+                            {liveRunBadge(item.id)}
                             {item.blocked && (
                               <Badge tone="red" title="存在未完成的阻塞上游（blocks/depends_on）">🚧 被阻塞</Badge>
                             )}
