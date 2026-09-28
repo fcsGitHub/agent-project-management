@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-28 更新 · M68 工厂个性化与沉淀三件套 完成，下一步 M69 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M69 实时与复用三件套 调研定义完成，下一步 I207 开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M69 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M68 教训：候选池勿凭印象写——回收站/邮件路由/批量操作/泳道 WIP/定时触发自动化/运行排队并发上限[M48 已研究]连续被防重查证伪作废**）→ 三路并行 WebSearch → docs/01 新节（§BN）+ docs/10 §M69 节 + 看板行 →「M69 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M69 审阅。**候选池（待防重查核验）**：①分叉 run 的合并采纳面（需真实使用证据——继续等）；②看板卡片 agent 运行实时进度徽章（SSE/token_delta 已有·看板面未接）；③对话/运行模板库（常用指令存为可复用工单）；④维持项（长清单见前轮，均维持不做）。
+2. **M69 实施（下一步，I207 起步）**：调研定义已提交（8584e74，docs/01 §BN + docs/10 §M69 节）。三迭代：**I207 看板运行实时徽章**（Board.tsx 接 SSE run.requested/started/succeeded/failed→item_id 关联卡渲染 🤖 脉冲徽标+结果短徽标随失效收敛——**Board.tsx 零 SSE 是最大未接页面，useSSE hook 照 ConversationView 惯例**）；**I208 指令模板库**（新域 prompt_templates[project×title×body×role 可选] + CRUD + 对话输入框 `/` 唤起选中即填——**草稿非快捷键，发送前可编辑**；区别 M35 评论常用回复/M4 模板包）；**I209 run 产物回流工作项**（run.succeeded hook：run 带 item_id 且有 artifact→工件项自动评论[路径+run 溯源·同 run 幂等·失败不评]——I205 auto_deposit 同族钩子 + 冒烟 74）。然后全量回归 + docs/10 看板行闭环 + M69 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
