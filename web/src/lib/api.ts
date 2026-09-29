@@ -780,6 +780,11 @@ export const api = {
       `/assets/${aid}/diff?from_commit=${encodeURIComponent(fromCommit)}&to_commit=${encodeURIComponent(toCommit)}`),
   restoreAssetVersion: (aid: string, commit: string) =>
     req<Asset & { content?: string | null }>(`/assets/${aid}/restore`, { method: "POST", body: JSON.stringify({ commit }) }),
+  // M75-I225: 退役/归档——asset.deprecated/archived 投影早已在，这里补发射方
+  deprecateAsset: (aid: string) =>
+    req<{ asset: Asset }>(`/assets/${aid}/deprecate`, { method: "POST" }),
+  archiveAsset: (aid: string) =>
+    req<{ archived: string }>(`/assets/${aid}/archive`, { method: "POST" }),
 
   // Ontology learning (M4-I14, docs/08 §8)
   learnOntology: (name: string) =>

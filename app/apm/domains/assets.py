@@ -569,6 +569,55 @@ def post_submit_review(asset_id: str) -> dict:
     return submit_review(asset_id)
 
 
+# ------------------------------------------- M75-I225: retire/archive — the
+# deprecated/archived transitions had projections and read-side semantics but
+# no emitter (the only deprecated producer was the superseded projection).
+# payload MUST carry "status" (the upsert projection reads p.get("status",
+# "draft")) AND "tags" (missing keys are written as empty). The asset file's
+# frontmatter is re-written like publish does, so git readers see the same
+# status the projection carries. Lists hide archived (search filters
+# status != 'archived'); the detail read has NO such filter, so repeat
+# archives are rejected with 409 instead of relying on a 404.
+
+def _emit_asset_transition(asset: dict, status: str, event_type: str) -> None:
+    tags = json.loads(asset["tags"]) if isinstance(asset["tags"], str) else (asset["tags"] or [])
+    sha = assetsrepo.write_asset(
+        asset["library_id"], asset["id"],
+        {"title": asset["title"], "kind": asset["kind"], "library": asset["library_id"],
+         "tags": tags, "status": status},
+        assetsrepo.read_asset_body(asset["library_id"], asset["id"]),
+    )
+    events.emit(
+        event_type=event_type,
+        agg_type="asset",
+        agg_id=asset["id"],
+        actor_type="human",
+        actor_id=config.settings.user_id,
+        payload={"status": status, "commit": sha, "title": asset["title"],
+                 "tags": tags, "library": asset["library_id"], "kind": asset["kind"]},
+    )
+
+
+@router.post("/assets/{asset_id}/deprecate")
+def post_deprecate_asset(asset_id: str) -> dict:
+    asset = require_asset(asset_id)
+    if asset["status"] == "deprecated":
+        raise HTTPException(status_code=409, detail="asset is already deprecated")
+    if asset["status"] == "archived":
+        raise HTTPException(status_code=409, detail="asset is archived")
+    _emit_asset_transition(asset, "deprecated", "asset.deprecated")
+    return {"asset": get_asset(asset_id)}
+
+
+@router.post("/assets/{asset_id}/archive")
+def post_archive_asset(asset_id: str) -> dict:
+    asset = require_asset(asset_id)
+    if asset["status"] == "archived":
+        raise HTTPException(status_code=409, detail="asset is already archived")
+    _emit_asset_transition(asset, "archived", "asset.archived")
+    return {"archived": asset_id}
+
+
 @router.get("/assets/{asset_id}")
 def get_asset_detail(asset_id: str) -> dict:
     asset = require_asset(asset_id)

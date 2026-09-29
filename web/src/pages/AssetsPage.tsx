@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
+import type { Asset } from "../lib/api";
 import { timeAgo } from "../lib/fmt";
 import { Badge, Button, Card, Drawer, Empty, Input, cx } from "../components/ui";
 import Markdown0 from "react-markdown";
@@ -179,9 +180,56 @@ function AssetDrawer({ id, onClose }: { id: string | null; onClose: () => void }
             </Card>
           </div>
           <AssetHistoryCard id={id} version={a.version} />
+          <AssetActionsCard asset={a} onClose={onClose} />
         </div>
       )}
     </Drawer>
+  );
+}
+
+/** I225: 退役/归档——asset.deprecated/archived 的发射方（此前零生产者）。
+ * 退役=标记 deprecated 保留在库、退出吃灰判定；归档=从清单隐没（详情仍可读）。 */
+function AssetActionsCard({ asset, onClose }: { asset: Asset & { content?: string | null }; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const act = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(ok);
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      qc.invalidateQueries({ queryKey: ["asset", asset.id] });
+      qc.invalidateQueries({ queryKey: ["asset-insights"] });
+    } catch (e) {
+      toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (asset.status === "archived") {
+    return (
+      <Card className="p-2 text-xs">
+        <span className="text-mut">该资产已归档（清单中隐没，详情仍可读）。</span>
+      </Card>
+    );
+  }
+  return (
+    <Card className="p-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-mut">处置</span>
+        {asset.status !== "deprecated" && (
+          <Button size="sm" variant="outline" disabled={busy} title="标记 deprecated：保留在库、退出吃灰判定"
+            onClick={() => { if (window.confirm(`退役资产「${asset.title}」？（保留在库，可随时重新评估）`)) act(() => api.deprecateAsset(asset.id), "已退役"); }}>
+            退役
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" disabled={busy} title="归档：从资产清单隐没（详情仍可读）"
+          onClick={() => { if (window.confirm(`归档资产「${asset.title}」？（清单中隐没）`)) act(() => api.archiveAsset(asset.id), "已归档"); onClose(); }}>
+          归档
+        </Button>
+        <span className="ml-auto text-[10px] text-mut">退役≠删除——git 资产仓历史即账本</span>
+      </div>
+    </Card>
   );
 }
 
