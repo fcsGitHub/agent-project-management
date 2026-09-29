@@ -727,6 +727,12 @@ export const api = {
     req<{ ok: boolean; path: string; commit: string }>(
       `/projects/${pid}/artifacts/${path.split("/").map(encodeURIComponent).join("/")}`,
       { method: "DELETE" }),
+  // I218: zip 是二进制——req 只解析 json，这里独立 fetch blob
+  exportArtifacts: async (pid: string): Promise<Blob> => {
+    const r = await fetch(`${BASE}/projects/${pid}/artifacts/export`);
+    if (!r.ok) throw new Error(`导出失败（${r.status}）`);
+    return r.blob();
+  },
   putArtifact: (pid: string, path: string, content: string, message?: string) =>
     req<{ path: string; commit: string }>(
       `/projects/${pid}/artifacts/${path.split("/").map(encodeURIComponent).join("/")}`,

@@ -44,7 +44,25 @@ export function ArtifactsPage() {
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
         <span className="text-sm font-semibold">📄 工件</span>
         <Badge tone="neutral">{rows.length}</Badge>
-        <span className="ml-auto text-[10px] text-mut">
+        <button
+          className="ml-auto rounded-lg border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-acc disabled:opacity-50"
+          disabled={!rows.length}
+          title="git archive 打包 artifacts/ 子树（zip·锚定当前 commit 可复现）"
+          onClick={async () => {
+            try {
+              const blob = await api.exportArtifacts(pid!);
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `artifacts-${pid!.slice(0, 8)}.zip`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+              toast.success("工件包已导出");
+              qc.invalidateQueries({ queryKey: ["artifacts", pid] });
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : String(e));
+            }
+          }}>📦 导出工件包</button>
+        <span className="text-[10px] text-mut">
           agent 产出与手动编辑的 PRD/WBS/报告都在这里；点击预览，🗑 删除（git 历史可追溯）
         </span>
       </div>

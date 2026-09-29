@@ -110,6 +110,21 @@ def delete_file(
         return latest_commit(project_id, rel_path)
 
 
+def archive_subtree_zip(project_id: str, subtree: str, prefix: str) -> bytes:
+    """M72-I218: `git archive` one subtree as a zip — clean snapshot (no
+    .git), pinned to HEAD → reproducible. BINARY capture: _run is text-mode
+    and would corrupt the archive."""
+    root = repo_path(project_id)
+    proc = subprocess.run(
+        ["git", "-c", f"user.name={GIT_NAME}", "-c", f"user.email={GIT_EMAIL}",
+         "archive", "--format=zip", f"--prefix={prefix}/", "HEAD", "--", subtree],
+        cwd=str(root), capture_output=True,
+    )
+    if proc.returncode != 0:
+        raise GitError(f"git archive failed: {proc.stderr.decode('utf-8', 'replace').strip()}")
+    return proc.stdout
+
+
 def commit_file(
     project_id: str, rel_path: str, *, message: str, actor_type: str, actor_id: str
 ) -> str:

@@ -105,6 +105,39 @@ def get_artifacts(project_id: str) -> dict:
     return {"artifacts": list_artifacts(project_id)}
 
 
+# NOTE: registered BEFORE the {rel_path:path} GET route — FastAPI matches in
+# registration order and the path converter would otherwise swallow "export".
+@router.get("/projects/{project_id}/artifacts/export")
+def export_artifacts(project_id: str):
+    """M72-I218 (docs/01 §BQ.3): deliverable handoff — `git archive` of the
+    artifacts/ subtree at HEAD: clean snapshot (no .git), pinned to the
+    commit → reproducible. Streaming zip response; the audit fact records the
+    delivery (export is an action worth remembering)."""
+    from fastapi.responses import Response
+
+    _artifact_gate(project_id)  # read-level: any member
+    if not list_artifacts(project_id):
+        raise HTTPException(status_code=404, detail="no artifacts to export")
+    root = gitrepo.repo_path(project_id)
+    head = gitrepo._run(["rev-parse", "--short=7", "HEAD"], cwd=root).strip()
+    prefix = f"artifacts-{project_id[:8]}-{head}"
+    data = gitrepo.archive_subtree_zip(project_id, "artifacts", prefix)
+    events.emit(
+        event_type="artifact.exported",
+        agg_type="artifact",
+        agg_id=f"export:{head}",
+        project_id=project_id,
+        actor_type="human",
+        actor_id=events.effective_actor(),
+        payload={"commit": head, "count": len(list_artifacts(project_id))},
+    )
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{prefix}.zip"'},
+    )
+
+
 @router.get("/projects/{project_id}/artifacts/{rel_path:path}")
 def get_artifact(project_id: str, rel_path: str, commit: str | None = None) -> dict:
     _artifact_gate(project_id)
