@@ -2290,6 +2290,36 @@ agent-project-management/
 
 ---
 
+### M75 · 生命周期闭合三件套（I225-I227，约 7 人日）
+
+> v3.0 新增（2026-09-30，docs/01 §BT 前置调研）。M74 遗留四函数逐个价值核验：cancelCycle/patchView 真缺口（周期生命周期无法从 UI 闭合/typo 视图名卡死）；listOntologies「无法建项目」主张不成立（模板包 instantiate 共链路——防重查第八例）降级 polish；health 与 /system/llm 徽标冗余不做。扫描带出新缺口：asset.deprecated/archived 有投影注册与读侧语义却零发射方（吃灰清单无处置动作——半截链第九例）。**防重查：模板包 instantiate 共链路[第八例自证]、资产发布走审批门闭环[publish_from_approval 在·缺的只是退役腿]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I225 | 资产退役与归档（POST /assets/{id}/deprecate + /archive[发射既有事件·**payload 必带 status 键——upsert 投影默认 draft·漏带=退了役还落 draft**·archive 后清单消失/详情 404 既有语义] + AssetsPage 资产行/洞察吃灰行「退役/归档」按钮 + 单测） | docs/01 §BT.1 | asset.deprecated/archived 投影+读侧/M57 洞察卡 | 3d |
+| I226 | 视图改名+周期取消（Board views 面板 hover ✏️ prompt 改名[重名 toast 校验]→patchView + 周期选择器旁「取消周期」confirm→cancelCycle[取消即从选择器消失·list_cycles 滤 cancelled_at]·后端零改动） | docs/01 §BT.2/§BT.3 | patchView/cancelCycle+既有投影 | 2d |
+| I227 | 冒烟 80+收尾审阅（资产 publish→deprecate→吃灰退出→archive→清单消失；周期 create→cancel→list 消失+项目不动；视图 create→rename→list 新名 + 全量回归 + docs 收口 + M75 审阅） | docs/01 §BT.4 | M72 冒烟惯例 | 2d |
+
+#### I225 · 资产退役与归档（3d）
+
+- 任务：assets.py 加 `POST /assets/{asset_id}/deprecate` 与 `POST /assets/{asset_id}/archive`（emit asset.deprecated/asset.archived·payload 带 status+title+library+kind·archive 对已归档幂等 404 语义照 require）+ AssetsPage 资产行与洞察卡吃灰行加「退役」「归档」动作（confirm→api→invalidate；deprecated 行 amber 徽标已有渲染）+ api.deprecateAsset/archiveAsset。
+- DoD：单测（deprecate→status=deprecated 且清单可见+徽标数据面；archive→清单消失+详情 404；**payload 漏 status 的投影回归防护**）。
+- 演示路径：洞察卡吃灰行点「退役」→ 徽标变 deprecated → 退出吃灰清单 →「归档」→ 从清单消失。
+
+#### I226 · 视图改名+周期取消（2d）
+
+- 任务：Board views 面板视图行 hover ✏️（prompt 新名·空/重复名校验）→ api.patchView → invalidate views；周期选择器旁「取消周期」（选中周期时显示·confirm「周期内工作项不受影响」）→ api.cancelCycle → invalidate cycles。
+- DoD：后端零改动零回归；build 绿。
+- 演示路径：typo 视图名 ✏️ 就地改 → 选错周期取消 → 选择器立即消失。
+
+#### I227 · 冒烟 80+收尾审阅（2d）
+
+- 任务：**冒烟 80**（资产 draft→submit_review→审批发布→deprecate→insights 吃灰退出→archive→清单消失详情 404；周期 create→cancel→list 不含+项目工作项不动；视图 create→patch 改名→list 新名）+ 全量回归 + docs 收口 + M75 审阅。
+- DoD：冒烟 80 GREEN；非 smoke 全量 EXIT=0。
+- 演示路径：一条冒烟走完三件生命周期闭环。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2490,6 +2520,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-30 M75 调研定义（§BT） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：M74 遗留四函数逐个价值核验——**cancelCycle[后端 DELETE+cycle.cancelled+投影 cancelled_at 俱在·list_cycles 已滤取消·Board 只有创建无取消——生命周期无法从 UI 闭合·真缺口]**、**patchView[views 面板只有建/删——typo 视图名永久卡死·真缺口小]**、**listOntologies[「模板包产物无法建项目」主张核验不成立——TemplatesPage InstantiateModal→/template-packs/{name}/instantiate 与 POST /projects 完全共链路[宪章/首特性/起草对话/内容仓 bootstrap]·防重查第八例自证——动态化只剩 display_name/无效提示 polish·降级不做]**、**health[AppShell 模型徽标 M44 /system/llm 已显 provider_mode·保持零消费]**；扫描带出新核验：**资产退役面[asset.deprecated/archived 有投影注册+读侧语义[search 滤 archived/详情 404]却零发射方——发布走审批门闭环完整[publish_from_approval]·deprecated 只能被动由 superseded 产生·M57 吃灰清单无处置动作——半截链第九例·真缺口]**、分叉采纳面[继续降级]、删除恢复 UI[等证据]。三路 WebSearch：模板画廊（[Stackify 自定义工作区模板](https://docs.stackify.se)/[Lightroom 模板选择器](http://repo.darmajaya.ac.id)——**内置与自定义分区+动态列出**·本候选已降级故只作参考）、保存视图管理（[cmdOS Collections](https://www.cmdos.app) Linear 式侧栏 hover per-view 动作/[Snaptrude Views](https://docs.snaptrude.com) 改名重复名校验/[Jira 共享过滤器](https://www.atlassian.com) 所有权门控——**共识=就近 hover 动作+改名校验**）、周期关闭（[Jira Complete Sprint](https://www.atlassian.com) 强制未完项去向/GitHub iterations 自动结转——**取消=废弃语义：即退场工作项不动·两家都轻·AgentPM list 滤 cancelled_at 已是现成退场语义**）。定案 M75=生命周期闭合三件套（I225 资产退役与归档/I226 视图改名+周期取消/I227 冒烟 80） |
 | **M74 台账与管理面收口三件套（I222-I224）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 7 人日（docs/01 §BS + docs/10 §M74）：I222 费用记账面（CostCard「＋ 记一笔」表单+每行 🗑——**反向半截链第八例收口：I142 报表读 expense_entries 双轨聚合在·记账端零 UI·M42 三端点后端零改动**·listExpenses 留工作项级费用视图 backlog）/ I223 里程碑管理面（TimelinePage「◆ 里程碑」浮层——**GitHub 列表式就近 CRUD·createMilestone/patchMilestone/deleteMilestone 三个零消费函数接线·后端 M12 零改动**·状态集=本体 milestone 三态[PATCH 走 milestone_statuses 校验]）/ I224 list 视图运行徽章（**I207 收尾——Board 全视图形态 board+list 两种·list 行标题格 liveRunBadge 与 🚧/🧩 并排·一行接线**）+ **冒烟 79**（费用与里程碑 roundtrip——前端接线端点的端到端数据面验证）。基线：pytest **540** 全绿（非 smoke 462 EXIT=0 + smoke runner **79 GREEN** 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M74 调研定义（§BS） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：**api.ts→前端镜像半截链扫描（新套路：历轮正向「后端有→前端无」·这次反向全量扫 api.ts 函数消费面）——15 个零消费名剔除类型行误报后 11 个真函数**：closeRisk[**冗余重复——RisksPage 用 PATCH transition 已有关闭按钮·防重查第六例自证：我以为的缺口早已存在**]、health/patchView/cancelCycle/listOntologies[低频边缘留 backlog]、**真缺口群两个：费用记账[listExpenses/recordExpense/deleteExpense 零消费·I142 成本报表读 expense_entries 双轨聚合已在·读侧齐全写侧 UI 缺失——反向半截链第八例]**、**里程碑管理[createMilestone/patchMilestone/deleteMilestone 零消费·TimelinePage 菱形行展示在]**；候选池③泳道徽章扩展[核验属实但降级——Board 全视图形态=board+list 两种·I207 接了前者两处渲染点·list 行独缺运行徽章·一行接线]；**从工作项发起运行[orchestrator batch_start 早已实现 item 绑定对话+按指派角色发起·Board 批量发起即此面·指派驱动语义·防重查第七例自证——不另设临时发起路径]**、分叉采纳面[继续降级]、删除恢复 UI[等证据]。三路 WebSearch：费用记录 UX（[Harvest](https://www.getharvest.com)实时费用跟踪是预算软件核心/[Celoxis](https://de.celoxis.com) per-project CapEx/OpEx+[Productive](https://productive.io) 预算 vs 实时对照标配/[MindInventory](https://www.mindinventory.com) 条目挂项目/任务+类别+预算实时对照——**共识=条目挂项目可选挂任务+量×单价+预算对照即时可见**）、里程碑管理（[GitHub Docs milestones](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/creating-and-editing-milestones-for-issues-and-pull-requests) 列表页 New/Edit/Close/Delete 全套/[Asana Timeline](https://forum.asana.com/t/give-timeline-updates-a-try/99124) 内联增改——**共识=在展示它的视图里就近 CRUD**）、列表视图徽标（M69 §BN 已调研徽标语义·本轮补视图形态覆盖）。定案 M74=台账与管理面收口三件套（I222 费用记账面/I223 里程碑管理面/I224 list 视图运行徽章） |
 | I222 费用记账面 | 已完成 | 2026-09-30 | 2026-09-30 | CostCard 费用行区接 recordExpense/deleteExpense（**反向半截链第八例收口——I142 报表读 expense_entries 双轨聚合早已在·记账端零 UI·M42 三端点后端零改动**）——「＋ 记一笔」内联表单（描述/数量×单价/币种默认基准币/日期默认今天[_today 本地时区]/厂商/可选挂工作项[listItems 惰性加载 enabled:expOpen]）+ 每行 🗑 删除 + 空态引导行——记账后 invalidate cost-report 实际值即时对照。注：listExpenses 仍零消费——台账展示走 cost-report 自带 expenses 行[更富含 fx 换算]·留给工作项级费用视图 backlog |

@@ -2039,3 +2039,26 @@ M73 = **运行可观测与可控三件套**：I219 run 发起指令回显（Runs
 **BS.4 M74 取舍**
 
 M74 = **台账与管理面收口三件套**：I222 费用记账面（I142 反向半截链第八例收口·纯前端接线零后端改动）/ I223 里程碑管理面（TimelinePage 就近 CRUD·GitHub 列表式）/ I224 list 视图运行徽章（I207 视图形态收尾）+ 冒烟 79 + 审阅，约 7 人日。收据附件、类别体系、里程碑拖拽改期、cycle 取消 UI、视图改名 UI、本体清单消费、health 面板、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
+
+## BT. M75 前置调研：资产退役面 / 视图改名 / 周期取消（2026-09-30）
+
+> 目标协议触发：M74 完成后开启。防重查：候选池即 M74 遗留的 api.ts 镜像扫描残余四函数——逐个价值核验：**cancelCycle（后端 DELETE /cycles/{id}+cycle.cancelled 事件+投影 cancelled_at 俱在·list_cycles 已滤 cancelled_at[取消即从选择器消失]·Board 只有创建无取消——生命周期无法从 UI 闭合·真缺口）**、**patchView（views 面板只有建/删——typo 视图名永久卡死·真缺口[小]）**、**listOntologies（「模板包产物无法建项目」主张核验不成立——TemplatesPage InstantiateModal→POST /template-packs/{name}/instantiate 与 POST /projects 完全共链路[宪章/首特性/起草对话/内容仓 bootstrap]·防重查第八例自证——动态化只剩 display_name/无效提示的 polish 价值·降级不做）**、**health（AppShell 模型徽标[M44 /system/llm]已显 provider_mode·保持零消费不做）**。扫描中带出的新核验：**资产退役面（asset.deprecated/asset.archived 两事件有投影注册[@on upsert]与读侧语义[search 滤 archived/详情 404]却零发射方——draft→in_review→审批门→published 闭环完整[publish_from_approval]·但 deprecated 只能被动由 superseded 投影产生·M57 吃灰清单[stale=published+零消费+90 天]没有处置动作——「投影就绪·发射方缺失」半截链第九例·真缺口）**。本轮三路新调研（**模板画廊动态化 / 保存视图管理 / 周期关闭语义**），选定 **M75 = 生命周期闭合三件套**。
+
+**BT.1 资产退役与归档（吃灰清单的处置动作——投影就绪发射方缺失）**
+
+- 产品现状（[Tricentis/VersionOne 文档](https://www.tricentis.com)——未完成特性移出活跃迭代进 backlog 重派；资产库惯例[Harbor retention/Nexus]: deprecated 标记保留可查、archived 从默认视图隐没；[Jira filters 所有权模型](https://www.atlassian.com)——owner 才能改共享过滤器）：资产生命周期的收敛语义=**deprecated 标记保留（可查可审计）、archived 隐没（清单默认不见）**，处置动作长在暴露问题的视图里。
+- 对本项目的映射：资产状态机在投影层全备（draft/in_review/published/deprecated/archived 六态 upsert+restored），发布走审批门闭环——**唯独退役/归档两个事件没有任何发射方**，deprecated 只能被动由 superseded 产生；M57-I172 洞察卡把「published+零消费+90 天」标为吃灰，却没有下一步动作。补法=`POST /assets/{id}/deprecate`+`POST /assets/{id}/archive`（发射既有事件·**payload 必须带 status 键——upsert 投影 p.get("status","draft") 默认 draft·漏带=退了役还落 draft**·archive 后清单消失[search 滤 archived 既有语义]+详情 404）+ AssetsPage 资产行/洞察吃灰行「退役/归档」按钮（deprecated 徽标渲染已有）。**不做** 资产物理删除（git 资产库历史即账本·同 M72 工件语义）、批量退役（一人工厂逐个处置够用）。
+
+**BT.2 视图改名（hover 就近动作——Linear 式侧栏惯例）**
+
+- 产品共识（[cmdOS Collections](https://www.cmdos.app)——Linear 式侧栏 hover/focus 显 per-view 动作[rename/edit/delete]、[Snaptrude Views](https://docs.snaptrude.com)——改名带重复名/非法字符校验、[Jira 共享过滤器](https://www.atlassian.com)——所有权门控编辑）：保存视图管理的共识=**侧栏就近 hover 动作+改名校验**。
+- 对本项目的映射：Board 视图面板有建/删（createView/deleteView 消费中）独缺改名——typo 名只能删了重建（定义丢失）。补法=视图行 hover ✏️（window.prompt 改名[与 ProjectPicker 克隆同交互]·重名前端校验 toast）→ patchView({name}) → invalidate。**不做** 视图定义编辑器（definition 重算 UI 是另一个量级）、视图共享开关 UI（is_public 建立时已选）。
+
+**BT.3 周期取消（生命周期闭合——取消即退场）**
+
+- 产品现状（[Jira Complete Sprint](https://www.atlassian.com)——完成冲刺强制为未完项选去向[下个冲刺/backlog]、GitHub Projects iterations——未完项自动结转下期）：周期关闭的两大共识都面向「正常结束」；**「建错了的周期」的废弃语义两家都轻**——取消即退场、工作项不动。
+- 对本项目的映射：后端 DELETE /cycles/{id} 早已就绪（cycle.cancelled 事件+投影 cancelled_at+list_cycles 过滤——取消即从选择器消失），Board 只有创建。补法=周期选择器旁「取消周期」按钮（选中非取消周期时可用·confirm 注明「周期内工作项不受影响，可手动改挂其他周期」→ cancelCycle → invalidate）。**不做** 结转去向选择（那是「完成周期」语义——一人工厂直接手动改挂即可）、已取消周期查看面（事件流可审计[AuditPage]）。
+
+**BT.4 M75 取舍**
+
+M75 = **生命周期闭合三件套**：I225 资产退役与归档（半截链第九例收口·发射方补齐+洞察卡处置动作·**payload status 键坑**）/ I226 视图改名+周期取消（Board 双小件·patchView/cancelCycle 接线·后端零改动）/ I227 冒烟 80 + 审阅，约 7 人日。本体清单动态化（polish 降级）、health 面板、视图定义编辑器、周期结转去向选择、资产批量退役、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
