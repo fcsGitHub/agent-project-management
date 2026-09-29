@@ -2320,6 +2320,36 @@ agent-project-management/
 
 ---
 
+### M76 · 审计与复演轮（I228-I230，约 9 人日）
+
+> v3.0 新增（2026-09-30，docs/01 §BU 前置调研）。事件级反向扫描证明**无死事件**（25 个无投影事件全部是活账本：幂等查询/血缘遍历/审计显示——投影缺失≠消费缺失·防重查第九例自证变体）；功能面经 api 级+事件级两层扫描后饱和，按预案走 M45 模式质量轮（距上次全库审计已新增约 90 迭代的面）。审计种子四项 grep 实证：assets.py 全域零门禁（network 模式匿名可读全局资产库含正文）、expense.py/automations.py 项目读面无 _gate（items/comments 惯例未覆盖）、template_packs.py 零门禁（org 级同题）。**防重查：死事件候选当场作废[第九例变体]、分叉采纳面[继续降级]、删除恢复 UI[等证据]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I228 | 权限面审计（读面门禁对齐：expenses/automations 挂项目 _gate[items 惯例]·assets/template_packs 挂登录门[org 库语义=实例成员可读]·**矩阵化测试：匿名 401/登录 200/跨项目 403** + M45 以来新增端点门禁清单复查） | docs/01 §BU.1 | auth_gate GET 开放+域内门禁惯例/M45 | 3d |
+| I229 | 校验与性能审计（`/system/slow-endpoints` 实测 Top→热查询 EXPLAIN QUERY PLAN 对账[events 表 event_type+agg_id 索引核验] + 新端点校验矩阵抽查[状态机 409/422] + 修发现） | docs/01 §BU.2 | perf_gate/M62 idx 惯例 | 3d |
+| I230 | E2E 复演+冒烟 81+收尾审阅（隔离环境起服务[演示纪律] + 浏览器 CUA 核心旅程走查[建项目→对话→徽章→工件→退役→视图/周期] + 发现即修 + **冒烟 81** + 全量回归 + docs 收口 + M76 审阅） | docs/01 §BU.3 | M44 复演惯例 | 3d |
+
+#### I228 · 权限面审计（3d）
+
+- 任务：expense.py/automations.py 读端点挂项目 _gate（GET /projects/{pid}/expenses、GET /projects/{pid}/automations*——对齐 items/comments/M72 工件惯例）+ assets.py/template_packs.py 读端点挂登录门（org 库=实例成员可读·effective_actor=="anonymous"→401·local 零影响）+ 全部新门配矩阵化测试（匿名 401/登录 200/跨项目 403 三态）+ 复查 prompt_templates/watch/tokens/members 等已门禁面无回归。
+- DoD：network 模式匿名读资产库/费用账/自动化规则从「可得」变 401/403；既有 network 测试全绿（登录态不受影响）。
+- 演示路径：network 模式未登录 curl 资产列表 → 401；登录后 200。
+
+#### I229 · 校验与性能审计（3d）
+
+- 任务：/system/slow-endpoints 实测取 Top（复演环境造数）→ 热查询 EXPLAIN QUERY PLAN 对账（events 表幂等查询/血缘/审计读的 event_type+agg_id 命中核验）+ 新端点校验矩阵抽查（deprecate/archive 409/422、restore 语义、move 类）+ 发现即修（索引补齐照 M62 idx 惯例·无证据不加）。
+- DoD：Top 慢端点有实测数字与结论（修/不修+理由）；新增索引有 EXPLAIN 前后对比。
+- 演示路径：慢端点表 Top1 修复前后对比。
+
+#### I230 · E2E 复演+冒烟 81+收尾审阅（3d）
+
+- 任务：隔离环境起服务（APM_DATA_DIR+APM_ONTOLOGY_DIR_OVERRIDE+拷本体+netstat 单监听+preview 从 web/ 起）+ 浏览器 CUA 走核心旅程（建项目→对话发起→SSE 徽章→工件沉淀→评论回流→资产退役→视图改名/周期取消）+ 发现即修 + **冒烟 81**（审计轮收口条：匿名读面 401/403 矩阵 + 审计种子修复回归）+ 全量回归 + docs 收口 + M76 审阅。
+- DoD：E2E 旅程全程无阻断；冒烟 81 GREEN；非 smoke 全量 EXIT=0。
+- 演示路径：一台干净浏览器从零走完「需求→run→工件→资产」全旅程。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2520,6 +2550,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | **M75 生命周期闭合三件套（I225-I227）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 7 人日（docs/01 §BT + docs/10 §M75）：I225 资产退役与归档（POST deprecate/archive——**半截链第九例收口：asset.deprecated/archived 有投影注册与读侧语义却零发射方·deprecated 只能被动由 superseded 产生·M57 吃灰清单无处置动作**——**payload 必带 status[upsert 默认 draft]与 tags[漏键=清空]**·文件 frontmatter 同步重写对齐 publish 惯例·重复动作 409[**研究误读自纠：archived 过滤住 _reindex 与 search 不住 get_asset——详情读无过滤仍可读**] + AssetsPage 抽屉处置卡）/ I226 视图改名+周期取消（views 面板 hover ✏️ prompt 改名[重名校验]→patchView + 「✕ 取消周期」confirm→cancelCycle[取消即从选择器退场·list_cycles 滤 cancelled_at 既有语义]——后端零改动）/ I227 **冒烟 80**（资产走**真审批门**发布→退役→归档；周期取消工作项存活；视图改名）。基线：pytest **543** 全绿（非 smoke 463 EXIT=0 + smoke runner **80 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M75 调研定义（§BT） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：M74 遗留四函数逐个价值核验——**cancelCycle[后端 DELETE+cycle.cancelled+投影 cancelled_at 俱在·list_cycles 已滤取消·Board 只有创建无取消——生命周期无法从 UI 闭合·真缺口]**、**patchView[views 面板只有建/删——typo 视图名永久卡死·真缺口小]**、**listOntologies[「模板包产物无法建项目」主张核验不成立——TemplatesPage InstantiateModal→/template-packs/{name}/instantiate 与 POST /projects 完全共链路[宪章/首特性/起草对话/内容仓 bootstrap]·防重查第八例自证——动态化只剩 display_name/无效提示 polish·降级不做]**、**health[AppShell 模型徽标 M44 /system/llm 已显 provider_mode·保持零消费]**；扫描带出新核验：**资产退役面[asset.deprecated/archived 有投影注册+读侧语义[search 滤 archived/详情 404]却零发射方——发布走审批门闭环完整[publish_from_approval]·deprecated 只能被动由 superseded 产生·M57 吃灰清单无处置动作——半截链第九例·真缺口]**、分叉采纳面[继续降级]、删除恢复 UI[等证据]。三路 WebSearch：模板画廊（[Stackify 自定义工作区模板](https://docs.stackify.se)/[Lightroom 模板选择器](http://repo.darmajaya.ac.id)——**内置与自定义分区+动态列出**·本候选已降级故只作参考）、保存视图管理（[cmdOS Collections](https://www.cmdos.app) Linear 式侧栏 hover per-view 动作/[Snaptrude Views](https://docs.snaptrude.com) 改名重复名校验/[Jira 共享过滤器](https://www.atlassian.com) 所有权门控——**共识=就近 hover 动作+改名校验**）、周期关闭（[Jira Complete Sprint](https://www.atlassian.com) 强制未完项去向/GitHub iterations 自动结转——**取消=废弃语义：即退场工作项不动·两家都轻·AgentPM list 滤 cancelled_at 已是现成退场语义**）。定案 M75=生命周期闭合三件套（I225 资产退役与归档/I226 视图改名+周期取消/I227 冒烟 80） |
 | I225 资产退役与归档 | 已完成 | 2026-09-30 | 2026-09-30 | POST /assets/{id}/deprecate + /archive（**半截链第九例收口——asset.deprecated/archived 有投影注册与读侧语义却零发射方·deprecated 只能被动由 superseded 产生·M57 吃灰清单无处置动作**）——**payload 必带 status[upsert 投影默认 draft·漏带=退了役还落 draft]与 tags[漏键=投影清空 tags]**·资产文件 frontmatter 同步重写对齐 publish 惯例[git 元数据与投影一致]·重复退役/归档 409（**研究误读自纠：archived 过滤住 _reindex[FTS]与 search[清单]不住 get_asset——详情读无过滤仍可读·「二次归档 404」主张证伪**） + AssetsPage 抽屉处置卡（退役/归档 confirm·归档后闭抽屉·已归档只读说明·「退役≠删除 git 即账本」）+ test_asset_retire（发布+91 天吃灰→退役退出吃灰+tags 原样+清单可见→归档清单消失+详情可读+重复 409）——**写入探针调试法：PROBE 内容哈希对比三连写定位「第二次写入 nothing to commit」** |

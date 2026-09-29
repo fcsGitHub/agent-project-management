@@ -2062,3 +2062,26 @@ M74 = **台账与管理面收口三件套**：I222 费用记账面（I142 反向
 **BT.4 M75 取舍**
 
 M75 = **生命周期闭合三件套**：I225 资产退役与归档（半截链第九例收口·发射方补齐+洞察卡处置动作·**payload status 键坑**）/ I226 视图改名+周期取消（Board 双小件·patchView/cancelCycle 接线·后端零改动）/ I227 冒烟 80 + 审阅，约 7 人日。本体清单动态化（polish 降级）、health 面板、视图定义编辑器、周期结转去向选择、资产批量退役、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
+
+## BU. M76 前置调研：审计与复演轮（2026-09-30）
+
+> 目标协议触发：M75 完成后开启。防重查：候选池①**事件级反向扫描（api 级镜像扫描的下一层）——131 种发射事件 vs 119 种 @on 注册，25 个「无投影」事件逐个核验消费面：全部是活账本（item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询 SELECT 1 FROM events WHERE event_type=、run.forked=血缘遍历、project.cloned=写 guard 白名单、session.*/webhook.delivered/email.notified/push.notified=审计显示）——投影缺失≠消费缺失，事件流即读侧·候选当场作废（防重查第九例自证变体：我以为的「死事件」早已是设计内的 fact 载体）**；②分叉采纳面（继续降级）；③删除恢复 UI（等证据）。**功能面经 api 级+事件级两层扫描后已饱和——按预案走④质量与演示轮（M45 模式：距上次全库审计[M45，2026-09-19]已新增 M46~M75 约 90 个迭代的面）**。审计种子已取证四项（非臆测，grep 实证）：**资产域全域零门禁（assets.py 无一处 require_member/_gate——network 模式 auth_gate 对 GET 全开放→匿名可读全局资产库含正文与 provenance）**、**费用读面无门禁（expense.py 零门禁——items/comments 的 _gate 项目读惯例未覆盖 /projects/{pid}/expenses）**、**自动化规则读面同查（automations.py 零命中）**、**模板包读面（template_packs.py 零门禁·org 级语义与资产同题）**。本轮三路新调研（**OWASP API 审计清单 / SQLite 性能审计 / 交付复演清单**），选定 **M76 = 审计与复演轮**。
+
+**BU.1 权限面审计（API1:2023 BOLA——对象级授权的全覆盖复查）**
+
+- 产品共识（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**、[API Security Checklist](https://aquilax.ai/tools/api-security-checklist)——「响应只返回用户有权见的字段」、[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide)——授权类失败霸榜[BOLA/BOPA]）：API 审计的共识=**逐端点矩阵化核验对象级授权+自动化测试证明跨租户不可达**。
+- 对本项目的映射：M45 审计收的是写面（匿名不继承管理员/feed_key/导入穿越/rebuild 门禁），**读面开放是 M8 起的惯性而非决定**——auth_gate 「GET 保持开放」把读门下放域内，而 items/comments/artifacts(M72) 有 _gate、assets/expense/automations/template_packs 没有。补法=**读面门禁对齐**：项目域（expenses/automations）挂 _gate 项目成员制（对齐 items 惯例）；org 域（assets/template_packs）挂**登录门**（org 库语义=实例成员可读·非项目成员制；local 模式零影响）+ 矩阵化测试（匿名 401/登录 200/跨项目 403）。**不做** 全局 GET 强制登录（中间件层面的哲学不动——域内门禁是既有惯例）、资产级细粒度 ACL（org 库无需）。
+
+**BU.2 校验与性能审计（EXPLAIN QUERY PLAN——热查询的索引对账）**
+
+- 产品共识（[SQLite Query Optimizer Overview](https://www.sqlite.org/optoverview.html)——索引只在 WHERE 命中最左列时有用、[SQLite forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in)——**EXPLAIN QUERY PLAN 验证索引使用+覆盖索引+LIMIT 分页**、[phiresky 调优](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/)——WAL 等 PRAGMA、N+1 共识=**循环内查询即 smell·一次取齐**）：性能审计的共识=**热路径实测+执行计划对账，不凭感觉加索引**。
+- 对本项目的映射：M60 端点性能观测（perf_gate 慢端点表）在、M62 补过 idx_watch_rules_hit——此后 M63~M75 新增约 90 迭代的面未复查。补法=`/system/slow-endpoints` 实测取 Top→热查询 EXPLAIN QUERY PLAN 对账（events 表查询最频：幂等查询/血缘/审计读——event_type+agg_id 索引核验）+ 校验矩阵抽查（新端点 422 边界：deprecate/archive/move 类状态机 409/422 语义）。**不做** 全量索引重构（实测驱动·无证据不加）、WAL 调整（单文件部署现状稳定）。
+
+**BU.3 E2E 复演（交付前的全旅程走查——M44/M45 惯例）**
+
+- 产品共识（[ERP/实施清单](https://www.gullysystem.com)——测试→UAT→切换→稳定四段、[AI 原型演示脚本](https://provn.co)——**演示=判断力与取舍的展示**）：交付复演的共识=**真实环境走全旅程，清单化验收而非抽查**。
+- 对本项目的映射：M44 浏览器真实复演（glm-5.3）后再未整链走过——此后新增看板徽章/模板库/设置中心/工件页/退役卡等约 30 个 UI 面。补法=隔离环境起服务（演示纪律：APM_DATA_DIR+APM_ONTOLOGY_DIR_OVERRIDE+netstat 单监听+preview 从 web/ 起）+ 浏览器 CUA 走核心旅程（建项目→对话发起→SSE 徽章→工件沉淀→评论回流→资产退役→看板改名/取消周期）+ 发现即修。**不做** 自动化 E2E 框架引入（CUA 走查+冒烟已覆盖·一人工厂性价比）。
+
+**BU.4 M76 取舍**
+
+M76 = **审计与复演轮**：I228 权限面审计（读面门禁对齐·BOLA 矩阵测试）/ I229 校验与性能审计（slow-endpoints 实测+EXPLAIN 对账+校验抽查）/ I230 E2E 复演+冒烟 81+审阅，约 9 人日。全局 GET 强制登录、资产级 ACL、全量索引重构、WAL 调整、自动化 E2E 框架、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
