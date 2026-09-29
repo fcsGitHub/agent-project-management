@@ -59,3 +59,23 @@ def test_deprecate_exits_stale_and_archive_hides(client, tmp_data, isolated_onto
                 if x["id"] == a["id"]]
     detail = client.get(f"/api/assets/{a['id']}")
     assert detail.status_code == 200 and detail.json()["status"] == "archived"
+
+
+def test_retire_validation_matrix(client, tmp_data, isolated_ontologies):
+    # M76-I229: 状态机语义钉住——未知 id 404；draft 可直接归档（归档不要求先发布）
+    assert client.post("/api/assets/a_unknown/deprecate").status_code == 404
+    assert client.post("/api/assets/a_unknown/archive").status_code == 404
+
+    b = client.post("/api/projects",
+                    json={"name": "来源-草稿归档", "ontology": "software-dev",
+                          "requirement": "沉淀"}).json()
+    r = client.put(f"/api/projects/{b['id']}/artifacts/test/matrix.md",
+                   json={"content": "# matrix", "message": "qa: matrix"})
+    created = r.json()
+    draft = client.post("/api/assets", json={
+        "source_project_id": b["id"], "artifact_path": created["path"],
+        "commit": created["commit"], "library": "test", "kind": "test-suite",
+        "title": "草稿直接归档"}).json()
+    assert draft["status"] == "draft"
+    assert client.post(f"/api/assets/{draft['id']}/archive").status_code == 200
+    assert client.get(f"/api/assets/{draft['id']}").json()["status"] == "archived"
