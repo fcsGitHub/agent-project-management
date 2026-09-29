@@ -678,6 +678,10 @@ export const api = {
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
   listRunsByConversation: (cid: string) =>
     req<{ runs: Run[] }>(`/runs?conversation_id=${encodeURIComponent(cid)}`),
+  // I220: 工件项视角的运行历史（/runs?item_id= 过滤参数 M4 起就有——GitHub
+  // issue 上看不见 workflow runs 是其数据模型盲区，这里补位）
+  listRunsByItem: (itemId: string) =>
+    req<{ runs: Run[] }>(`/runs?item_id=${encodeURIComponent(itemId)}`),
   startRun: (body: { conversation_id: string; agent_role: string; item_id?: string | null; instruction?: string | null }) =>
     req<Run>("/runs", { method: "POST", body: JSON.stringify(body) }),
   retryRun: (rid: string) =>

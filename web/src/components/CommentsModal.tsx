@@ -5,14 +5,14 @@
  * M26-I81: author-only inline editing with an "edited" badge and a revision
  * history expansion (event-sourced comment_revisions — GitLab #3706, closed). */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import { renderCommentMd } from "../lib/md";
 import { artifactShortName, extractArtifactRefs } from "../lib/artifactRefs";
 import { ArtifactPreviewDrawer } from "./ArtifactPreviewDrawer";
-import { Button, Modal, cx } from "./ui";
+import { Badge, Button, Modal, cx } from "./ui";
 
 const MD_BODY = "mt-1 text-ink [&_a]:text-acc [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-2 [&_code]:rounded [&_code]:bg-bg [&_code]:px-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_input]:mr-1 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-bg [&_pre]:p-2 [&_td]:border [&_td]:border-line [&_td]:px-1.5 [&_th]:border [&_th]:border-line [&_th]:px-1.5 [&_ul]:list-disc [&_ul]:pl-4";
 
@@ -256,6 +256,10 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
   return (
     <Modal open onClose={onClose} title={`💬 评论${title ? ` · ${title}` : ""}`}>
       <div className="space-y-3">
+        {/* I220: 工件项视角的运行历史（GitHub issue 看不见 workflow runs 是其
+            数据模型盲区——runs.item_id 过滤让 AgentPM 做得到；回流评论的天然
+            上文：看产出评论前先看跑过哪些 run） */}
+        <RunHistory itemId={itemId} />
         <div className="max-h-72 space-y-2 overflow-y-auto">
           {(comments.data?.comments ?? []).map((c) => (
             <div key={c.id} className="group rounded-lg border border-line px-3 py-2 text-xs">
@@ -454,5 +458,52 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
         <ArtifactPreviewDrawer pid={pid} path={previewPath} onClose={() => setPreviewPath(null)} />
       )}
     </Modal>
+  );
+}
+
+/** I220: 该工件项的运行历史（近 10 条）——状态/角色/时间 + 对话直达。
+ * 行点击不进 RunsPage 详情（那是页面内 Drawer），跳对话才是 run 的家。 */
+const RUN_TONE: Record<string, string> = {
+  pending: "neutral", running: "violet", interrupted: "amber",
+  succeeded: "green", failed: "red", cancelled: "neutral",
+};
+
+function RunHistory({ itemId }: { itemId: string }) {
+  const [open, setOpen] = useState(false);
+  const runs = useQuery({
+    queryKey: ["runs", "item", itemId],
+    queryFn: () => api.listRunsByItem(itemId),
+    enabled: open,
+  });
+  const rows = (runs.data?.runs ?? []).slice(0, 10);
+  return (
+    <div className="rounded-lg border border-line bg-bg/40 px-3 py-2 text-xs">
+      <button className="flex w-full items-center gap-2 text-left"
+        onClick={() => setOpen((v) => !v)}>
+        <span className="font-medium text-mut">🤖 运行历史</span>
+        {!open && <span className="text-[10px] text-mut">（点开查看在该工件上跑过的 run）</span>}
+        <span className="ml-auto text-[10px] text-mut">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="mt-1.5 space-y-1">
+          {rows.map((r) => (
+            <div key={r.id} className="flex items-center gap-2">
+              <Badge tone={RUN_TONE[r.status] ?? "neutral"}>{r.status}</Badge>
+              <span className="text-[10px] text-mut">🤖 {r.agent_role ?? "—"}</span>
+              <span className="min-w-0 flex-1 truncate text-[10px] text-mut" title={r.input ?? ""}>
+                {r.input || "（无一次性指令）"}
+              </span>
+              <span className="text-[10px] text-mut">{(r.started_at ?? "").slice(5, 16).replace("T", " ")}</span>
+              <Link className="text-[10px] text-acc hover:underline"
+                to={r.conversation_id ? `#/c/${r.conversation_id}` : "#"}
+                title="打开运行所在对话">对话 →</Link>
+            </div>
+          ))}
+          {!rows.length && (
+            <div className="py-1 text-[10px] text-mut">尚未在该工件上发起过运行</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
