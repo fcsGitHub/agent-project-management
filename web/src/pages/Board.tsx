@@ -692,6 +692,8 @@ export function Board() {
                             {item.blocked && (
                               <span className="text-[10px] text-dan" title="存在未完成的阻塞上游">🚧</span>
                             )}
+                            {/* I224: 运行徽章接 list 视图——I207 只接了 board 两处渲染点，同态两视图可见性一致 */}
+                            {liveRunBadge(item.id)}
                             {wpProgress.get(item.id) && (
                               <span className="text-[10px] text-mut" title="子任务加权进度（estimate_hours 逐级上卷）">
                                 🧩 {wpProgress.get(item.id)!.percent}% · {wpProgress.get(item.id)!.done}/{wpProgress.get(item.id)!.total}
