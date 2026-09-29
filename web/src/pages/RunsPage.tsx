@@ -137,6 +137,13 @@ function RunDrawer({ runId, onClose, pid }: { runId: string | null; onClose: () 
           <Card className="p-3">
             <KV k="对话" v={<Link className="text-acc hover:underline" to={`/p/${pid}/c/${r.conversation_id}`}>{r.conversation_title ?? r.conversation_id} →</Link>} />
             <KV k="工作项" v={r.item_title ?? r.item_id ?? "—"} />
+            {r.input && (
+              <KV k="发起指令" v={
+                <span className="text-ink" title={r.input}>
+                  {r.input.length > 80 ? `${r.input.slice(0, 80)}…` : r.input}
+                </span>
+              } />
+            )}
             {r.output?.artifact_path && (
               <KV k="产出" v={
                 <button onClick={() => setArtifactPath(r.output!.artifact_path!)}

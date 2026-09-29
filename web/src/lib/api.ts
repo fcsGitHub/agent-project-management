@@ -678,7 +678,7 @@ export const api = {
   listRuns: (pid: string) => req<{ runs: Run[] }>(`/runs?project_id=${pid}`),
   listRunsByConversation: (cid: string) =>
     req<{ runs: Run[] }>(`/runs?conversation_id=${encodeURIComponent(cid)}`),
-  startRun: (body: { conversation_id: string; agent_role: string; item_id?: string | null }) =>
+  startRun: (body: { conversation_id: string; agent_role: string; item_id?: string | null; instruction?: string | null }) =>
     req<Run>("/runs", { method: "POST", body: JSON.stringify(body) }),
   retryRun: (rid: string) =>
     req<Run>(`/runs/${encodeURIComponent(rid)}/retry`, { method: "POST" }),

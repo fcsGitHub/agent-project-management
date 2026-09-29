@@ -60,18 +60,22 @@ export function ConversationView() {
     enabled: !!cid,
   });
 
-  const startRun = async (role?: string, itemIdOverride?: string | null) => {
+  const startRun = async (role?: string, itemIdOverride?: string | null, instructionOverride?: string | null) => {
     const kind = conv.data?.kind ?? "adhoc";
     const agentRole = role ?? roleForKind(kind);
     try {
-      // I212: 一次性工件绑定——选择器指定的 item 只作用于本次 run，
-      // 不写回对话的预绑定（conv.item_id 语义不变）。
+      // I212/I219: 一次性工件绑定与一次性指令——只作用于本次 run，
+      // 不写回对话的预绑定与 L3 指令（conv.item_id / conversation.instruction 语义不变）。
       await api.startRun({
         conversation_id: cid!, agent_role: agentRole,
         item_id: itemIdOverride !== undefined ? itemIdOverride : conv.data?.item_id,
+        instruction: instructionOverride?.trim() ? instructionOverride.trim() : null,
       });
       toast.success(`已启动 ${agentRole}`, {
-        description: itemIdOverride ? "本次运行绑定所选工件" : undefined,
+        description: [
+          itemIdOverride ? "本次运行绑定所选工件" : "",
+          instructionOverride?.trim() ? "使用本次指令" : "",
+        ].filter(Boolean).join(" · ") || undefined,
       });
     } catch (e) {
       toast.error(`启动 ${agentRole} 失败`, { description: String(e) });
@@ -101,6 +105,8 @@ export function ConversationView() {
         && ["open", "ready", "in_progress"].includes(i.status)),
   });
   const [pickItem, setPickItem] = useState("");
+  // I219: 一次性发起指令（与 I212 pickItem 同构——只作用于本次 run）
+  const [pickInstruction, setPickInstruction] = useState("");
   const approvals = useQuery({
     queryKey: ["approvals", cid],
     queryFn: () => api.listApprovals({ status: "pending" }),
@@ -216,8 +222,12 @@ export function ConversationView() {
                   ))}
                 </select>
               )}
+              <input value={pickInstruction} onChange={(e) => setPickInstruction(e.target.value)}
+                placeholder="本次指令（可空=沿用对话指令）"
+                className="w-44 rounded-lg border border-line bg-surface px-2 py-1 text-xs"
+                title="I219: 只作用于本次 run 的一次性指令——RunsPage 详情可见原文" />
               <Button size="sm" variant="outline"
-                onClick={() => startRun(undefined, pickItem || undefined)}>▶ 让 Agent 执行</Button>
+                onClick={() => { startRun(undefined, pickItem || undefined, pickInstruction || null); setPickInstruction(""); }}>▶ 让 Agent 执行</Button>
             </>
           )}
           {/* M66-I198: ChatGPT "Branch in new chat" — child conversation on the
