@@ -107,6 +107,12 @@ export function ConversationView() {
   const [pickItem, setPickItem] = useState("");
   // I219: 一次性发起指令（与 I212 pickItem 同构——只作用于本次 run）
   const [pickInstruction, setPickInstruction] = useState("");
+  // I221: 角色选择器（opt-in 覆盖——空=按对话类型的 kind 默认映射）
+  const [pickRole, setPickRole] = useState("");
+  const roleOptions = useMemo(
+    () => [...new Set((ontoQ.data?.concepts ?? []).flatMap((c) => c.agent_roles ?? []))],
+    [ontoQ.data],
+  );
   const approvals = useQuery({
     queryKey: ["approvals", cid],
     queryFn: () => api.listApprovals({ status: "pending" }),
@@ -212,6 +218,16 @@ export function ConversationView() {
           )}
           {!hasActiveRun && c.status !== "archived" && (
             <>
+              {roleOptions.length > 0 && (
+                <select value={pickRole} onChange={(e) => setPickRole(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2 py-1 text-xs"
+                  title="本次运行的角色（opt-in 覆盖——默认按对话类型自动路由，M365 Copilot 模式）">
+                  <option value="">角色：按对话类型（{roleForKind(c.kind)}）</option>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>🤖 {r}</option>
+                  ))}
+                </select>
+              )}
               {artifactItems.data && artifactItems.data.length > 0 && (
                 <select value={pickItem} onChange={(e) => setPickItem(e.target.value)}
                   className="rounded-lg border border-line bg-surface px-2 py-1 text-xs"
@@ -227,7 +243,10 @@ export function ConversationView() {
                 className="w-44 rounded-lg border border-line bg-surface px-2 py-1 text-xs"
                 title="I219: 只作用于本次 run 的一次性指令——RunsPage 详情可见原文" />
               <Button size="sm" variant="outline"
-                onClick={() => { startRun(undefined, pickItem || undefined, pickInstruction || null); setPickInstruction(""); }}>▶ 让 Agent 执行</Button>
+                onClick={() => {
+                  startRun(pickRole || undefined, pickItem || undefined, pickInstruction || null);
+                  setPickInstruction("");
+                }}>▶ 让 Agent 执行</Button>
             </>
           )}
           {/* M66-I198: ChatGPT "Branch in new chat" — child conversation on the
