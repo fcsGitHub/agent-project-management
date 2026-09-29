@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M74 台账与管理面收口三件套 完成，下一步 M75 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M75 调研定义 完成，下一步 I225 资产退役与归档）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M75 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M74 纪律沉淀：候选池勿凭印象写——七次「我以为的缺口早已存在」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览/closeRisk 冗余重复/工作项发起运行=orchestrator batch_start 指派驱动]；「半截链」grep 八连中[资产历史/run 绑定/工件预览/工件搜索/工件清单页/指令回显/工件运行历史/费用记账=反向镜像]；api.ts→前端镜像扫描要剔除类型行误报+先查同语义替代消费面[M74]**）→ 三路并行 WebSearch → docs/01 新节（§BT）+ docs/10 §M75 节 + 看板行 →「M75 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M75 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①api.ts 镜像扫描残余零消费函数群——cancelCycle（Board 有 createCycle 无取消入口）/patchView（保存视图改名）/listOntologies（本体清单校验面）/health（状态面板）——低频边缘但数据面真实，合并凑 M75 需核验各自价值；②分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；③删除工件恢复 UI（等真实误删证据——维持）；④维持项（长清单见前轮，均维持不做）。
+2. **M75 迭代（下一步）**：调研定义已提交（57fbc60，docs/01 §BT + docs/10 §M75 节 + 看板行）。定案 **M75 = 生命周期闭合三件套**：I225 资产退役与归档（`POST /assets/{id}/deprecate`+`/archive` 发射既有事件——**payload 必带 status 键，upsert 投影 p.get("status","draft") 默认 draft·漏带=退了役还落 draft**·archive 后 search 滤清单消失/详情 404 既有语义 + AssetsPage 资产行/洞察吃灰行「退役/归档」按钮 + 单测·半截链第九例收口）→ I226 视图改名+周期取消（Board views 面板 hover ✏️ prompt 改名→patchView + 周期选择器旁「取消周期」confirm→cancelCycle·**后端零改动**·取消即从选择器消失[list_cycles 滤 cancelled_at]）→ I227 **冒烟 80**（资产 publish→deprecate→吃灰退出→archive 清单消失；周期 create→cancel→list 消失；视图 create→rename→list）+ 全量回归 + 收口。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -127,6 +127,8 @@
 - **历轮「正向半截链」的反向镜像同样成立**（M74 调研）：读侧齐全写侧 UI 缺失（I142 报表读 expense_entries 在·记账面零 UI）与展示有管理无（TimelinePage 里程碑行在·CRUD 零入口）都是真缺口；但「工作项发起运行」这类看似的缺口先查 orchestrator/scheduler.py 的既有指派驱动路径（batch_start 早已实现）——防重查第六/七例。
 - **`pytest | tail -N` 管道既截断日志又掩盖真实退出码**（M74-I224）：管道退出码=tail 的（exit 0 伪绿），且 tail -N 只留最后 N 行（当时 passed 行都没进来）——全量验证一律 `> 文件 2>&1; echo EXIT=$?` 完整落文件再读。
 - **.pytest_cache 的 lastfailed 保留「永不收集」的化石条目**（M74-I224 再证）：已删除/改名的测试条目永不被清除，缓存既不能证明也不能证伪某次运行——判定全量结果只认 pytest 自身退出码+passed 行。
+- **资产退役端点发射 asset.deprecated 时 payload 必带 status 键**（M75-I225）：upsert 投影 `p.get("status", "draft")` 默认 draft——漏带则退了役还落 draft（superseded 投影能直接改列是因为它走专用 UPDATE 语句，通用 upsert 只认 payload）。
+- **「产出物无建项目入口」先查 instantiate 类共链路**（M75 调研第八例）：模板包导入产物看着只能靠硬编码的 ProjectPicker 建项目，实际 TemplatesPage 的 instantiate 与 POST /projects 完全共链路（宪章/首特性/起草对话/内容仓 bootstrap）——评「入口缺失」前把同类面的替代消费路径全走一遍。
 
 ## 6. 快速上手命令
 
