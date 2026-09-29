@@ -14,7 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { Item } from "../lib/api";
-import { Badge, Card, Empty, cx } from "../components/ui";
+import { Badge, Button, Card, Empty, cx } from "../components/ui";
 import { weightedProgress } from "../lib/rollup";
 
 const DAY = 86_400_000;
@@ -57,6 +57,11 @@ export function TimelinePage() {
   // I101: CPM critical chain toggle + red-frame highlight
   const cp = useQuery({ queryKey: ["critical-path", pid], queryFn: () => api.getCriticalPath(pid!), enabled: !!pid });
   const [showCP, setShowCP] = useState(false);
+  // I223: 里程碑管理面 — createMilestone/patchMilestone/deleteMilestone 接线（后端 M12 零改动）
+  const [msOpen, setMsOpen] = useState(false);
+  const [msForm, setMsForm] = useState<{ id: string | null; title: string; due_date: string; description: string; status: string }>(
+    { id: null, title: "", due_date: "", description: "", status: "planned" });
+  const [msBusy, setMsBusy] = useState(false);
   const criticalIds = useMemo(() => new Set(showCP && !cp.data?.cycle ? cp.data?.chain ?? [] : []), [showCP, cp.data]);
   // I102/I116: weighted progress for the mini progress bars on parent bars
   const subProgress = useMemo(() => weightedProgress(items.data?.items ?? []), [items.data]);
@@ -360,6 +365,12 @@ export function TimelinePage() {
                 showCP ? "border-dan bg-danbg text-dan" : "border-line text-mut hover:border-acc hover:text-acc")}>
               ⛔ 关键路径
             </button>
+            <button onClick={() => setMsOpen((v) => !v)}
+              title="里程碑管理：创建/编辑/删除（I223）"
+              className={cx("rounded-lg border px-2 py-1 text-xs",
+                msOpen ? "border-acc bg-accbg text-acc" : "border-line text-mut hover:border-acc hover:text-acc")}>
+              ◆ 里程碑
+            </button>
           </div>
         </div>
 
@@ -590,6 +601,110 @@ export function TimelinePage() {
               </select>
             </div>
             {cmpA && cmpB && cmpA !== cmpB && <BaselineCompare pid={pid!} a={cmpA} b={cmpB} />}
+          </Card>
+        </div>
+      )}
+      {/* I223: 里程碑管理面板 — GitHub 列表式就近 CRUD（展示它的视图里管它） */}
+      {msOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-6" onClick={() => setMsOpen(false)}>
+          <Card className="mt-10 w-full max-w-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">🚩 里程碑管理（{msCount}）</span>
+              <button onClick={() => setMsOpen(false)} className="text-xs text-mut hover:text-ink">✕</button>
+            </div>
+            <div className="mb-2 flex flex-wrap items-center gap-1 rounded-md border border-line bg-bg p-2 text-xs">
+              <input placeholder="标题（必填）" value={msForm.title}
+                onChange={(e) => setMsForm({ ...msForm, title: e.target.value })}
+                className="w-44 rounded border border-line bg-surface px-1.5 py-1" />
+              <input type="date" value={msForm.due_date} title="截止日（必填）"
+                onChange={(e) => setMsForm({ ...msForm, due_date: e.target.value })}
+                className="rounded border border-line bg-surface px-1.5 py-1" />
+              <select value={msForm.status} title="状态（本体 milestone 状态集）"
+                onChange={(e) => setMsForm({ ...msForm, status: e.target.value })}
+                className="rounded border border-line bg-surface px-1 py-1">
+                <option value="planned">已规划</option>
+                <option value="in_progress">进行中</option>
+                <option value="achieved">已达成</option>
+              </select>
+              <input placeholder="描述（可选）" value={msForm.description}
+                onChange={(e) => setMsForm({ ...msForm, description: e.target.value })}
+                className="min-w-0 flex-1 rounded border border-line bg-surface px-1.5 py-1" />
+              <Button size="sm" variant="outline" disabled={msBusy}
+                onClick={async () => {
+                  if (!msForm.title.trim() || !msForm.due_date) {
+                    toast.error("标题与截止日必填");
+                    return;
+                  }
+                  setMsBusy(true);
+                  try {
+                    if (msForm.id) {
+                      await api.patchMilestone(msForm.id, {
+                        title: msForm.title.trim(), due_date: msForm.due_date,
+                        description: msForm.description.trim() || undefined, status: msForm.status,
+                      });
+                      toast.success("里程碑已更新");
+                    } else {
+                      await api.createMilestone(pid!, {
+                        title: msForm.title.trim(), due_date: msForm.due_date,
+                        description: msForm.description.trim() || undefined,
+                      });
+                      toast.success("里程碑已创建");
+                    }
+                    setMsForm({ id: null, title: "", due_date: "", description: "", status: "planned" });
+                    await qc.invalidateQueries({ queryKey: ["milestones", pid] });
+                  } catch (e) {
+                    toast.error(`保存失败：${e instanceof Error ? e.message : e}`);
+                  } finally {
+                    setMsBusy(false);
+                  }
+                }}>{msForm.id ? "保存" : "创建"}</Button>
+              {msForm.id && (
+                <Button size="sm" variant="ghost"
+                  onClick={() => setMsForm({ id: null, title: "", due_date: "", description: "", status: "planned" })}>取消</Button>
+              )}
+            </div>
+            {msRow.length === 0 && (
+              <div className="py-6 text-center text-xs text-mut">尚无里程碑——上方表单创建第一个</div>
+            )}
+            {msRow.length > 0 && (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-line text-mut">
+                    <th className="py-1.5">标题</th><th>截止</th><th>状态</th><th>进度</th><th className="text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {msRow.map((m) => (
+                    <tr key={m.id} className="border-b border-line/60">
+                      <td className="py-1.5 font-medium" title={m.description ?? undefined}>{m.title}</td>
+                      <td className="text-mut">{m.due_date}</td>
+                      <td>{m.status}</td>
+                      <td className="text-mut">
+                        {m.progress
+                          ? `${Math.round((m.progress.done_ratio ?? 0) * 100)}%${m.progress.overdue_items > 0 ? ` · 逾期 ${m.progress.overdue_items}` : ""}`
+                          : "—"}
+                      </td>
+                      <td className="whitespace-nowrap text-right">
+                        <button title="编辑" className="mr-2 text-mut hover:text-acc"
+                          onClick={() => setMsForm({ id: m.id, title: m.title, due_date: m.due_date, description: m.description ?? "", status: m.status })}>✏️</button>
+                        <button title="删除（关联工作项不受影响）" className="text-mut hover:text-dan"
+                          onClick={async () => {
+                            if (!window.confirm(`删除里程碑「${m.title}」？关联工作项不受影响。`)) return;
+                            try {
+                              await api.deleteMilestone(m.id);
+                              toast.success("里程碑已删除");
+                              if (msForm.id === m.id) setMsForm({ id: null, title: "", due_date: "", description: "", status: "planned" });
+                              await qc.invalidateQueries({ queryKey: ["milestones", pid] });
+                            } catch (e) {
+                              toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+                            }
+                          }}>🗑</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </Card>
         </div>
       )}
