@@ -15,8 +15,19 @@ from pydantic import BaseModel
 from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
+from apm.domains.members import member_role
 
 router = APIRouter(tags=["expenses"])
+
+
+def _gate(project_id: str) -> None:
+    """M76-I228: project reads follow the items/comments convention — local
+    mode trusted; network mode requires any project membership."""
+    from apm import config
+    if config.settings.auth_mode == "local":
+        return
+    if member_role(project_id, events.effective_actor()) is None:
+        raise HTTPException(status_code=403, detail="not a project member")
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _ISO_CURRENCY = re.compile(r"^[A-Z]{3}$")
@@ -92,6 +103,7 @@ def record_expense(project_id: str, body: ExpenseIn) -> dict:
 def list_expenses(project_id: str, item_id: str | None = None) -> dict:
     from apm.domains.projects import require_project
 
+    _gate(project_id)  # M76-I228: 项目读面对齐 items/comments 惯例
     require_project(project_id)
     sql = ("SELECT * FROM expense_entries WHERE project_id = ? AND deleted_at IS NULL")
     params: list = [project_id]

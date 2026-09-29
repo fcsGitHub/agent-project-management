@@ -29,6 +29,17 @@ from apm.domains.projects import require_project
 
 router = APIRouter(tags=["automations"])
 
+
+def _gate(project_id: str) -> None:
+    """M76-I228: project reads follow the items/comments convention — local
+    mode trusted; network mode requires any project membership."""
+    from apm import config
+    from apm.domains.members import member_role
+    if config.settings.auth_mode == "local":
+        return
+    if member_role(project_id, events.effective_actor()) is None:
+        raise HTTPException(status_code=403, detail="not a project member")
+
 TRIGGERS = ("item.created", "item.updated", "item.status_changed", "item.assigned")
 SCHEDULE_TRIGGER = "schedule:daily"  # I98: YouTrack On-schedule semantics — evaluated
 # by the daily sweep, never by dispatch (not in TRIGGERS).
@@ -766,6 +777,7 @@ class RulePatch(BaseModel):
 
 @router.get("/projects/{project_id}/automations")
 def get_rules(project_id: str) -> dict:
+    _gate(project_id)  # M76-I228: 项目读面对齐 items/comments 惯例
     require_project(project_id)
     return {"rules": list_rules(project_id)}
 
@@ -846,6 +858,7 @@ def test_rule(project_id: str, rule_id: str) -> dict:
 
 @router.get("/projects/{project_id}/automations/{rule_id}/runs")
 def rule_history(project_id: str, rule_id: str) -> dict:
+    _gate(project_id)  # M76-I228
     require_project(project_id)
     row = _rule_row(rule_id)
     if not row or row["project_id"] != project_id:

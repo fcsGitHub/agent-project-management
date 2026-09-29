@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from apm import config
 from apm.content import assetsrepo
 from apm.core import db, events
+from apm.domains.members import require_instance_user
 from apm.core.ids import new_id
 from apm.core.projections import on
 
@@ -497,6 +498,7 @@ class LinkIn(BaseModel):
 def list_assets(
     library: str | None = None, kind: str | None = None, q: str | None = None, tag: str | None = None
 ) -> dict:
+    require_instance_user()  # M76-I228: org 库读=实例成员可读（network 匿名 401）
     return {"assets": search(q, library, kind, tag)}
 
 
@@ -508,6 +510,7 @@ def get_asset_insights() -> dict:
     the asset.consumed / asset.linked facts that have been on the stream since
     M6 — a pure read-side projection, zero instrumentation (npm-style usage
     counts and staleness, translated for an org-internal library)."""
+    require_instance_user()  # M76-I228
     return asset_insights()
 
 
@@ -620,6 +623,7 @@ def post_archive_asset(asset_id: str) -> dict:
 
 @router.get("/assets/{asset_id}")
 def get_asset_detail(asset_id: str) -> dict:
+    require_instance_user()  # M76-I228
     asset = require_asset(asset_id)
     asset["tags"] = json.loads(asset["tags"] or "[]")
     asset["provenance"] = _links(asset_id, "provenance")
@@ -639,6 +643,7 @@ def get_asset_detail(asset_id: str) -> dict:
 
 @router.get("/assets/{asset_id}/history")
 def get_asset_history(asset_id: str) -> dict:
+    require_instance_user()  # M76-I228
     asset = require_asset(asset_id)
     try:
         history = assetsrepo.asset_log(asset["library_id"], asset_id)
@@ -650,6 +655,7 @@ def get_asset_history(asset_id: str) -> dict:
 
 @router.get("/assets/{asset_id}/diff")
 def get_asset_diff(asset_id: str, from_commit: str, to_commit: str) -> dict:
+    require_instance_user()  # M76-I228
     asset = require_asset(asset_id)
     if not from_commit or not to_commit:
         raise HTTPException(status_code=422, detail="from_commit and to_commit are required")

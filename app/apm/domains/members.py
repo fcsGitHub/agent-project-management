@@ -83,6 +83,21 @@ def is_instance_admin(user_id: str) -> bool:
     return bool(row["is_admin"]) if row else False
 
 
+def require_instance_user() -> str:
+    """M76-I228: org-level reads (assets / template packs) — local mode is
+    trusted; network mode requires a logged-in instance user. 401 (not 403):
+    there is no project to be a member of — the gate is authentication, not
+    project membership."""
+    from apm.core import events as _events
+
+    if config.settings.auth_mode == "local":
+        return _events.effective_actor()
+    actor = _events.effective_actor()
+    if actor in ("", "anonymous"):
+        raise HTTPException(status_code=401, detail="login required")
+    return actor
+
+
 def check_project_write(project_id: str, user_id: str) -> tuple[bool, str | None]:
     """May `user_id` mutate `project_id`? Returns (allowed, effective role)."""
     if is_instance_admin(user_id):

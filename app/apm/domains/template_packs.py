@@ -19,6 +19,7 @@ from apm.domains.ontology import (
     validate_ontology_dict,
 )
 from apm.domains.ontology_versions import _load_live
+from apm.domains.members import require_instance_user
 from apm.domains.projects import ProjectIn, post_project
 
 router = APIRouter(tags=["template-packs"])
@@ -81,6 +82,7 @@ def _summary(onto) -> dict:
 
 @router.get("/template-packs")
 def list_packs() -> dict:
+    require_instance_user()  # M76-I228: org 级读=实例成员可读（network 匿名 401）
     prov = _provenance()
     packs = []
     for onto in list_ontologies():
@@ -104,6 +106,7 @@ def list_packs() -> dict:
 
 @router.get("/template-packs/{name}")
 def preview_pack(name: str) -> dict:
+    require_instance_user()  # M76-I228
     try:
         onto = load_ontology(name)
     except OntologyError as e:
@@ -205,6 +208,7 @@ def pack_usages(name: str) -> dict:
     Projects born before version tracking surface honestly without a version.
     Read-side aggregation over project.created; upgrades stay a human
     governance decision — visibility, never auto-migration."""
+    require_instance_user()  # M76-I228
     try:
         onto = load_ontology(name)
     except OntologyError as e:
