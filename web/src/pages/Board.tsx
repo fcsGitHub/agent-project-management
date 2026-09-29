@@ -469,6 +469,22 @@ export function Board() {
                         className="shrink-0 text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
                         title="设为项目默认视图（打开看板直达）">默认</button>
                     )}
+                    {/* I226: 改名——patchView 接线（此前 typo 视图名只能删了重建） */}
+                    <button onClick={async () => {
+                      const name = window.prompt("重命名视图", v.name)?.trim();
+                      if (!name || name === v.name) return;
+                      if ((viewsQ.data?.views ?? []).some((x) => x.id !== v.id && x.name === name)) {
+                        toast.error("已有同名视图");
+                        return;
+                      }
+                      try {
+                        await api.patchView(v.id, { name });
+                        qc.invalidateQueries({ queryKey: ["views", pid] });
+                        toast.success("视图已重命名");
+                      } catch (e) { toast.error(`重命名失败：${e instanceof Error ? e.message : e}`); }
+                    }}
+                      className="shrink-0 text-[10px] text-mut opacity-0 transition-opacity hover:text-acc group-hover:opacity-100"
+                      title="重命名视图">✏️</button>
                     <button onClick={() => removeView(v.id)}
                       className="shrink-0 text-[11px] text-mut opacity-0 transition-opacity hover:text-dan group-hover:opacity-100"
                       title="删除视图">✕</button>
@@ -528,6 +544,19 @@ export function Board() {
         {cycleId && (
           <Button size="sm" variant="ghost" onClick={() => setRetroCycle(cycleId)}
             title="周期回顾包（完成率/拖入/超期/阻塞 top —— M48-I145）">📋 回顾</Button>
+        )}
+        {cycleId && (
+          <Button size="sm" variant="ghost" title="取消该周期（建错了的周期——取消即从选择器退场，周期内工作项不受影响）"
+            onClick={async () => {
+              const c = (cyclesQ.data?.cycles ?? []).find((x) => x.id === cycleId);
+              if (!window.confirm(`取消周期「${c?.name ?? cycleId}」？周期内工作项不受影响，可手动改挂其他周期。`)) return;
+              try {
+                await api.cancelCycle(cycleId);
+                setFilter("cycle", "");
+                qc.invalidateQueries({ queryKey: ["cycles", pid] });
+                toast.success("周期已取消");
+              } catch (e) { toast.error(`取消失败：${e instanceof Error ? e.message : e}`); }
+            }}>✕ 取消周期</Button>
         )}
         <select value={group || board.data?.group_by || ""} onChange={(e) => setFilter("group", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
