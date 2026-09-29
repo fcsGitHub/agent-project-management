@@ -2200,6 +2200,36 @@ agent-project-management/
 
 ---
 
+### M72 · 工件面收口三件套（I216-I218，约 9 人日）
+
+> v3.0 新增（2026-09-29，docs/01 §BQ 前置调研）。工件四端点读写零成员校验（items/comments 均有 _gate——**M45 审计盲区：工件端点在 content/ 不在 domains/**）；list_artifacts 前端零消费（半截链第五例）；工件无删除面、git archive 从未用（产出带不走）。**防重查：分叉采纳面[继续降级]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I216 | 工件读写权限门（四端点补门：读=network 模式成员校验对齐 _gate·写=viewer 只读角色门 + 单测[network 模式非成员 403/viewer 写 403/local 全通]） | docs/01 §BQ.1 | items._gate 惯例/M67 语义边界 | 3d |
+| I217 | 工件清单页+删除面（新 ArtifactsPage[list+预览抽屉复用+🗑 删除] + DELETE 端点[git rm+artifact.deleted 事件·git 历史即软删] + RAIL 入口 + SearchPage 命中行跳本页 + 单测） | docs/01 §BQ.2 | list_artifacts 半截链/ArtifactPreviewDrawer | 3d |
+| I218 | 工件包导出+冒烟 77+收尾审阅（GET /artifacts/export[git archive HEAD artifacts/ 子树 zip 流式·文件名带 commit 短码] + artifact.exported 事件 + 📦 按钮 + 冒烟 77 + 全量回归 + docs 收口 + M72 审阅） | docs/01 §BQ.3 | gitrepo._run | 3d |
+
+#### I216 · 工件读写权限门（3d）
+
+- 任务：artifacts.py 四端点补门——`_artifact_gate(project_id, write=False)`（local 模式全通[既有语义]·network 模式读=成员校验、写=member_role∈{owner,contributor}[viewer 403]）应用到 list/get/put + 新 DELETE 端点同门（I217 用）。
+- DoD：单测（network 模式非成员读 403 写 403/viewer 写 403 读 200/owner·contributor 全通/local 模式不受影响）。
+- 演示路径：network 模式非成员 curl 工件 → 403；viewer 写 → 403。
+
+#### I217 · 工件清单页+删除面（3d）
+
+- 任务：DELETE /projects/{pid}/artifacts/{path}（git rm+commit+artifact.deleted 事件[带 commit]·搜索索引投影器清行）+ 新 ArtifactsPage（清单卡[path/更新时间·点击开 ArtifactPreviewDrawer·🗑 删除确认]·空态引导）+ AppShell RAIL「工件」+ SearchPage 工件命中行改跳本页 + api.deleteArtifact。
+- DoD：单测（删除→清单消失+事件在+搜索不再命中+git 历史可追溯[log 仍见]）；vitest/build。
+- 演示路径：清单页浏览全部工件 → 点开预览 → 删除错误产出 → 搜索确认消失。
+
+#### I218 · 工件包导出+冒烟 77+收尾审阅（3d）
+
+- 任务：GET /projects/{pid}/artifacts/export（git archive --format=zip HEAD -- artifacts/ 流式 Response·media zip·文件名 artifacts-{pid前8}-{commit7}.zip）+ artifact.exported 事件（审计）+ ArtifactsPage「📦 导出工件包」+ **冒烟 77**（权限门三态→删除面→导出 zip 含工件）+ 全量回归 + docs 收口 + M72 审阅。
+- DoD：冒烟 77 GREEN；导出 zip 可解包且含 artifacts/ 子树；viewer 导出 403。
+- 演示路径：项目完成 → 导出工件包交付 → 解包核对 PRD/WBS 齐全。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2400,6 +2430,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-29 M72 调研定义（§BQ） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**分叉采纳面[连续多轮无使用证据——继续降级]**、工件清单页[**grep 证实 listArtifacts 前端零调用——半截链第五例**]、工件权限[**grep 证实 artifacts 读端点零权限校验·put_artifact 只有 require_project[存在性非成员制]——items/comments 均有 _gate 而工件没有·工件端点住 content/ 不在 domains/——M45 双代理全库审计漏网之鱼·确凿缺口**]、重核验第三候选工件删除与打包[**gitrepo 无 delete·无 artifact.deleted 事件·git archive 从未使用——错误产出永久残留且产出带不走**]。三路 WebSearch：repo 文件权限（[GitHub teams & people](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)/[GitLab Roles](https://docs.gitlab.com/user/permissions)/[community #102755](https://github.com/orgs/community/discussions/102755)——**repo 级权限继承是两家共同正统·repo 内无原生文件级 ACL 是知名 gap**·工件继承项目成员制=同款正统语义）、制品删除（[Mirantis MSR GC](https://docs.mirantis.com)/[Harbor retention](https://goharbor.io)——**manifest 删除与 GC 解耦[标记-清扫]**·git 历史天然是软删·retention 策略层一人工厂不需要）、交付打包（git archive 社区通行——**干净快照不含 .git·锚定 commit 可复现**·Release assets 挂版本点+校验和）。定案 M72=工件面收口三件套（I216 工件读写权限门/I217 工件清单页+删除面/I218 工件包导出） |
 | **M71 可寻与可看三件套（I213-I215）** | 已完成 | 2026-09-29 | 2026-09-29 | 3 迭代 / 约 9 人日（docs/01 §BP + docs/10 §M71）：I213 工件内容全文搜索（artifacts_search FTS5[键 project_id\|path·**只索引当前版**·工件无投影表投影器读 git 当前内容·rebuild 重放以最后一次为准] + 第四 type artifacts[权限=项目可见性·工件不挂概念] + **_match_expr 查询侧双引号——bigram latin 词保留连字符[feature-auth]裸词被 FTS5 解析为 NOT 语法[no such column: auth]** + SearchPage 工件 chip）/ I214 工件预览通用入口（新 ArtifactPreviewDrawer[getArtifact content+版本史+diff 一屏·**Cloudscape inline preview 长在产出出现的地方**·FeaturePage 零改动] + 三触点[CommentsModal 📄 徽标/RunsPage 产出 KV/SearchPage 命中行] + artifactRefs 纯函数 vitest）/ I215 指令模板导入导出（**watch M56 对称面照搬**[JSON 清单·同 title 跳过永不 clobber·坏行带索引 422·_create_row 公共路径] + TemplatesDrawer ⬇⬆ 按钮 + **冒烟 76**）。基线：pytest **533** 全绿（非 smoke 457 EXIT=0 + smoke runner **76 GREEN** 对账）+ vitest **30** + build 绿 |
 | 2026-09-29 M71 调研定义（§BP） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**分叉采纳面[连续多轮无使用证据——继续降级]**、**审批前工件预览[ApprovalsPage 已有 openPreview+Markdown+diff——作废]**、模板导入导出[**grep 证实 prompt_templates.py 零导出导入端点·watch /watch-rules/export+/import 先例在——对称面缺口属实**]、工件预览通用入口[**grep 证实 getArtifact 全功能响应[content+history+diff_vs_previous]只有 FeaturePage 消费·Board/ConversationView/RunsPage 零命中——非 feature 工件前端零预览入口·半截链第四例**]、重新核验出第三候选工件内容全文搜索[**SearchPage 类型清单三类无 artifacts——工厂核心知识资产写进 git 即不可寻·FTS5 基建齐备就是没接**]。三路 WebSearch：知识库搜索范围（[KnowledgeScout](https://knowledgescout.io)/[ServiceNow 角色域](https://www.servicenow.com)/[Document360](https://docs.document360.com)——**跨内容类型统一入口+权限域过滤·缺哪类哪类就是坟场**）、工件预览模式（[AWS Cloudscape Artifact Previews](https://cloudscape.design/gen-ai/patterns/artifact-previews)——**正式 UX pattern：inline preview 长在产出出现的地方**·[Antigravity Viewer](https://antigravity.google/docs/cli/artifacts)/[Manus 拆解](https://aiuxplayground.com/teardowns/manus/output)）、模板共享形态（[Notion Duplicate as template](https://www.notion.com/help/duplicate-public-pages)/[Obsidian 模板=MD 文件夹](https://ones.com/blog)——**平台内复制为主文件导出为辅·结构化数据走 JSON**）。定案 M71=可寻与可看三件套（I213 工件全文搜索/I214 工件预览通用入口/I215 指令模板导入导出） |
 | I213 工件内容全文搜索 | 已完成 | 2026-09-29 | 2026-09-29 | schema artifacts_search FTS5（键 project_id\|path·**只索引当前版**——工件无投影表·投影器读 git 当前内容·rebuild 重放以最后一次为准语义一致·读文件失败清索引跳过） + search.py 第四 type（权限=项目可见性·工件不挂概念 can_see_concept 不适用·返回 path+title+项目名） + **_match_expr 查询侧双引号包裹 token——bigram latin 词保留连字符[feature-auth]裸词被 FTS5 解析为 NOT[no such column: auth]**·只动新分支防既有回归 + SearchPage 工件 chip+结果卡+facet + test_artifact_search 2 项[内容/路径命中·改写旧词消失新词命中·rebuild 复现·类型隔离——**后端 types 默认保守 M22 惯例前端显式全类**] |

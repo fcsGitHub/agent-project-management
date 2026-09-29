@@ -1970,3 +1970,26 @@ M70 = **可见性与可达三件套**：I210 资产版本历史与 diff（git �
 **BP.4 M71 取舍**
 
 M71 = **可寻与可看三件套**：I213 工件内容全文搜索（第四类 FTS·知识资产可寻回）/ I214 工件预览通用入口（Cloudscape inline preview·评论路径+run 产出两触点）/ I215 指令模板导入导出（watch 对称面 JSON）+ 冒烟 76 + 审阅，约 9 人日。资产入全局搜索、CJK 分词升级、FeaturePage 改造、Markdown 模板交换、全局模板池、分叉合并采纳面（继续等证据）留 backlog。
+
+## BQ. M72 前置调研：工件权限门 / 工件清单与删除 / 工件包导出（2026-09-29）
+
+> 目标协议触发：M71 完成后开启。防重查：候选池 grep——**分叉采纳面（连续多轮无使用证据——继续降级）**、工件清单页（**grep 证实 listArtifacts 前端零调用[api.ts 定义在、页面消费零命中]——半截链第五例**）、工件权限（**grep 证实 artifacts 读端点零权限校验、put_artifact 只有 require_project[存在性非成员制]——items/comments 均有 _gate 而工件没有；工件端点住在 content/ 不在 domains/，M45 双代理全库审计的漏网之鱼——确凿缺口非臆测**）。重新核验出第三候选：**工件删除与打包（gitrepo 无 delete、无 artifact.deleted 事件——错误产出永久残留且无法清理；git archive 从未使用——工厂产出「带不走」）**。本轮三路新调研（**repo 文件权限模型 / 制品删除语义 / 交付打包惯例**），选定 **M72 = 工件面收口三件套**。
+
+**BQ.1 工件读写权限门（repo 级权限继承——GitHub/GitLab 的正统语义）**
+
+- 产品共识（[GitHub Docs: teams & people](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)、[GitLab Roles & Permissions](https://docs.gitlab.com/user/permissions)、[GitHub community #102755 文件级请求](https://github.com/orgs/community/discussions/102755)）：**repo 级权限继承是两家共同的正统**——repo 内没有原生文件级 ACL（可读 repo 即可读全部文件是知名 gap），文件级控制靠 CODEOWNERS/保护分支（治理）或拆库（隔离）；[GitLab defense-in-depth](https://docs.gitlab.com) 主张多层校验。
+- 对本项目的映射：工件=项目 repo 内文件——**继承项目成员制就是 GitHub/GitLab 同款正统语义**，无需发明工件级 ACL。补法=工件四端点补门：读（list/get）network 模式成员校验（对齐 items/comments 的 _gate 惯例）、写（put）升级 require_project→成员门+角色（viewer 只读），local 模式照旧全通；工件在 M67 概念可见性里无 concept 维度，成员门即终点（文件级 ACL 是两家都没有的东西，不做）。**顺带修 M45 审计盲区**：content/ 下的端点纳入与 domains/ 同级的门禁标准。
+
+**BQ.2 工件清单页与删除（浏览+清理——git 历史即软删）**
+
+- 产品共识（[Axiobench 制品注册表 2026](https://axiobench.com)、[Mirantis MSR GC 文档](https://docs.mirantis.com)、[Harbor tag retention/immutable](https://goharbor.io)）：制品删除的收敛语义=**manifest 删除与存储 GC 解耦（标记-清扫两阶段）**，retention/immutable 是策略层；ECR lifecycle 是硬删。对本项目：工件删除=**git rm+artifact.deleted 事件——git 历史天然是软删**（审计链完整、可追溯、误删可恢复），不需要 GC/retention 策略层（一人工厂低量低频）。补法=新 ArtifactsPage（/p/:pid/artifacts——list_artifacts 的半截链接上：清单[path/kind/更新时间]+I214 ArtifactPreviewDrawer 复用+「🗑 删除」走 DELETE 端点[git rm+事件+确认框]）+ AppShell RAIL 入口 + SearchPage 工件命中行跳本页（替换 I214 的直接抽屉——浏览页是更好的着陆点，抽屉保留在评论/run 触点）。
+- **不做**：retention 策略/GC（量级不需要）、回收站抽屉复用（git 历史即回收站——恢复=git revert 该删除提交，留待真实误删场景再补 UI）、工件重命名/移动（git mv 面收益低）。
+
+**BQ.3 工件包导出（git archive——干净快照交付）**
+
+- 产品惯例（`git archive --format=zip --prefix=… <commit>` 社区通行做法：干净导出**不含 .git**、锚定 commit 可复现；GitHub Release assets 语义=交付物挂在版本点+校验和；交付清单=README+依赖清单+排除秘密）：交付的共识=**锚定版本的干净快照+校验**，而非工作区拷贝。
+- 对本项目的映射：工件全在项目 repo 的 artifacts/ 子树——`git archive` 是现成能力（M71 搜索已确认工件是核心交付物，现在只能逐个复制）。补法=`GET /projects/{pid}/artifacts/export`（git archive HEAD -- artifacts/ 子树 zip 流式下载·文件名带 commit 短码）+ ArtifactsPage「📦 导出工件包」按钮（成员门同读面）+ 事件 artifact.exported（审计：交付是值得记录的动作）。**不做** 全 repo 导出（含 prompts/charter 等内部文件——只打 artifacts/ 子树）、校验和清单（zip 内 git commit 已可溯源）、Release 页面（一次性下载即够）。
+
+**BQ.4 M72 取舍**
+
+M72 = **工件面收口三件套**：I216 工件读写权限门（repo 级继承成员制·M45 盲区补课）/ I217 工件清单页+删除面（半截链第五例收口·git rm+事件·git 历史即软删）/ I218 工件包导出（git archive 锚定 commit·artifact.exported 审计事件）+ 冒烟 77 + 审阅，约 9 人日。工件级 ACL、retention 策略、回收站 UI、全 repo 导出、分叉合并采纳面（继续等证据）留 backlog。
