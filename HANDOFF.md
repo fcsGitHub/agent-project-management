@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M73 运行可观测与可控三件套 完成，下一步 M74 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M74 调研定义 完成，下一步 I222 费用记账面）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M74 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M73 纪律沉淀：候选池勿凭印象写——五次「我以为的缺口早已存在」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览]；「半截链」grep 套路七连中[资产历史/run 绑定/工件预览/工件搜索/工件清单页/指令回显/工件运行历史]；权限面专门查 content/ 与 domains/ 门禁一致性[M72 再证]；候选核验本身也会出错——Run 类型 input 字段笔误[M73 自纠：grep 到的类型行要读完整]**）→ 三路并行 WebSearch → docs/01 新节（§BS）+ docs/10 §M74 节 + 看板行 →「M74 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M74 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；②删除工件恢复 UI（等真实误删证据——维持）；③看板泳道视图的运行徽章扩展（I207 只接了普通+泳道卡，swimlane 分支外是否还有视图形态待查）；④维持项（长清单见前轮，均维持不做）。
+2. **M74 迭代（下一步）**：调研定义已提交（d981079，docs/01 §BS + docs/10 §M74 节 + 看板行）。定案 **M74 = 台账与管理面收口三件套**：I222 费用记账面（ReportsPage 成本区「💰 记一笔费用」表单+台账列表·api.listExpenses/recordExpense/deleteExpense 接线·**expense.py 三端点 M42 就绪零后端改动**·反向半截链第八例收口）→ I223 里程碑管理面（TimelinePage 里程碑行「＋里程碑」创建+行内 ✏️/🗑·api.createMilestone/patchMilestone/deleteMilestone 接线·**后端零改动**·GitHub 列表式就近 CRUD）→ I224 list 视图运行徽章（Board list 行标题格 liveRunBadge 与 🚧/🧩 并排·**一行接线 SSE 页面级订阅已生效**·I207 收尾）+ **冒烟 79** + 全量回归 + 收口。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -123,6 +123,8 @@
 - **FastAPI 注册序：字面量路由必须在 {param:path} 之前**（M72-I218）：GET /artifacts/{rel_path:path} 会吞掉 /artifacts/export（detail:"export" 404）——字面量端点写在前或用注释钉住顺序约束。
 - **gitrepo._run 是 text=True**（M72-I218）：二进制输出（git archive zip）必须独立 subprocess binary capture，否则编码替换毁包。
 - **content/ 下的端点也要过门禁**（M72-I216 再证 M45 盲区）：权限面检查要专门 grep content/ 目录——M45 双代理审计只扫了 domains/，工件四端点裸奔到 M72 才补门；新增端点无论住哪个目录一律挂门。
+- **api.ts→前端镜像扫描要剔除类型行误报**（M74 调研）：`grep -oP '^\s{2}\K\w+(?=: \()'` 会把响应类型字面量的键（entries/overdue/items/approvals）一并抓出当函数——先读定义行分辨；「零消费函数」还要查同语义替代消费面（closeRisk 与 PATCH transition 重复=RisksPage 已有关闭按钮）再判缺口，勿直接开工。
+- **历轮「正向半截链」的反向镜像同样成立**（M74 调研）：读侧齐全写侧 UI 缺失（I142 报表读 expense_entries 在·记账面零 UI）与展示有管理无（TimelinePage 里程碑行在·CRUD 零入口）都是真缺口；但「工作项发起运行」这类看似的缺口先查 orchestrator/scheduler.py 的既有指派驱动路径（batch_start 早已实现）——防重查第六/七例。
 
 ## 6. 快速上手命令
 
