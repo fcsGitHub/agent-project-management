@@ -95,6 +95,21 @@ def write_file(
     return commit_file(project_id, rel_path, message=message, actor_type=actor_type, actor_id=actor_id)
 
 
+def delete_file(
+    project_id: str, rel_path: str, *, message: str, actor_type: str, actor_id: str
+) -> str:
+    """M72-I217: remove one file and commit (deletion semantics: git history
+    IS the soft delete — the blob stays recoverable, the audit trail is
+    complete, no GC layer). Returns the new commit sha."""
+    root = repo_path(project_id)
+    _safe_relpath(project_id, rel_path)
+    with _project_git_lock(project_id):
+        _run(["rm", "-q", "--", rel_path], cwd=root)
+        trailer = f"Actor: {actor_type}({actor_id})"
+        _run(["commit", "-q", "-m", message, "-m", trailer], cwd=root)
+        return latest_commit(project_id, rel_path)
+
+
 def commit_file(
     project_id: str, rel_path: str, *, message: str, actor_type: str, actor_id: str
 ) -> str:

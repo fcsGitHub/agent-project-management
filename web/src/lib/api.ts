@@ -723,6 +723,10 @@ export const api = {
   getArtifact: (pid: string, path: string) =>
     req<{ path: string; content: string; history: { commit: string; date: string; message: string }[]; diff_vs_previous: string }>(
       `/projects/${pid}/artifacts/${path}`),
+  deleteArtifact: (pid: string, path: string) =>
+    req<{ ok: boolean; path: string; commit: string }>(
+      `/projects/${pid}/artifacts/${path.split("/").map(encodeURIComponent).join("/")}`,
+      { method: "DELETE" }),
   putArtifact: (pid: string, path: string, content: string, message?: string) =>
     req<{ path: string; commit: string }>(
       `/projects/${pid}/artifacts/${path.split("/").map(encodeURIComponent).join("/")}`,

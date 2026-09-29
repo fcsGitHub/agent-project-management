@@ -145,3 +145,29 @@ def put_artifact(project_id: str, rel_path: str, body: ArtifactWrite) -> dict:
         actor_id=events.effective_actor(),
         message=body.message,
     )
+
+
+@router.delete("/projects/{project_id}/artifacts/{rel_path:path}")
+def delete_artifact(project_id: str, rel_path: str) -> dict:
+    """M72-I217 (docs/01 §BQ.2): delete = git rm + artifact.deleted fact — git
+    history IS the soft delete (blob recoverable, audit trail complete). The
+    search projector clears the FTS row on this event (content no longer
+    readable → _reindex_artifact's read-failure path already handles it)."""
+    _artifact_gate(project_id, write=True)
+    try:
+        sha = gitrepo.delete_file(
+            project_id, rel_path,
+            message=f"delete {rel_path}",
+            actor_type="human", actor_id=events.effective_actor())
+    except (FileNotFoundError, gitrepo.GitError) as e:
+        raise HTTPException(status_code=404, detail=f"artifact not found: {e}")
+    events.emit(
+        event_type="artifact.deleted",
+        agg_type="artifact",
+        agg_id=rel_path,
+        project_id=project_id,
+        actor_type="human",
+        actor_id=events.effective_actor(),
+        payload={"path": rel_path, "commit": sha},
+    )
+    return {"ok": True, "path": rel_path, "commit": sha}

@@ -103,7 +103,7 @@ def _reindex_artifact(conn, project_id: str, path: str) -> None:
                  (key, _bigrams(f"{path} {content}")))
 
 
-@on("artifact.committed", "artifact.human_edited")
+@on("artifact.committed", "artifact.human_edited", "artifact.deleted")
 def _proj_search_artifact(conn, e):
     path = e.payload.get("path") or e.agg_id
     _reindex_artifact(conn, e.project_id, path)
