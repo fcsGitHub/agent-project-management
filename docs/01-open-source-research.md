@@ -2016,3 +2016,26 @@ M72 = **工件面收口三件套**：I216 工件读写权限门（repo 级继承
 **BR.4 M73 取舍**
 
 M73 = **运行可观测与可控三件套**：I219 run 发起指令回显（RunsPage KV+发起侧一次性指令·半截链第六例收口）/ I220 工件项运行历史（CommentsModal 顶区·GitHub 盲区补位·半截链第七例收口）/ I221 角色选择器（opt-in 与 I212 并排对称）+ 冒烟 78 + 审阅，约 9 人日。指令编辑重放、卡片叠运行列表、跨项聚合、auto-routing、持久角色改绑、删除恢复 UI（等证据）、分叉合并采纳面（继续等证据）留 backlog。
+
+## BS. M74 前置调研：费用记账面 / 里程碑管理面 / list 视图运行徽章（2026-09-30）
+
+> 目标协议触发：M73 完成后开启。防重查：候选池 grep——**分叉采纳面（连续多轮无使用证据——继续降级）**、**删除工件恢复 UI（等真实误删证据——维持）**、**看板泳道视图徽章扩展（核验属实但降级：Board 全视图形态=board[普通列+泳道子行]+list 两种·I207 接了前者的两处渲染点[Board.tsx 833/889]·list 行标题格有 🚧 阻塞/🧩 进度徽章独缺运行徽章——真缺口但一行接线·降为第三迭代小件）**。本轮引入 **api.ts→前端镜像半截链扫描法**（历轮都是「后端有→前端无」正向找，这次反向全量扫 api.ts 函数消费面）：15 个零消费名剔除类型行误报后 11 个真函数——**closeRisk 为冗余重复（RisksPage 用 PATCH transition 已有关闭按钮·防重查第六例自证：我以为的缺口早已存在）**、health/patchView/cancelCycle/listOntologies 属低频边缘留 backlog，**真缺口群两个：费用记账（listExpenses/recordExpense/deleteExpense 零消费·I142 成本报表读 expense_entries 双轨聚合已在·读侧齐全写侧 UI 缺失——反向半截链第八例）与里程碑管理（createMilestone/patchMilestone/deleteMilestone 零消费·TimelinePage 菱形行展示在）**。另核验「从工作项发起运行」：**orchestrator batch_start 早已实现 item 绑定对话+按指派角色发起（Board 批量发起即此面·指派驱动语义·防重查第七例自证）——不另设临时发起路径**。本轮三路新调研（**费用记录 UX / 里程碑管理 UI / 列表视图状态徽标**），选定 **M74 = 台账与管理面收口三件套**。
+
+**BS.1 费用记账面（I142 双轨的另一半——报表在读、台账无入口）**
+
+- 产品现状（[Harvest](https://www.getharvest.com)——实时费用跟踪是项目预算软件的核心卖点、[Celoxis](https://de.celoxis.com)——per-project CapEx/OpEx+时间费用一体、[Productive](https://productive.io)/[ProProfs 横评](https://www.proprofsproject.com)——预算 vs 实时对照是标配；条目设计共识（[MindInventory](https://www.mindinventory.com)）：每笔费用挂项目/任务+类别+预算对照实时更新）：费用记账的共识=**条目挂项目（可选挂任务）+量×单价+预算对照即时可见**。
+- 对本项目的映射：M42-I142 成本报表已双轨聚合 expense_entries（物料/单位成本与人力并列、fx 换算披露）——**报表端读面齐全，记账端零 UI**，费用台账成了只能用 API 写的悬空表。补法=纯前端接线（expense.py 三端点 M42 就绪零改动）：ReportsPage 成本区「💰 记一笔费用」入口（描述/量/单价/币种/日期/厂商/可选挂工作项）+ 台账列表（近 N 条+🗑 删除）——CostCard 实际值即刻对照。**不做** 收据附件上传（文件存储新面）、类别/税码体系（一人工厂 description 即够）、预算告警推送（cost_budget 检查 M70 已在设置中心）。
+
+**BS.2 里程碑管理面（GitHub 列表式 CRUD——展示有、管理无）**
+
+- 产品共识（[GitHub Docs: creating and editing milestones](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/creating-and-editing-milestones-for-issues-and-pull-requests)——里程碑列表页 New/Edit/Close/Delete 全套、[Asana Timeline](https://forum.asana.com/t/give-timeline-updates-a-try/99124)——时间线内联增改+就近删、[GitHub community #184235](https://github.com/orgs/community/discussions/184235)——timeline 按 milestone 分组的现状与局限）：里程碑管理的共识=**在展示它的视图里就近 CRUD**（GitHub 列表式最简·Asana 内联式更顺）。
+- 对本项目的映射：TimelinePage 里程碑菱形行展示在（listMilestones 消费中）、createMilestone/patchMilestone/deleteMilestone 三个 api 函数零消费——**里程碑只能靠 API 建**。补法=TimelinePage 里程碑行「＋里程碑」创建（标题/截止日/描述）+ 行内 ✏️ 改/🗑 删（PATCH 含 status 关闭语义·DELETE 有关联项时的行为以后端既有语义为准）。**不做** 里程碑拖拽改期（时间线条拖拽已占交互面）、里程碑进度自动推导卡（items.milestone_id 关联已有·汇总属报表面可后补）。
+
+**BS.3 list 视图运行徽章（I207 收尾——第三视图形态补齐）**
+
+- 产品现状：徽标语义 M69 §BN 已调研（GitHub Checks/Jira 开发面板——运行态贴近工作项展示）；本轮补的是**视图形态覆盖**——AgentPM 看板有 board（普通列+泳道子行）与 list 两种视图，I207 只接了前者两处渲染点，list 行标题格有 🚧 阻塞/🧩 加权进度徽章而独缺运行徽章——**同一实时态在两种视图下可见性不一致**（列表视图恰是批量巡检的主视图）。
+- 对本项目的映射：补法=list 行标题格加 `liveRunBadge(item.id)`（与 🚧/🧩 并排——SSE 订阅本就页面级生效[onStreamEvent 在 Board 挂载即订]·一行接线零新状态）。**不做** TimelinePage/依赖图运行徽章（时序视图语义不同·菱形/节点上叠运行态是另一个问题）、表格行内运行操作（发起面已裁决走指派驱动[orchestrator batch_start]）。
+
+**BS.4 M74 取舍**
+
+M74 = **台账与管理面收口三件套**：I222 费用记账面（I142 反向半截链第八例收口·纯前端接线零后端改动）/ I223 里程碑管理面（TimelinePage 就近 CRUD·GitHub 列表式）/ I224 list 视图运行徽章（I207 视图形态收尾）+ 冒烟 79 + 审阅，约 7 人日。收据附件、类别体系、里程碑拖拽改期、cycle 取消 UI、视图改名 UI、本体清单消费、health 面板、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。

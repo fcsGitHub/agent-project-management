@@ -2260,6 +2260,36 @@ agent-project-management/
 
 ---
 
+### M74 · 台账与管理面收口三件套（I222-I224，约 7 人日）
+
+> v3.0 新增（2026-09-30，docs/01 §BS 前置调研）。api.ts→前端镜像半截链扫描出真缺口群：费用记账三函数零消费（I142 成本报表读 expense_entries 已在·记账面零 UI——反向半截链第八例）；里程碑 CRUD 三函数零消费（TimelinePage 菱形行展示在）；I207 运行徽章未接 list 视图（Board 全视图形态两种·list 行独缺）。**防重查：closeRisk 冗余重复（RisksPage PATCH transition 已有关闭按钮·第六例自证）、「从工作项发起运行」orchestrator batch_start 指派驱动早已实现（第七例自证——不另设临时发起路径）、分叉采纳面[继续降级]、删除恢复 UI[等证据]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I222 | 费用记账面（ReportsPage 成本区「💰 记一笔费用」表单[描述/量/单价/币种/日期/厂商/可选挂工作项] + 台账列表[近 N 条+删除] + api.listExpenses/recordExpense/deleteExpense 接线·后端三端点 M42 零改动 + vitest） | docs/01 §BS.1 | expense.py 三端点/M42 | 2d |
+| I223 | 里程碑管理面（TimelinePage 里程碑行「＋里程碑」创建[标题/截止日/描述] + 行内 ✏️ 改/🗑 删 + api.createMilestone/patchMilestone/deleteMilestone 接线·后端零改动） | docs/01 §BS.2 | milestones.py CRUD/TimelinePage 展示 | 2d |
+| I224 | list 视图运行徽章+冒烟 79+收尾审阅（Board list 行标题格 liveRunBadge 与 🚧/🧩 并排·一行接线 + **冒烟 79**[费用记→报表对照→删·里程碑建→改→删·list 徽章态] + 全量回归 + docs 收口 + M74 审阅） | docs/01 §BS.3 | I207 runlive/SSE 页面级订阅 | 3d |
+
+#### I222 · 费用记账面（2d）
+
+- 任务：ReportsPage 成本区加「💰 记一笔费用」按钮展开表单（description/qty/unit_price/currency[默认 base_currency]/spent_on/vendor?/item_id? 可选挂工作项）+ 提交 recordExpense 后失效成本报表 query（CostCard 实际值即时对照）+ 台账列表（listExpenses 近 10 条：描述/金额/日期/厂商/挂项+🗑 deleteExpense 确认）。
+- DoD：vitest（无新纯函数则 build+tsc）；后端零改动零回归。
+- 演示路径：记一笔「云 GPU ¥120」→ CostCard 费用行即刻+120 → 台账可见可删。
+
+#### I223 · 里程碑管理面（2d）
+
+- 任务：TimelinePage 里程碑行「＋里程碑」创建（title/due_date/description）+ 行内 ✏️ 编辑（title/due_date/description/status 关闭语义）+ 🗑 删除确认 + 三个 api 函数接线。
+- DoD：后端零改动零回归；build 绿。
+- 演示路径：时间线页建「M1 架构定型」→ 菱形行出现 → 改期 → 关闭 → 删除。
+
+#### I224 · list 视图运行徽章+冒烟 79+收尾审阅（3d）
+
+- 任务：Board list 行标题格加 liveRunBadge(item.id)（与 🚧/🧩 并排——SSE 页面级订阅已生效零新状态）+ **冒烟 79**（费用记→cost-report 双轨含→删；里程碑建→列表→改→删）+ 全量回归 + docs 收口 + M74 审阅。
+- DoD：冒烟 79 GREEN；board 视图徽章行为不变（零回归）。
+- 演示路径：list 视图发起运行 → 行标题格紫脉动徽标亮起 → 终态 ✓ → 8s 后消失。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2460,6 +2490,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-30 M74 调研定义（§BS） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：**api.ts→前端镜像半截链扫描（新套路：历轮正向「后端有→前端无」·这次反向全量扫 api.ts 函数消费面）——15 个零消费名剔除类型行误报后 11 个真函数**：closeRisk[**冗余重复——RisksPage 用 PATCH transition 已有关闭按钮·防重查第六例自证：我以为的缺口早已存在**]、health/patchView/cancelCycle/listOntologies[低频边缘留 backlog]、**真缺口群两个：费用记账[listExpenses/recordExpense/deleteExpense 零消费·I142 成本报表读 expense_entries 双轨聚合已在·读侧齐全写侧 UI 缺失——反向半截链第八例]**、**里程碑管理[createMilestone/patchMilestone/deleteMilestone 零消费·TimelinePage 菱形行展示在]**；候选池③泳道徽章扩展[核验属实但降级——Board 全视图形态=board+list 两种·I207 接了前者两处渲染点·list 行独缺运行徽章·一行接线]；**从工作项发起运行[orchestrator batch_start 早已实现 item 绑定对话+按指派角色发起·Board 批量发起即此面·指派驱动语义·防重查第七例自证——不另设临时发起路径]**、分叉采纳面[继续降级]、删除恢复 UI[等证据]。三路 WebSearch：费用记录 UX（[Harvest](https://www.getharvest.com)实时费用跟踪是预算软件核心/[Celoxis](https://de.celoxis.com) per-project CapEx/OpEx+[Productive](https://productive.io) 预算 vs 实时对照标配/[MindInventory](https://www.mindinventory.com) 条目挂项目/任务+类别+预算实时对照——**共识=条目挂项目可选挂任务+量×单价+预算对照即时可见**）、里程碑管理（[GitHub Docs milestones](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/creating-and-editing-milestones-for-issues-and-pull-requests) 列表页 New/Edit/Close/Delete 全套/[Asana Timeline](https://forum.asana.com/t/give-timeline-updates-a-try/99124) 内联增改——**共识=在展示它的视图里就近 CRUD**）、列表视图徽标（M69 §BN 已调研徽标语义·本轮补视图形态覆盖）。定案 M74=台账与管理面收口三件套（I222 费用记账面/I223 里程碑管理面/I224 list 视图运行徽章） |
 | **M73 运行可观测与可控三件套（I219-I221）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BR + docs/10 §M73）：I219 run 发起指令回显（RunsPage「发起指令」KV[r.input 截断+title 全文——**runs.input 列自 M4 只差一行 KV·半截链第六例收口**·GitHub Actions dispatch inputs 不可见是反面教材] + startRun 透传 instruction + 发起区「本次指令」输入[**一次性语义不写回对话 L3**·防重查笔误自纠：Run 类型 input 字段原本就有——缺口只在显示面]）/ I220 工件项运行历史（api.listRunsByItem[**/runs?item_id= 参数 M4 起就有·后端零改动——半截链第七例收口**·GitHub issue 看不见 workflow runs 是其数据模型盲区] + CommentsModal 顶区 RunHistory 折叠区[近 10 条状态+角色+指令截断+对话直达·**I209 回流评论的天然上文**·惰性加载]）/ I221 角色选择器（执行旁下拉[**opt-in 覆盖=合理默认+可选覆盖 M365 Copilot 收敛共识**·默认按对话类型 kind 映射·选项=本体 agent_roles 并集·一次性语义与 I212/I219 并排三件套] + **冒烟 78**）。基线：pytest **540** 全绿（非 smoke 462 EXIT=0 + smoke runner **78 GREEN** 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M73 调研定义（§BR） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：**分叉采纳面[连续多轮无使用证据——继续降级]**、**删除工件恢复 UI[I217 明示「git 历史即软删·留待真实误删场景补 UI」——无使用证据维持等待]**、run 输入回显[**runs 投影 input 列自 M4 就有·RunsPage 详情 KV 无该行·前端 Run 类型也无 input 字段——半截链第六例**]、工件项运行历史[**/runs?item_id= 过滤参数 runs.py 早有·api.ts 无 listRunsByItem 零前端消费——半截链第七例**]、重核验第三候选角色选择器[**grep 证实 startRun 全部无角色参数——kind→roleForKind 默认映射是唯一通路·与 I212 工件选择器完全对称的第二例**]。三路 WebSearch：触发输入回显（[GitHub community #1952](https://github.com/community/community)/[CloudBees](https://docs.cloudbees.com)——**GitHub Actions run 页长期不显示 workflow_dispatch inputs[要靠 echo step/API]·公认 UX 缺口**·AgentPM input 列已在账上只差一行 KV）、工单关联运行（GitHub Checks 只挂 PR——**issue 上看不见 workflow runs 是其数据模型著名盲区**·Jira dev panel 靠双向关联补位·AgentPM runs.item_id 结构上做得到）、agent 选择器（[M365 Copilot Model Selector](https://www.aguidetocloud.com)聊天顶部下拉/[Copilot Studio auto-routing](https://www.windowsforum.com)反趋势——**收敛共识=合理默认+opt-in 覆盖**·不让选择成为必经步骤）。定案 M73=运行可观测与可控三件套（I219 指令回显/I220 工件项运行历史/I221 角色选择器） |
 | I219 run 发起指令回显 | 已完成 | 2026-09-30 | 2026-09-30 | RunsPage 详情「发起指令」KV（r.input 截断 80 字符 title 全文——**runs.input 列自 M4 只差一行 KV·半截链第六例收口**）+ api.startRun body 补 instruction 透传（RunIn.instruction 后端早有）+ ConversationView 发起区「本次指令」输入（**一次性语义与 I212 pickItem 同构**——只作用于本次 run 不写回对话 L3·toast 注明·发送后清空）+ test_run_input_echo（instruction 落列+get_run/列表双透出+**对话 L3 不被污染**）——**防重查笔误自纠：Run 类型 input 字段原本就有，缺口只在显示面** |
