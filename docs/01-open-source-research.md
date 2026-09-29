@@ -1993,3 +1993,26 @@ M71 = **可寻与可看三件套**：I213 工件内容全文搜索（第四类 F
 **BQ.4 M72 取舍**
 
 M72 = **工件面收口三件套**：I216 工件读写权限门（repo 级继承成员制·M45 盲区补课）/ I217 工件清单页+删除面（半截链第五例收口·git rm+事件·git 历史即软删）/ I218 工件包导出（git archive 锚定 commit·artifact.exported 审计事件）+ 冒烟 77 + 审阅，约 9 人日。工件级 ACL、retention 策略、回收站 UI、全 repo 导出、分叉合并采纳面（继续等证据）留 backlog。
+
+## BR. M73 前置调研：run 发起指令回显 / 工件项运行历史 / 角色选择器（2026-09-30）
+
+> 目标协议触发：M72 完成后开启。防重查：候选池 grep——**分叉采纳面（连续多轮无使用证据——继续降级）**、**删除工件恢复 UI（I217 明示「git 历史即软删·留待真实误删场景补 UI」——无使用证据维持等待）**、run 输入回显（**runs 投影 input 列自 M4 就有·RunsPage 详情 KV[对话/工作项/起止/错误/重试]无该行·前端 Run 类型也无 input 字段——半截链第六例**）、工件项运行历史（**/runs?item_id= 过滤参数 runs.py 早有·api.ts 无 listRunsByItem·零前端消费——半截链第七例**）、重核验出第三候选角色选择器（**grep 证实 startRun 全部无角色参数——kind→roleForKind 默认映射是唯一通路·用户无法用 qa-agent 跑 drafting 对话；与 I212 工件选择器完全对称的第二例**）。本轮三路新调研（**运行详情触发输入回显 / 工单关联运行历史 / agent 选择器 UX**），选定 **M73 = 运行可观测与可控三件套**。
+
+**BR.1 run 发起指令回显（比 GitHub Actions 更早做对——输入本就在账上）**
+
+- 产品现状（[GitHub community #1952](https://github.com/community/community) 与长期能力诉求、[CloudBees workflow 语法](https://docs.cloudbees.com)——inputs 走 `github.event.inputs` 上下文）：GitHub Actions run 页**长期不显示 workflow_dispatch 的输入值**（用户要靠 echo step 或 API 查 payload），触发的 actor/event/ref 后来才上 run 页——「发起参数不可见」是公认 UX 缺口。
+- 对本项目的映射：run.requested payload.instruction 自 M4 落 runs.input 列——**账本一直在，只差一行 KV**。补法=RunsPage 详情「发起指令」行（r.input 截断展示+title 全文·前端 Run 类型补 input 字段）+ ConversationView「▶ 让 Agent 执行」发起时可带一次性指令覆盖（start_run instruction 参数后端通·选了模板填入即是）——发起者写什么、执行者收到什么，两端同源可见。**不做** 指令编辑重放（fork 已覆盖「改指令重跑」语义）、输入 diff 视图（M64 重试对比已做标量 diff）。
+
+**BR.2 工件项运行历史（GitHub 做不到的——issue 上看不见 workflow runs）**
+
+- 产品现状（GitHub Checks 只挂 PR/分支——[issue 的 Development 区只显示 linked PR](https://github.com/orgs/community/discussions)，推送引用 issue 触发的 workflow runs 在 issue 上不可见）：**「工单上看关联运行」是 GitHub 数据模型的著名盲区**；Jira 的开发面板（dev panel）靠双向关联补位。
+- 对本项目的映射：runs.item_id 过滤参数后端早就在（M4 依赖链接续）——**AgentPM 的事件结构天然能做 GitHub 做不到的事**。补法=api.listRunsByItem + CommentsModal 顶区「🤖 运行历史」折叠区（该项目近 10 条 run：状态徽标+角色+时间+点击跳 RunsPage 详情——I209 回流评论的天然上文名字：看产出评论前先看跑过哪些 run）。**不做** 卡片上叠运行列表（I207 徽标已覆盖实时态·历史属详情面）、跨项聚合（runs 端点已有 project 面[M62 用量]）。
+
+**BR.3 角色选择器（opt-in 下拉——合理默认+可选覆盖）**
+
+- 产品现状（[M365 Copilot Model Selector](https://www.aguidetocloud.com)（聊天顶部下拉·发送前选）、[Copilot Studio auto-routing](https://www.windowsforum.com)（反趋势：系统路由免手选）、多 agent 工具惯例（searchable dropdown+keyboard-first+按 provider 分组））：**收敛共识=合理默认 + opt-in 覆盖**——默认自动路由省心，选择器留给知道要什么的用户；不让选择成为必经步骤。
+- 对本项目的映射：kind→roleForKind 默认映射就是「合理默认」（drafting→pm-agent 等），缺的是覆盖入口——想用 qa-agent 预审 drafting 产出必须改对话 kind，绕。补法=ConversationView「▶ 让 Agent 执行」旁角色下拉（默认「按对话类型（{roleForKind}）」·选项=本体 agent_roles 并集·选中即以该角色发起本次 run——与 I212 工件选择器并排·同为一次性语义不改对话配置）。**不做** 每对话持久角色改绑（kind 语义保留）、auto-routing（一人工厂角色少·默认映射已够）、角色说明 tooltip 聚合（L1.5 面板已可查）。
+
+**BR.4 M73 取舍**
+
+M73 = **运行可观测与可控三件套**：I219 run 发起指令回显（RunsPage KV+发起侧一次性指令·半截链第六例收口）/ I220 工件项运行历史（CommentsModal 顶区·GitHub 盲区补位·半截链第七例收口）/ I221 角色选择器（opt-in 与 I212 并排对称）+ 冒烟 78 + 审阅，约 9 人日。指令编辑重放、卡片叠运行列表、跨项聚合、auto-routing、持久角色改绑、删除恢复 UI（等证据）、分叉合并采纳面（继续等证据）留 backlog。

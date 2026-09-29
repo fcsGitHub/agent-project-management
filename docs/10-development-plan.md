@@ -2230,6 +2230,36 @@ agent-project-management/
 
 ---
 
+### M73 · 运行可观测与可控三件套（I219-I221，约 9 人日）
+
+> v3.0 新增（2026-09-30，docs/01 §BR 前置调研）。runs.input 列自 M4 有存储 RunsPage 无回显（半截链第六例）；/runs?item_id= 过滤参数后端在前端零消费（半截链第七例——GitHub issue 上看不见 workflow runs 是其数据模型盲区，AgentPM 结构上做得到）；startRun 全部无角色参数（kind 默认映射是唯一通路——与 I212 工件选择器对称的第二例）。**防重查：删除恢复 UI[I217 明示等真实误删证据——维持等待]、分叉采纳面[继续降级]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I219 | run 发起指令回显（RunsPage 详情「发起指令」KV[r.input 截断+title 全文] + 前端 Run 类型补 input + ConversationView 发起时可带一次性指令[start_run instruction 参数后端通] + 单测） | docs/01 §BR.1 | runs.input 列/M4 | 3d |
+| I220 | 工件项运行历史（api.listRunsByItem + CommentsModal 顶区「🤖 运行历史」折叠区[近 10 条：状态徽标+角色+时间+跳详情] + vitest/build） | docs/01 §BR.2 | /runs?item_id= 参数/I209 宿主 | 3d |
+| I221 | 角色选择器+冒烟 78+收尾审阅（ConversationView 执行旁角色下拉[默认「按对话类型」·选项=本体 agent_roles 并集·一次性语义与 I212 并排] + 冒烟 78 + 全量回归 + docs 收口 + M73 审阅） | docs/01 §BR.3 | I212 选择器惯例 | 3d |
+
+#### I219 · run 发起指令回显（3d）
+
+- 任务：Run 类型补 `input?: string` + RunsPage 详情「发起指令」KV（截断 80 字符 title 全文）+ startRun({instruction}) 透传 + ConversationView 发起区可选「本次指令」输入（小输入框展开·空=沿用对话 L3 指令）。
+- DoD：单测（start_run 带 instruction→runs.input 落列→get_run 透出）；发起侧 UI build 绿。
+- 演示路径：发起时写一次性指令 → RunsPage 详情看到该指令原文 → 与对话 L3 指令并存不混淆。
+
+#### I220 · 工件项运行历史（3d）
+
+- 任务：api.listRunsByItem（/runs?item_id=）+ CommentsModal 顶区折叠区「🤖 运行历史」（该项目该工件近 10 条：STATUS_TONE 状态徽标+🤖 角色+相对时间+行点击开 RunsPage 详情[或跳转]）+ 空态一行（"尚未在该工件上发起过运行"）。
+- DoD：vitest（无新纯函数则 build+tsc 即可）+ 后端零改动（参数已在）。
+- 演示路径：工件项评论区顶部先见「跑过 3 次 run」→ 展开看状态与角色 → 点开最新一次的产出评论。
+
+#### I221 · 角色选择器+冒烟 78+收尾审阅（3d）
+
+- 任务：ConversationView 执行旁角色下拉（默认「按对话类型（pm-agent）」·选项=本体 agent_roles 并集·选中 startRun(role, ...)）+ 与 I212 pickItem 并排·同为一次性不改对话配置 + **冒烟 78**（发起带一次性指令→RunsPage 回显→工件项运行历史含该 run→选角色发起成功）+ 全量回归 + docs 收口 + M73 审阅。
+- DoD：冒烟 78 GREEN；不选角色时 kind 默认映射行为不变（零回归）。
+- 演示路径：drafting 对话选 qa-agent 发起 → RunsPage 显示 🤖 qa-agent——非常规组合一次到位。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2430,6 +2460,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-30 M73 调研定义（§BR） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：**分叉采纳面[连续多轮无使用证据——继续降级]**、**删除工件恢复 UI[I217 明示「git 历史即软删·留待真实误删场景补 UI」——无使用证据维持等待]**、run 输入回显[**runs 投影 input 列自 M4 就有·RunsPage 详情 KV 无该行·前端 Run 类型也无 input 字段——半截链第六例**]、工件项运行历史[**/runs?item_id= 过滤参数 runs.py 早有·api.ts 无 listRunsByItem 零前端消费——半截链第七例**]、重核验第三候选角色选择器[**grep 证实 startRun 全部无角色参数——kind→roleForKind 默认映射是唯一通路·与 I212 工件选择器完全对称的第二例**]。三路 WebSearch：触发输入回显（[GitHub community #1952](https://github.com/community/community)/[CloudBees](https://docs.cloudbees.com)——**GitHub Actions run 页长期不显示 workflow_dispatch inputs[要靠 echo step/API]·公认 UX 缺口**·AgentPM input 列已在账上只差一行 KV）、工单关联运行（GitHub Checks 只挂 PR——**issue 上看不见 workflow runs 是其数据模型著名盲区**·Jira dev panel 靠双向关联补位·AgentPM runs.item_id 结构上做得到）、agent 选择器（[M365 Copilot Model Selector](https://www.aguidetocloud.com)聊天顶部下拉/[Copilot Studio auto-routing](https://www.windowsforum.com)反趋势——**收敛共识=合理默认+opt-in 覆盖**·不让选择成为必经步骤）。定案 M73=运行可观测与可控三件套（I219 指令回显/I220 工件项运行历史/I221 角色选择器） |
 | **M72 工件面收口三件套（I216-I218）** | 已完成 | 2026-09-29 | 2026-09-29 | 3 迭代 / 约 9 人日（docs/01 §BQ + docs/10 §M72）：I216 工件读写权限门（_artifact_gate——**repo 级权限继承=GitHub/GitLab 正统语义**[工件是项目 repo 内文件·无 per-file ACL 两家都没有]·local 全通既有流零影响·network 读=成员写=WRITE_ROLES[viewer 只读 403]·**M45 审计盲区补课：content/ 端点从未过 domains 门禁扫描**·engine 写工件走 tools 层不经端点门零影响）/ I217 工件清单页+删除面（gitrepo.delete_file[git rm+commit·**git 历史即软删**] + DELETE 端点+artifact.deleted 事件 + search 投影器注册删除[**读失败清索引语义现成复用**] + 新 ArtifactsPage[**list_artifacts 半截链第五例收口**·清单+预览+🗑 删除] + RAIL「工件」+ SearchPage 命中行改跳本页）/ I218 工件包导出（**git archive 二进制专用 subprocess——_run text=True 会毁 zip** + **注册序必须在 {rel_path:path} 之前——path converter 吞 export** + artifact.exported 审计 + api 独立 fetch blob[req 只解析 json] + 📦 按钮 + **冒烟 77**）。基线：pytest **538** 全绿（非 smoke 461 EXIT=0 + smoke runner **77 GREEN** 对账）+ vitest **30** + build 绿 |
 | 2026-09-29 M72 调研定义（§BQ） | 已完成 | 2026-09-29 | 2026-09-29 | 防重查：**分叉采纳面[连续多轮无使用证据——继续降级]**、工件清单页[**grep 证实 listArtifacts 前端零调用——半截链第五例**]、工件权限[**grep 证实 artifacts 读端点零权限校验·put_artifact 只有 require_project[存在性非成员制]——items/comments 均有 _gate 而工件没有·工件端点住 content/ 不在 domains/——M45 双代理全库审计漏网之鱼·确凿缺口**]、重核验第三候选工件删除与打包[**gitrepo 无 delete·无 artifact.deleted 事件·git archive 从未使用——错误产出永久残留且产出带不走**]。三路 WebSearch：repo 文件权限（[GitHub teams & people](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-teams-and-people-with-access-to-your-repository)/[GitLab Roles](https://docs.gitlab.com/user/permissions)/[community #102755](https://github.com/orgs/community/discussions/102755)——**repo 级权限继承是两家共同正统·repo 内无原生文件级 ACL 是知名 gap**·工件继承项目成员制=同款正统语义）、制品删除（[Mirantis MSR GC](https://docs.mirantis.com)/[Harbor retention](https://goharbor.io)——**manifest 删除与 GC 解耦[标记-清扫]**·git 历史天然是软删·retention 策略层一人工厂不需要）、交付打包（git archive 社区通行——**干净快照不含 .git·锚定 commit 可复现**·Release assets 挂版本点+校验和）。定案 M72=工件面收口三件套（I216 工件读写权限门/I217 工件清单页+删除面/I218 工件包导出） |
 | I216 工件读写权限门 | 已完成 | 2026-09-29 | 2026-09-29 | content/artifacts.py _artifact_gate（**repo 级权限继承=GitHub/GitLab 正统语义**——工件是项目 repo 内文件·两家均无 per-file ACL；local 全通既有流零影响·network 读=任意成员·写=members.WRITE_ROLES[owner∪contributor·**viewer 只读 403**]——**M45 审计盲区补课：工件端点住 content/ 从未过 domains 门禁扫描**）应用到 list/get/put（DELETE I217 用同门）+ test_artifact_gate 2 项[network 三态外人 403/viewer 读 200 写 403/owner 全通 + local 不变]——**engine 写工件走 tools 层不经端点门零影响·既有 network 测试与工件端点零交叉** |
