@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M72 工件面收口三件套 调研定义完成，下一步 I216 开工）
+# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M72 工件面收口三件套 完成，下一步 M73 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -36,7 +36,7 @@
 - **M55~M57（I165-I173，2026-09-21/27 完成，docs/01 §AZ-§BB + docs/10 §M55-§M57）**：watch 条件化（condition_json 全等匹配·红利第九例）+ 铃铛降噪折叠 + watch 导入导出 + 静默时段（跨午夜+mailer 第四道门）+ watch 规则编辑暂停（修 M55 的 409 删了重加坑）+ 资产使用洞察（红利第十例）。基线 pytest 437 / 冒烟 62。
 - **M58~M62（I174-I188，2026-09-27 完成，docs/01 §BC-§BG + docs/10 §M58-§M62）**：run 生命周期入 watch 白名单 + 通知直达 + 「等待我」行动聚合 + 模板包实例溯源 + 备份/恢复演练工具（sqlite3 backup API——「备份会自己跑，演练是为了证明恢复仍然有效」）+ 组合健康趋势与流指标（红利第十二例）+ 事件表体积观测（先测后治）+ 会话搜索与导出（**红利第十三例**）+ 移动端 375px 审计 + 端点性能观测（**索引审计补 idx_watch_rules_hit**）+ watch 渠道偏好（永不越过 DND）+ Agent 用量聚合（**红利第十四例**）。基线 pytest 466 / 冒烟 67。
 - **M63~M65（I189-I197，2026-09-27/28 完成，docs/01 §BH-§BJ + docs/10 §M63-§M65）**：自动化 run_agent（第七动作·**防环三闸**）+ 项目级通知降级 + 工作项检查清单 + run 重试对比（**红利第十五例**）+ ⌘K palette 深化 + 清单转子任务 + 运行分叉（forked_from 血缘）+ lineage 树感知 + 看板泳道 + 基线对比（**修快照语义：归档项不入新基线**）。
-- **M66~M71（I198-I215，2026-09-28/29 完成，docs/01 §BK-§BP + docs/10 §M66-§M71）**：对话树导航（**parent_conversation_id 自 MVP 有存储无写入方——补 Branch in new chat 写入面**）+ PAT 机器接入（display-once+Bearer 旁路）+ run 成本预算护栏（硬顶 402/软阈 80%）+ 概念级可见性（两级声明+读写通知三门）+ ntfy 推送通道（mailer 镜像+SSRF 门复用+通道矩阵第三列）+ Prometheus 出站（**红利十六：events 账本出站只是读侧**）+ 项目级角色指令层（prompt_layers L1.5——**AGENTS.md 嵌套语义深层优先**）+ 运行产物自动沉淀（**git blob sha 去重·评审门不绕过止步 draft**）+ 报告模板定制（段落开关+自定义标题·手动与周报同源）+ 看板运行实时徽章（**SSE 直驱 overlay·run.requested 是 run→item 绑定唯一机会**）+ 指令模板库（**`.prompt.md` 语义·草稿非快捷键人审不绕过**）+ run 产物回流工作项（**write-back to issue 正统·同步 hook 第六员·同 run 幂等**）+ 资产版本历史与 diff（**append-only 恢复·半截链第二例**）+ 项目设置中心（**混合 IA hub·原页零改动**）+ run 发起工件绑定面（**一次性语义·半截链第三例**）+ 工件内容全文搜索（**第四类 FTS·连字符 token 双引号坑**）+ 工件预览通用入口（**Cloudscape inline preview 三触点·半截链第四例**）+ 指令模板导入导出（**watch 对称面 JSON·重名永不 clobber**）。基线 pytest 533 / 冒烟 76 / vitest 30。
+- **M66~M72（I198-I218，2026-09-28/29 完成，docs/01 §BK-§BQ + docs/10 §M66-§M72）**：对话树导航（**parent_conversation_id 自 MVP 有存储无写入方——补 Branch in new chat 写入面**）+ PAT 机器接入（display-once+Bearer 旁路）+ run 成本预算护栏（硬顶 402/软阈 80%）+ 概念级可见性（两级声明+读写通知三门）+ ntfy 推送通道（mailer 镜像+SSRF 门复用+通道矩阵第三列）+ Prometheus 出站（**红利十六：events 账本出站只是读侧**）+ 项目级角色指令层（prompt_layers L1.5——**AGENTS.md 嵌套语义深层优先**）+ 运行产物自动沉淀（**git blob sha 去重·评审门不绕过止步 draft**）+ 报告模板定制（段落开关+自定义标题·手动与周报同源）+ 看板运行实时徽章（**SSE 直驱 overlay·run.requested 是 run→item 绑定唯一机会**）+ 指令模板库（**`.prompt.md` 语义·草稿非快捷键人审不绕过**）+ run 产物回流工作项（**write-back to issue 正统·同步 hook 第六员·同 run 幂等**）+ 资产版本历史与 diff（**append-only 恢复·半截链第二例**）+ 项目设置中心（**混合 IA hub·原页零改动**）+ run 发起工件绑定面（**一次性语义·半截链第三例**）+ 工件内容全文搜索（**第四类 FTS·连字符 token 双引号坑**）+ 工件预览通用入口（**Cloudscape inline preview 三触点·半截链第四例**）+ 指令模板导入导出（**watch 对称面 JSON·重名永不 clobber**）+ 工件读写权限门（**repo 级继承成员制·M45 盲区补课[content/ 端点]**）+ 工件清单页+删除（**半截链第五例收口·git rm·git 历史即软删**）+ 工件包导出（**git archive 锚定 commit·审计事件**）。基线 pytest 538 / 冒烟 77 / vitest 30。
 
 ## 3. 现在卡在哪
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M72 实施（下一步，I216 起步）**：调研定义已提交（7b2be79，docs/01 §BQ + docs/10 §M72 节）。三迭代：**I216 工件读写权限门**（artifacts.py 四端点补 `_artifact_gate`——local 全通/network 读=成员·写=owner∪contributor[viewer 403]；**M45 审计盲区补课：content/ 端点今后纳入与 domains/ 同级门禁**）；**I217 工件清单页+删除面**（DELETE 端点[git rm+artifact.deleted 事件+搜索索引清行] + 新 ArtifactsPage[清单+ArtifactPreviewDrawer+删除确认] + RAIL 入口 + SearchPage 命中行改跳本页）；**I218 工件包导出**（GET /artifacts/export[git archive HEAD -- artifacts/ zip 流式·文件名带 commit 短码] + artifact.exported 审计事件 + 📦 按钮 + 冒烟 77[权限三态→删除面→导出 zip 含工件]）。然后全量回归 + docs/10 看板行闭环 + M72 审阅。
+2. **M73 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M72 纪律沉淀：候选池勿凭印象写——五次「我以为的缺口早已存在」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览]；「半截链」grep 套路五连中[资产历史/run 绑定/工件预览/工件搜索/工件清单页——写函数与读函数配对、API 参数与前端调用点配对、写侧版本化与读侧消费配对、端点与页面消费配对]；权限面要专门查 content/ 与 domains/ 的门禁一致性[M72 再证]**）→ 三路并行 WebSearch → docs/01 新节（§BR）+ docs/10 §M73 节 + 看板行 →「M73 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M73 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；②删除工件的恢复 UI（git revert 该删除提交——I217 留待真实误删场景，防重查看是否有真实诉求证据）；③run 输入指令的回显面（RunsPage 是否显示 run.input 待查——start_run instruction 有存储）；④维持项（长清单见前轮，均维持不做）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -120,12 +120,15 @@
 - **FTS5 MATCH 的 latin token 必须双引号包裹**（M71-I213）：_bigrams 保留连字符词[feature-auth]，裸传 MATCH 时 `-` 被解析为 NOT 语法报「no such column: auth」——查询侧用 _match_expr 逐 token 加引号；既有三类分支未动（防回归），新面一律走 _match_expr。
 - **JS 没有 rsplit**（M71-I214）：`path.rsplit("/",1)` 是 Python——前端取尾段用 `path.split("/").pop()`；tsc 不会提示不存在的 Python 方法会直接编译错，但要在第一遍就写对。
 - **导入类端点永不 clobber + 计数报告**（M71-I215 重申 M56 语义）：同 title/同键已存在=skipped 跳过，坏行 422 带索引（templates[i]），导入走与手工创建同一条代码路径（提取 _create_row）保证不可区分。
+- **FastAPI 注册序：字面量路由必须在 {param:path} 之前**（M72-I218）：GET /artifacts/{rel_path:path} 会吞掉 /artifacts/export（detail:"export" 404）——字面量端点写在前或用注释钉住顺序约束。
+- **gitrepo._run 是 text=True**（M72-I218）：二进制输出（git archive zip）必须独立 subprocess binary capture，否则编码替换毁包。
+- **content/ 下的端点也要过门禁**（M72-I216 再证 M45 盲区）：权限面检查要专门 grep content/ 目录——M45 双代理审计只扫了 domains/，工件四端点裸奔到 M72 才补门；新增端点无论住哪个目录一律挂门。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 533 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
-python tools/smoke/run_smoke.py       # 冒烟基线 76 条，应 GREEN（repo 根目录跑）
+cd app && python -m pytest            # 538 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账）
+python tools/smoke/run_smoke.py       # 冒烟基线 77 条，应 GREEN（repo 根目录跑）
 cd web && pnpm vitest run             # 前端单测 30 项；pnpm build 须绿
 # 真实 LLM（先复制 .env.example 为 .env 填 key）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
