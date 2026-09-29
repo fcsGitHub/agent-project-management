@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M75 生命周期闭合三件套 完成，下一步 M76 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M76 调研定义 完成，下一步 I228 权限面审计）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M76 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M75 纪律沉淀：候选池勿凭印象写——八次「我以为的缺口早已存在」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览/closeRisk 冗余/工作项发起运行=batch_start 指派驱动/模板包 instantiate 共链路]；「半截链」grep 九连中[资产历史/run 绑定/工件预览/工件搜索/工件清单页/指令回显/工件运行历史/费用记账=反向/资产退役=投影就绪零发射方]；api.ts 镜像扫描已枯竭——全部零消费函数已处置或有结论[M75]**）→ 三路并行 WebSearch → docs/01 新节（§BU）+ docs/10 §M76 节 + 看板行 →「M76 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M76 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①事件级反向扫描（新维度：events 表全部 event_type 中零投影/零 hook/零读侧消费的「死事件」清单——api 级扫描之后的下一层，待核验是否真有死事件）；②分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；③删除工件恢复 UI（等真实误删证据——维持）；④质量与演示轮（M45 模式：全库审计/性能/E2E 复演——若①②无料则大概率走此）；⑤维持项（长清单见前轮，均维持不做）。
+2. **M76 迭代（下一步）**：调研定义已提交（85971c3，docs/01 §BU + docs/10 §M76 节 + 看板行）。定案 **M76 = 审计与复演轮**（M45 模式）：I228 权限面审计（读面门禁对齐——expenses/automations 挂项目 _gate[items 惯例]·assets/template_packs 挂登录门[**org 库语义=实例成员可读·effective_actor=="anonymous"→401·local 零影响**]·**矩阵化测试：匿名 401/登录 200/跨项目 403**·**注意 seed_key/feed 等既有匿名面不要误伤**[M45 已裁决的 feed_key 语义保留]）→ I229 校验与性能审计（/system/slow-endpoints 实测 Top→热查询 EXPLAIN QUERY PLAN 对账[events 表 event_type+agg_id]·校验矩阵抽查·**无证据不加索引**）→ I230 E2E 复演+**冒烟 81**（隔离环境起服务[演示纪律]·浏览器 CUA 核心旅程·发现即修）+ 全量回归 + 收口。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -132,6 +132,8 @@
 - **读侧语义断言前把 grep 到的过滤行读进完整函数体**（M75-I225 再证 M73 笔误教训）：assets.py 39 行的 `status in ("archived",)` 过滤属于 `_reindex`（FTS 维护）而非 get_asset——凭行号+关键词断言「详情 404」直接写出错误测试；「archived 过滤」真实住 _reindex 与 search 两处。
 - **upsert 投影的 payload 漏键=静默清列**（M75-I225）：status 漏带落 draft、tags 漏带清空——通用 upsert 从 payload 取值而非保留旧值（superseded 走专用 UPDATE 才能免带）——给既有事件补发射方时 payload 键集必须对照投影消费清单。
 - **assetsrepo.write_asset 的 commit 无 nothing-to-commit 容忍且失败 stderr 为空**（M75-I225）：git commit 的「nothing to commit」走 stdout——GitError 文本只有命令无原因；同内容二连写即炸。调试用内容哈希探针（临时 pytest 插件 print 每次写入的 sha1）定位重复写入。
+- **api 级扫描之后还有事件级扫描，结论是「无死事件」**（M76 调研第九例变体）：131 发射 vs 119 @on 的 25 个差集全部有活消费（幂等 SELECT FROM events/血缘遍历/写 guard 白名单/审计显示）——投影缺失≠消费缺失，事件流本身即读侧；「扫描出差集」不等于「发现缺口」，差集要逐个找消费方。
+- **读面开放是 M8 起的惯性而非决定**（M76 审计种子）：auth_gate「GET 保持开放」把读门下放域内——items/comments/artifacts(M72) 有 _gate 而 assets/expense/automations/template_packs 没有；补门时 org 域（资产/模板包）用登录门（实例成员可读）而非项目成员制，且 **feed_key 等既有匿名裁决面不要误伤**。
 
 ## 6. 快速上手命令
 
