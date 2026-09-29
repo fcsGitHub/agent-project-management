@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M71 可寻与可看三件套 完成，下一步 M72 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-29 更新 · M72 工件面收口三件套 调研定义完成，下一步 I216 开工）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M72 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M71 纪律沉淀：候选池勿凭印象写——五次「我以为的缺口早已存在」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览]；「半截链」grep 套路四连中[资产历史/run 绑定/工件预览/工件搜索——写函数与读函数配对、API 参数与前端调用点配对、写侧版本化与读侧消费配对]**）→ 三路并行 WebSearch → docs/01 新节（§BQ）+ docs/10 §M72 节 + 看板行 →「M72 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M72 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；②工件预览的权限纵深（工件无概念维度——can_see_concept 不适用是否够、工件级可见性有无真实场景待查）；③项目工件清单页（list_artifacts 端点已有——独立浏览页是否存在待查）；④维持项（长清单见前轮，均维持不做）。
+2. **M72 实施（下一步，I216 起步）**：调研定义已提交（7b2be79，docs/01 §BQ + docs/10 §M72 节）。三迭代：**I216 工件读写权限门**（artifacts.py 四端点补 `_artifact_gate`——local 全通/network 读=成员·写=owner∪contributor[viewer 403]；**M45 审计盲区补课：content/ 端点今后纳入与 domains/ 同级门禁**）；**I217 工件清单页+删除面**（DELETE 端点[git rm+artifact.deleted 事件+搜索索引清行] + 新 ArtifactsPage[清单+ArtifactPreviewDrawer+删除确认] + RAIL 入口 + SearchPage 命中行改跳本页）；**I218 工件包导出**（GET /artifacts/export[git archive HEAD -- artifacts/ zip 流式·文件名带 commit 短码] + artifact.exported 审计事件 + 📦 按钮 + 冒烟 77[权限三态→删除面→导出 zip 含工件]）。然后全量回归 + docs/10 看板行闭环 + M72 审阅。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
