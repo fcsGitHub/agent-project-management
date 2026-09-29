@@ -368,14 +368,51 @@ function CycleBurndownCard({ pid }: { pid: string }) {
   );
 }
 
+const _today = () => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+};
+
 function CostCard({ pid }: { pid: string }) {
   const qc = useQueryClient();
   const cr = useQuery({ queryKey: ["cost-report", pid], queryFn: () => api.getCostReport(pid!) });
   const [budget, setBudget] = useState("");
   const [llmBudget, setLlmBudget] = useState("");
   const [busy, setBusy] = useState(false);
+  // I222: 记账面 — recordExpense/deleteExpense 接线（expense.py 三端点 M42 就绪，纯前端）
+  const [expOpen, setExpOpen] = useState(false);
+  const [exp, setExp] = useState({ description: "", qty: "1", unit_price: "", currency: "", spent_on: _today(), vendor: "", item_id: "" });
+  const [expBusy, setExpBusy] = useState(false);
+  const itemsQ = useQuery({ queryKey: ["items", pid], queryFn: () => api.listItems(pid!, { limit: 200 }), enabled: expOpen });
   const d = cr.data;
   const maxCost = Math.max(1, ...(d?.by_user ?? []).map((u) => u.cost));
+
+  const recordExpense = async () => {
+    if (!exp.description.trim() || !exp.unit_price) {
+      toast.error("描述与单价必填");
+      return;
+    }
+    setExpBusy(true);
+    try {
+      await api.recordExpense(pid, {
+        description: exp.description.trim(),
+        qty: Number(exp.qty) || 1,
+        unit_price: Number(exp.unit_price),
+        currency: (exp.currency.trim() || d?.base_currency || "CNY").toUpperCase(),
+        spent_on: exp.spent_on || _today(),
+        vendor: exp.vendor.trim() || undefined,
+        item_id: exp.item_id || undefined,
+      });
+      toast.success("费用已记录");
+      setExp({ description: "", qty: "1", unit_price: "", currency: "", spent_on: _today(), vendor: "", item_id: "" });
+      setExpOpen(false);
+      await qc.invalidateQueries({ queryKey: ["cost-report", pid] });
+    } catch (e) {
+      toast.error(`记账失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      setExpBusy(false);
+    }
+  };
 
   return (
     <Card className="col-span-1 p-4">
@@ -426,20 +463,66 @@ function CostCard({ pid }: { pid: string }) {
               </div>
             ))}
           </div>
-          {d.expenses.length > 0 && (
-            <div className="mt-2 border-t border-line pt-1.5">
-              <div className="mb-1 text-[10px] font-semibold text-mut">费用行（material/unit costs · I142）</div>
+          <div className="mt-2 border-t border-line pt-1.5">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-mut">费用行（material/unit costs · I142）</span>
+              <button className="ml-auto text-[10px] text-acc hover:underline" title="记一笔费用（M42 端点，I222 接线）"
+                onClick={() => { setExpOpen((v) => !v); }}>＋ 记一笔</button>
+            </div>
+            {expOpen && d && (
+              <div className="mb-1.5 space-y-1 rounded-md border border-line bg-bg p-2">
+                <div className="flex items-center gap-1">
+                  <input value={exp.description} onChange={(e) => setExp({ ...exp, description: e.target.value })}
+                    placeholder="描述（必填）" className="min-w-0 flex-1 rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                  <input type="number" min="0" step="any" value={exp.qty} onChange={(e) => setExp({ ...exp, qty: e.target.value })}
+                    title="数量" className="w-14 rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                  <span className="text-[10px] text-mut">×</span>
+                  <input type="number" min="0" step="any" value={exp.unit_price} onChange={(e) => setExp({ ...exp, unit_price: e.target.value })}
+                    title="单价（必填）" placeholder="单价" className="w-20 rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                  <input value={exp.currency} onChange={(e) => setExp({ ...exp, currency: e.target.value })}
+                    placeholder={d.base_currency} title="币种（空=基准币）" className="w-16 rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <input type="date" value={exp.spent_on} onChange={(e) => setExp({ ...exp, spent_on: e.target.value })}
+                    title="发生日期" className="rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                  <input value={exp.vendor} onChange={(e) => setExp({ ...exp, vendor: e.target.value })}
+                    placeholder="厂商（可选）" className="w-28 rounded border border-line bg-surface px-1.5 py-1 text-xs" />
+                  <select value={exp.item_id} onChange={(e) => setExp({ ...exp, item_id: e.target.value })}
+                    title="挂到工作项（可选）" className="w-32 rounded border border-line bg-surface px-1 py-1 text-xs">
+                    <option value="">不挂工作项</option>
+                    {(itemsQ.data?.items ?? []).map((i) => (
+                      <option key={i.id} value={i.id}>{i.title.slice(0, 16)}</option>
+                    ))}
+                  </select>
+                  <Button size="sm" variant="outline" disabled={expBusy}
+                    onClick={recordExpense}>{expBusy ? "记录中…" : "记录"}</Button>
+                </div>
+              </div>
+            )}
+            {d && d.expenses.length > 0 ? (
               <div className="space-y-0.5">
                 {d.expenses.map((x) => (
                   <div key={x.id} className="flex items-center gap-2 text-[11px]">
                     <span className="w-28 shrink-0 truncate text-ink" title={x.vendor ? `${x.description} · ${x.vendor}` : x.description}>{x.description}</span>
                     <span className="flex-1 truncate text-mut">{x.spent_on} · {x.qty}×{x.unit_price} {x.currency}{x.fx_rate != null && x.currency !== d.base_currency ? ` ×${x.fx_rate}` : x.currency !== d.base_currency ? "（未折算）" : ""}</span>
                     <span className="w-20 shrink-0 text-right font-medium text-ink">{x.cost}</span>
+                    <button className="shrink-0 text-[10px] text-mut hover:text-dan" title="删除该费用行"
+                      onClick={async () => {
+                        try {
+                          await api.deleteExpense(pid, x.id);
+                          toast.success("费用行已删除");
+                          await qc.invalidateQueries({ queryKey: ["cost-report", pid] });
+                        } catch (e) {
+                          toast.error(`删除失败：${e instanceof Error ? e.message : e}`);
+                        }
+                      }}>🗑</button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="py-0.5 text-[10px] text-mut">尚无费用行——点「＋ 记一笔」开始记账</div>
+            )}
+          </div>
           <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
             <span className="text-[10px] text-mut">预算（小时）</span>
             <input type="number" min="0" value={budget}
