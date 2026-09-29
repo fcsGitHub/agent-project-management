@@ -11,6 +11,25 @@ from apm.core import events
 router = APIRouter(tags=["artifacts"])
 
 
+def _artifact_gate(project_id: str, write: bool = False) -> None:
+    """M72-I216 (docs/01 §BQ.1): repo-level permission inheritance — artifacts
+    are files in the project repo, so they inherit project membership exactly
+    like GitHub/GitLab (both ship no per-file ACL; that's the accepted
+    semantics). local mode stays wide open; network mode: read = any member,
+    write = owner/contributor (viewer is read-only). Fills the M45 audit blind
+    spot: these endpoints live in content/, never went through the domains
+    gating pass."""
+    from apm.domains.members import WRITE_ROLES, member_role
+
+    if config.settings.auth_mode == "local":
+        return
+    role = member_role(project_id, events.effective_actor())
+    if role is None:
+        raise HTTPException(status_code=403, detail="not a project member")
+    if write and role not in WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="viewer is read-only")
+
+
 def list_artifacts(project_id: str) -> list[dict]:
     from apm.domains.ontology import load_ontology
     from apm.domains.projects import get_project
@@ -82,11 +101,13 @@ class ArtifactWrite(BaseModel):
 
 @router.get("/projects/{project_id}/artifacts")
 def get_artifacts(project_id: str) -> dict:
+    _artifact_gate(project_id)
     return {"artifacts": list_artifacts(project_id)}
 
 
 @router.get("/projects/{project_id}/artifacts/{rel_path:path}")
 def get_artifact(project_id: str, rel_path: str, commit: str | None = None) -> dict:
+    _artifact_gate(project_id)
     try:
         content = gitrepo.read_file(project_id, rel_path, commit)
         history = gitrepo.file_history(project_id, rel_path)
@@ -111,6 +132,9 @@ def get_artifact(project_id: str, rel_path: str, commit: str | None = None) -> d
 @router.put("/projects/{project_id}/artifacts/{rel_path:path}")
 def put_artifact(project_id: str, rel_path: str, body: ArtifactWrite) -> dict:
     from apm.domains.projects import require_project
+
+    require_project(project_id)
+    _artifact_gate(project_id, write=True)
 
     require_project(project_id)
     return write_artifact(
