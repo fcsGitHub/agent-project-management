@@ -128,6 +128,7 @@ export type Approval = {
   comment?: string; payload_snapshot: {
     gate?: string; gate_label?: string; role?: string; tool?: string; summary?: string;
     artifact?: { path?: string; commit?: string }; edit_note?: string; revise_notes?: string[];
+    asset_id?: string; library?: string; kind?: string;  // I230: asset_review 门
   };
 };
 export type AEvent = {

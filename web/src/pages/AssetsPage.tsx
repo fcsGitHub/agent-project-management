@@ -188,10 +188,19 @@ function AssetDrawer({ id, onClose }: { id: string | null; onClose: () => void }
 }
 
 /** I225: 退役/归档——asset.deprecated/archived 的发射方（此前零生产者）。
- * 退役=标记 deprecated 保留在库、退出吃灰判定；归档=从清单隐没（详情仍可读）。 */
+ * 退役=标记 deprecated 保留在库、退出吃灰判定；归档=从清单隐没（详情仍可读）。
+ * I230 复演发现即修：asset_review 门挂 project_id=""，项目审批面不可见——
+ * 批准入库的动作就长在资产上（就近原则）。 */
 function AssetActionsCard({ asset, onClose }: { asset: Asset & { content?: string | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const review = useQuery({
+    queryKey: ["asset-review-gate", asset.id],
+    queryFn: () => api.listApprovals({ status: "pending" }),
+    enabled: asset.status === "in_review",
+  });
+  const gate = (review.data?.approvals ?? []).find(
+    (g) => g.payload_snapshot?.gate === "asset_review" && g.payload_snapshot?.asset_id === asset.id);
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -200,6 +209,7 @@ function AssetActionsCard({ asset, onClose }: { asset: Asset & { content?: strin
       qc.invalidateQueries({ queryKey: ["assets"] });
       qc.invalidateQueries({ queryKey: ["asset", asset.id] });
       qc.invalidateQueries({ queryKey: ["asset-insights"] });
+      qc.invalidateQueries({ queryKey: ["asset-review-gate", asset.id] });
     } catch (e) {
       toast.error(`操作失败：${e instanceof Error ? e.message : e}`);
     } finally {
@@ -215,6 +225,21 @@ function AssetActionsCard({ asset, onClose }: { asset: Asset & { content?: strin
   }
   return (
     <Card className="p-2 text-xs">
+      {asset.status === "in_review" && (
+        <div className="mb-2 flex items-center gap-2 border-b border-line pb-2">
+          <span className="font-semibold text-mut">入库评审</span>
+          {gate ? (
+            <>
+              <Button size="sm" variant="primary" disabled={busy}
+                onClick={() => act(() => api.decide(gate.id, "approved"), "已批准入库")}>批准入库</Button>
+              <Button size="sm" variant="ghost" disabled={busy}
+                onClick={() => { if (window.confirm("拒绝该资产的入库评审？")) act(() => api.decide(gate.id, "rejected"), "已拒绝"); }}>拒绝</Button>
+            </>
+          ) : (
+            <span className="text-mut">评审门加载中…</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <span className="font-semibold text-mut">处置</span>
         {asset.status !== "deprecated" && (
