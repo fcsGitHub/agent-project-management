@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M76 审计与复演轮 完成，下一步 M77 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M77 调研定义 完成，下一步 I231 README 解冻+env 三面同步）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M77 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M76 纪律沉淀：候选池勿凭印象写——十次「我以为的缺口早已存在/候选作废」自证[回收站/邮件路由/事件流浏览器/自动化历史/审批预览/closeRisk 冗余/工作项发起运行=batch_start/模板包 instantiate 共链路/死事件=活账本/读面开放审计轮恰好收口]；「半截链」grep 九连中；api 级+事件级两层扫描均已枯竭——功能面饱和[ M76 裁决]**）→ 三路并行 WebSearch → docs/01 新节（§BV）+ docs/10 §M77 节 + 看板行 →「M77 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M77 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①文档对账与交付面（README/docker-compose/.env.example/演示脚本与 76 里程碑现状对账——交付件 freshness·待核验漂移量）；②前端一致性与可达性抽查（新 UI 面[设置中心/工件页/退役卡/里程碑浮层]的空态/键盘/375px——M59 曾审过旧面）；③分叉 run 的合并采纳面（连续多轮无使用证据——继续降级）；④删除工件恢复 UI（等真实误删证据——维持）；⑤维持项（长清单见前轮，均维持不做）。
+2. **M77 迭代（下一步）**：调研定义已提交（14a3f68，docs/01 §BV + docs/10 §M77 节 + 看板行）。定案 **M77 = 交付面与新面可达轮**：I231 README 解冻+env 三面同步（README 里程碑叙述锚点化[**数字从 README 移除**——冒烟条数/pytest 数属于会变化的看板·进度真源指向 docs/10 §7 一行 + Last-Updated 戳] + .env.example 补 APM_SMTP_HOST/SMTP_FROM/OIDC_ALLOWED_GROUPS/METRICS_ENABLED[注释带里程碑出处] + docker-compose 补 `${VAR:-}` 透传 + **tools/check_env_doc.py** 对账脚本[全源码 APM_* 提取 vs example·缺失非零退出·收口纪律挂沟]）→ I232 前端新面 375px+空态走查·发现即修（SettingsPage/ArtifactsPage/里程碑浮层/退役卡/费用表单/工件抽屉）→ I233 **冒烟 82**（对账脚本绿+交付件内容断言）+ 全量回归 + 收口。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
@@ -137,6 +137,8 @@
 - **org 级审批门挂 project_id="" 就进不了项目审批面**（M76-I230 E2E 发现）：asset_review 门在 ApprovalsPage（按 pid 过滤）与「待我审批」跳转后都不可见——资产永久卡 in_review。修法=处置动作长在资产上（AssetActionsCard 拉 pending 审批按 payload_snapshot.asset_id 匹配就近渲染批准/拒绝）——**org 级门的 UI 出口必须在 org 级面**。
 - **E2E 复演改前端后必须 SW update+清 caches+reload**（M76-I230 再证 §5 既有坑）：preview 服务的 precache SW 会喂旧 bundle——修复验证时浏览器先 `serviceWorker.getRegistrations→update + caches.keys→delete` 再看新 UI。
 - **全量回归的管道纪律已固化**（M74-I224→M76 持续有效）：`pytest | tail` 掩盖退出码且截断日志——一律 `> 文件 2>&1; echo EXIT=$?`；判定只认 pytest 退出码+collect-only 计数（.pytest_cache lastfailed 有化石条目无证明力）。
+- **README 的数字是漂移源**（M77 调研）：「冒烟 7 条」「I15 I16 进行中」冻结在 M4——写进 README 的任何会变化的数字都会腐烂；对策=README 只写不变事实（定位/架构/命令），动态数字一律指向 docs/10 §7 看板真源；「入口活正文死」（一行链到活文档但主叙述过时）是文档半截链的新形态。
+- **env 面对账要全源码 grep 而非只查 config.py**（M77 调研）：config.py 字面只引 3 个 env，全源码 9 个——SMTP/OIDC/METRICS 在各自域文件里 `os.environ`/`settings` 引用；对账脚本必须扫 `app/apm` 全树。
 
 ## 6. 快速上手命令
 
