@@ -1,7 +1,8 @@
 # AgentPM —— 基于 Agent 的项目管理系统 · 方案设计
 
-> 版本：v0.4（2026-08-22，新增开发执行计划；v0.3 含两轮评审意见修订）
+> 版本：v0.5（2026-09-30 对账：里程碑叙述锚点化——进度真源指向 docs/10 §7 看板，本页只保留不变事实）
 > 定位：一套以「人指挥、Agent 执行」为核心的项目管理 Web 系统的完整方案设计，覆盖需求 → 设计 → 开发 → 测试 → 交付全生命周期。
+> 进度真源：[docs/10-development-plan.md §7 状态看板](docs/10-development-plan.md)（唯一进度真源——迭代、冒烟基线、验证数字以看板为准，本页不重复会变化的数字）。
 
 ## v0.4 修订说明（本轮新增：开发执行计划）
 
@@ -98,9 +99,9 @@ AgentPM 把软件项目的**管理流程本身建模为一张可编排的图（P
 └──────────────────────────────┴─────────────────────────────────────────────────┘
 ```
 
-## 开发与运行（实现已就绪）
+## 开发与运行（实现已就绪，持续迭代）
 
-MVP 已按 [docs/10-development-plan.md](docs/10-development-plan.md) 迭代 I0–I13 完成：后端 FastAPI + 事件溯源内核 + LangGraph Runtime + 本体驱动域，前端 React（复刻 demo.html 设计令牌），冒烟基线 7 条全绿（`tools/smoke/`）。MVP 后持续迭代（M4）：融合 semantica 本体构建模式——**本体学习**（I14，从项目数据归纳本体变更候选：扫描→人审→应用，带 provenance，冒烟基线增至 11 条）；I15 语义 diff / I16 CQ 检查进行中。
+系统自 MVP（I0-I13）后按 [docs/10-development-plan.md](docs/10-development-plan.md) 持续迭代——里程碑、迭代明细、冒烟基线（只增不减）与验证数字全部以 docs/10 §7 状态看板为唯一真源，本页不复制会腐烂的数字。
 
 ```bash
 # 一键起（Docker）
@@ -114,8 +115,9 @@ python -m uvicorn apm.main:app --port 8000 --reload
 cd web && pnpm install && pnpm dev   # http://localhost:5173（代理 /api → 8000）
 
 # 测试与冒烟（回放模式，确定性、不依赖模型/网络）
-cd app && python -m pytest           # 单测 + 集成
-python tools/smoke/run_smoke.py      # 累积冒烟基线（只增不减）
+cd app && python -m pytest           # 单测 + 集成（--ignore=tests/smoke 分片跑，冒烟 runner 对账）
+python tools/smoke/run_smoke.py      # 累积冒烟基线（只增不减）· GREEN 即对账通过
+python tools/check_env_doc.py        # env 文档对账（源码 APM_* vs .env.example / compose 透传）
 ```
 
 - **LLM 接入**：默认 `replay`（确定性回放，模板按 role+node 注入上下文，测试/冒烟零网络）。真实模型：复制 `.env.example` 为 `.env`，配 `APM_PROVIDER_MODE=openai` + `APM_LLM_API_BASE` + `APM_LLM_API_KEY`（`record` 模式可录制 fixtures）。OpenAI 兼容与 Anthropic messages 双协议，按 base URL 是否含 `/anthropic` 自动选择（可用 `APM_LLM_PROTOCOL` 强制）；推理模型需宽松 `APM_LLM_MAX_TOKENS`（默认 4096）。侧栏底部徽标显示当前模型，点击即真实 ping；`POST /api/system/llm/ping`（admin）返回延迟与 token 用量。NL 命令层 L1 规则未命中时自动回退 **L2 模型解析**（`APM_UI_AGENT_MODEL` 廉价模型，严格 JSON 契约 + 白名单校验，只读动作，`parser` 字段溯源）。
