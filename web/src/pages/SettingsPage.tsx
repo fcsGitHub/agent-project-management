@@ -58,14 +58,14 @@ export function SettingsPage() {
   const tpl = p.report_template?.sections ?? [];
   return (
     <div className="flex h-full overflow-y-auto">
-      {/* 左栏分区导航 */}
-      <div className="w-52 shrink-0 border-r border-line p-3">
+      {/* 左栏分区导航（I232：375px 下收窄避挤压） */}
+      <div className="w-32 shrink-0 border-r border-line p-3 sm:w-52">
         <div className="mb-2 px-2 text-sm font-semibold">⚙ 项目设置</div>
         <div className="space-y-0.5">
           {SETTINGS_SECTIONS.map((s) => (
             <a key={s.id} href={`#/p/${pid}/settings?section=${s.id}`}
               className={cx("block rounded-lg px-2 py-1.5 text-xs hover:bg-bg", section === s.id && "bg-accbg text-acc")}>
-              {s.icon} {s.label}
+              <span className="whitespace-nowrap">{s.icon} {s.label}</span>
               <div className="text-[10px] text-mut">{s.hint}</div>
             </a>
           ))}
@@ -76,14 +76,14 @@ export function SettingsPage() {
         <section id="sec-project" className="space-y-3">
           <h2 className="text-sm font-semibold">⚙ 项目配置</h2>
           <Card className="space-y-3 p-3 text-xs">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={autoDeposit}
+            <label className="flex flex-wrap items-start gap-2">
+              <input type="checkbox" className="mt-0.5" checked={autoDeposit}
                 onChange={(e) => patch({ auto_deposit: e.target.checked }, e.target.checked ? "产物自动沉淀已开启" : "产物自动沉淀已关闭")} />
-              <span className="font-medium">产物自动沉淀</span>
+              <span className="whitespace-nowrap font-medium">产物自动沉淀</span>
               <span className="text-mut">run 成功且产出工件时自动存入资产库（draft，评审门不绕过）</span>
             </label>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">LLM 月度成本预算（USD）</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">LLM 月度成本预算（USD）</span>
               <input value={budget ?? ""} onChange={(e) => setBudget(e.target.value)}
                 placeholder="空 = 不设预算"
                 className={cx("w-28 rounded-lg border bg-bg px-2 py-1", budget && !budgetOk(budget) ? "border-dan" : "border-line")} />
@@ -93,8 +93,8 @@ export function SettingsPage() {
               </Button>
               <span className="text-mut">达 80% 警告（软阈），100% 拦截新 run（硬顶 402）</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">报告模板</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">报告模板</span>
               {tpl.length
                 ? <span className="text-mut">{tpl.filter((s) => s.enabled).length}/{tpl.length} 段启用{tpl.some((s) => s.heading) ? " · 含自定义标题" : ""}</span>
                 : <Badge tone="neutral">默认骨架</Badge>}
@@ -107,15 +107,15 @@ export function SettingsPage() {
         <section id="sec-access" className="space-y-3">
           <h2 className="text-sm font-semibold">🔒 权限与可见性</h2>
           <Card className="space-y-2 p-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">概念级可见性</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">概念级可见性</span>
               {restricted.length
                 ? <Badge tone="amber">🔒 {restricted.length} 个概念仅 owner 可见</Badge>
                 : <Badge tone="green">全部概念成员可见</Badge>}
               <Link className="text-acc hover:underline" to={`/p/${pid}/ontology?section=visibility`}>去本体页配置 →</Link>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">项目角色指令（L1.5）</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">项目角色指令（L1.5）</span>
               <span className="text-mut">按 project×role 细化全局角色提示词（深层优先）</span>
               <Link className="text-acc hover:underline" to={`/p/${pid}/ontology?section=roles`}>去本体页配置 →</Link>
             </div>
@@ -126,15 +126,15 @@ export function SettingsPage() {
         <section id="sec-notify" className="space-y-3">
           <h2 className="text-sm font-semibold">🔔 通知与接入</h2>
           <Card className="space-y-2 p-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">推送通道（ntfy）</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">推送通道（ntfy）</span>
               {push.data?.push_url
                 ? <Badge tone="green">已配置 {new URL(push.data.push_url).host}</Badge>
                 : <Badge tone="neutral">未配置</Badge>}
               <Link className="text-acc hover:underline" to="/my/work">去我的工作台配置 →</Link>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">机器接入令牌（PAT）</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="whitespace-nowrap font-medium">机器接入令牌（PAT）</span>
               <Badge tone="indigo">{tokens.data?.tokens?.length ?? 0} 个有效</Badge>
               <Link className="text-acc hover:underline" to="/my/work">去我的工作台管理 →</Link>
             </div>
