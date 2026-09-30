@@ -2350,6 +2350,36 @@ agent-project-management/
 
 ---
 
+### M77 · 交付面与新面可达轮（I231-I233，约 7 人日）
+
+> v3.0 新增（2026-09-30，docs/01 §BV 前置调研）。交付面漂移 grep 实证四件：README 冻结 M4 视角（冒烟 7 条全绿/I15 I16 进行中——实际 81 条/M77 窗口·**半截链第十例：入口活[「迭代记录见 docs/10」]正文死**）；.env.example 缺 4 个已实现 env（SMTP_HOST/SMTP_FROM/OIDC_ALLOWED_GROUPS/METRICS_ENABLED——M13/M26/M67 的配置入口不可发现）；docker-compose 同批缺透传；seed.py 全端点存活（只描述过时非功能坏）。前端新面可达性：M59 375px 审计后新增约 30 面未查（SettingsPage 断点类零命中）。**防重查：seed 功能完好[只文档过时]、分叉采纳面[继续降级]、删除恢复 UI[等证据]。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I231 | README 解冻+env 三面同步（README 里程碑叙述锚点化[进度真源指向行·数字移除·Last-Updated 戳] + .env.example 补 4 env[SMTP×2/OIDC/METRICS·标里程碑来源] + docker-compose 补透传 + tools/check_env_doc.py 对账脚本[全源码 APM_* vs example·缺失非零退出]） | docs/01 §BV.1/§BV.2 | LTP「改 API 别忘改文档」/envsync check 模式 | 2d |
+| I232 | 前端新面 375px+空态走查·发现即修（SettingsPage/ArtifactsPage/里程碑浮层/退役卡/费用表单/工件抽屉——断点类补齐/空态引导/横向溢出修） | docs/01 §BV.3 | M59 审计惯例 | 3d |
+| I233 | 冒烟 82+收尾审阅（env 对账脚本入冒烟链[或收口纪律] + 全量回归 + docs 收口 + M77 审阅） | docs/01 §BV.4 | smoke runner 惯例 | 2d |
+
+#### I231 · README 解冻+env 三面同步（2d）
+
+- 任务：README §开发与运行重写（具体数字删除→「冒烟基线只增不减·当前 N 条见 runner」语义·里程碑叙述压缩为指向 docs/10 §7 的一行）+ 顶部 Last-Updated + .env.example 补 APM_SMTP_HOST/SMTP_FROM/OIDC_ALLOWED_GROUPS/METRICS_ENABLED（注释带里程碑出处）+ docker-compose environment 补同批 `${VAR:-}` 透传 + tools/check_env_doc.py（grep 对账·缺失非零退出）。
+- DoD：对账脚本 EXIT=0；README 无过时数字；compose 可注入 SMTP/OIDC env。
+- 演示路径：删 example 里的 METRICS 行→脚本红→补回→绿。
+
+#### I232 · 前端新面 375px+空态走查·发现即修（3d）
+
+- 任务：375px viewport 走查新面清单（SettingsPage 左栏/ArtifactsPage 网格/里程碑浮层/退役卡/费用表单/工件抽屉/Timeline 里程碑面板）+ 空态核验（零数据引导是否在）+ 发现即修（断点类/溢出/引导文案）。
+- DoD：375px 无横向溢出阻断操作；空态面面有引导；build 绿。
+- 演示路径：375px 宽浏览器完整走设置中心与工件页。
+
+#### I233 · 冒烟 82+收尾审阅（2d）
+
+- 任务：**冒烟 82**（对账脚本绿[含故意红一次的自证] + 交付件内容断言[README 无过时数字/env 四键在/compose 透传在]）+ 全量回归 + docs 收口 + M77 审阅。
+- DoD：冒烟 82 GREEN；非 smoke 全量 EXIT=0。
+- 演示路径：一条冒烟锁住交付面不再腐烂。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2550,6 +2580,7 @@ agent-project-management/
 | I145 周期回顾包 | 已完成 | 2026-09-21 | 2026-09-21 | `GET /cycles/{id}/retrospective` 纯投影聚合[承诺完成率=I129 口径/晚到拖入=commitment 日后挂入显性化/周期内新增超期/run 参与 tokens/top blocks 阻塞者计数[**from 阻塞 to**——I78 语义]/prev 周期速率对比，空周期诚实 "empty scope"] + Board 周期过滤器旁「📋 回顾」按钮 + RetroDrawer[三卡+拖入/超期/阻塞分区+run 参与]；test_retrospective **3** 项[口径/rebuild 一致/空周期诚实/prev 速率 backdate] |
 | I146 并发治理+收尾 | 已完成 | 2026-09-21 | 2026-09-21 | `_exec_lock` 全局串行 → **per-conversation 锁**[`_conversation_lock` 字典缓存；同对话互斥防状态竞争/跨对话并行；SQLite 写已有 db.tx 锁、LLM 长 IO 不持锁] + `_active_runs` 终态 pop[**修内存泄漏**；awaiting_review 可恢复态保留] + **修并行 run git 竞争**[index.lock 冲突——gitrepo per-project 写锁 + commit_file 容忍 nothing to commit（确定性模板同内容重写，status porcelain 探测）] + Board 看板列渐进渲染[COLUMN_PAGE=12+显示更多] + **冒烟 53**[分档降级留痕/回顾包口径/跨对话并行]；test_run_concurrency **3** 项 |
 | **M57 治理收口与资产洞察三件套（I171-I173）** | 已完成 | 2026-09-27 | 2026-09-27 | 3 迭代 / 约 9 人日（docs/01 §BB + docs/10 §M57）：I171 watch 规则编辑与暂停（watch_rules.paused 列[schema+存量库 ALTER 迁移] + `PATCH /projects/{id}/watch-rules/{event_type}`[condition 复用 `_serialize_condition` 校验·paused 可选省略即保留·未订 404·成员门] + `watch.updated` 事件+投影整行 upsert[created_at 经 COALESCE 保留——规则身份在改条件/暂停中存活，单事实携带全量新态] + hook 查询排除 paused=1[暂停=停止匹配非删除] + GET /watch-rules 透出 paused + 前端规则行 ⏸/▶ 与「已暂停」徽标半透明行 + 「+ 关注」对已存在同款自动变「⟳ 更新」就地更新条件——**M55 记录的 409 删了重加坑闭环**，Zapier/GitHub Actions 配置保留语义）/ I172 资产使用洞察（`GET /assets/insights` 纯读侧投影[per-asset consumed 计数+最近消费 ISO·usage 型引用计数与 citation_count 同口径——沉淀期 provenance 链接不算复用·入库天数·**stale=已发布+零消费+入库超 90 天**·now 可注入保证确定·消费排序/引用与入库序破平] + AssetsPage「📊 使用洞察」卡[使用 Top5/久未复用清单+warn 徽标·两分区空态诚实]——**事件溯源红利第十例：consumed/link 自 M6 入流，投影即得零埋点**）/ I173 冒烟 62+审阅（改条件旧静默新命中→暂停静默→恢复投递→洞察计数与吃灰清单→rebuild 一致）；多节律报告[M55 裁决维持]、资产评分/星级[单实例无社区语义]、显式容量、Cycles 多周期+derived[维持]留 backlog。基线：pytest **437** 全绿（非 smoke 375 EXIT=0 + smoke runner 62 GREEN 对账）+ 冒烟 **62** + vitest **18** + build 绿 |
+| 2026-09-30 M77 调研定义（§BV） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**交付面漂移取证（grep 实证四件）——README.md 冻结 M4 视角[「冒烟基线 7 条全绿…I15/I16 进行中」实际 81 条/M77 窗口·后半 70+ 迭代零叙述·半截链第十例：入口活正文死]、.env.example 缺 4 个已实现 env[全源码 9 个 APM_* 对账：SMTP_HOST/SMTP_FROM/OIDC_ALLOWED_GROUPS/METRICS_ENABLED 已生效零文档——M13/M26/M67 配置入口不可发现]、docker-compose 同批缺透传[Docker 用户拿不到 SMTP/OIDC]、seed.py 全端点存活[只描述过时非功能坏]**；候选②前端新面可达性[M59 375px 审计后新增约 30 面未查·SettingsPage 断点类零命中/ArtifactsPage 1 处]；分叉采纳面[继续降级]、删除恢复 UI[等证据]。三路 WebSearch：文档防漂移（[GenAIScript README 保鲜](https://microsoft.github.io) 自动化段生成/[Hatica](https://www.hatica.io)/[dev.to](https://dev.to) **Last Updated 戳+精简正文降低漂移面**/[LTP 贡献规范](https://android.googlesource.com) **「改 API 别忘改文档」入 checklist**）、env 同步（[envsync](https://github.com/nandukmelath/envsync)/[sync-dotenv](https://github.com/luqmanoop/sync-dotenv)/[env-drift-check](https://classic.yarnpkg.com/en/package/env-drift-check)——**CI check 模式：.env 有而 example 无=fail·机检而非人记**）、375px 审计（[Divi](https://divilife.com) 375px 优先/[Superset](https://www.padiso.co) 移动单列密度/[TableCards](https://www.jqueryscript.net) **<768px 表格折叠为卡**）。定案 M77=交付面与新面可达轮（I231 README 解冻+env 三面同步/I232 前端新面 375px+空态走查/I233 冒烟 82） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |

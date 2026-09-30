@@ -2085,3 +2085,26 @@ M75 = **生命周期闭合三件套**：I225 资产退役与归档（半截链�
 **BU.4 M76 取舍**
 
 M76 = **审计与复演轮**：I228 权限面审计（读面门禁对齐·BOLA 矩阵测试）/ I229 校验与性能审计（slow-endpoints 实测+EXPLAIN 对账+校验抽查）/ I230 E2E 复演+冒烟 81+审阅，约 9 人日。全局 GET 强制登录、资产级 ACL、全量索引重构、WAL 调整、自动化 E2E 框架、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
+
+## BV. M77 前置调研：交付面对账 / 前端新面可达性 / （2026-09-30）
+
+> 目标协议触发：M76 完成后开启。防重查：候选池 grep——**分叉采纳面（继续降级）、删除恢复 UI（等证据）**。候选①**交付面漂移取证（grep 实证四件）**：**README.md 冻结在 M4 视角**（「冒烟基线 7 条全绿…I15 语义 diff/I16 CQ 检查进行中」——实际 81 条、M77 窗口；「实现已就绪」段落后 70+ 迭代零叙述）·**.env.example 缺 4 个已实现 env**（全源码 9 个 APM_* 对账：APM_SMTP_HOST/SMTP_FROM/OIDC_ALLOWED_GROUPS/METRICS_ENABLED 已在 config 生效但文档零踪——M13 SMTP/M26 OIDC/M67 Prometheus 的配置入口不可发现）·**docker-compose 同批缺透传**（env 无法经 compose 注入·Docker 用户拿不到 SMTP/OIDC 能力）·**seed.py 全端点存活**（/api/projects…batch-start/resume 全 grep 命中——只描述过时非功能坏）。候选②**前端新面可达性**：M59 375px 审计只覆盖当时页面；此后新增 SettingsPage/ArtifactsPage/里程碑浮层/退役卡等约 30 面未查（SettingsPage 断点类零命中·ArtifactsPage 1 处——grep 证据）。**半截链第十例**：README「迭代记录见 docs/10」一行链着活文档但主叙述是死的——**入口活·正文死**的文档半截链。本轮三路新调研（**文档防漂移惯例 / env.example 同步工具链 / 375px 审计策略**），选定 **M77 = 交付面与新面可达轮**。
+
+**BV.1 交付面对账（README 解冻 + env 三个面同步——文档是会腐烂的代码）**
+
+- 产品惯例（[GenAIScript README 保鲜](https://microsoft.github.io)——自动化段生成、[Hatica](https://www.hatica.io)/[dev.to 指南](https://dev.to)——**「Last Updated」戳+精简正文降低漂移面**、[LTP 贡献规范](https://android.googlesource.com)——**「改 API 别忘改文档」入 checklist**）：文档保鲜的共识=**正文精简（少写少腐）+变更清单挂钩+时效戳**。
+- 对本项目的映射：**正文锚点化**——README 里程碑叙述压缩为「进度真源指向行」（docs/10 §7 看板即唯一真源·README 只保留不变事实：定位/架构图/启动命令/LLM 接入要点），「冒烟 7 条」等具体数字从 README 移除（数字属于会变化的看板）。补法=README §开发与运行重写（测试基线数字删除→指向 smoke runner 语义）+ 顶部 Last-Updated 行 + **.env.example 补 4 env**（SMTP 双/OIDC 组/METRICS 开关——照既有注释风格标里程碑来源）+ **docker-compose environment 补同批透传**（`${VAR:-}` 惯例）。**不做** docs/01~09 设计册回填（它们是设计时点快照·追认会篡改历史）、CHANGELOG 生成（docs/10 看板即变更日志）、CI 文档检查（一人工厂无 CI 面·grep 对账已够）。
+
+**BV.2 env.example 同步纪律（envsync 模式的轻量本地化）**
+
+- 产品共识（[envsync](https://github.com/nandukmelath/envsync)/[sync-dotenv](https://github.com/luqmanoop/sync-dotenv)/[env-drift-check](https://classic.yarnpkg.com/en/package/env-drift-check)——**CI check 模式：.env 有而 example 无=fail**）：env 面保鲜的共识=**机检而非人记**。
+- 对本项目的映射：不引第三方工具（零依赖纪律），**写一个 20 行 grep 对账脚本**（tools/check_env_doc.py：全源码 `APM_[A-Z_]+` 提取 vs .env.example 对照·缺失即非零退出）——每次收口跑一次或挂在冒烟 runner 尾部。**不做** CI 集成（无 CI 面）、pydantic Field 别名反射（grep 对字典面已够准）。
+
+**BV.3 前端新面可达性抽查（375px + 空态——增量审计非全量重做）**
+
+- 产品共识（[Divi 375px 优先](https://divilife.com)/[Superset 移动密度](https://www.padiso.co)——**375px 单列 15-20 指标**、[TableCards 模式](https://www.jqueryscript.net)——**<768px 表格折叠为卡/标签值行**、触目标≥44px）：移动审计的共识=**小视口先审+表格折叠+触目标下限**。
+- 对本项目的映射：M59 审过旧面（看板/时间线/负载/设置前代），M60~M76 新增约 30 面未查。补法=375px viewport 走查新面（SettingsPage 左栏折叠/ArtifactsPage 卡片网格/里程碑浮层/退役卡/费用表单/工件抽屉）+ 空态覆盖核验（每新面零数据时是否引导）+ 发现即修（断点类补齐照 SettingsPage 现状）。**不做** 全站重审（M59 已覆盖旧面）、触目标全量测量（walk-through 目测明显违规才修）。
+
+**BV.4 M77 取舍**
+
+M77 = **交付面与新面可达轮**：I231 README 解冻+env 三面同步（对账脚本+compose 透传）/ I232 前端新面 375px+空态走查·发现即修 / I233 冒烟 82+收尾审阅，约 7 人日。设计册回填、CHANGELOG 生成、CI 文档检查、全站重审、触目标全量测量、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
