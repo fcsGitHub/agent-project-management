@@ -64,8 +64,8 @@ def test_smoke_23_oidc_sso(client, tmp_data, isolated_ontologies, monkeypatch):
 
         return R()
 
-    monkeypatch.setattr(oidc.httpx, "get", fake_get)
-    monkeypatch.setattr(oidc.httpx, "post", fake_post)
+    monkeypatch.setattr(oidc.httpx2, "get", fake_get)
+    monkeypatch.setattr(oidc.httpx2, "post", fake_post)
     monkeypatch.setattr(config.settings, "oidc_issuer", ISSUER)
     monkeypatch.setattr(config.settings, "oidc_client_id", CLIENT_ID)
     monkeypatch.setattr(config.settings, "oidc_client_secret", "s")

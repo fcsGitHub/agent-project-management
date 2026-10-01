@@ -1,7 +1,7 @@
 """M17-I53: OIDC SSO client — full protocol path against a local RSA JWT stub
 (no IdP container needed), plus the JIT four-constraint rejection matrix.
 
-The stub monkeypatches httpx.get/post so discovery/jwks/token endpoints are
+The stub monkeypatches httpx2.get/post so discovery/jwks/token endpoints are
 served from in-memory dicts; id_tokens are signed with a test RSA key whose
 public part is published as the stub jwks."""
 import base64
@@ -9,7 +9,7 @@ import hashlib
 import json
 import time
 
-import httpx
+import httpx2
 import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -73,8 +73,8 @@ def idp(monkeypatch):
 
     fake_post.id_token = ""
     fake_post.verifier = ""
-    monkeypatch.setattr(oidc.httpx, "get", fake_get)
-    monkeypatch.setattr(oidc.httpx, "post", fake_post)
+    monkeypatch.setattr(oidc.httpx2, "get", fake_get)
+    monkeypatch.setattr(oidc.httpx2, "post", fake_post)
     return {"key": key, "id_token": fake_post}
 
 

@@ -5,7 +5,7 @@
   real model.
 - OpenAICompatProvider: real model via OpenAI-compatible protocol (openai SDK).
 - AnthropicCompatProvider: real model via the Anthropic messages protocol
-  (httpx) — auto-selected when the base URL is an /anthropic endpoint.
+  (httpx2) — auto-selected when the base URL is an /anthropic endpoint.
 - RecordProvider: wraps any real provider and persists responses to data/fixtures
   for later replay.
 
@@ -159,14 +159,14 @@ class OpenAICompatProvider:
 
 
 class AnthropicCompatProvider:
-    """Anthropic messages protocol over httpx (no extra dependency). Thinking
+    """Anthropic messages protocol over httpx2 (httpx 已停维护——M83-I249 迁移). Thinking
     blocks are skipped; only text blocks form the completion."""
 
     mode = "openai"
     protocol = "anthropic"
 
     def __init__(self, transport: Any = None) -> None:
-        import httpx
+        import httpx2
 
         base = (config.settings.llm_api_base or "").rstrip("/")
         self._url = base + ("/messages" if base.endswith("/v1") else "/v1/messages")
@@ -175,7 +175,7 @@ class AnthropicCompatProvider:
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
-        self._client = httpx.Client(
+        self._client = httpx2.Client(
             timeout=config.settings.llm_timeout_s, headers=headers, transport=transport
         )
 
@@ -214,7 +214,7 @@ class AnthropicCompatProvider:
 
     def _complete_streaming(self, *, body: dict[str, Any], model: str,
                             on_delta: DeltaCallback) -> Completion:
-        """I138: httpx SSE 流式——content_block_delta 逐块回调，usage 取自
+        """I138: httpx2 SSE 流式——content_block_delta 逐块回调，usage 取自
         message_start（input）与 message_delta（output）；非 200 抛错交上游重试。"""
         import json as _json
 

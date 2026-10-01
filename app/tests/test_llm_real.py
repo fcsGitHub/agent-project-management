@@ -1,11 +1,11 @@
 """M44 real-LLM wiring: dual-protocol providers, status/ping endpoints, and the
 NL layer's L2 model fallback. Network is never touched — the Anthropic client
-runs on httpx.MockTransport and the LLM calls use stub providers."""
+runs on httpx2.MockTransport and the LLM calls use stub providers."""
 from __future__ import annotations
 
 import json
 
-import httpx
+import httpx2
 import pytest
 
 from apm import config
@@ -46,15 +46,15 @@ def test_resolve_protocol_auto(monkeypatch):
 def test_anthropic_blocks_parse_and_retry(client, tmp_data, isolated_ontologies, anthropic_env, monkeypatch):
     calls = {"n": 0}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls["n"] += 1
         assert request.url.path.endswith("/v1/messages")
         assert request.headers["x-api-key"] == "sk-test"
         body = json.loads(request.content)
         assert body["max_tokens"] == 4096
         if calls["n"] == 1:  # first attempt 5xx → retried
-            return httpx.Response(503, text="upstream")
-        return httpx.Response(200, json={
+            return httpx2.Response(503, text="upstream")
+        return httpx2.Response(200, json={
             "content": [
                 {"type": "thinking", "thinking": "无声思考，不算产出"},
                 {"type": "text", "text": "你好，真实世界"},
@@ -64,7 +64,7 @@ def test_anthropic_blocks_parse_and_retry(client, tmp_data, isolated_ontologies,
         })
 
     monkeypatch.setattr(provider_mod.time, "sleep", lambda s: None)
-    p = AnthropicCompatProvider(transport=httpx.MockTransport(handler))
+    p = AnthropicCompatProvider(transport=httpx2.MockTransport(handler))
     c = p.complete(
         role="dev-agent", node="draft",
         messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
@@ -77,14 +77,14 @@ def test_anthropic_blocks_parse_and_retry(client, tmp_data, isolated_ontologies,
 
 
 def test_anthropic_empty_content_is_readable_error(client, tmp_data, isolated_ontologies, anthropic_env):
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json={
             "content": [{"type": "thinking", "thinking": "想完了但没写字"}],
             "usage": {"input_tokens": 5, "output_tokens": 50},
             "stop_reason": "max_tokens",
         })
 
-    p = AnthropicCompatProvider(transport=httpx.MockTransport(handler))
+    p = AnthropicCompatProvider(transport=httpx2.MockTransport(handler))
     with pytest.raises(LLMError, match="APM_LLM_MAX_TOKENS"):
         p.complete(role="r", node="n", messages=[{"role": "user", "content": "x"}], context={})
 

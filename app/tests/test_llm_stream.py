@@ -1,12 +1,12 @@
 """M46-I138 LLM 流式输出：增量经 event_bus 瞬态广播（绝不落事件库），
 完整文本仍是 message.created 唯一落库真相；双协议 provider 流式解析；
 replay 诚实非流式。网络从不触碰——openai 用假 SDK 流、anthropic 用
-httpx.MockTransport SSE。"""
+httpx2.MockTransport SSE。"""
 from __future__ import annotations
 
 import json
 
-import httpx
+import httpx2
 import pytest
 
 from apm import config
@@ -136,10 +136,10 @@ def test_anthropic_sse_stream_parses_and_reports_usage(anthropic_env):
     ]
     body = ("\n".join(lines) + "\n").encode("utf-8")
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, content=body, headers={"content-type": "text/event-stream"})
 
-    p = AnthropicCompatProvider(transport=httpx.MockTransport(handler))
+    p = AnthropicCompatProvider(transport=httpx2.MockTransport(handler))
     deltas: list[str] = []
     c = p.complete(
         role="dev-agent", node="draft",

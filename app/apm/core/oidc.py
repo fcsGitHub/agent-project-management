@@ -24,7 +24,7 @@ import secrets
 import time
 from urllib.parse import urlencode
 
-import httpx
+import httpx2
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -75,7 +75,7 @@ def discovery(issuer: str, *, force: bool = False) -> dict:
     if cached and not force and time.time() - cached[1] < 3600:
         return cached[0]
     url = issuer.rstrip("/") + "/.well-known/openid-configuration"
-    resp = httpx.get(url, timeout=10)
+    resp = httpx2.get(url, timeout=10)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"OIDC discovery failed ({resp.status_code})")
     doc = resp.json()
@@ -88,7 +88,7 @@ def jwks(issuer: str) -> dict:
     jwks_uri = doc.get("jwks_uri")
     if not jwks_uri:
         raise HTTPException(status_code=502, detail="OIDC discovery lacks jwks_uri")
-    resp = httpx.get(jwks_uri, timeout=10)
+    resp = httpx2.get(jwks_uri, timeout=10)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"OIDC jwks fetch failed ({resp.status_code})")
     return resp.json()
@@ -219,7 +219,7 @@ def oidc_callback(request: Request, code: str = "", state: str = ""):
         raise HTTPException(status_code=401, detail="OIDC state mismatch")
 
     doc = discovery(s.oidc_issuer)
-    token_resp = httpx.post(
+    token_resp = httpx2.post(
         doc["token_endpoint"],
         data={
             "grant_type": "authorization_code",
