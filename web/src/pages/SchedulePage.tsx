@@ -155,7 +155,7 @@ export function SchedulePage() {
                   if (raw) drop(day, raw);
                 }}
                 className={cx("min-h-24 rounded-lg border p-1 transition-colors touch-manipulation",
-                  dim ? "border-line/50 opacity-45" : "border-line",
+                  dim ? "border-line/50 bg-bg/40" : "border-line",
                   day === today && "border-acc",
                   dragOver === day && "border-acc bg-accbg/40",
                   inRange && "bg-accbg/60 border-acc")}>

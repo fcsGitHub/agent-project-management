@@ -173,3 +173,12 @@ NL 操作默认不产生持久对话（轻量、即用即走），但每次执�
 - **空状态**：每页有"下一步"引导（功能页空 → 「从一句话开始，PM-Agent 帮你拆任务」）；
 - **性能预算**：首屏 < 2s；对话虚拟滚动（超长消息树）；甘特超 500 span 自动折叠；
 - **可访问性**：键盘全操作、焦点环、对比度 AA；i18n 文案键（默认 zh-CN）。
+
+## 7. a11y 机械锁与浏览器扫描双防线（M89-I270 新增）
+
+jsdom 下的 axe 锁（M85 第七件机械防腐）对**布局依赖规则结构性失明**（color-contrast 等 jsdom 无布局不可评——M85/M89 两次实证）；浏览器级扫描是这些规则的唯一测量面。双防线：
+
+1. **jsdom 锁**（自动化，vitest）：`a11y.test.tsx` Modal/Drawer 代表性内容零 serious/critical + 故意红自证；规则裁剪仅页面级 region/landmark/heading。
+2. **浏览器扫描**（人工门，发布轮/大改样式后 ~15 分钟）：隔离双端口（如 8142/4181·seed 造数）→ `pnpm build && cp web/node_modules/axe-core/axe.min.js web/dist/` → `pnpm preview --port 4181` → 浏览器控制台注入 axe（`fetch('/axe.min.js')`+eval）→ 逐路由 `axe.run(document, {rules: {region/landmark-one-main/page-has-heading-one: enabled:false}})`。**复扫前必须注销 SW + 清 caches**（`navigator.serviceWorker.getRegistrations()` 逐一 unregister——precache 会供旧 bundle 让 axe 扫旧产物，M89 实证）；主题切换后重扫须等 >`transition-colors` 0.15s 过渡（中途取样是伪影，M89 实证）。
+
+**M89-I270 基线（复扫目标=零）**：修复前六路由 critical 18（表单可访问名）+ serious 80（color-contrast×72 等）→ 修复后**亮暗双主题 × 六路由（Dashboard/Board/Reports/Settings/Assets/MySchedule）全 clean**。token 级修复面：五个前景色升档（acc #6366f1→#4f46e5 / ag #8b5cf6→#7c3aed / ok #059669→#047857 / warn #d97706→#b45309 / dan #dc2626→#b91c1c——500 档在白/浅底上 3.07~4.46:1 不达 AA 4.5:1）+ 新增 `--color-acc-hover`（亮 #4338ca/暗 #a5b4fc——primary 按钮 hover 态双主题 7:1+）+ primary 系文字 `text-white`→`text-accbg`（暗色 acc 上白字 2.98:1 → accbg 4.84:1）+ 顶栏 replay 徽标 zinc-500→zinc-400 + 排程非当月格去整格 `opacity-45`（文字被拖到 1.78:1）改底色弱化 `bg-bg/40`。暗色组核算原全过未动。**遗留例外**：非当月格信息弱化是日历惯例（信息重复非关键路径）——已通过底色弱化保留视觉层级并满足对比。

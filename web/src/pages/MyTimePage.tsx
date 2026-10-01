@@ -239,7 +239,7 @@ function TimesheetPanel() {
           </select>
         </label>
         <button onClick={submit}
-          className="rounded-lg bg-acc px-3 py-1.5 font-medium text-white hover:opacity-90">提交审批</button>
+          className="rounded-lg bg-acc px-3 py-1.5 font-medium text-accbg hover:opacity-90">提交审批</button>
       </div>
       {!!mine.data?.timesheets.length && (
         <div className="mt-3 space-y-1">
@@ -362,7 +362,7 @@ function DayLogModal({ day, items, entries, onClose, onChanged }: {
           </label>
           <div className="flex items-end gap-2">
             <button onClick={submit} disabled={busy}
-              className="flex-1 rounded-lg bg-acc px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+              className="flex-1 rounded-lg bg-acc px-3 py-1.5 text-xs font-medium text-accbg disabled:opacity-50">
               {editing ? "保存修改" : "记到这天"}
             </button>
             {editing && (

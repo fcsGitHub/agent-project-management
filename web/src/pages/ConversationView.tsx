@@ -408,7 +408,7 @@ function MessageRow({ m, pid }: { m: import("../lib/api").Message; pid?: string 
         <div
           className={cx(
             "inline-block whitespace-pre-wrap rounded-[12px] px-3 py-2 text-sm",
-            isUser ? "bg-acc text-white" : "border border-line bg-surface",
+            isUser ? "bg-acc text-accbg" : "border border-line bg-surface",
           )}
         >
           {m.content}

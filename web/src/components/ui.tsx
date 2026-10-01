@@ -17,7 +17,7 @@ export function Button({
         "inline-flex items-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-acc",
         size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm",
         variant === "default" && "bg-surface border border-line hover:bg-bg text-ink",
-        variant === "primary" && "bg-acc text-white hover:bg-indigo-500 shadow-sm",
+        variant === "primary" && "bg-acc text-accbg hover:bg-acc-hover shadow-sm",
         variant === "ghost" && "hover:bg-bg text-mut hover:text-ink",
         variant === "danger" && "bg-dan text-white hover:bg-red-600",
         variant === "outline" && "border border-line text-ink hover:border-acc hover:text-acc",

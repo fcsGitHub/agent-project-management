@@ -1021,7 +1021,7 @@ export function Board() {
                                 await api.decide(pendingByItem.get(item.id)!.id, "approved", "看板内联批准");
                                 invalidateItemData(qc);
                               }}
-                              className="mt-1.5 rounded-md bg-acc px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-500"
+                              className="mt-1.5 rounded-md bg-acc px-2 py-0.5 text-[11px] font-medium text-accbg hover:bg-acc-hover"
                             >
                               ✓ 内联批准
                             </button>

@@ -139,7 +139,7 @@ export function AppShell() {
             className={cx(
               "flex h-11 w-11 flex-col items-center justify-center rounded-xl text-[10px] leading-none",
               llm.data?.provider_mode === "replay"
-                ? "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                ? "text-zinc-400 hover:bg-white/5 hover:text-zinc-300"
                 : "text-emerald-400 hover:bg-white/5",
             )}
           >
