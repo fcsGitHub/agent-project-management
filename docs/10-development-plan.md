@@ -2500,6 +2500,36 @@ agent-project-management/
 
 ---
 
+### M82 · 全局质量轮·前端韧性与认证安全（I246-I248，约 6 人日）
+
+> v3.0 新增（2026-10-01，docs/01 §CA 前置调研）。防重查：留观三候选零新证据维持；全库卫生 grep（TODO/console.log/空 catch 全零）+ 新缺口 grep 实证三件：**零错误边界**（web/src ErrorBoundary/componentDidCatch 全零——渲染错=整站白屏·M45 收口只覆盖数据层 fetch catch）；**单 bundle 无代码分割**（dist 唯一 JS chunk 1.1MB·29 路由 eager import·React.lazy 零命中）；**登录无防爆破**（/auth/login 失败仅 session.login_failed 审计——零退避/锁定/速率限制·OWASP API2:2023 明文要求反暴力破解机制）。**防重查：react-error-boundary 依赖不做、错误上报服务不做、CAPTCHA/IP 维度计数/MFA 不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I246 | 错误边界+路由级代码分割（零依赖 class 组件 ErrorBoundary 两级[App 级兜底+路由级隔离·fallback 错误卡+重载/重试] + App.tsx 页面 import 全量转 React.lazy+Suspense[AppShell/登录壳 eager 保骨架] + chunk 加载失败落边界自动重载兜底） | docs/01 §CA.1/§CA.2 | React 官方错误边界/零依赖哲学 | 2d |
+| I247 | 登录防爆破（POST /auth/login 失败滑窗计数[per-user 5 次/10 分钟→429+Retry-After·过窗自动解除·threading.Lock 护并发] + session.login_locked 审计事件 + 未知用户哑哈希计时均衡防枚举） | docs/01 §CA.3 | OWASP 认证速查表/webhook secret 运行态同构 | 2d |
+| I248 | 冒烟 87+收尾审阅（ErrorBoundary/React.lazy 源码锁 + 锁定语义测试[4 次 401→第 5 次 429+Retry-After→过窗解除→登录恢复] + login_locked 审计断言 + 全量回归 + M82 审阅） | docs/01 §CA.4 | smoke runner 惯例 | 2d |
+
+#### I246 · 错误边界+路由级代码分割（2d）
+
+- 任务：web/src/components/ErrorBoundary.tsx（零依赖 class 组件：App 级 fallback=错误卡+重载按钮+错误摘要；路由级 fallback=页内错误卡+重试·路由切换复位）+ App.tsx 页面组件全量转 React.lazy（`const Board = lazy(() => import("./pages/Board"))` 形态）+ Routes 外包 Suspense spinner + vitest 断言（边界捕获渲染错显 fallback+复位恢复）。
+- DoD：vitest 绿 + build 绿且 dist 多 chunk（页面按路由拆分）；人工渲染错注入显 fallback 非白屏。
+- 演示路径：build 后 dist/assets 多 chunk；临时 throw 注入看 fallback 卡。
+
+#### I247 · 登录防爆破（2d）
+
+- 任务：auth_api.py 失败滑窗（模块级 dict+threading.Lock·per-user 时间戳队列·5 次/10 分钟超限 429+Retry-After 秒数·成功登录清零该用户计数）+ `session.login_locked` 审计事件（payload user_id/summary）+ 未知用户哑哈希（row 缺失时跑 verify_password(dummy_hash) 同价计时）+ test_auth 扩展（滑窗语义+过窗解除+成功清零+login_locked 事件入流）。
+- DoD：5 连败后第 6 次 429（正确密码也拒）；窗口过后恢复；审计留痕。
+- 演示路径：连续错密码→观察 429 与 Retry-After→等过窗或重启→恢复。
+
+#### I248 · 冒烟 87+收尾审阅（2d）
+
+- 任务：**冒烟 87**（ErrorBoundary/React.lazy/Suspense 源码锁 + 防爆破语义 roundtrip[4×401→429+Retry-After→locked 事件→恢复] + 既有登录回归）+ 全量回归 + docs 收口 + M82 审阅。
+- DoD：冒烟 87 GREEN；非 smoke 全量 EXIT=0；vitest/build 绿。
+- 演示路径：smoke runner 92 GREEN；CHANGELOG Unreleased 段记 M82（攒批待 v0.7.0）。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2726,6 +2756,7 @@ agent-project-management/
 | I243 版本单源化+双 tag | 已完成 | 2026-10-01 | 2026-10-01 | app/apm/version.py 单源（APP_VERSION="0.6.0"）+ system.py /api/health version 改读单源（原硬编码 0.1.0——与 package.json 同源陈旧·**调研表述「后端无字段」审阅时点修正为「死字面量」**）+ web/package.json → 0.6.0 + README 版本行 v0.6.0 指向 CHANGELOG + test_version 单测（health==APP_VERSION==0.6.0）+ `git tag -a v0.5.0 19d698d` 回溯 M77 收口（annotated·**git describe 首次可用 v0.5.0-19-geff2fad**） |
 | I244 CHANGELOG+docs/11 解冻 | 已完成 | 2026-10-01 | 2026-10-01 | CHANGELOG.md（Keep a Changelog 格式·人写精选非 git log 倾倒——**v0.6.0 段**=M78~M81[Added:关系解除面/跨项目依赖面/触屏补课/发布工程·Security:写门对齐 BOLA 第二轮 16 端点 19 处门]+**v0.5.0 段**=M46~M77 发布级浓缩[真实 LLM/通知分发/项目管理深化/工件资产/观测治理/AI 协作六组]+Unreleased 空段·迭代细节真源仍=docs/10 看板·M77-BV.1 裁决边界入档[排除的是自动生成器非手工发布件]）+ docs/11 解冻至 v0.6.0（时效戳+§2.2 PAT[display-once/Bearer/cookie 优先坑]+§2.3 ntfy+Prometheus[SSRF 内网须知]+§2.4 写门语义须知[141 写路由三层把守]+env 速查单一真源指向 .env.example） |
 | I245 冒烟 86+tag v0.6.0+收尾审阅 | 已完成 | 2026-10-01 | 2026-10-01 | test_smoke_86（版本四锚一致[version.py==health 单测==package.json==README·0.1.0 死字面量锁出] + CHANGELOG 结构断言[Unreleased/两 tag 段/Security 分类] + 双 tag annotated 断言 + docs/11 解冻断言）+ `git tag -a v0.6.0` 打收口提交 + 全量回归（非 smoke **474 EXIT=0**/smoke runner **90 GREEN** EXIT=0[smoke 86 双用例]/vitest 30/build 绿/check_env_doc ✓/check_write_gates ✓） |
+| 2026-10-01 M82 调研定义（§CA） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（ErrorBoundary/代码分割/React.lazy/防爆破/锁定/速率限制——docs/01 往轮零命中·「锁定」仅工时锁定同名词）+ 全库卫生 grep（TODO/FIXME/console.log/空 catch 全零——M45 收口维持）实证三件新缺口：**零错误边界**[web/src grep ErrorBoundary/componentDidCatch/getDerivedStateFromError 全零——渲染错=整站白屏·M45 收口只覆盖数据层 fetch catch·渲染崩溃面从未覆盖]、**单 bundle 无代码分割**[dist/assets 唯一 JS chunk 1.1MB·29 路由全量 eager import·React.lazy 全前端零命中]、**登录无防爆破**[POST /auth/login 失败仅 session.login_failed 审计——零退避/锁定/速率限制·OWASP API2:2023 明文要求反暴力破解·既有正确面=通用错误消息+TTL 会话+HttpOnly SameSite=lax+失败审计]。三路 WebSearch：React 错误边界（[官方](https://legacy.reactjs.org/docs/error-boundaries.html) class 组件独有·不捕事件/异步 + [2026 实践](https://abrarqasim.com/blog/react-error-boundaries-2026-how-i-stopped-shipping-white-screens) **app 级+路由级多级边界** + [OneUptime](https://oneuptime.com/blog/post/2026-01-24-handle-error-boundaries-react/view) fallback 给重试/重置）、路由级代码分割（[GreatFrontEnd](https://www.greatfrontend.com/blog/code-splitting-and-lazy-loading-in-react) lazy+Suspense 路由级最大收益 + [React Performance](https://stevekinney.com/courses/react-performance/code-splitting-and-lazy-loading) **lazy 必配错误边界防 chunk 失败** + 勿过度分割）、登录防爆破（[OWASP 认证速查表](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) **N 次失败临时锁定** + [API2:2023](https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication) 认证端点反暴力破解义务 + 通用消息不枚举）。定案 M82=全局质量轮·前端韧性与认证安全（I246 零依赖 ErrorBoundary 两级+React.lazy 路由分割/I247 失败滑窗+临时锁定 429+login_locked 审计+哑哈希计时均衡/I248 冒烟 87） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |

@@ -2177,9 +2177,6 @@ M79 = **跨项目依赖面收口轮**：I237 /deps 图跨项目收口（占位�
 **BY.4 M80 取舍**
 
 M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs 补门+check_write_gates.py+矩阵测试 / I241 校验抽查+E2E 复演（新面全旅程·发现即修）/ I242 冒烟 85+附录 C+收尾审阅，约 8 人日。deny-by-default 中间件重写、API3 property-level、graph 入边补显（留观）、dnd 触屏（留观）、工件恢复 UI（等证据）留 backlog。
-**BY.4 M80 取舍**
-
-M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs 补门+check_write_gates.py+矩阵测试 / I241 校验抽查+E2E 复演（新面全旅程·发现即修）/ I242 冒烟 85+附录 C+收尾审阅，约 8 人日。deny-by-default 中间件重写、API3 property-level、graph 入边补显（留观）、dnd 触屏（留观）、工件恢复 UI（等证据）留 backlog。
 
 ## BZ. M81 前置调研：发布工程轮（2026-10-01）
 
@@ -2203,3 +2200,26 @@ M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs �
 **BZ.4 M81 取舍**
 
 M81 = **发布工程轮**：I243 版本单源化+双 tag / I244 CHANGELOG.md+docs/11 解冻 / I245 冒烟 86（四锚一致+CHANGELOG 结构断言）+ tag v0.6.0 + 全量回归 + 审阅收口，约 5 人日。semantic-release、per-package tag、GitHub Releases、设计册回填、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CA. M82 前置调研：前端韧性与认证安全轮（2026-10-01）
+
+> 目标协议触发：M81 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（ErrorBoundary/代码分割/React.lazy/防爆破/锁定/速率限制——docs/01 往轮零命中·「锁定」仅工时锁定同名词）+ 全库卫生 grep（TODO/FIXME/console.log/空 catch 全零——M45 收口维持）实证三件新缺口：**①零错误边界**（web/src grep ErrorBoundary/componentDidCatch/getDerivedStateFromError 全零——任何组件渲染错=整站白屏只剩 F5；M45 前端收口做的是数据层 fetch catch，渲染层崩溃面从未覆盖）；**②单 bundle 无代码分割**（dist/assets 唯一 JS chunk 1.1MB·29 路由全量 eager import[App.tsx 静态 import 页面组件·React.lazy 全前端零命中]——首屏加载全量代码）；**③登录无防爆破**（POST /auth/login 失败仅审计事件 session.login_failed——零退避/零锁定/零速率限制；OWASP API2:2023 明文要求认证端点反暴力破解机制；既有正确面：错误消息通用不枚举+会话 TTL+HttpOnly SameSite=lax+失败审计留痕）。本轮三路新调研（**React 错误边界惯例 / 路由级代码分割 / 登录防爆破惯例**），选定 **M82 = 全局质量轮·前端韧性与认证安全**。
+
+**CA.1 错误边界（白屏的唯一解药——React 渲染崩溃面）**
+
+- 产品共识（[React 官方](https://legacy.reactjs.org/docs/error-boundaries.html)——错误边界只存在为 class 组件（或 react-error-boundary 库）·只捕获子树渲染错误不捕获事件处理器/异步代码；[2026 实践](https://abrarqasim.com/blog/react-error-boundaries-2026-how-i-stopped-shipping-white-screens)——**多级边界：app 级+路由级**勿整站单边界；[OneUptime](https://oneuptime.com/blog/post/2026-01-24-handle-error-boundaries-react/view)——fallback 给有意义 UI+重试/重置动作）：错误边界的共识=**app 级兜底+路由级隔离+可恢复 fallback**。
+- 对本项目的映射：零依赖 class 组件 ErrorBoundary（~40 行——项目零依赖哲学[M17 OIDC RS256 手写]同源·不引 react-error-boundary）：App 级包 HashRouter 整树（白屏→错误卡+重载按钮+错误摘要）；路由级包页面 element（单页崩溃不拖垮 rail/导航——fallback 卡+重试·路由切换 key 复位）；异步/事件处理器错误不归边界管（M45 fetch catch 已覆盖数据层）。**不做** react-error-boundary 依赖（40 行内可达成）、错误上报服务（一人工厂无 Sentry 面）、widget 级细粒度边界（路由级已隔离崩溃传播）。
+
+**CA.2 路由级代码分割（1.1MB 单 chunk→按页懒加载）**
+
+- 产品共识（[GreatFrontEnd](https://www.greatfrontend.com/blog/code-splitting-and-lazy-loading-in-react)——React.lazy+Suspense 路由级是最大收益面；[React Performance](https://stevekinney.com/courses/react-performance/code-splitting-and-lazy-loading)——**lazy 组件必须配错误边界**处理 chunk 加载失败[重部署后旧 hash chunk 404]；[社区](https://www.reddit.com/r/reactjs/comments/1gt3z0d/what_are_the_best_practices_to_use_lazy_routing)——勿过度分割）：分割的共识=**路由级 lazy+Suspense fallback+chunk 失败兜底**。
+- 对本项目的映射：App.tsx 页面 import 全量转 React.lazy（AppShell/登录壳保持 eager 保骨架）+ Routes 外包 Suspense（加载中 spinner）+ chunk 加载失败落错误边界（CA.1 app 级兜底·fallback 提示「新版本已发布请重载」——与既有 SW precache 旧 bundle 坑[§5]同族问题的另一面）。vite 动态 import 自动分包零配置。**不做** vendor 手工分包（vite 默认已合理）、预取关键路由（内网工具首屏非瓶颈）、组件级细分割（收益小复杂度高）。
+
+**CA.3 登录防爆破（API2:2023——认证端点的反暴力破解义务）**
+
+- 产品共识（[OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)——**账户锁定**：N 次失败后一段时间内拒绝登录尝试；[OWASP API2:2023](https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication)——认证端点必须有反暴力破解机制（速率限制/锁定）；[OWASP Blocking Brute Force](https://community.owasp.org/controls/Blocking_Brute_Force_Attacks)——阈值+时间窗+锁定·分层=退避+通用错误消息）：防爆破的共识=**失败计数窗口+临时锁定+审计留痕+消息不枚举**。
+- 对本项目的映射：POST /auth/login 内存失败计数（per-user 滑窗 N 次/10 分钟→超限 429+Retry-After·窗口过自动解除；threading.Lock 护线程池并发——webhook secret「运行态不入事件」同构·**锁定状态属运行态安全状态**）+ `session.login_locked` 审计事件（既有 session.login_failed 同域留痕）+ 未知用户哑哈希校验（verify_password 对不存在用户跑同价计算——计时均衡防用户枚举）。**不做** CAPTCHA（一人工厂内网无机器人流量）、IP 维度计数（NAT 后全员同 IP 误伤·per-user 已够）、MFA（V3 范畴）、锁定状态事件化（安全运行态·rebuild 不复现是特性）。
+
+**CA.4 M82 取舍**
+
+M82 = **全局质量轮·前端韧性与认证安全**：I246 错误边界+路由级代码分割（零依赖 ErrorBoundary 两级+React.lazy 页面全量+Suspense+chunk 失败兜底）/ I247 登录防爆破（失败滑窗+临时锁定 429+login_locked 审计+哑哈希计时均衡）/ I248 冒烟 87（边界源码锁+锁窗语义+429/Retry-After 矩阵）+ 全量回归 + M82 审阅收口，约 6 人日。react-error-boundary 依赖、错误上报服务、widget 级边界、vendor 分包、预取、CAPTCHA、IP 维度计数、MFA、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
