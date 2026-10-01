@@ -4,4 +4,4 @@ tags — must agree with APP_VERSION here. Bumping a release means editing this
 one value plus the two non-importable anchors (package.json / README), and
 smoke 86 locks the trio together."""
 
-APP_VERSION = "0.9.0"
+APP_VERSION = "0.10.0"
