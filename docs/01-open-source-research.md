@@ -2246,3 +2246,26 @@ M82 = **全局质量轮·前端韧性与认证安全**：I246 错误边界+路�
 **CB.4 M83 取舍**
 
 M83 = **依赖健康轮（后端）**：I249 后端依赖一车升级+httpx2 迁移（I22 纪律：全量背书红则逐包回退）/ I250 弃用面清理（per-request cookies→client.cookies）+ requirements 实测下限重写 + 供应链核验纪律入档 / I251 冒烟 88（pip check 绿+requirements 锚定+弃用警告零残留）+ **v0.7.0 攒批发布**（版本单源 bump+CHANGELOG Unreleased→0.7.0 段[M82+M83]+annotated tag——攒批节奏首次兑现：M82+M83 两轮一版）+ 全量回归 + M83 审阅收口，约 6 人日。前端工具链 major、Dependabot/Renovate、alias_httpx、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CC. M84 前置调研：测试日期稳健性对账轮（2026-10-02）
+
+> 目标协议触发：M83 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（日期/flaky/锚定——docs/01 §R.1[M45 日期敏感教训]+§AA[I22]已有先例节）。审计种子实证三件：**①日期炸弹第三次爆发**（M83-I251 发布验证当场抓获 smoke_26：硬编码 `spent_on=2026-09-04` 跨 2026-10-02 午夜滑出 /my/timelog 默认 28 天窗→KeyError 假红——前两例=smoke_45[M45 原发]+test_timelog[M38 审阅时修]；且爆发时点恰为 M45 预言的「周五」——今天=2026-10-02 周五）；**②未审计面大**（grep 实证 20+ 个非 smoke 测试文件含硬编码 `"2026-*"` 日期，分类状况未知——密闭合成时钟/静态实体锚/真窗 HTTP 炸弹三类混在一起；本轮实测抽样：test_weekly_report 的 18 处=合成时钟参数注入密闭安全、test_health_history 的 `past=2026-01-01`=静态过去锚安全、smoke_25/29/51=所测端点无时间窗安全——**但全部靠人工逐个读端点 SQL 才能定类，零机械防腐**）；**③判据已成熟**（M45 立锚定纪律、M38 修 test_timelog、M83 修 smoke_26——判据=被测端点 SQL 有无 `spent_on >=`/`week_start` 等真实时钟窗口：portfolio/cost-report 全时段安全、/my/timelog 与 workload 与 health/history 有窗）。本轮三路新调研（**时间依赖 flaky 测试惯例 / 时间冻结库 landscape / CI 多日期调度**），选定 **M84 = 全局质量轮·测试日期稳健性对账**。
+
+**CC.1 日期三分类与锚定范式（判据=端点真窗——机械可判）**
+
+- 产品共识（[Datadog flaky tests](https://www.datadoghq.com/knowledge-center/flaky-tests)——系统时间是 flaky 根因之一；[Harness](https://www.harness.io/blog/flaky-tests-the-quiet-killer-of-productivity-in-your-ci-pipeline)——**完全确定性：同代码→同结果**；[.NET TimeProvider 模式](https://eriklieben.com/posts/net8_timeprovider_for_unit_tests)——时钟抽象注入）：时间稳健的共识=**同代码在任何运行日期结果一致**。
+- 对本项目的映射：三分类判据——**①密闭合成时钟**（日期作函数参数直接注入被测函数，如 `_report_status_weekly(conn, "2026-09-21")`——与真实时钟无关·安全）；**②静态实体锚**（日期是实体属性且语义对任意运行日恒真，如 overdue 的 `due_date=2026-01-01` 恒在过去·安全）；**③真窗 HTTP 炸弹**（硬编码日期流进按 `date.today()`/`_now()` 开窗的 HTTP 端点，如 spent_on 进 /my/timelog 28 天窗·**必须动态锚定 `date.today()-N`**）。修法只对③——沿用 M38/M83 既有范式，零新依赖。
+
+**CC.2 时间冻结库裁决（不引——锚定范式已够且更诚实）**
+
+- 产品共识（[time-machine 对比文档](https://time-machine.readthedocs.io/en/latest/comparison.html)——C 实现 O(1) 快于 freezegun；[freezegun](https://github.com/spulec/freezegun) 全量 patch datetime；[Clock 模式](https://medium.com/pythoneers/mastering-time-dependent-tests-in-python-2025-freezegun-time-machine-the-clock-pattern-993b8a38f3c9)——依赖注入时钟是架构层解法）：冻结的共识=**假时钟让时间相关测试确定**。
+- 对本项目的映射：**裁决不引 freezegun/time-machine**——①全局 freeze 会掩盖「端点与真实时钟耦合」这一事实本身（冻结后 /my/timelog 的 28 天窗永远正确，窗口回归反而失去测试意义）；②既有三范式（合成时钟参数注入[weekly_report 先例]/动态锚定[today-N]/静态过去锚）零依赖且已三次实战；③真正缺的是**机械防腐**不是冻结能力。**不做** 时间冻结库、Clock 抽象重构（生产代码 datetime 直用是事件溯源的诚实形态——事件带真实 ts）。
+
+**CC.3 机械防腐：check_test_dates.py（台账模式第四次落地）**
+
+- 产品共识（[CircleCI nightly](https://circleci.com/docs/guides/orchestrate/set-a-nightly-schedule-trigger)/[GitHub Actions cron](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)——多日期调度只能发现不能预防；搜索实况——「date rollover 边界测试策略」无现成工具，实践=注入假时钟或参数化多日期）：防腐的共识=**防在写测时而非靠多日期跑**（本仓库无 CI——nightly 不可用，机检是唯一自动化位）。
+- 对本项目的映射：`tools/check_test_dates.py`——启发式扫描 app/tests/**/*.py：文件**同时含**硬编码 ISO 日期字面量与**窗口端点引用**（/my/timelog、/workload、health/history、forecast 等 grep 名册）→ 逐处标注待分类；**REVIEWED 台账**登记已人工定类文件+理由（check_write_gates 台账模式同构——新文件未登记即红）；挂冒烟 89。**不做** AST 级数据流分析（启发式+台账已达防御目标·复杂度不成比例）、CI 多日期调度（无 CI 面）。
+
+**CC.4 M84 取舍**
+
+M84 = **全局质量轮·测试日期稳健性对账**：I252 全量对账（20+ 文件逐个三类定判·修真炸弹为动态锚定·台账成形）/ I253 tools/check_test_dates.py+冒烟 89（启发式+REVIEWED 台账·故意红自证）/ I254 E2E 全路由 chunk 走查（**M82 遗留验证：29 路由懒加载全量真实加载**——隔离环境逐路由确认 chunk 拉取+非 fallback 渲染）+ 全量回归 + M84 审阅收口（攒批 v0.8.0 不 tag），约 6 人日。时间冻结库、Clock 抽象重构、AST 分析、CI 多日期、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。

@@ -2560,6 +2560,36 @@ agent-project-management/
 
 ---
 
+### M84 · 全局质量轮·测试日期稳健性对账（I252-I254，约 6 人日）
+
+> v3.0 新增（2026-10-02，docs/01 §CC 前置调研）。防重查：留观三候选维持；审计种子三件：**日期炸弹第三次爆发**（M83-I251 当场抓获 smoke_26——硬编码 spent_on 跨午夜滑出 /my/timelog 28 天窗·恰在 M45 预言的「周五」）；**20+ 测试文件含硬编码 2026 日期分类未知**（抽样：test_weekly_report 18 处=合成时钟密闭安全/test_health_history=静态过去锚安全/smoke_25/29/51=端点无窗安全——全靠人工读端点 SQL 定类·零机械防腐）；**判据已成熟**（端点 SQL 有无真实时钟窗口）。**防重查：时间冻结库（freezegun/time-machine）不引、Clock 抽象重构不做、AST 数据流分析不做、CI 多日期调度不做（无 CI 面）。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I252 | 全量对账+修真炸弹（app/tests 全目录硬编码日期逐文件三分类[密闭合成时钟/静态实体锚/真窗 HTTP 炸弹] + 真炸弹改 `date.today()-N` 动态锚定 + 分类台账成形） | docs/01 §CC.1 | M38/M45/M83 锚定范式 | 2d |
+| I253 | tools/check_test_dates.py+冒烟 89（启发式扫描[硬编码日期×窗口端点引用交集→待分类标注] + REVIEWED 台账[已定类文件+理由·新文件未登记即红——check_write_gates 台账第四次落地] + 故意红自证） | docs/01 §CC.3 | check_write_gates 台账模式 | 2d |
+| I254 | E2E 全路由 chunk 走查+收尾审阅（**M82 遗留验证：隔离环境 29 路由逐个加载**确认 chunk 拉取+非 fallback 渲染 + 全量回归 + 附录 C + M84 审阅[攒批 v0.8.0 不 tag]） | docs/01 §CC.4 | M82 浏览器复演惯例 | 2d |
+
+#### I252 · 全量对账+修真炸弹（2d）
+
+- 任务：grep 全部含 `"2026-*"` 字面量的测试文件 → 逐文件三分类（读被测端点/函数定判）→ ③类真炸弹改动态锚定（①②类登记台账+理由）。
+- DoD：全量回归+冒烟全绿；台账覆盖每个含日期字面量的文件。
+- 演示路径：对任一③类文件把系统日期语义讲清（为何锚定后任意日期恒绿）。
+
+#### I253 · tools/check_test_dates.py+冒烟 89（2d）
+
+- 任务：启发式脚本（扫描日期字面量×窗口端点引用交集·REVIEWED 台账未登记即非零退出）+ 故意红自证（合成未登记文件→必须红→登记→绿）+ **冒烟 89**（脚本 subprocess 绿 + 台账完整性断言）。
+- DoD：冒烟 89 GREEN；脚本对既有套件零误伤（台账即人工裁决记录）。
+- 演示路径：`python tools/check_test_dates.py` ✓；临时加未登记文件→红→登记→绿。
+
+#### I254 · E2E 全路由 chunk 走查+收尾审阅（2d）
+
+- 任务：隔离环境起服务+preview→浏览器逐个加载 29 路由（M82 懒加载后全部 chunk 首次真实拉取）→断言非 fallback 渲染+零白屏 + 全量回归 + 附录 C 登记 + docs 收口 + M84 审阅。
+- DoD：29 路由全渲染；非 smoke 全量 EXIT=0；冒烟 runner GREEN。
+- 演示路径：走查清单逐路由打勾；chunk 计数对账 build 产物。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2796,6 +2826,7 @@ agent-project-management/
 | I250 弃用面清理 | 已完成 | 2026-10-02 | 2026-10-02 | test_security_hardening per-request cookies=<...>（starlette 弃用·语义歧义）改 client.cookies.set+clear 还原——全量测试日志弃用警告**归零**（StarletteDeprecationWarning 已随 I249 迁移消失·per-request cookies 本轮清零·单文件复跑零警告实证）+ 供应链核验纪律已在 docs/01 §CB.1 入档（装前 pip download --no-deps 解 METADATA 核对 Author/Maintainer/Project-URL 三元组——警告文本与第三方文章只是线索不是依据） |
 | I251 冒烟 88+v0.7.0 攒批发布+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | test_smoke_88 双用例（依赖闭包一致性[requirements 每包 pip show 满足下限 + 闭包内 pip check 干净（断言冲突行 dependent 不在 requirements 集——共享环境邻居 pin 旧版属邻居·docker 全新构建不受影响） + 弃用回归锁[testclient import 零「httpx with」警告 + per-request cookies 用法零残留 rglob 扫描]] + 发布钉 0.7.0[smoke 86 字面量钉改锚定一致性 semver 形态——「当前版本是几」的逐版编辑收敛到冒烟 88 一行]）+ **发现即修：smoke_26 日期炸弹**（跨 2026-10-02 午夜 /my/timelog 默认 28 天窗滑出硬编码 2026-09-04→KeyError 假红——M45 教训第三例·改 date.today()-3/-2 动态锚定；同族排查 smoke_25[item 级聚合无窗口]/smoke_29[portfolio report 全时段]/smoke_51[cost report 全时段]均安全·test_timelog 动态锚定 M38 修复仍有效）+ 版本四锚 bump 0.6.0→**0.7.0**（version.py/package.json/README/test_version）+ CHANGELOG Unreleased→**[0.7.0] — 2026-10-02** 段[M82+M83 精选·攒批首次兑现] + 全量回归（非 smoke **477 EXIT=0**/冒烟 runner **94 GREEN** EXIT=0[88 文件]/弃用警告 **0**/vitest 35/build 绿/check_env_doc ✓/check_write_gates ✓）+ `git tag -a v0.7.0`（annotated·攒批节奏首个 tag） |
 | **M83 依赖健康轮·后端（I249-I251）** | 已完成 | 2026-10-02 | 2026-10-02 | 3 迭代 / 约 6 人日（docs/01 §CB + docs/10 §M83）：I249 一车升级+httpx2 迁移（fastapi/pydantic/pydantic-settings/uvicorn/sse-starlette/openai 3 major/httpx2/pytest-asyncio + 六处 import 改名 + requirements 实测下限——I22 纪律全量背书）/ I250 弃用面清零（per-request cookies→client.cookies）/ I251 冒烟 88（闭包一致性+发布钉+弃用回归锁）+ smoke_26 日期炸弹发现即修 + **v0.7.0 攒批发布**（M82+M83 两轮一版·四锚+CHANGELOG+annotated tag）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + 冒烟 runner **94 GREEN** EXIT=0[88 文件]）+ vitest **35** + build 绿 + check_env_doc ✓ + check_write_gates ✓ + 弃用警告 **0** + **tag v0.7.0 在案** |
+| 2026-10-02 M84 调研定义（§CC） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：留观三候选零新证据**维持**；审计种子三件——**日期炸弹第三次爆发**[M83-I251 当场抓获 smoke_26：硬编码 spent_on=2026-09-04 跨 2026-10-02 午夜滑出 /my/timelog 28 天窗→KeyError 假红·前两例 smoke_45/test_timelog·爆发时点恰为 M45 预言的「周五」（今日=2026-10-02 周五）]、**20+ 测试文件含硬编码 2026 日期分类未知**[抽样实证：test_weekly_report 18 处=合成时钟参数注入密闭安全/test_health_history past=2026-01-01=静态过去锚安全/smoke_25/29/51=所测端点无窗安全——全靠人工读端点 SQL 定类·零机械防腐·判据=端点 SQL 有无 `spent_on >=`/`week_start` 真实时钟窗口]、**机械防腐第五件刚立**[冒烟 88 依赖闭包锁——日期面无对应物]。三路 WebSearch：时间依赖 flaky（[Datadog](https://www.datadoghq.com/knowledge-center/flaky-tests) 系统时间是 flaky 根因/[Harness](https://www.harness.io/blog/flaky-tests-the-quiet-killer-of-productivity-in-your-ci-pipeline) **同代码→同结果**/[.NET TimeProvider](https://eriklieben.com/posts/net8_timeprovider_for_unit_tests) 时钟抽象注入）、时间冻结库（[time-machine](https://time-machine.readthedocs.io/en/latest/comparison.html) O(1) 快于 [freezegun](https://github.com/spulec/freezegun)/[Clock 模式](https://medium.com/pythoneers/mastering-time-dependent-tests-in-python-2025-freezegun-time-machine-the-clock-pattern-993b8a38f3c9)——**裁决不引**：全局 freeze 掩盖端点与时钟耦合·既有三范式零依赖三次实战·缺的是机械防腐）、CI 多日期（[CircleCI nightly](https://circleci.com/docs/guides/orchestrate/set-a-nightly-schedule-trigger)/[GH Actions cron](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows) 只能发现不能预防·本仓库无 CI——**防在写测时**=机检唯一自动化位）。定案 M84=全局质量轮·测试日期稳健性对账（I252 全量对账三分类+修真炸弹/I253 tools/check_test_dates.py 台账第四次落地+冒烟 89/I254 E2E 全路由 chunk 走查[M82 遗留]+收尾审阅） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |
