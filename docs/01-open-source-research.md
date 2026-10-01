@@ -2177,3 +2177,29 @@ M79 = **跨项目依赖面收口轮**：I237 /deps 图跨项目收口（占位�
 **BY.4 M80 取舍**
 
 M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs 补门+check_write_gates.py+矩阵测试 / I241 校验抽查+E2E 复演（新面全旅程·发现即修）/ I242 冒烟 85+附录 C+收尾审阅，约 8 人日。deny-by-default 中间件重写、API3 property-level、graph 入边补显（留观）、dnd 触屏（留观）、工件恢复 UI（等证据）留 backlog。
+**BY.4 M80 取舍**
+
+M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs 补门+check_write_gates.py+矩阵测试 / I241 校验抽查+E2E 复演（新面全旅程·发现即修）/ I242 冒烟 85+附录 C+收尾审阅，约 8 人日。deny-by-default 中间件重写、API3 property-level、graph 入边补显（留观）、dnd 触屏（留观）、工件恢复 UI（等证据）留 backlog。
+
+## BZ. M81 前置调研：发布工程轮（2026-10-01）
+
+> 目标协议触发：M80 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选④**版本化/发布工程面 grep 实证四件**：**①零 tag**（662 提交·git tag 计数=0——MVP 终验[2026-08-22]、v0.5 对账点等里程碑均无版本快照，`git describe` 不可用）；**②版本锚点三处漂移**（README v0.5 / web/package.json 0.1.0[脚手架冻结] / 后端零版本标识[/api/health 无 version 字段]）；**③无 CHANGELOG**（变更真源=docs/10 看板·但「发布件」无独立说明——M77-BV.1 裁决的是「不做自动生成器」，手工精选发布件未被裁决排除）；**④docs/11 部署指南冻结在 M8**（M17 OIDC/M26 PAT/M67 ntfy+Prometheus/M80 写门后的部署面零覆盖——docs/11 是指南类活文档非设计时点快照·README 解冻同逻辑）。本轮三路新调研（**semver tag 惯例 / Keep a Changelog / 版本单源+health 透出**），选定 **M81 = 发布工程轮**。
+
+**BZ.1 版本单源与 tag（单应用一版本线——semver 惯例）**
+
+- 产品共识（[semver](https://keepachangelog.com) 与 git 惯例——**每个发布打 tag·`vX.Y.Z` 带 v 前缀·annotated tag 携带元信息**、单应用=一条版本线一处变更日志、[版本单源](https://ubc-moad-docs.readthedocs.io)——版本只写一处、运行时读它）：发布的共识=**tag=不可变指针·版本单源防漂移**。
+- 对本项目的映射：`app/apm/version.py` 单源（APP_VERSION）+ `/api/health` 透出 version 字段 + web/package.json 对齐 + README 版本行指向 CHANGELOG——**四锚一致性入冒烟 86**（不引 importlib.metadata：源码直跑无打包元数据）。tag 两枚：**v0.5.0 回溯标注 M77 收口提交**（README v0.5 对账点的真锚）+ **v0.6.0 打 M81 收口提交**（annotated）。**不做** semantic-release 类自动版号（conventional commit 解析对一人工厂过重）、per-package tag（单应用单版本线）。
+
+**BZ.2 CHANGELOG.md（人写精选非 git log 倾倒——Keep a Changelog 格式）**
+
+- 产品共识（[Keep a Changelog](https://keepachangelog.com)——「别把 git log 倒进 changelog」·**人写精选+倒序+Added/Changed/Fixed/Security 分类+入仓可移植**；changelog=开发者向全量精选、release notes=用户向亮点）：变更文档的共识=**为人类写、按标准分类、随版本走**。
+- 对本项目的映射：CHANGELOG.md（Keep a Changelog 格式）——v0.5.0 段（M46~M77 亮点精选·从 docs/10 看板派生浓缩）+ v0.6.0 段（M78~M81：关系解除面/触屏补课/跨项目依赖面/写门对齐/发布工程）+ Unreleased 空段。**与 M77-BV.1 裁决的关系**：裁决排除的是「自动生成器」（docs/10 看板即变更真源不变），手工精选发布件是发布工艺不是生成器——语义边界入档。**不做** GitHub Releases（无远端发布面）、自动化 changelog 工具。
+
+**BZ.3 docs/11 部署指南解冻（指南类=活文档——README 解冻同逻辑的姊妹件）**
+
+- 产品共识（M77-BV.1 已立：指南类文档=少写少腐+锚点化+时效戳；部署指南的读者是「下一次部署的人」）：部署文档的共识=**覆盖当前全部部署面+指向真源**。
+- 对本项目的映射：docs/11 解冻——保留 M8 双模认证骨架，补 M17 OIDC SSO 部署段（Keycloak/oidc_stub 现状）、M26 PAT 机器接入、M67 ntfy 推送+Prometheus 出站、M80 写门语义（部署者须知：network 模式非成员写 403）、env 速查表指向 .env.example（单一真源防两处漂移）+ 顶部时效戳。**不做** docs/01~09 设计册回填（设计时点快照裁决不变）、docker 镜像构建链（compose 是 build: 本地构·无 registry 发布面）。
+
+**BZ.4 M81 取舍**
+
+M81 = **发布工程轮**：I243 版本单源化+双 tag / I244 CHANGELOG.md+docs/11 解冻 / I245 冒烟 86（四锚一致+CHANGELOG 结构断言）+ tag v0.6.0 + 全量回归 + 审阅收口，约 5 人日。semantic-release、per-package tag、GitHub Releases、设计册回填、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
