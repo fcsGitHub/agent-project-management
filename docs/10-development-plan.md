@@ -2530,6 +2530,36 @@ agent-project-management/
 
 ---
 
+### M83 · 依赖健康轮·后端（I249-I251，约 6 人日）
+
+> v3.0 新增（2026-10-01，docs/01 §CB 前置调研）。防重查：留观三候选维持；依赖漂移 grep 实证四件：**两个弃用警告常驻每次全量测试**（starlette testclient httpx 弃用+per-request cookies 弃用）；**requirements 声明与装机漂移**（pydantic 声明≥2.12 装机 2.10.4·pydantic-settings ≥2.13 装机 2.7.1——新环境拉到从未验证的组合）；**openai 2.30→3.22 major**（核心 provider 路径·唯一 breaking=HTTPX2）；**httpx→httpx2 生态迁移**（直用面=oidc.py+provider.py+3 测试文件·import 改名级）。httpx2 供应链核验：wheel METADATA=Tom Christie/Pydantic Services/github.com/pydantic/httpx2——正统后继，装前核验纪律入档。**防重查：前端工具链 major（vite 8/vitest 5/TS 7）留观不做、Dependabot/Renovate 不做、alias_httpx 逃生口不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I249 | 后端依赖一车升级+httpx2 迁移（pydantic 2.13.5/pydantic-settings 2.15.0/fastapi 0.142.2/sse-starlette 3.5.0/uvicorn 0.54.0/openai 3.22.1/httpx2 2.13.1 + oidc.py/provider.py/3 测试文件 import 改名 + 全量回归+真实 LLM 路径背书——**I22 纪律：红则逐包回退 pin**） | docs/01 §CB.1-§CB.3 | I22 langgraph 升级验证惯例 | 3d |
+| I250 | 弃用面清理+requirements 重写（test_security_hardening per-request cookies→client.cookies + 全量 warning sweep 归零 + requirements.txt 重写为实测版本下限[声明=实测] + 供应链核验纪律入档[wheel METADATA 三元组]） | docs/01 §CB.1/§CB.3 | M45 收口惯例 | 1d |
+| I251 | 冒烟 88+v0.7.0 攒批发布+收尾审阅（pip check 绿 + requirements 锚定断言 + 弃用警告零残留断言 + 版本单源 bump 0.6.0→0.7.0 四锚 + CHANGELOG Unreleased→0.7.0 段[M82+M83] + annotated tag——**攒批节奏首次兑现** + 全量回归 + M83 审阅） | docs/01 §CB.4 | 冒烟 86 四锚断言/I245 惯例 | 2d |
+
+#### I249 · 后端依赖一车升级+httpx2 迁移（3d）
+
+- 任务：`pip install` 实测新版本组（pydantic/pydantic-settings/fastapi/sse-starlette/uvicorn/openai/httpx2）+ oidc.py/provider.py/test_llm_stream/test_llm_real/test_oidc `import httpx`→`import httpx2` + requirements.txt 同步 + 非 smoke 全量+冒烟 runner 背书 + test_llm_stream/real 真实 provider 路径验证——红则逐包回退 pin 旧版并记录原因。
+- DoD：全量 EXIT=0 + 冒烟 GREEN + pip check 绿 + 警告面只减不增。
+- 演示路径：`pip show httpx2 openai` 版本对账；`python -c "import httpx2"`。
+
+#### I250 · 弃用面清理+requirements 重写（1d）
+
+- 任务：test_security_hardening 的 per-request `cookies=<...>` 改 `client.cookies` 属性 + 全量日志 warning sweep（DeprecationWarning 清零或显式豁免清单）+ requirements.txt 逐包核为实测版本下限 + docs/01 §CB.1 供应链核验纪律 → HANDOFF §5 坑行。
+- DoD：全量测试日志零新增弃用警告；requirements 声明=装机=实测。
+- 演示路径：`pip check` 绿；grep requirements 与 pip show 对账。
+
+#### I251 · 冒烟 88+v0.7.0 攒批发布+收尾审阅（2d）
+
+- 任务：**冒烟 88**（`pip check` subprocess 绿 + requirements 锚定断言[关键包版本号出现在 requirements] + 弃用警告零残留断言 + 版本四锚一致[0.7.0]）+ app/apm/version.py 0.6.0→0.7.0 + web/package.json + README + CHANGELOG Unreleased→`[0.7.0]` 段[M82+M83 精选] + `git tag -a v0.7.0` + 全量回归 + docs 收口 + M83 审阅。
+- DoD：冒烟 88 GREEN；四锚 0.7.0；v0.7.0 annotated tag 在案；git describe 精确。
+- 演示路径：`git describe` → v0.7.0；CHANGELOG 三段式（Unreleased 空/0.7.0/0.6.0）。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2761,6 +2791,7 @@ agent-project-management/
 | I247 登录防爆破 | 已完成 | 2026-10-01 | 2026-10-01 | auth_api.py 失败滑窗（per-user 内存时间戳队列+threading.Lock——10 分钟 5 次→锁定·下次尝试起 429+Retry-After·过窗自动解除·成功登录清零）+ `session.login_locked` 审计事件（**转折点语义**——恰好达阈值那次发一次·后续 429 不逐次发防审计流灌水）+ 未知用户哑哈希（模块级 dummy pbkdf2 同价校验——计时不可枚举用户名）+ 不设 env 旋钮（少写少腐·check_env_doc 零 churn）+ test_auth 3 项（锁定窗口语义/成功清零/per 用户隔离+未知用户计入）——锁定状态属运行态安全状态不入事件流（webhook secret 同构·OWASP API2:2023 落地） |
 | I248 冒烟 87+收尾审阅 | 已完成 | 2026-10-01 | 2026-10-01 | test_smoke_87 双用例（前端韧性源码锁[ErrorBoundary class 两级/isChunkLoadError/React.lazy≥27/无残留 eager 页面 import/pg+Suspense] + 防爆破 roundtrip[5×401→429+Retry-After→login_locked 恰一次→过窗恢复→会话可写]）+ 全量回归（非 smoke **477 EXIT=0**/smoke runner **92 GREEN** EXIT=0[87 文件·smoke 87 双用例]/vitest **35**/build 绿/check_env_doc ✓/check_write_gates ✓）+ 浏览器隔离复演（8137/4177 双隔离：picker eager 骨架→Dashboard/Board 懒加载 chunk 真实拉取渲染[9 chunks]→**Board 注入渲染错=页级 fallback 拦截·rail/导航/顶栏全存活**→还原恢复——「单页崩溃不拖垮导航」实证）+ CHANGELOG Unreleased 记 M82（攒批待 v0.7.0 不 tag） |
 | **M82 全局质量轮·前端韧性与认证安全（I246-I248）** | 已完成 | 2026-10-01 | 2026-10-01 | 3 迭代 / 约 6 人日（docs/01 §CA + docs/10 §M82）：I246 错误边界+路由级代码分割（零依赖 ErrorBoundary 两级 + React.lazy 27 页 + chunk 失败刷新引导——主 bundle 1.1MB→376KB）/ I247 登录防爆破（失败滑窗+429+login_locked 转折点审计+哑哈希计时均衡）/ I248 冒烟 87+浏览器复演（渲染错注入→页级 fallback·导航存活）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + smoke runner **92 GREEN** EXIT=0[87 文件]）+ vitest **35** + build 绿 + check_env_doc ✓ + check_write_gates ✓；**v0.7.0 攒批不 tag**（发布节奏已转攒批·变更记 CHANGELOG Unreleased） |
+| 2026-10-01 M83 调研定义（§CB） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：留观三候选零新证据**维持**；依赖漂移 grep 实证四件——**两个弃用警告常驻每次全量测试**[StarletteDeprecationWarning httpx→httpx2 + test_security_hardening per-request cookies]、**requirements 声明与装机漂移**[pydantic 声明≥2.12 装机 2.10.4·pydantic-settings ≥2.13 装机 2.7.1——新环境拉到从未验证组合]、**openai 2.30→3.22 major**[M44 核心 provider 路径·3.0 唯一 breaking=HTTPX2 换装·标准用法零代码改动]、**httpx→httpx2 生态迁移**[直用面=oidc.py+provider.py AnthropicCompat+3 测试文件·webhooks 走 stdlib urllib 不受影响·import 改名级+logger 名易漏件零命中]；**httpx2 供应链核验**[搜索结果一条称投毒诱饵一条称 openai 3.0 正统依赖——矛盾必须核验：`pip download --no-deps` 解 wheel METADATA=Author Tom Christie[httpx 原作者]/Maintainer Pydantic Services/Project-URL github.com/pydantic/httpx2——正统后继·诱饵说证伪·**装前核验三元组纪律入档**]；前端工具链 major[vite 8/vitest 5/TS 7]**裁决留观不做**。三路 WebSearch：供应链核验（[Scale Factory](https://scalefactory.com) 警示 vs [openai-python CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md) 矛盾→元数据定案）、openai 3.x（[CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md)/[Scout APM](https://www.scoutapm.com/blog/openai-python-sdk-3-17-0-breaking-change)——唯一 breaking=HTTPX2）、httpx2 迁移（[MCP SDK](https://py.sdk.modelcontextprotocol.io/migration) **API 兼容只改 import**/[Prefect #22841](https://github.com/PrefectHQ/prefect/issues/22841) alias_httpx 逃生口/[FastMCP](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3) logger 名易漏件——本项目两处零命中）。定案 M83=依赖健康轮·后端（I249 一车升级+httpx2 迁移[I22 纪律]/I250 弃用清理+requirements 实测下限+核验纪律入档/I251 冒烟 88+**v0.7.0 攒批发布**[M82+M83 两轮一版·四锚 bump+CHANGELOG+annotated tag]） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |

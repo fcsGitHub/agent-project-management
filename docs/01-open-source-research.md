@@ -2223,3 +2223,26 @@ M81 = **发布工程轮**：I243 版本单源化+双 tag / I244 CHANGELOG.md+doc
 **CA.4 M82 取舍**
 
 M82 = **全局质量轮·前端韧性与认证安全**：I246 错误边界+路由级代码分割（零依赖 ErrorBoundary 两级+React.lazy 页面全量+Suspense+chunk 失败兜底）/ I247 登录防爆破（失败滑窗+临时锁定 429+login_locked 审计+哑哈希计时均衡）/ I248 冒烟 87（边界源码锁+锁窗语义+429/Retry-After 矩阵）+ 全量回归 + M82 审阅收口，约 6 人日。react-error-boundary 依赖、错误上报服务、widget 级边界、vendor 分包、预取、CAPTCHA、IP 维度计数、MFA、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CB. M83 前置调研：依赖健康轮（2026-10-01）
+
+> 目标协议触发：M82 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（依赖/升级/httpx/openai——docs/01 仅 §AA langgraph 升级先例[I22 升级验证纪律：升→全量→红则回退 pin]）。依赖漂移实证四件：**①两个弃用警告常驻每次全量测试**（`StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead` + test_security_hardening 的 TestClient per-request cookies 弃用）；**②requirements.txt 声明与装机漂移**（pydantic 声明 ≥2.12 装机 2.10.4、pydantic-settings 声明 ≥2.13 装机 2.7.1——新环境 `pip install -r` 会拉到从未验证过的版本组合）；**③openai 2.30→3.22 major 漂移**（M44 真实 LLM 的核心 provider 路径；调研=3.0 唯一 breaking 是 HTTP 客户端换装 HTTPX2，标准用法零代码改动）；**④httpx→httpx2 生态迁移**（本项目直用面=oidc.py+provider.py AnthropicCompat 两处+3 个测试文件——import 改名级；webhooks 投递器走 stdlib urllib 不受影响）。另：前端工具链 major 漂移（vite 7→8/vitest 3→5/TS 5.9→7）——**裁决：留观不做**（内网工具构建链绿·major 无用户价值·专门轮再议）。本轮三路新调研（**httpx2 供应链核验 / openai 3.x 迁移面 / httpx2 迁移指南**），选定 **M83 = 依赖健康轮（后端）**。
+
+**CB.1 httpx2 供应链核验（装前查 wheel METADATA——弃用警告文本不可作为安装依据）**
+
+- 产品共识与反例（[Scale Factory 供应链文](https://scalefactory.com)警示——「install httpx2」弃用警告文本曾被指为 LLM 诱饵；而 [openai-python CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md) 3.0 breaking change 即迁移 HTTPX2——两说矛盾必须核验）：升级的共识=**包身份从元数据核验而非从警告/文档文本采信**。
+- 核验结论（本项目实测）：`pip download httpx2 --no-deps` 解 wheel METADATA——**Author=Tom Christie（httpx 原作者）·Maintainer=Pydantic Services Inc. ·Project-URL=github.com/pydantic/httpx2 ·依赖 httpcore2==同版本号**——httpx 已停维护、httpx2=pydantic 接棒的正统后继（[huggingface_hub #4674](https://github.com/huggingface/huggingface_hub/issues/4674) 同结论），「投毒诱饵」说法被元数据证伪。**纪律入档：任何新依赖装前先 `pip download --no-deps` 解 METADATA 核对 Author/Maintainer/Project-URL 三元组，警告文本与第三方文章都只是线索不是依据。**
+
+**CB.2 httpx→httpx2 迁移面（import 改名级——API 兼容）**
+
+- 产品共识（[MCP SDK 迁移指南](https://py.sdk.modelcontextprotocol.io/migration)——**API 兼容·多数场景只改 import 名**；[Prefect #22841](https://github.com/PrefectHQ/prefect/issues/22841)——`alias_httpx()` 逃生口让第三方库的 `import httpx` 进程级解析到 httpx2；[FastMCP 升级指南](https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3)——**易漏件=logger 名 httpx/*→httpx2/·httpcore.*→httpcore2.***；[Anthropic SDK 1.0 迁移](https://www.getclaudeskills.com/blog/anthropic-python-sdk-1-0-migration)——Python 3.10 地板[本机 3.11.5 ✓]）：迁移的共识=**改 import+查 logger 过滤+跑全量**。
+- 对本项目的映射：`import httpx` → `import httpx2` 三处（core/oidc.py + runtime/provider.py AnthropicCompat + 3 个测试文件）+ requirements `httpx>=0.28` → `httpx2>=2.13`；openai>=3.22 自带 httpx2 依赖；MockTransport/stream 高层 API 兼容（M46 流式测试惯例不变）；无 httpcore 直用、无 logger 名过滤——两处易漏件零命中。**不做** alias_httpx() 逃生口（自有代码全部可控改名，进程级魔法反而藏真相）。
+
+**CB.3 pydantic/fastapi 对齐与大版本裁决（声明=实测——I22 升级验证纪律第五次执行）**
+
+- 产品共识（I22 langgraph 先例：升→全量测试/冒烟/浏览器演示→红则回退 pin——依赖升级永远独立验证迭代）：升级的共识=**一次一车、全量背书、红则回退**。
+- 对本项目的映射：一车后端小升+对齐（pydantic 2.13.5 + pydantic-settings 2.15.0 + fastapi 0.142.2 + sse-starlette 3.5.0 + uvicorn 0.54.0 + openai 3.22.1 + httpx2 2.13.1）→ 全量回归+冒烟+真实 LLM provider 冒烟路径（test_llm_stream/real）→ 红则逐包回退 pin 旧版并记录。requirements.txt 重写为**实测版本下限**（声明=实测，消灭②漂移）。**前端工具链 major（vite 8/vitest 5/TS 7）裁决留观**：构建链当前全绿、major 升级零用户价值、内网工具无安全压力——专门轮再议。**不做** Dependabot/Renovate 自动化（一人工厂手动一车可控）、lock 文件入库（pip 无 lock 惯例·pnpm lock 已在）。
+
+**CB.4 M83 取舍**
+
+M83 = **依赖健康轮（后端）**：I249 后端依赖一车升级+httpx2 迁移（I22 纪律：全量背书红则逐包回退）/ I250 弃用面清理（per-request cookies→client.cookies）+ requirements 实测下限重写 + 供应链核验纪律入档 / I251 冒烟 88（pip check 绿+requirements 锚定+弃用警告零残留）+ **v0.7.0 攒批发布**（版本单源 bump+CHANGELOG Unreleased→0.7.0 段[M82+M83]+annotated tag——攒批节奏首次兑现：M82+M83 两轮一版）+ 全量回归 + M83 审阅收口，约 6 人日。前端工具链 major、Dependabot/Renovate、alias_httpx、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
