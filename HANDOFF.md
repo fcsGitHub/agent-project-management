@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-09-30 更新 · M77 交付面与新面可达轮 完成，下一步 M78 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M78 调研已定案，下一步 I234 依赖关系解除面）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M78 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M77 纪律沉淀：候选池勿凭印象写——十次自证见前轮；「半截链」grep 十连中[第九例投影零发射方/第十例文档入口活正文死]；api 级+事件级两层扫描枯竭·功能面饱和；交付面防腐已入冒烟[82]**）→ 三路并行 WebSearch → docs/01 新节（§BW）+ docs/10 §M78 节 + 看板行 →「M78 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M78 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①功能面已饱和后的常规增量候选池持续变薄——本轮起调研重心转向「使用证据驱动」：分叉 run 的合并采纳面（连续多轮无使用证据——继续降级或正式关闭）、删除工件恢复 UI（等真实误删证据——维持）；②依赖图/甘特/泳道等既有重交互面的深审（M59 只做了 375px 未做交互完备性——待核验）；③按 docs/10 附录 B/C 遗留意见清账（B/C 级意见是否仍有未消化项——待核验）；④维持项（长清单见前轮，均维持不做）。
+2. **M78 交互完备性深审轮（下一步，调研已定案 e003973）**：docs/01 §BW + docs/10 §M78（I234-I236）。**定案依据**：依赖关系解除面四层全缺（API 仅 POST /items/{id}/relations、事件仅 item.related、投影 INSERT-only、前端零解除入口——**半截链第十一例变体：创建面在·解除面从未设计**）；触屏双缺口（TimelinePage link 触点 hover-only 触屏不可见·addRelation 全前端唯一消费方就是这条拖拽=依赖建立触屏零路径/SchedulePage onMouseDown 拖选触屏无效）；分叉合并采纳面**正式关闭**（四轮降级零翻案）；附录 C 核验=3 条（M38 已消化未标记→I236 清账/M41 条件未触发/M4 维持）。**执行序**：I234 依赖关系解除面（DELETE /items/{id}/relations 复合键 to_item+relation_type·不存在 404 + item.relation_removed 事件 + 投影 DELETE handler + rebuild 存活 + 前端解除入口[详情 relations 消费点就近·确认对话含后果说明]）→ I235 触屏补课（link 触点窄屏/触屏常显[hover 类保留]+SchedulePage onMouseDown→onPointerDown+touch-none+capture）→ I236 冒烟 83（关系解除 roundtrip+rebuild+404+触屏 affordance 断言）+ 附录 C 清账 + 全量回归 + M78 审阅。测试参照：test_relations（如无则 grep test_*relations* 定位既有关系测试）、GraphView 节点抽屉 relations 消费点。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）。
 
 ## 5. 有哪些坑不要再踩
