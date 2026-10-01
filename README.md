@@ -1,6 +1,6 @@
 # AgentPM —— 基于 Agent 的项目管理系统 · 方案设计
 
-> 版本：v0.5（2026-09-30 对账：里程碑叙述锚点化——进度真源指向 docs/10 §7 看板，本页只保留不变事实）
+> 版本：v0.6.0（发布真源=[CHANGELOG.md](CHANGELOG.md)；版本单源=app/apm/version.py——/api/health、package.json 与本行由冒烟 86 锁定一致）
 > 定位：一套以「人指挥、Agent 执行」为核心的项目管理 Web 系统的完整方案设计，覆盖需求 → 设计 → 开发 → 测试 → 交付全生命周期。
 > 进度真源：[docs/10-development-plan.md §7 状态看板](docs/10-development-plan.md)（唯一进度真源——迭代、冒烟基线、验证数字以看板为准，本页不重复会变化的数字）。
 

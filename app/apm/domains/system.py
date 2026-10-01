@@ -12,10 +12,12 @@ router = APIRouter(tags=["system"])
 
 @router.get("/health")
 def health() -> dict:
+    from apm.version import APP_VERSION
+
     return {
         "status": "ok",
         "app": "AgentPM",
-        "version": "0.1.0",
+        "version": APP_VERSION,  # M81-I243: 单源（原 0.1.0 死字面量）
         "provider_mode": config.settings.provider_mode,
         "user": {"id": config.settings.user_id, "name": config.settings.user_name},
     }
