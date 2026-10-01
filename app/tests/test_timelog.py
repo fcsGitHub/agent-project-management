@@ -22,7 +22,12 @@ def _mk_item(client, pid, title, **kw):
     return r.json()
 
 
-def _log(client, item_id, minutes, spent_on="2026-09-04", note=""):
+def _log(client, item_id, minutes, spent_on=None, note=""):
+    # 默认日期动态锚定（M84-I252）：默认值曾是硬编码 2026-09-04——若未来断言把它
+    # 接进 /my/timelog 等窗口端点就会变成 smoke_26 同款日期炸弹；today 恒在任何窗内。
+    if spent_on is None:
+        from datetime import date as _d
+        spent_on = _d.today().isoformat()
     r = client.post(f"/api/items/{item_id}/time_entries",
                     json={"minutes": minutes, "spent_on": spent_on, "note": note})
     assert r.status_code == 200, r.text
