@@ -2620,6 +2620,39 @@ agent-project-management/
 
 ---
 
+
+---
+
+### M86 · 运维验证轮·部署链与备份恢复（I260-I262，约 5 人日）
+
+> v3.0 新增（2026-10-02，docs/01 §CE 前置调研）。防重查：留观三候选维持；审计种子三件：**部署链在 M83 依赖一车后从未验证**（app/Dockerfile 构建时按 requirements 下限自由解析——httpx2/openai3/pydantic2.13/fastapi0.142/uvicorn0.54 的镜像内组合从未构建过·web/Dockerfile frozen-lockfile 在 M85 改 lockfile 后同样未构建）；**docs/11 冻结在 v0.6.0**（时效戳覆盖声明过期·httpx2/openai3 语义与机械防腐七件指引未入档）；**备份/恢复从未对真实版本演练**（M58 工具自建后未对 v0.8.0 数据跑过）。**防重查：pip-compile/hash pinning/pip-audit CI 不做、自动化定期演练不做、多架构镜像/registry 不做、docs/01~09 设计册回填不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I260 | docker compose build 双镜像+起服务对账（app 镜像 pip 解析验证[镜像内 pip freeze 关键包=开发机版本对账] + web 镜像 frozen-lockfile 构建 + compose up -d + healthcheck 绿 + 容器内 /api/health=v0.8.0 + seed→建项目→看板核心冒烟） | docs/01 §CE.1 | M83 供应链核验/冒烟惯例 | 2d |
+| I261 | 备份恢复演练+事件体积观测（隔离数据目录：造数→backup.py→**毁库**→restore.py→rebuild→对账[项目数/事件数/FTS/健康分]→简易计时=RTO 观测 + 事件表体积观测复核[M58 面同期]） | docs/01 §CE.2 | M58 备份恢复工具 | 1d |
+| I262 | docs/11 解冻至 v0.8.0+收尾审阅（时效戳+覆盖声明改写+机械防腐七件部署者自检速查+httpx2/openai3/python≥3.10 须知 + docs/12 对账 + 全量回归 + M86 审阅[攒批 v0.9.0 不 tag]） | docs/01 §CE.3 | M81-BZ.3 解冻惯例 | 2d |
+
+#### I260 · docker compose build 双镜像+起服务对账（2d）
+
+- 任务：`docker compose build`（app+web 双镜像——M83 后首次）+ 镜像内版本对账（app：pip show httpx2/openai/pydantic/fastapi/uvicorn = 开发机实测版本）+ `docker compose up -d` + healthcheck 通过 + 容器 /api/health version=v0.8.0 + seed.py→建项目→看板核心路径浏览器/HTTP 冒烟。
+- DoD：双镜像 build 成功；healthcheck 绿；核心路径通；版本对账一致。
+- 演示路径：`docker compose ps` healthy；`curl /api/health`。
+
+#### I261 · 备份恢复演练+事件体积观测（1d）
+
+- 任务：隔离 APM_DATA_DIR 造数（项目/项/评论/工时/工件）→ tools/backup.py → 删库文件 → tools/restore.py → rebuild-projections → 对账（项目/事件/FTS 搜索命中/健康分一致）→ 各步计时（恢复 RTO 观测）+ 事件表行数与体积观测记录。
+- DoD：恢复后对账全一致；计时在案。
+- 演示路径：毁库后应用不可用→恢复后完整可用。
+
+#### I262 · docs/11 解冻至 v0.8.0+收尾审阅（2d）
+
+- 任务：docs/11 时效戳+覆盖声明改至 v0.8.0 + 补部署者须知（机械防腐七件部署后自检速查 + httpx2/openai3/python≥3.10 语义 + compose healthcheck 说明）+ docs/12 快速对账 + 全量回归 + M86 审阅。
+- DoD：docs/11 覆盖当前全部部署面；全量 EXIT=0；冒烟 runner GREEN。
+- 演示路径：新会话只读 docs/11+.env.example 完成部署认知（M81 惯例复核）。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2861,6 +2894,7 @@ agent-project-management/
 | I254 E2E 全路由 chunk 走查+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境（8138/4178 双隔离）浏览器**29 路由逐个加载**（M82 懒加载迁移的遗留验证——彼时只实测了 Dashboard/Board/Intake 三路由）：**全数 ok 零 fallback**（含空库近空态页 templates/my-work/roadmap/search/activity 与 bogus-token intake 的页内错误态——均为页面自身空态非边界 fallback）+ 累计加载 **35 chunks 与 build 产物精确一致** + **全量回归抓出 I252 加固的次序回归→发现即修**（test_timelog 排序断言依赖 e1 日期<e2 日期——动态锚定 today 后 today>09-05 翻转 ASC 次序；修法=配对日期一起锚显式保持时序[today-1/today]——**动态锚定须保持日期相对次序不只窗口成员资格·教训入 HANDOFF §5**）+ 重跑全量回归（非 smoke **477 EXIT=0**/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest 35/build 绿/check_env_doc ✓/check_write_gates ✓/**check_test_dates ✓ 新第六件**）+ CHANGELOG Unreleased 记 M84（攒批待 v0.8.0 不 tag） |
 | **M84 全局质量轮·测试日期稳健性对账（I252-I254）** | 已完成 | 2026-10-02 | 2026-10-02 | 3 迭代 / 约 6 人日（docs/01 §CC + docs/10 §M84）：I252+I253 全量对账零真炸弹+check_test_dates.py 台账（机械防腐第六件·冒烟 89 锁定）/ I254 E2E 全路由 chunk 走查（29 路由零 fallback·35 chunks 对账）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + 冒烟 runner **96 GREEN** EXIT=0[89 文件]）+ vitest **35** + build 绿 + check_env_doc ✓ + check_write_gates ✓ + **check_test_dates ✓**；**攒批 v0.8.0 不 tag** |
 | 2026-10-02 M85 调研定义（§CD） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：留观三候选零新证据**维持**；审计种子三件——**对话框语义与焦点管理全缺**[Modal+Drawer 两原语[Drawer 消费面 8+ 文件]零 role=dialog/aria-modal/初始焦点/Tab 陷阱/焦点还原·role="dialog" 全前端仅 1 处·Drawer Escape 缺 defaultPrevented 检查=嵌套双关风险]、**可访问名长尾**[161 按钮仅 9 aria-label 但 title= 纪律 290 处——全库扫描真无名按钮仅 1 个 SchedulePage ✕·input 71 vs label 20=placeholder-only 常态]、**既有正确面**[⌘K+快捷键浮层 M29/focus-visible 样式/Escape 契约]。三路 WebSearch：对话框模式（[W3C ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal) 焦点三件套=初始/陷阱/还原+[audit 惯例](https://auditbuffet.com/patterns/ab-001608) Tab 逃逸是常见失败项）、native dialog（[MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog)/[CSS-Tricks](https://css-tricks.com/using-and-styling-the-dialog-element) showModal 免费陷阱+inert——**裁决不做**：jsdom 无法组件级验证 showModal+top-layer 迁移动弹层样式+Drawer 本质是侧栏面板）、axe-core（[dequelabs 官方](https://github.com/dequelabs/axe-core)/[vitest 集成惯例](https://medium.com/@echilaka/testing-react-accessibility-with-axe-dev-console-vitest-and-the-chrome-extension-e24b5ae623df) render→axe→零 violations·npm 侧核验 dequelabs=M83 三元组纪律同构）。定案 M85=a11y 轮·对话框语义与键盘可用性（I257 零依赖焦点 hook+两原语语义/I258 可访问名长尾+axe-core 机械锁第七件/I259 纯键盘旅程 E2E+v0.8.0 攒批时机决策） |
+| 2026-10-02 M86 调研定义（§CE） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：留观三候选零新证据**维持**；审计种子三件——**部署链在 M83 依赖一车后从未验证**[app/Dockerfile 构建时按 requirements 下限自由解析——httpx2>=2.13.1/openai>=3.22.1/pydantic>=2.13.5/fastapi>=0.142.2/uvicorn>=0.54.0 镜像内组合只在开发机验证过·docker compose build 双镜像全链未跑过·web/Dockerfile frozen-lockfile 在 M85 改 lockfile 后同样未构建]、**docs/11 冻结在 v0.6.0**[时效戳覆盖声明过期·httpx2/openai3 语义与机械防腐七件指引未入档]、**备份/恢复从未对真实版本演练**[tools/backup.py+restore.py M58 自建后未对 v0.8.0 数据跑过]。三路 WebSearch：依赖漂移（[KubeStellar #5849](https://github.com/kubellar/docs/issues/5849) unpinned=构建时静默拉取不可控组合/[kodekloud](https://kodekloud.com/blog/docker-best-practices-for-building-and-running-production-containers) lockfile 未强制=版本漂移坑/[OneUptime](https://oneuptime.com/blog/post/2026-02-08-how-to-build-reproducible-docker-images-with-locked-dependencies/view) 定期构建验证使漂移被发现——**裁决不引 pip-compile/hash pinning/pip-audit**：一人工厂下限+定期构建验证已够·无 CI 面）、恢复演练（[Eon](https://www.eon.io/blog/disaster-recovery-testing) 备份完成≠恢复证明/[Macrium](https://www.macrium.com/blog/backup-validation-overlooked-in-disaster-recovery) **验证≠校验**/[N-able](https://www.n-able.com/blog/data-backup-and-recovery-strategies-and-best-practices) 隔离系统全量演练+恢复后一致性检查/[Scality](https://www.solved.scality.com/backup-monitoring-best-practices) 给恢复计时对 RTO）、部署文档新鲜度（[Appcircle 发布 runbook](https://idocs.appcircle.io/operations/self-hosted-release-runbook) 发布流程内同步滚动/[Cutover](https://cutover.com/blog/best-practices-keeping-automated-runbooks-updated-accuracy-efficiency) 版本戳——M81-BZ.3 指南类活文档惯例延续）。定案 M86=运维验证轮·部署链与备份恢复（I260 compose build 双镜像+镜像内版本对账+起服务冒烟/I261 备份恢复演练[毁库恢复对账计时]+事件体积观测/I262 docs/11 解冻至 v0.8.0+收尾审阅） |
 | I257 Dialog 焦点管理 hook+两原语语义 | 已完成 | 2026-10-02 | 2026-10-02 | web/src/components/dialogFocus.ts 零依赖 hook（~40 行——打开记触发元素→初始焦点入第一个可聚焦元素→Tab 循环陷阱[末尾前向循环回首/首元素反向循环至末尾]→关闭[Esc/遮罩/卸载]还原触发元素焦点——native dialog 裁决不做：jsdom 无法组件级验证 showModal+top-layer 迁移动弹层样式）+ Modal/Drawer 接线（role=dialog+aria-modal+aria-labelledby[useId]·遮罩 aria-hidden·Drawer 消费面 8+ 文件一次收口）+ **Drawer Escape 统一 Modal defaultPrevented 契约**（检查并设置——修嵌套双关：此前一次 Esc 会同时关掉 Modal 和所有 Drawer）+ vitest 组件测试 3 项（语义+初始焦点/Tab 双向陷阱/关闭还原——jsdom focus API 全支持）·tsc/build/vitest 38 全绿 |
 | I258 可访问名长尾清零+axe-core 机械锁 | 已完成 | 2026-10-02 | 2026-10-02 | SchedulePage 唯一无名符号按钮（✕）补 aria-label + 高频模态表单 placeholder-only input 补 aria-label（新建项目/评论抽屉/看板周期——title= 纪律 290 处既有资产不动·不做全站 71 input 翻新）+ axe-core 4.13.0 入 devDependencies（**npm 侧供应链核验：repository=github.com/dequelabs/axe-core 官方——M83 三元组纪律同构**）+ a11y.test.tsx 3 用例（Modal 表单/Drawer 内容零 serious+critical violation 锁 + 故意红自证[空文本按钮必被 button-name 点名]——规则裁剪仅页面级 region/landmark/heading）=**机械防腐第七件** + **机检边界入档：axe 只能抓无文本按钮不能抓「有名无实」符号按钮**（✕ 非空文本=有名字——此类缺口仍需人工走查）·tsc/build/vitest 41 全绿 |
 | I259 纯键盘旅程 E2E+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境（8139/4179 双隔离）浏览器旅程：**弹窗打开→初始焦点精确落在「项目名称」input**[I257 hook 真实浏览器实证·a11y 树可见 dialog 新建项目+两 textbox 有名]→填表→提交→**跳转新项目 dashboard 全链走通**；**Tab 旅程在 IAB 不可行**（应用内浏览器外壳拦截 Tab/合成按键——probe 实证 keydown 根本不入页·环境限制非应用缺陷——陷阱/还原由 vitest 锁背书·附录 C 登记）+ 全量回归 + 收口（见 M85 行基线） |

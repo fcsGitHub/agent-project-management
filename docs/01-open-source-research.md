@@ -2292,3 +2292,26 @@ M84 = **全局质量轮·测试日期稳健性对账**：I252 全量对账（20+
 **CD.4 M85 取舍**
 
 M85 = **a11y 轮·对话框语义与键盘可用性**：I257 Dialog 焦点管理 hook+两原语语义（零依赖·vitest 断言初始焦点/陷阱/还原）/ I258 可访问名长尾清零+axe-core 机械锁（供应链核验后入 devDependencies·第七件防腐）/ I259 纯键盘核心旅程 E2E（⌘K→建项目→抽屉→Esc 焦点还原）+ 全量回归 + M85 审阅收口（**v0.8.0 攒批时机决策点：M84 测试稳健性+M85 a11y 两轮·后者用户可感知——倾向打 tag**），约 6 人日。native dialog 迁移、全站 input 翻新、Playwright a11y、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CE. M86 前置调研：运维验证轮·部署链与备份恢复（2026-10-02）
+
+> 目标协议触发：M85 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（部署/docker/备份——docs/01 §R[M13 导出]/docs/11[M8/M81 解冻]已有先例·构建验证未做过）。审计种子实证三件：**①部署链在 M83 依赖一车后从未验证**（app/Dockerfile `pip install -r requirements.txt` 在**构建时按声明下限自由解析**——httpx2>=2.13.1/openai>=3.22.1/pydantic>=2.13.5/fastapi>=0.142.2/uvicorn>=0.54.0 的实际组合只在开发机验证过，镜像内解析结果从未构建过；web/Dockerfile `pnpm install --frozen-lockfile` 在 M85 改 lockfile[axe-core]后同样未构建；`docker compose build` 双镜像全链未验证）；**②docs/11 冻结在 v0.6.0**（时效戳=「覆盖至 v0.6.0 全部部署面」——现 v0.8.0 已发布·httpx2/openai3 语义与机械防腐七件部署者指引未入档）；**③备份/恢复从未对真实版本演练**（tools/backup.py+restore.py[M58]自建后未对 v0.8.0 数据跑过——「备份成功≠可恢复」[搜索共识·下]）。本轮三路新调研（**Docker 依赖漂移与构建验证 / 备份恢复演练惯例 / 部署文档新鲜度**），选定 **M86 = 运维验证轮·部署链与备份恢复**。
+
+**CE.1 构建即验证（Dockerfile 自由解析面——镜像内版本组合从未被验证）**
+
+- 产品共识（[KubeStellar #5849](https://github.com/kubestellar/docs/issues/5849)——unpinned 依赖=构建时静默拉取不可控组合；[kodekloud](https://kodekloud.com/blog/docker-best-practices-for-building-and-running-production-containers)——lockfile 未在构建中强制=版本漂移常见坑；[OneUptime 可复现构建](https://oneuptime.com/blog/post/2026-02-08-how-to-build-reproducible-docker-images-with-locked-dependencies/view)——锁依赖+定期构建验证使漂移被「发现」而非「静默吸收」）：构建的共识=**镜像内实际解析的版本组合必须被验证**。
+- 对本项目的映射：`docker compose build` 双镜像跑通即 requirements/lockfile 的解析验证+镜像内 `pip freeze` 关键包对账（httpx2/openai/pydantic=开发机同版本）+ compose up-健康检查-核心冒烟（seed→建项目→看板）。**不引 pip-compile 全量 pin/hash pinning**（一人工厂·下限+定期构建验证已达防御目标·过度工程留观）、**不引 pip-audit CI 门**（无 CI 面——构建验证即本轮的人工 CI）。
+
+**CE.2 备份恢复演练（验证≠校验——演练是恢复能力的唯一证明）**
+
+- 产品共识（[Eon](https://www.eon.io/blog/disaster-recovery-testing)——备份任务完成不是恢复证明；[Macrium](https://www.macrium.com/blog/backup-validation-overlooked-in-disaster-recovery)——**验证（存了什么）≠校验（能否恢复）**；[N-able](https://www.n-able.com/blog/data-backup-and-recovery-strategies-and-best-practices)——隔离系统全量恢复演练+恢复后一致性检查+[Scality](https://www.solved.scality.com/backup-monitoring-best-practices)——给实际恢复计时对 RTO）：演练的共识=**毁掉真库→隔离恢复→一致性对账→计时**。
+- 对本项目的映射：隔离数据目录演练（造数→backup.py→**毁库**→restore.py→rebuild→对账[项目数/事件数/FTS 命中/健康分]→简易计时=RTO 观测）——M58 工具既有，本轮补「对 v0.8.0 全 feature 面数据的首次真演练」+ 事件表体积观测复核（M58 面同期观测面）。**不做** 自动化定期演练（无 CI 面·下轮质量轮再演练）、异地/增量策略（单机 compose 语境）。
+
+**CE.3 部署文档新鲜度（时效戳随发布走——runbook 是发布流程的一部分）**
+
+- 产品共识（[Appcircle 发布 runbook](https://idocs.appcircle.io/operations/self-hosted-release-runbook)——发布流程内同步滚动文档；[Cutover](https://cutover.com/blog/best-practices-keeping-automated-runbooks-updated-accuracy-efficiency)——版本戳+旧版只读；[M81-BZ.3 已立]指南类=活文档+时效戳+单一真源）：部署文档的共识=**随发布更新时效戳与覆盖声明**。
+- 对本项目的映射：docs/11 解冻至 v0.8.0（时效戳+覆盖声明改写+补部署者须知：机械防腐七件速查[部署后自检命令]/httpx2·openai3 语义[对部署者透明——镜像内已解析·仅需知晓 python≥3.10 地板已满足]/compose 健康检查语义）。**不做** docs/01~09 设计册回填（设计时点快照裁决不变）、多架构镜像/registry 发布（无发布面）。
+
+**CE.4 M86 取舍**
+
+M86 = **运维验证轮·部署链与备份恢复**：I260 docker compose build 双镜像+镜像内版本对账+compose 起服务健康检查+核心冒烟 / I261 备份恢复演练（隔离目录毁库恢复对账计时）+事件体积观测 / I262 docs/11 解冻至 v0.8.0+docs/12 对账+收尾审阅（攒批 v0.9.0 不 tag），约 5 人日。pip-compile/hash pinning/pip-audit CI、自动化定期演练、多架构镜像/registry、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
