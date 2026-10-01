@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-01 更新（M81-I244 解冻——覆盖至 v0.6.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。
+> 时效：2026-10-02 更新（M86-I262 解冻——覆盖至 v0.8.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/**部署后自检速查[§2.5·M86 新增]**/**部署链已验证声明**[M86-I260：v0.8.0 镜像 compose build 双镜像跑通+healthcheck 通过——此前的依赖一车[M83]后镜像内组合从未验证过]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。依赖底座：httpx2 2.13/openai 3.22/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
@@ -72,6 +72,32 @@ curl -X POST http://host:8000/api/users -H "Content-Type: application/json" \
 - 部署者须知：非项目成员写操作 403（含 cycles/milestones/features/risks 的改期/删除）；资产库 org 治理动作（退役/归档/恢复/评审）需登录（实例成员）；本体 learn/apply 与 sweep force 仅 admin。
 - local 模式零影响（可信单用户语义不变）。
 
+### 2.5 部署后自检速查（M86-I262）
+
+部署完成后按序自检（全部应绿/✓）：
+
+```bash
+docker compose ps                 # api=healthy（healthcheck 打 /api/health）·web=Up
+curl localhost:${WEB_PORT}/api/health   # version 应为镜像版本（四锚一致由冒烟 86+88 锁定）
+# —— 机械防腐七件（宿主机 repo 内跑，部署前自检）——
+python tools/check_env_doc.py     # env 文档对账
+python tools/check_write_gates.py # 路由×门禁对账
+python tools/check_test_dates.py  # 测试日期×窗口端点对账
+cd web && pnpm vitest run         # 前端单测（含 axe a11y 锁）
+cd app && python -m pytest --ignore=tests/smoke   # 后端全量（分片跑，>10 分钟）
+python tools/smoke/run_smoke.py   # 冒烟基线（repo 根目录）
+```
+
+部署故障速查（M86 验证实录）：
+
+| 症状 | 根因 | 处置 |
+| --- | --- | --- |
+| api 启动即崩 `bool_parsing` | compose 布尔透传传空串（已修：`:-false` 默认）——自建 compose 需给布尔 env 非空默认 | 升级到含修复的 compose 文件 |
+| api 启动即崩 `No module named cryptography` | requirements 缺声明（已修）——自建镜像核对 requirements 含全部显式依赖 | 升级镜像 |
+| 升级后启动 `no such column` | 上次启动中途崩溃留下半成品 schema 卷（init_db 对部分创建态不自愈） | `docker compose down -v` 清卷重启（**丢数据**——先确认卷内无价值数据） |
+| 恢复/删 data 目录报 `PermissionError` | content/ 内 **git 对象文件为只读属性**（Windows） | 清只读属性后重删（`attrib -r /s` 或脚本 chmod） |
+| WEB_PORT 起不来 | 宿主 5173 常被其他项目占用 | `WEB_PORT=其他端口 docker compose up -d` |
+
 ## 3. 角色与归账规则（M8-I27/I28）
 
 - 建项目者自动成为该项目 **owner**；owner 可在「本体 → 项目成员」面板添加/改角色/移除成员。
@@ -136,6 +162,7 @@ compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`�
 - **恢复**：`python tools/restore.py backups/apm-XXX.zip --data-dir data [--ontologies-dir ontologies]` ——先剥陈旧 `-wal/-shm` 侧车（防污染恢复快照）再落库/内容仓/资产仓；本体目录仅在显式给出 `--ontologies-dir` 时覆盖（覆盖活本体是决策不是副作用）；
 - **演练三步（定期执行）**：① `python tools/backup.py -o drill.zip` → ② `--data-dir` 指向空目录执行 restore → ③ 启动 api 后 `POST /api/system/rebuild-projections`（`events_replayed` 应等于 manifest 的 event_count）。**备份会自己跑，演练是为了证明恢复仍然有效**；冒烟 65 固化了该闭环（备份→清空→恢复→一致性断言）；
 - 连续流复制（Litestream 等 WAL→对象存储方案）不内置：单机手动档已覆盖；接入时以其恢复产物替换演练第 ② 步的输入即可。
+- **M86-I261 首次全链演练实录（v0.8.0 数据）**：备份→毁库→恢复→rebuild 后项目数/事件数/FTS 命中/工件内容逐字节一致，恢复 RTO≈0.4s（小规模）。三条演练纪律：①备份源缺失时工具已 loud fail（sqlite3.connect 对缺失路径静默建空库会让「空备份」通过——I261 已修，**毁库必须闸在备份 EXIT=0**）；②Windows 下 content/ 的 git 对象文件为只读属性，毁库删目录需先清属性（`attrib -r /s` 或脚本 chmod）；③演练造数与基线对账分开记录（项目数/事件数/FTS 命中/工件内容四项足够）。
 
 ### 5.3 恢复
 
