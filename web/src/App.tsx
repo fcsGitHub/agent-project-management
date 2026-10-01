@@ -1,72 +1,90 @@
-import { useState } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./lib/api";
 import { AppShell } from "./components/AppShell";
-import { Dashboard } from "./pages/Dashboard";
-import { Board } from "./pages/Board";
-import { FeaturePage } from "./pages/FeaturePage";
-import { ConversationView } from "./pages/ConversationView";
-import { ConversationsPage } from "./pages/ConversationsPage";
-import { RunsPage } from "./pages/RunsPage";
-import { GraphView } from "./pages/GraphView";
-import { ApprovalsPage } from "./pages/ApprovalsPage";
-import { AssetsPage } from "./pages/AssetsPage";
-import { LoginPage } from "./pages/LoginPage";
-import { TemplatesPage } from "./pages/TemplatesPage";
-import { AuditPage } from "./pages/AuditPage";
-import { OntologyPage } from "./pages/OntologyPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { ArtifactsPage } from "./pages/ArtifactsPage";
-import { ReportsPage } from "./pages/ReportsPage";
-import { TimelinePage } from "./pages/TimelinePage";
-import { MyWorkPage } from "./pages/MyWorkPage";
-import { MyTimePage } from "./pages/MyTimePage";
-import { SearchPage } from "./pages/SearchPage";
-import { RoadmapPage } from "./pages/RoadmapPage";
-import { ActivityPage } from "./pages/ActivityPage";
-import { WorkloadPage } from "./pages/WorkloadPage";
-import { SchedulePage } from "./pages/SchedulePage";
-import { IntakePage } from "./pages/IntakePage";
-import { RisksPage } from "./pages/RisksPage";
-import { DependencyGraphPage } from "./pages/DependencyGraphPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// 路由级代码分割（M82-I246）：页面组件全量 React.lazy 按路由拆 chunk（vite 动态 import
+// 自动分包），AppShell/内联 ProjectPicker 保持 eager 保首屏骨架。页面命名导出经 .then
+// 归一成 lazy 要求的 default 形态。
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Board = lazy(() => import("./pages/Board").then((m) => ({ default: m.Board })));
+const FeaturePage = lazy(() => import("./pages/FeaturePage").then((m) => ({ default: m.FeaturePage })));
+const ConversationView = lazy(() => import("./pages/ConversationView").then((m) => ({ default: m.ConversationView })));
+const ConversationsPage = lazy(() => import("./pages/ConversationsPage").then((m) => ({ default: m.ConversationsPage })));
+const RunsPage = lazy(() => import("./pages/RunsPage").then((m) => ({ default: m.RunsPage })));
+const GraphView = lazy(() => import("./pages/GraphView").then((m) => ({ default: m.GraphView })));
+const ApprovalsPage = lazy(() => import("./pages/ApprovalsPage").then((m) => ({ default: m.ApprovalsPage })));
+const AssetsPage = lazy(() => import("./pages/AssetsPage").then((m) => ({ default: m.AssetsPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
+const TemplatesPage = lazy(() => import("./pages/TemplatesPage").then((m) => ({ default: m.TemplatesPage })));
+const AuditPage = lazy(() => import("./pages/AuditPage").then((m) => ({ default: m.AuditPage })));
+const OntologyPage = lazy(() => import("./pages/OntologyPage").then((m) => ({ default: m.OntologyPage })));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const ArtifactsPage = lazy(() => import("./pages/ArtifactsPage").then((m) => ({ default: m.ArtifactsPage })));
+const ReportsPage = lazy(() => import("./pages/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const TimelinePage = lazy(() => import("./pages/TimelinePage").then((m) => ({ default: m.TimelinePage })));
+const MyWorkPage = lazy(() => import("./pages/MyWorkPage").then((m) => ({ default: m.MyWorkPage })));
+const MyTimePage = lazy(() => import("./pages/MyTimePage").then((m) => ({ default: m.MyTimePage })));
+const SearchPage = lazy(() => import("./pages/SearchPage").then((m) => ({ default: m.SearchPage })));
+const RoadmapPage = lazy(() => import("./pages/RoadmapPage").then((m) => ({ default: m.RoadmapPage })));
+const ActivityPage = lazy(() => import("./pages/ActivityPage").then((m) => ({ default: m.ActivityPage })));
+const WorkloadPage = lazy(() => import("./pages/WorkloadPage").then((m) => ({ default: m.WorkloadPage })));
+const SchedulePage = lazy(() => import("./pages/SchedulePage").then((m) => ({ default: m.SchedulePage })));
+const IntakePage = lazy(() => import("./pages/IntakePage").then((m) => ({ default: m.IntakePage })));
+const RisksPage = lazy(() => import("./pages/RisksPage").then((m) => ({ default: m.RisksPage })));
+const DependencyGraphPage = lazy(() => import("./pages/DependencyGraphPage").then((m) => ({ default: m.DependencyGraphPage })));
+
+/** 页面级边界（M82-I246）：key=路由形态（非解析后的 pathname——同一路由参数变化不重挂，
+ * 保持既有「f/a→f/b 不丢实例」行为；跨路由切换才复位边界错误态）。 */
+function pg(rk: string, elem: ReactNode): ReactNode {
+  return (
+    <ErrorBoundary key={rk} level="page">
+      <Suspense fallback={<div className="p-8 text-sm text-mut">加载中…</div>}>{elem}</Suspense>
+    </ErrorBoundary>
+  );
+}
 
 export default function App() {
   return (
     <HashRouter>
-      <Routes>
-        <Route path="/" element={<ProjectPicker />} />
-        <Route path="/intake/:token" element={<IntakePage />} />
-        <Route path="/p/:pid" element={<AppShell />}>
-          <Route index element={<Dashboard />} />
-          <Route path="board" element={<Board />} />
-          <Route path="timeline" element={<TimelinePage />} />
-          <Route path="deps" element={<DependencyGraphPage />} />
-          <Route path="risks" element={<RisksPage />} />
-          <Route path="f/:fid" element={<FeaturePage />} />
-          <Route path="c/:cid" element={<ConversationView />} />
-          <Route path="conversations" element={<ConversationsPage />} />
-          <Route path="runs" element={<RunsPage />} />
-          <Route path="graph" element={<GraphView />} />
-          <Route path="approvals" element={<ApprovalsPage />} />
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="ontology" element={<OntologyPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="artifacts" element={<ArtifactsPage />} />
-        </Route>
-        <Route path="/assets" element={<AssetsPage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        <Route path="/my/work" element={<MyWorkPage />} />
-        <Route path="/my/time" element={<MyTimePage />} />
-        <Route path="/roadmap" element={<RoadmapPage />} />
-        <Route path="/workload" element={<WorkloadPage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/my/schedule" element={<SchedulePage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      {/* App 级兜底（rail/路由表/内联页崩溃→整窗错误卡+重载；页面级崩溃被 pg 拦在页内）。 */}
+      <ErrorBoundary level="app">
+        <Routes>
+          <Route path="/" element={<ProjectPicker />} />
+          <Route path="/intake/:token" element={pg("intake", <IntakePage />)} />
+          <Route path="/p/:pid" element={<AppShell />}>
+            <Route index element={pg("dashboard", <Dashboard />)} />
+            <Route path="board" element={pg("board", <Board />)} />
+            <Route path="timeline" element={pg("timeline", <TimelinePage />)} />
+            <Route path="deps" element={pg("deps", <DependencyGraphPage />)} />
+            <Route path="risks" element={pg("risks", <RisksPage />)} />
+            <Route path="f/:fid" element={pg("feature", <FeaturePage />)} />
+            <Route path="c/:cid" element={pg("conversation", <ConversationView />)} />
+            <Route path="conversations" element={pg("conversations", <ConversationsPage />)} />
+            <Route path="runs" element={pg("runs", <RunsPage />)} />
+            <Route path="graph" element={pg("graph", <GraphView />)} />
+            <Route path="approvals" element={pg("approvals", <ApprovalsPage />)} />
+            <Route path="audit" element={pg("audit", <AuditPage />)} />
+            <Route path="reports" element={pg("reports", <ReportsPage />)} />
+            <Route path="ontology" element={pg("ontology", <OntologyPage />)} />
+            <Route path="settings" element={pg("settings", <SettingsPage />)} />
+            <Route path="artifacts" element={pg("artifacts", <ArtifactsPage />)} />
+          </Route>
+          <Route path="/assets" element={pg("assets", <AssetsPage />)} />
+          <Route path="/templates" element={pg("templates", <TemplatesPage />)} />
+          <Route path="/my/work" element={pg("my-work", <MyWorkPage />)} />
+          <Route path="/my/time" element={pg("my-time", <MyTimePage />)} />
+          <Route path="/roadmap" element={pg("roadmap", <RoadmapPage />)} />
+          <Route path="/workload" element={pg("workload", <WorkloadPage />)} />
+          <Route path="/activity" element={pg("activity", <ActivityPage />)} />
+          <Route path="/my/schedule" element={pg("my-schedule", <SchedulePage />)} />
+          <Route path="/search" element={pg("search", <SearchPage />)} />
+          <Route path="/login" element={pg("login", <LoginPage />)} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ErrorBoundary>
     </HashRouter>
   );
 }
