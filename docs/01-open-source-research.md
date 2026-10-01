@@ -2131,3 +2131,26 @@ M77 = **交付面与新面可达轮**：I231 README 解冻+env 三面同步（�
 **BW.4 M78 取舍**
 
 M78 = **交互完备性深审轮**：I234 依赖关系解除面（DELETE 端点+relation_removed 事件+投影删除+抽屉解除入口）/ I235 触屏补课（link 触点常显+SchedulePage 拖选 pointer 化）/ I236 冒烟 83+附录 C 清账+收尾审阅，约 7 人日。键盘 lift-move、Jira 式专用删链权限、undo、长按显隐、分叉合并采纳面（**正式关闭**——等真实证据）、删除恢复 UI（等证据）留 backlog。
+
+## BX. M79 前置调研：跨项目依赖面收口 / dnd 触屏留观 / git 恢复惯例（2026-10-01）
+
+> 目标协议触发：M78 完成后开启。防重查：候选池 grep（§BW 之后无同题调研）——**①跨项目依赖面（本轮定案——grep 实证三件缺口）**、②条目卡片 HTML5 dnd 触屏改期（全前端 draggable 仅 SchedulePage/TimelinePage 两处——等真实移动使用证据，维持留观）、③删除工件恢复（ArtifactsPage 零恢复入口——git 历史即软删、CLI 捞回可达成——等真实误删证据，维持）。**①的实证三件**：**跨项目建链零 UI**（M47-I143 API 放开跨项目 relations+双方可读门禁+from 侧写门禁俱在——但 QuickEditModal 目标选择器只列同项目 items[listItems(pid)]、时间线连线拖拽限当前视图——跨项目建链只剩 NDJSON 导入/API 直调）；**/deps 依赖图跨项目边静默丢弃**（DependencyGraphPage `edges.filter(visible.has(from) && visible.has(to))`——外项目项不在 byId 即整条边不画、无占位无提示；而 M47 的「外部依赖」占位节点住在后端 graph 端点[projects.py:564-588——可读显真实标题+来源项目名、不可读只给 🔒]由 GraphView 消费——**两个依赖图语义分叉**）；**/deps 自算 blocked 漏跨项目上游**（React 层 `if (!upstream) continue`——本地项被外项目未完结项阻塞时 /deps 显示绿色，与看板 I128 blocked flag[SQL JOIN items 无项目过滤=跨项目计入]口径冲突）。本轮三路新调研（**Jira Plans 跨项目依赖 / OpenProject 跨项目建链 / git 删文件恢复惯例**），选定 **M79 = 跨项目依赖面收口轮**。
+
+**BX.1 依赖图两图归一（跨项目边不再静默消失——Jira Plans 的 scope 共识）**
+
+- 产品共识（[Atlassian: Dependencies in Advanced Roadmaps](https://confluence.atlassian.com/jirasoftwareserver112/dependencies-in-advanced-roadmaps-1688899996.html)+[社区：跨项目依赖线](https://community.atlassian.com/forums/discussion/2020002/advanced-roadmaps-dependency-lines-between-projects)+[仅看跨项目依赖的变通](https://community.atlassian.com/forums/Advanced-Planning-in-Jira/Show-ONLY-cross-project-dependencies-in-Advanced-Roadmaps/td-p/2202699)——跨项目依赖线只在**双方都在计划范围内**时渲染、范围外不可见且无原生占位（社区靠代理 issue 变通））：跨项目依赖可视的共识=**范围外要么画占位要么明说，静默消失是最差解**。
+- 对本项目的映射：/deps 图补齐 graph 端点已有的占位语义（I143 已实现于后端——前端 /deps 自建数据没用上）：跨项目边渲染占位节点（可读=GET /items/{foreign} 成功→真实标题+来源项目名；不可读=404→🔒 外部依赖不泄露存在细节）+ 自算 blockedIds 修正（跨项目未完结上游计入——对齐看板 I128 SQL 口径：被外项目阻塞的本地项 /deps 也要标红）。**不做** 两图合并为一页（GraphView=项目内 React Flow 交互面、/deps=分层拓扑 CPM 管理视图——受众不同共存）、关键路径跨项目重算（CPM API 单项目口径维持·跨项目上游有占位提示即可）、Jira 式计划范围概念（一人工厂无 plan 实体）。
+
+**BX.2 跨项目建链入口（OpenProject 的域内补全+跨域逃生口）**
+
+- 产品共识（[OpenProject relations 文档](https://www.openproject.org/docs/user-guide/work-packages/work-package-relations-hierarchies/)+[博客](https://www.openproject.org/blog/linking-workpackages/)——关系自动补全默认搜**当前项目**，跨项目靠手打 `#ID` 直引另一项目工作包）：建链的共识=**当前域自动补全+跨域显式逃生口**。
+- 对本项目的映射：QuickEditModal 关系区目标选择器升级二级（项目 select[默认本项目·listProjects 用户可读项目]+目标 items 随项目 lazy 加载[listItems(otherPid)]）——建链/解除走 M47/M78 既有 API（双方可读 403 门禁+from 侧写门禁+任一侧可解俱在·**后端零改动**）。**不做** #ID 直输逃生口（二级选择器已覆盖·一人工厂无需两套）、时间线连线拖拽跨项目（拖拽语义=可视范围即建链范围·跨项目走表单——W3C hover/可视性教训同源）。
+
+**BX.3 git 恢复惯例备案（等证据——惯例已备）**
+
+- 产品共识（[freeCodeCamp](https://www.freecodecamp.org)/[Edureka](https://www.edureka.co)——`git log --diff-filter=D` 定位删除 commit + `git checkout <commit>^ -- path` 捞回；GitHub/GitLab 网页惯例——浏览删除前版本重加或 revert commit）：恢复的共识=**网页端给「浏览历史版本」入口，恢复=重加而非 undo**。
+- 对本项目的映射：工件删除=git rm commit（M73），git 历史即软删——CLI 捞回路径已通。**维持不做** 恢复 UI（等真实误删证据）；若做=工件历史抽屉（M70 资产版本 diff 惯例）+「从该版本恢复」走既有 PUT 工件链（新事件非 revert——事件溯源正统）。
+
+**BX.4 M79 取舍**
+
+M79 = **跨项目依赖面收口轮**：I237 /deps 图跨项目收口（占位节点渲染+blocked 口径修正）/ I238 跨项目建链二级选择器 / I239 冒烟 84+收尾审阅，约 6 人日。dnd 触屏改期（留观）、工件恢复 UI（等证据）、#ID 直输、两图合并、CPM 跨项目重算留 backlog。

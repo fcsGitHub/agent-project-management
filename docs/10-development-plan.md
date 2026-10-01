@@ -2410,6 +2410,36 @@ agent-project-management/
 
 ---
 
+### M79 · 跨项目依赖面收口轮（I237-I239，约 6 人日）
+
+> v3.0 新增（2026-10-01，docs/01 §BX 前置调研）。跨项目依赖面 grep 实证三件：**跨项目建链零 UI**（M47-I143 API 放开+双门禁俱在——但 QuickEditModal 目标选择器只列同项目、时间线拖拽限当前视图）；**/deps 依赖图跨项目边静默丢弃**（visible.has 双端过滤——而 M47 的「外部依赖」占位节点住在后端 graph 端点由 GraphView 消费，两图语义分叉）；**/deps 自算 blocked 漏跨项目上游**（与看板 I128 SQL 口径冲突——被外项目阻塞显示绿色）。**防重查：dnd 触屏改期留观[draggable 仅两处]、工件恢复 UI 等证据[git 捞回可达成]、两图合并/CPM 跨项目重算均不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I237 | /deps 图跨项目收口（跨项目边渲染「外部依赖」占位节点[可读=真实标题+来源项目名·不可读=🔒 不泄露——graph 端点同语义] + 自算 blockedIds 修正[跨项目未完结上游计入——对齐看板 I128 口径]） | docs/01 §BX.1 | Jira Plans scope 共识/I143 后端占位语义 | 2d |
+| I238 | 跨项目建链二级选择器（QuickEditModal 关系区目标选择升级：项目 select[默认本项目]+目标 items 随项目 lazy 加载——建链/解除走既有 API 零后端改动） | docs/01 §BX.2 | OpenProject 域内补全+跨域逃生口/M47 双门禁 | 2d |
+| I239 | 冒烟 84+收尾审阅（跨项目链 /deps 占位+blocked 口径源码断言；graph 端点占位回归；二级选择器源码断言；全量回归 + M79 审阅） | docs/01 §BX.3/§BX.4 | smoke runner 惯例 | 2d |
+
+#### I237 · /deps 图跨项目收口（2d）
+
+- 任务：DependencyGraphPage 跨项目边处理——批量 GET /items/{foreign_id}（成功=可读：占位节点显真实标题+来源项目名；404=不可读：🔒 外部依赖）+ blockedIds 把跨项目未完结上游计入 + 占位节点灰态渲染与图例。
+- DoD：跨项目依赖在 /deps 可见（可读显名/不可读锁）；被外项目阻塞的本地项标红；build 绿。
+- 演示路径：两项目建跨项目依赖→/deps 出占位节点→外项目阻塞本地项变红。
+
+#### I238 · 跨项目建链二级选择器（2d）
+
+- 任务：QuickEditModal 关系区目标选择升级二级（项目 select 默认本项目+listItems(otherPid) lazy）+ 跨项目建链 toast 提示「跨项目依赖：事件聚合在本项目」+ 既有解除面覆盖跨项目对（M78 已支持）。
+- DoD：跨项目建链/解除全 UI 可达；双方不可读时 403 toast 诚实呈现；build 绿。
+- 演示路径：A 项目卡快捷编辑→选 B 项目→选目标→建立→/deps 看到占位→✕ 解除。
+
+#### I239 · 冒烟 84+收尾审阅（2d）
+
+- 任务：**冒烟 84**（跨项目链 API roundtrip[建→/deps 占位数据源 relations 可达→解除]；/deps 占位+blocked 口径源码断言；二级选择器源码断言；graph 端点占位回归）+ 附录 C 登记（dnd 触屏/工件恢复维持）+ 全量回归 + docs 收口 + M79 审阅。
+- DoD：冒烟 84 GREEN；非 smoke 全量 EXIT=0。
+- 演示路径：一条冒烟锁住跨项目依赖面不再分叉。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2620,6 +2650,7 @@ agent-project-management/
 | I234 依赖关系解除面 | 已完成 | 2026-10-01 | 2026-10-01 | items.py DELETE /items/{id}/relations（复合键 from+to+type——rel_* 代理键投影内铸造调用方不可知·关系对任一侧可发起·不存在 404·from 侧项目写门禁显式检查[事实聚合 from 侧与 item.related 同账本——M47-I143 镜像]）+ item.relation_removed 事件与投影 DELETE handler（重复创建整组移除·rebuild 存活）+ QuickEditModal 关系区（REL_LABEL 方向标签[depends_on from=后继 I83 口径]+✕ 解除确认含后果说明[约束消失日期不变·事件流可追溯]+类型/目标表单建立）+ api.removeRelation + test_relation_removal 3 项（roundtrip+rebuild+重建立/任一侧+404 矩阵/跨项目 network 门禁 403→补成员 200）——**日期不动：移除约束不等于重排[Jira unlink 语义·诚实偏离 §M78-I234 DoD 里「propagate 重算跟随」的乐观表述]** |
 | I235 触屏补课 | 已完成 | 2026-10-01 | 2026-10-01 | TimelinePage 连线触点 opacity-60 md:opacity-0 md:group-hover:opacity-100（<768px 恒可见·桌面 hover 增强保留——事件可达性本就由父级 touch-none 祖先链相交覆盖[有效 touch-action 沿链相交]·缺的只是可见性[W3C hover 不兼容明文]）+ SchedulePage 休假日历 onPointerDown pointerType!=mouse 两段点选（首点锚定次点收尾支持反向区间·preventDefault 抑制合成 mouse 序列防与 onMouseDown/Up 双触发·touch-manipulation 防双击缩放干扰；鼠标路径零改动）+ 隔离环境 375px 触屏走查全绿（vite preview 代理临时改 8130 走查后还原——8000 被另一项目 CareThread 占用不误杀；触点 computed opacity=0.6/✕ 解除确认对话+item.relation_removed 事件对账/非拖拽建立 blocks→item.related/两段点选开 CreateModal）——条目卡片 HTML5 dnd 触屏改期登记不做（附录 C M78） |
 | I236 冒烟 83+附录 C 清账+收尾审阅 | 已完成 | 2026-10-01 | 2026-10-01 | test_smoke_83（关系生命周期锁：roundtrip+任一侧解除+幂等缺席 404+rebuild 存活+重建立；触屏 affordance 源码锁：触点常显类/pointerType 分支/touch-manipulation/removeRelation 在——与 smoke 82 同款 ROOT parents[3] 源码断言）+ 附录 C 清账（M38 条目**已消化补记**[M42-I130 调用点条件渲染·登记未标记属文档漂移]/M41 **条件未触发**[产品 UI 无 rebuild 按钮·grep 实证]/M78 登记[分叉采纳面正式关闭+HTML5 dnd 触屏留观+删除恢复 UI 维持]）+ 全量回归（非 smoke **469 EXIT=0**/smoke runner **84 GREEN** EXIT=0/vitest 30/build 绿/check_env_doc ✓） |
+| 2026-10-01 M79 调研定义（§BX） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：候选①**跨项目依赖面 grep 实证三件缺口**——**跨项目建链零 UI**[M47-I143 API 放开+双方可读门禁+from 侧写门禁俱在·但 QuickEditModal 目标选择器只列同项目/时间线拖拽限当前视图——只剩 NDJSON/API 直调]、**/deps 依赖图跨项目边静默丢弃**[DependencyGraphPage visible.has 双端过滤——而 M47「外部依赖」占位节点住后端 graph 端点[projects.py:564-588]由 GraphView 消费·**两图语义分叉**]、**/deps 自算 blocked 漏跨项目上游**[React 层 !upstream continue vs 看板 I128 SQL 无项目过滤——被外项目阻塞显示绿色口径冲突]；候选②dnd 触屏改期[draggable 全前端仅两处——留观]；候选③工件恢复 UI[git 捞回可达成——等误删证据]。三路 WebSearch：跨项目依赖可视（[Atlassian](https://confluence.atlassian.com/jirasoftwareserver112/dependencies-in-advanced-roadmaps-1688899996.html)/[社区](https://community.atlassian.com/forums/discussion/2020002/advanced-roadmaps-dependency-lines-between-projects)——**范围外要么占位要么明说·静默消失最差解**·Jira 无原生占位靠代理 issue 变通）、建链入口（[OpenProject](https://www.openproject.org/docs/user-guide/work-packages/work-package-relations-hierarchies/)——域内补全+跨域 `#ID` 逃生口）、git 恢复（[freeCodeCamp](https://www.freecodecamp.org)——`--diff-filter=D` 定位+`checkout ^` 捞回·网页惯例=浏览历史重加非 undo）。定案 M79=跨项目依赖面收口轮（I237 /deps 占位+blocked 口径修正/I238 建链二级选择器/I239 冒烟 84） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |
