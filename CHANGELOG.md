@@ -6,14 +6,19 @@
 
 ## [Unreleased]
 
-M86（运维验证轮·部署链与备份恢复——攒批中：随 v0.9.0 统一 bump+tag）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。
+
+## [0.9.0] — 2026-10-02
+
+M86~M87（运维验证轮 + 前端工具链 major 升级轮）。攒批节奏第三版：两轮一版。基线：pytest 477 / 冒烟 96 / vitest 41 / 机械防腐七件 ✓。
+
+### Changed
+- **前端工具链六 major 一车升级**（M87-I263，M83 依赖健康轮的前端续篇）：TypeScript 5.9→7.0（Go 原生编译器 tsgo，`tsc -b` 类型检查直通）、Vite 7→8（Rolldown 内核）、Vitest 3→5、@vitejs/plugin-react 5→6、jsdom 27→30、lucide-react 0.x→1.0；主 bundle 376KB→351.5KB。四懒加载路由浏览器实测零 fallback，web 镜像 frozen-lockfile 构建验证通过。
+- **备份源存在性 loud fail**（M86-I261）：`tools/backup.py` 对缺失的源库不再静默连空库产出「空成功」备份（会让毁库闸失效），改为明确报错并提示检查 `APM_DATA_DIR`。
+- docs/11 部署指南解冻至 v0.8.0（部署后自检速查+部署故障速查表+恢复演练纪律）；v0.8.0 镜像 compose build 双镜像验证通过（healthcheck 绿+核心路径冒烟）。
 
 ### Fixed
 - **部署链两处阻断缺陷**（M86-I260 compose build 首次验证抓出）：compose 布尔透传空串被 pydantic-settings 拒绝（api 启动即崩→默认值修正）；`cryptography` 从未在 requirements 声明（OIDC 隐式依赖被共享环境掩蔽，干净容器 ModuleNotFoundError→显式声明）。
-
-### Changed
-- **备份源存在性 loud fail**：`tools/backup.py` 对缺失的源库不再静默连空库产出「空成功」备份（会让毁库闸失效），改为明确报错并提示检查 `APM_DATA_DIR`。
-- docs/11 部署指南解冻至 v0.8.0（部署后自检速查+部署故障速查表+恢复演练纪律）；v0.8.0 镜像 compose build 双镜像验证通过（healthcheck 绿+核心路径冒烟）。
 
 ## [0.8.0] — 2026-10-02
 
