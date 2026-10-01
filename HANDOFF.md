@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M80 全局质量轮·写门对齐 完成，下一步 M81 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M81 调研已定案，下一步 I243 版本单源化）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M81 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M80 纪律沉淀：候选池勿凭印象写——十次自证见前轮；「半截链」十一例；功能面饱和+交互完备性[M78]+跨项目依赖面[M79]+写门质量轮[M80]均已做；机械防腐三件在[check_env_doc/check_write_gates/冒烟源码锁]**）→ 三路并行 WebSearch → docs/01 新节（§BZ）+ docs/10 §M81 节 + 看板行 →「M81 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M81 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（留观）；②dnd 触屏改期 pointer 重写（留观）；③删除工件恢复 UI（等证据·惯例已备）；④**版本化/发布工程面**（待核验：git tag 全无、版本锚点仅 README v0.5 一行——tag+发布说明+部署文档的「工厂出厂面」是否值得一轮）；⑤维持项长清单。
+2. **M81 发布工程轮（下一步，调研已定案 dacbd46）**：docs/01 §BZ + docs/10 §M81（I243-I245）。**定案依据（grep 实证四件）**：零 tag（662 提交）；版本锚点三处漂移（README v0.5/package.json 0.1.0/后端零标识）；无 CHANGELOG（M77 排除的是自动生成器·手工发布件未排除）；docs/11 部署指南冻结 M8（指南类活文档）。**执行序**：I243 版本单源化（app/apm/version.py 单源 + /api/health 透 version + package.json 0.6.0 + README 版本行 + `git tag -a v0.5.0 19d698d` 回溯 M77 收口）→ I244 CHANGELOG.md（Keep a Changelog·v0.5.0=M46~M77 浓缩·v0.6.0=M78~M81）+ docs/11 解冻（OIDC/PAT/ntfy/Prometheus/写门段·env 速查指向 .env.example）→ I245 冒烟 86（版本四锚一致+CHANGELOG 结构断言）+ `git tag -a v0.6.0` 收口 + 全量回归 + M81 审阅。测试参照：/api/health 现状 grep app/apm/domains/system.py、smoke 82 的 subprocess 断言模式。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
