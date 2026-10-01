@@ -2365,3 +2365,26 @@ M87 = **前端工具链 major 升级轮**：I263 一车升级（六 major+minor 
 **CG.4 M88 取舍**
 
 M88 = **发布工程第二轮·发布面补课与演练机械化**：I266 v0.9.0 发布面补课（compose build 双镜像[app 重建]+全链 up 健康检查+版本对账+v0.9.0 数据全链演练[节律缺口如实登记]） / I267 tools/release_drill.py 演练机械化+docs/11 解冻至 v0.9.0 / I268 收口审阅（全量回归+CHANGELOG Unreleased+看板闭环+收口 DoD 修订入档·攒批 v0.10.0 不 tag），约 4 人日。CI 化 release gate、发布分支/RC、定时演练调度、docs/01~09 回填、留观候选（graph 入边/dnd 触屏/工件恢复/a11y 二期/init_db 幂等化）留 backlog。
+
+## CH. M89 前置调研：a11y 二期·色彩对比与表单可访问名长尾（2026-10-02）
+
+> 目标协议触发：M88 完成后开启。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**；init_db 幂等化维持「真实事故再触发」；演练 --seed-light 留观（发布轮频度下 95s 可接受）；v0.10.0 攒批=M88+M89 两轮成版（**本轮收口 bump 四锚+CHANGELOG [0.10.0]+tag**）。**候选④ a11y 二期转正——证据本轮当场收集**：隔离环境（8142/4181 双隔离·seed 造数）真实浏览器注入 axe-core 4.13.0 六路由全量扫描（页面级 region/landmark/heading 禁用同 vitest 锁口径·其余全开——**color-contrast 等 jsdom 布局依赖规则首次可评**）：**critical 18 处**（Board `label`×12 表单元素无可访问名 + Board/Reports `select-name`×6 select 无名）+ **serious 80 处**（`color-contrast`×72[Dashboard 17/Board 34/Reports 6/Settings 10/Assets 2/MySchedule 3] + `label-title-only`×4[Board/Reports 各 2] + `link-in-text-block`×1[Settings]）——M85 建立的 jsdom axe 锁对这些规则结构性失明（jsdom 无布局），本轮为首次真实测量。三路新调研（**色彩对比修复惯例 / 表单可访问名模式 / axe 不可评规则的回归防线**），选定 **M89 = a11y 二期·色彩对比与表单可访问名长尾**。
+
+**CH.1 色彩对比（72 处 serious——高频根因修复而非逐处内联）**
+
+- 产品共识（[WCAG 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)——正文文本 ≥4.5:1·大字/粗体 ≥3:1；[web.dev 对比度](https://web.dev/articles/color-and-contrast-accessibility)——灰字浅底是最常见失败·设计 token 层修复一处生效全站；[Deque 对比度修复](https://www.deque.com/blog/color-contrast-check-list)——优先调色板而非内联覆盖）：修复的共识=**token/调色板层改一档，胜过逐组件内联覆盖**。
+- 对本项目的映射：72 处集中于低对比灰（`text-mut`/zinc-400 系）与徽标浅底字——先抽样定位高频根因（预计 2~3 个 token），design token 提亮/加深一档后全量复扫收敛；主题双通道（亮/暗 @theme 变量 M47）双侧验证。**不做**逐处内联 style 覆盖（下一个组件又犯）、自动调色板工具引入（token 手调可控）。
+
+**CH.2 表单可访问名（critical 18+serious 4——M85 长尾策略的第二批）**
+
+- 产品共识（[WCAG 3.3.2/4.1.2](https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions)——input/select 必须有可编程关联标签；[MDN select 无障碍](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select#accessibility)——select 与 input 同权需要 label/aria-label；[WAI 教程表单](https://www.w3.org/WAI/tutorials/forms/labels/)——显式 label 优先 aria-label 次之 title= 仅作提示）：可访问名的共识=**表单控件全部有名，select 不豁免**。
+- 对本项目的映射：Board 的 12 处 label+3 select-name（过滤/泳道/分组工具行 select 与内联表单）+ Reports 3 select-name+2 label-title-only——沿用 M85 惯例（aria-label 显式补·title= 既有资产不动）；`label-title-only`（仅 title= 撑名的元素）评估补 aria-label 或接受（title= 在真实浏览器可作可访问名·axe 按最严格判——**裁决以 axe 静默为准**补齐）。**不做**全站 71 input 一次性翻新（M85 裁决不变·本轮 axe 点名的才修）。
+
+**CH.3 axe 不可评规则的回归防线（jsdom 锁边界已两次实证）**
+
+- 产品共识（[axe-core FAQ](https://github.com/dequelabs/axe-core/blob/develop/doc/FAQ.md#for-which-rules-do-i-need-the-browser-adapter)——color-contrast 等需真实浏览器布局；[axe DevTools 流程](https://www.deque.com/axe/browser-extensions/)——浏览器扫描是发布前人工门惯例；[vitest browser mode](https://vitest.dev/guide/browser/)——真实浏览器自动化面但引 playwright/chromium 依赖）：机检边界的共识=**jsdom 评不了的规则，浏览器扫描进发布流程做人工门**。
+- 对本项目的映射：**不引** vitest browser mode/playwright（零依赖纪律·chromium 下载成本+IAB 已可扫描）；防线=①本轮修复后复扫归零的基线数字入档 docs/06+②扫描方法文档化（隔离双端口+axe.min.js 注入六路由·~15 分钟人工流程）进 docs/06 a11y 节+③发布轮收口 DoD 的 a11y 项维持 axe jsdom 锁+人工浏览器扫列出（M88 DoD 修订惯例同构）。**不做** CI 化扫描（无 CI 面）。
+
+**CH.4 M89 取舍**
+
+M89 = **a11y 二期·色彩对比与表单可访问名长尾**：I269 表单可访问名 critical 清零（label×12+select-name×6+label-title-only×4+link-in-text-block×1——Board/Reports/Settings axe 点名处） / I270 色彩对比 token 级修复（72 处→根因 2~3 token 双主题收敛+全量复扫归零） / I271 收口+**v0.10.0 攒批发布**（全量回归+CHANGELOG [0.10.0]+四锚 bump+tag+发布轮收口 DoD 两项[release_drill 演练+时效戳核对]首次执行），约 4 人日。全站 71 input 翻新、vitest browser mode/playwright 引入、逐处内联对比度覆盖、留观候选（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light）留 backlog。
