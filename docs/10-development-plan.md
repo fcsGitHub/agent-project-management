@@ -2590,6 +2590,36 @@ agent-project-management/
 
 ---
 
+### M85 · a11y 轮·对话框语义与键盘可用性（I257-I259，约 6 人日）
+
+> v3.0 新增（2026-10-02，docs/01 §CD 前置调研）。防重查：留观三候选维持；审计种子三件：**对话框语义与焦点管理全缺**（Modal+Drawer 两原语[Drawer 消费面 8+ 文件]零 role=dialog/aria-modal/初始焦点/Tab 陷阱/焦点还原——role="dialog" 全前端仅 1 处·Drawer Escape 缺 defaultPrevented 检查[嵌套双关风险]）；**可访问名长尾**（161 按钮仅 9 aria-label 但 title= 纪律 290 处——真无名按钮全库仅 1 个 SchedulePage ✕；input 71 vs label 20=placeholder-only 常态）；**既有正确面**（⌘K+快捷键浮层·focus-visible 样式·Escape 契约）。**防重查：native dialog 迁移不做（jsdom 无法验证 showModal+top-layer 迁移动弹层样式）、全站 71 input 翻新不做、Playwright a11y 不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I257 | Dialog 焦点管理 hook+两原语语义（零依赖 ~50 行：打开存触发元素→初始焦点入弹窗→Tab 循环陷阱→关闭还原触发元素 + role=dialog/aria-modal/aria-labelledby + Drawer Escape 统一 defaultPrevented 契约[修嵌套双关] + vitest 断言[初始焦点/Tab 不逃逸/还原]） | docs/01 §CD.1 | I95 Escape 契约/APG 模式 | 2d |
+| I258 | 可访问名长尾清零+axe-core 机械锁（SchedulePage ✕ aria-label + 高频模态表单 placeholder-only input 补 aria-label[新建项目/评论/快捷编辑优先] + axe-core 入 devDependencies[npm 侧核验 dequelabs——M83 三元组纪律同构] + ui.tsx 两原语零 critical violation vitest 锁=**机械防腐第七件**） | docs/01 §CD.2/§CD.3 | M83 供应链核验纪律 | 2d |
+| I259 | 纯键盘核心旅程 E2E+收尾审阅（Tab/Enter/Esc 走 ⌘K→建项目弹窗→填表提交→卡片抽屉→Esc 焦点还原 + 全量回归 + M85 审阅 + **v0.8.0 攒批时机决策**[M84+M85 两轮·倾向 tag]） | docs/01 §CD.4 | M82/M84 浏览器走查惯例 | 2d |
+
+#### I257 · Dialog 焦点管理 hook+两原语语义（2d）
+
+- 任务：web/src/components/dialogFocus.ts（零依赖 hook）+ Modal/Drawer 接线（语义属性+hook+Drawer Escape 契约统一）+ vitest（render 弹窗→初始焦点在首个可聚焦元素→Tab 到末尾再 Tab 循回首→关闭后焦点还原到触发按钮）。
+- DoD：vitest 绿；键盘 Tab 无法逃逸弹窗；Esc 关闭后焦点回触发元素。
+- 演示路径：浏览器纯键盘走一遍新建项目弹窗。
+
+#### I258 · 可访问名长尾清零+axe-core 机械锁（2d）
+
+- 任务：SchedulePage ✕ + 高频模态表单 aria-label + `pnpm add -D axe-core`（核验 repository=dequelabs/axe-core）+ ui.tsx Modal/Drawer 代表性内容 axe 断言零 critical（vitest）。
+- DoD：vitest 绿；axe 零 critical；新依赖核验记录在案。
+- 演示路径：故意造无名按钮→axe 红→修复→绿。
+
+#### I259 · 纯键盘核心旅程 E2E+收尾审阅（2d）
+
+- 任务：浏览器纯键盘（不碰鼠标）走 ⌘K→建项目→提交→卡片抽屉→Esc 还原 + 全量回归 + docs 收口 + M85 审阅 + **v0.8.0 决策**（倾向：M84+M85 两轮打 tag——含用户可感知面）。
+- DoD：键盘旅程无死路；全量 EXIT=0；冒烟 runner GREEN。
+- 演示路径：录屏/逐步截图键盘旅程。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2830,6 +2860,7 @@ agent-project-management/
 | I252+I253 测试日期全量对账+机械防腐 | 已完成 | 2026-10-02 | 2026-10-02 | I252 对账——app/tests 全目录硬编码日期逐文件三分类（①密闭合成时钟[test_weekly_report 的 _report_status_weekly 参数注入·18 处全安全]/②静态实体锚[test_health_history 的 overdue past=2026-01-01 恒在过去]/③真窗 HTTP 炸弹判据=端点 SQL 有无 spent_on>= 等真实时钟窗口）——**非 smoke 测试零真炸弹**（M38/M45/M63 锚定修复全部在岗·窗口断言均已锚定）+ 最小加固 test_timelog._log 默认日期动态化（原硬编码 2026-09-04 距窗口化只差一次重构）+ I253 tools/check_test_dates.py（日期字面量×窗口端点引用交集[名册=my/timelog 28d/workload 7d/health-history 30d/forecast 完整周/my/work ISO 周]→REVIEWED 台账人工裁决·未登记即红——**台账=被点名者裁决记录非问题清单**·交集实算仅 6 文件；**机检首日双自证**：抓获人工对账漏网 smoke_58[workload UTC 锚在岗·安全]+把自己冒烟文件的哨兵字符串也点名）+ 冒烟 89 双用例（脚本 subprocess 绿+故意红自证[哨兵真写真删必须红·删后恢复绿]+台账完整性[每条目存在且确有窗口引用]） |
 | I254 E2E 全路由 chunk 走查+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境（8138/4178 双隔离）浏览器**29 路由逐个加载**（M82 懒加载迁移的遗留验证——彼时只实测了 Dashboard/Board/Intake 三路由）：**全数 ok 零 fallback**（含空库近空态页 templates/my-work/roadmap/search/activity 与 bogus-token intake 的页内错误态——均为页面自身空态非边界 fallback）+ 累计加载 **35 chunks 与 build 产物精确一致** + **全量回归抓出 I252 加固的次序回归→发现即修**（test_timelog 排序断言依赖 e1 日期<e2 日期——动态锚定 today 后 today>09-05 翻转 ASC 次序；修法=配对日期一起锚显式保持时序[today-1/today]——**动态锚定须保持日期相对次序不只窗口成员资格·教训入 HANDOFF §5**）+ 重跑全量回归（非 smoke **477 EXIT=0**/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest 35/build 绿/check_env_doc ✓/check_write_gates ✓/**check_test_dates ✓ 新第六件**）+ CHANGELOG Unreleased 记 M84（攒批待 v0.8.0 不 tag） |
 | **M84 全局质量轮·测试日期稳健性对账（I252-I254）** | 已完成 | 2026-10-02 | 2026-10-02 | 3 迭代 / 约 6 人日（docs/01 §CC + docs/10 §M84）：I252+I253 全量对账零真炸弹+check_test_dates.py 台账（机械防腐第六件·冒烟 89 锁定）/ I254 E2E 全路由 chunk 走查（29 路由零 fallback·35 chunks 对账）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + 冒烟 runner **96 GREEN** EXIT=0[89 文件]）+ vitest **35** + build 绿 + check_env_doc ✓ + check_write_gates ✓ + **check_test_dates ✓**；**攒批 v0.8.0 不 tag** |
+| 2026-10-02 M85 调研定义（§CD） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：留观三候选零新证据**维持**；审计种子三件——**对话框语义与焦点管理全缺**[Modal+Drawer 两原语[Drawer 消费面 8+ 文件]零 role=dialog/aria-modal/初始焦点/Tab 陷阱/焦点还原·role="dialog" 全前端仅 1 处·Drawer Escape 缺 defaultPrevented 检查=嵌套双关风险]、**可访问名长尾**[161 按钮仅 9 aria-label 但 title= 纪律 290 处——全库扫描真无名按钮仅 1 个 SchedulePage ✕·input 71 vs label 20=placeholder-only 常态]、**既有正确面**[⌘K+快捷键浮层 M29/focus-visible 样式/Escape 契约]。三路 WebSearch：对话框模式（[W3C ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal) 焦点三件套=初始/陷阱/还原+[audit 惯例](https://auditbuffet.com/patterns/ab-001608) Tab 逃逸是常见失败项）、native dialog（[MDN](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog)/[CSS-Tricks](https://css-tricks.com/using-and-styling-the-dialog-element) showModal 免费陷阱+inert——**裁决不做**：jsdom 无法组件级验证 showModal+top-layer 迁移动弹层样式+Drawer 本质是侧栏面板）、axe-core（[dequelabs 官方](https://github.com/dequelabs/axe-core)/[vitest 集成惯例](https://medium.com/@echilaka/testing-react-accessibility-with-axe-dev-console-vitest-and-the-chrome-extension-e24b5ae623df) render→axe→零 violations·npm 侧核验 dequelabs=M83 三元组纪律同构）。定案 M85=a11y 轮·对话框语义与键盘可用性（I257 零依赖焦点 hook+两原语语义/I258 可访问名长尾+axe-core 机械锁第七件/I259 纯键盘旅程 E2E+v0.8.0 攒批时机决策） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |

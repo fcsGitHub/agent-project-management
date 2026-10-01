@@ -2269,3 +2269,26 @@ M83 = **依赖健康轮（后端）**：I249 后端依赖一车升级+httpx2 迁
 **CC.4 M84 取舍**
 
 M84 = **全局质量轮·测试日期稳健性对账**：I252 全量对账（20+ 文件逐个三类定判·修真炸弹为动态锚定·台账成形）/ I253 tools/check_test_dates.py+冒烟 89（启发式+REVIEWED 台账·故意红自证）/ I254 E2E 全路由 chunk 走查（**M82 遗留验证：29 路由懒加载全量真实加载**——隔离环境逐路由确认 chunk 拉取+非 fallback 渲染）+ 全量回归 + M84 审阅收口（攒批 v0.8.0 不 tag），约 6 人日。时间冻结库、Clock 抽象重构、AST 分析、CI 多日期、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CD. M85 前置调研：a11y 轮·对话框语义与键盘可用性（2026-10-02）
+
+> 目标协议触发：M84 完成后开启。防重查：留观三候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；候选池 grep（a11y/无障碍/焦点——docs/01 §BW.2 触屏+§BW.3 WCAG 2.5.7 拖拽替代已有先例·对话框语义未审）。审计种子实证三件：**①对话框语义与焦点管理全缺**（Modal+Drawer 两原语[ui.tsx·Drawer 消费面 8+ 文件=最高频表面]零 role=dialog/aria-modal/初始焦点/Tab 陷阱/焦点还原——`role="dialog"` 全前端仅 1 处；键盘用户 Tab 从弹窗逃逸进底层页面[audit 常见失败项]；Modal 有 Escape 契约[I95 defaultPrevented 检查]但 **Drawer 缺 defaultPrevented 检查**——嵌套双关风险）；**②可访问名长尾**（161 按钮仅 9 aria-label 但 title= 纪律覆盖 290 处——全库扫描仅 1 个真无名按钮 SchedulePage ✕；input 71 vs label/htmlFor 20=placeholder-only 常态）；**③既有正确面**（⌘K 命令面板+快捷键浮层[M29]·focus-visible 样式[ui.tsx]·Escape 关闭契约）。本轮三路新调研（**ARIA APG 对话框模式 / 原生 dialog 元素 / axe-core 自动化**），选定 **M85 = a11y 轮·对话框语义与键盘可用性**。
+
+**CD.1 对话框焦点管理（零依赖 hook——native dialog 裁决不做）**
+
+- 产品共识（[W3C ARIA APG Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal)——打开即焦点入弹窗[默认第一个可聚焦元素·更优=用户应最先行动的元素]·**焦点不得逃逸进被遮挡背景**·关闭还原到触发元素；[audit 惯例](https://auditbuffet.com/patterns/ab-001608)——未陷阱的 Tab 触达背景内容是常见失败项；[MDN dialog](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog)/[CSS-Tricks](https://css-tricks.com/using-and-styling-the-dialog-element)——native `showModal()` 免费给陷阱/背景 inert/Esc/顶层渲染）：对话框的共识=**语义（role/aria-modal/labelledby）+焦点三件套（初始/陷阱/还原）+Esc 关闭**。
+- 对本项目的映射：零依赖焦点管理 hook（~50 行：打开存触发元素→初始焦点入弹窗→Tab 循环在弹窗可聚焦元素内→关闭还原触发元素焦点）挂 Modal+Drawer 两原语（8+ 消费面一次收口）+ `role="dialog" aria-modal="true" aria-labelledby`；Drawer Escape 统一 Modal 的 defaultPrevented 契约（修嵌套双关）。**native `<dialog>` 裁决不做**——jsdom 无法组件级验证 showModal（vitest 断言失效·测试优先项目不可接受）+ top-layer 迁移动全部弹层样式 + Drawer 本质是侧栏面板非居中对话框语义。
+
+**CD.2 可访问名长尾（title= 纪律已是资产——补零星缺口）**
+
+- 产品共识（[WCAG 4.1.2 Name/Role/Value](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal)——控件须有可访问名；placeholder-only 是 [3.3.2](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal) 已知失败态）：可访问名的共识=**每个控件有名字**。
+- 对本项目的映射：SchedulePage ✕ 补 aria-label（全库唯一真无名按钮——title= 纪律 290 处已是大资产·无需全面翻新）+ 高频模态表单的 placeholder-only input 补 aria-label（范围=ui.tsx Input 消费面中无关联 label 的表单域·以新建项目/评论/快捷编辑等高频面为先）——**不做** 全站 71 input 一次性翻新（低频管理面收益小·按面逐步）。
+
+**CD.3 axe-core 机械锁评估（供应链核验纪律适用——dequelabs 官方引擎）**
+
+- 产品共识（[axe-core](https://github.com/dequelabs/axe-core)——Deque 官方·业界标准引擎；[vitest 集成惯例](https://medium.com/@echilaka/testing-react-accessibility-with-axe-dev-console-vitest-and-the-chrome-extension-e24b5ae623df)——render→axe→零 violations 断言·违反即红；[U. of Arizona CI/CD 指南](https://accessibility.arizona.edu/web-apps/cicd-testing)——自动化能抓的抓·其余手动走查）：a11y 回归的共识=**引擎自动化锁+人工走查分工**。
+- 对本项目的映射：axe-core 入 devDependencies（npm 侧核验 repository/maintainer=dequelabs——M83 wheel METADATA 三元组纪律的 npm 同构）+ vitest 对 ui.tsx 两原语（Modal/Drawer 代表性内容）与核心页做零 critical violation 锁=**机械防腐第七件**；键盘旅程走查归 I259 手动面。**不做** 全页面 axe 全量（误报面大·按组件逐步）、Playwright a11y 扫描（无浏览器自动化面）。
+
+**CD.4 M85 取舍**
+
+M85 = **a11y 轮·对话框语义与键盘可用性**：I257 Dialog 焦点管理 hook+两原语语义（零依赖·vitest 断言初始焦点/陷阱/还原）/ I258 可访问名长尾清零+axe-core 机械锁（供应链核验后入 devDependencies·第七件防腐）/ I259 纯键盘核心旅程 E2E（⌘K→建项目→抽屉→Esc 焦点还原）+ 全量回归 + M85 审阅收口（**v0.8.0 攒批时机决策点：M84 测试稳健性+M85 a11y 两轮·后者用户可感知——倾向打 tag**），约 6 人日。native dialog 迁移、全站 input 翻新、Playwright a11y、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
