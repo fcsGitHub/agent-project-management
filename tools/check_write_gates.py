@@ -51,7 +51,7 @@ REVIEWED: dict[str, str] = {
     "/api/ontologies/{name}/learn-llm": "is_instance_admin（M80-I240）",
     "/api/ontologies/{name}/apply": "is_instance_admin（M80-I240·分层仍 V2）",
     "/api/system/reload-ontologies": "is_instance_admin（M80-I240）",
-    "/api/automations/sweep": "is_instance_admin（M80-I240——全实例节拍触发）",
+    "/api/automations/sweep": "登录即可（幂等节拍提前）·force=True admin（M80-I240）",
     # —— 既有域内门（M26~M79 期间已审）——
     "/api/comments/{comment_id}": "_gate 项目成员（M17）",
     "/api/comments/{comment_id}/extract-task": "_gate 项目成员（M21）",

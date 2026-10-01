@@ -104,7 +104,9 @@ def test_rebuild_replays_id_and_keeps_idempotency(client, tmp_data, isolated_ont
     _mkitem(client, pid, "重建存活提醒", _today())
     assert client.post("/api/automations/sweep", json={}).json()["notified"] == 1
 
-    projections.rebuild()
+    # M80-I240 起门禁化：裸 projections.rebuild() 会清 users 投影（M61 坑），
+    # 重建走 admin 端点——内部 ensure_default_user 恢复引导管理员。
+    client.post("/api/system/rebuild-projections")
     client.post("/api/session/identity", json={"user_id": "qa-wang"})
     notes = [n for n in client.get("/api/notifications").json()["notifications"]
              if n["kind"] == "due_soon"]

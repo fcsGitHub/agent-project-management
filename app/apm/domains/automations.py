@@ -878,8 +878,11 @@ class SweepIn(BaseModel):
 def post_sweep(body: SweepIn) -> dict:
     """Manual trigger for the I98 daily sweep (the background ticker calls
     run_daily_sweep() without force on its own cadence)."""
-    from apm.domains.members import is_instance_admin
+    # M80-I240: 普通触发=后台节拍的提前一跑（幂等、逐日防重不变）——登录即可；
+    # force=True 绕过逐日防重（重发提醒）=admin 专属。
+    if body.force:
+        from apm.domains.members import is_instance_admin
 
-    if not is_instance_admin(events.effective_actor()):
-        raise HTTPException(status_code=403, detail="admin only")  # M80-I240: 全实例节拍触发=admin
+        if not is_instance_admin(events.effective_actor()):
+            raise HTTPException(status_code=403, detail="force sweep is admin only")
     return run_daily_sweep(force=body.force)
