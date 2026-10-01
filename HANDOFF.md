@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M78 交互完备性深审轮 完成，下一步 M79 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M79 调研已定案，下一步 I237 /deps 图跨项目收口）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M79 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M78 纪律沉淀：候选池勿凭印象写——十次自证见前轮；「半截链」十一连中[第十一例变体=创建面在·解除面从未设计·M78 收口]；api 级+事件级两层扫描枯竭·功能面饱和；交互完备性深审已做[M78]；交付面防腐已入冒烟[82]**）→ 三路并行 WebSearch → docs/01 新节（§BX）+ docs/10 §M79 节 + 看板行 →「M79 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M79 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①跨项目依赖建立的 UI 面（M47 API 支持跨项目建链+DependencyGraphPage 🔒 占位节点在——但 QuickEditModal 目标选择器与时间线连线拖拽都只列同项目·跨项目建链零 UI——待核验真实缺口与使用频率，弱候选）；②条目卡片 HTML5 dnd 触屏改期 pointer 重写（M78 登记留观——等真实移动使用证据）；③删除工件恢复 UI（等真实误删证据——维持）；④维持项（长清单见前轮；M59 模式全局质量轮距上次[M76]已 2 轮——按节奏 M8x 再启）；⑤注意附录 C M78 登记三条（分叉关闭已结案不再列候选）。
+2. **M79 跨项目依赖面收口轮（下一步，调研已定案 006017b）**：docs/01 §BX + docs/10 §M79（I237-I239）。**定案依据**（grep 实证三件）：跨项目建链零 UI（M47-I143 API 放开+双方可读门禁+from 侧写门禁俱在——QuickEditModal 目标选择器只列同项目/时间线拖拽限当前视图）；/deps 依赖图跨项目边静默丢弃（`edges.filter(visible.has(from) && visible.has(to))`——M47「外部依赖」占位节点住后端 graph 端点[projects.py:564-588]由 GraphView 消费，两图语义分叉）；/deps 自算 blocked 漏跨项目上游（React 层 `!upstream continue` vs 看板 I128 SQL 无项目过滤——口径冲突）。**执行序**：I237 /deps 图跨项目收口（批量 GET /items/{foreign} 占位节点渲染[可读=真实标题+来源项目名·404=🔒 不泄露] + blockedIds 计入跨项目未完结上游）→ I238 QuickEditModal 关系区二级选择器（项目 select 默认本项目 + listItems(otherPid) lazy——建链/解除零后端改动）→ I239 冒烟 84（跨项目链 API roundtrip+/deps 占位与 blocked 口径源码断言/二级选择器源码断言）+ 附录 C 登记 + 全量回归 + M79 审阅。测试参照：test_cross_project（4 项·跨项目建链/传播语义）、冒烟 52（跨项目链 roundtrip）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
