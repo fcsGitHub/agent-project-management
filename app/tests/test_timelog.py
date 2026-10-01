@@ -35,9 +35,11 @@ def _log(client, item_id, minutes, spent_on=None, note=""):
 
 
 def test_timelog_crud_rebuild_and_totals(client, pid):
+    from datetime import date, timedelta
+    d1 = (date.today() - timedelta(days=1)).isoformat()
     item = _mk_item(client, pid, "被记时的任务")
-    e1 = _log(client, item["id"], 90, note="设计走查")
-    e2 = _log(client, item["id"], 30, spent_on="2026-09-05")
+    e1 = _log(client, item["id"], 90, spent_on=d1, note="设计走查")
+    e2 = _log(client, item["id"], 30)  # 默认=today——晚于 d1，列表 spent_on 升序即 [e1, e2]
     assert e1["user_id"] == "u_admin" and e1["deleted_at"] is None
 
     listing = client.get(f"/api/items/{item['id']}/time_entries").json()

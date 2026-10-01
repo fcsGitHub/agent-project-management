@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M84 调研已定案 dabea28，下一步 I252）
+# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M84 测试日期稳健性对账轮 完成，下一步 M85 前置调研）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M84 全局质量轮·测试日期稳健性对账（已定案 dabea28·docs/01 §CC + docs/10 §M84）**：I252 全量对账+修真炸弹（app/tests 全目录硬编码 `"2026-*"` 日期逐文件**三分类**：①密闭合成时钟[日期作函数参数注入，如 test_weekly_report 的 `_report_status_weekly(conn, "2026-09-21")`——安全] ②静态实体锚[语义对任意运行日恒真，如 test_health_history 的 overdue `past=2026-01-01`——安全] ③真窗 HTTP 炸弹[硬编码日期流进按 `date.today()`/`_now()` 开窗的端点——**判据=端点 SQL 有无 `spent_on >=`/`week_start` 等窗口**·修法=`date.today()-N` 动态锚定]；已知窗口端点名册：/my/timelog[28d 默认]、/workload[7d+周桶]、health/history[30d]、forecast[完整历史周]）→**I253 tools/check_test_dates.py+冒烟 89**（启发式=文件含日期字面量×窗口端点引用交集→标注；**REVIEWED 台账**=已定类文件+理由·新文件未登记即红——check_write_gates 台账模式第四次落地；故意红自证入冒烟 89）→**I254 E2E 全路由 chunk 走查**（**M82 遗留验证：隔离环境 29 路由逐个加载**确认懒加载 chunk 真实拉取+非 fallback 渲染——M82 只实测了 Dashboard/Board/Intake 三路由）+ 全量回归 + M84 审阅收口（**攒批 v0.8.0 不 tag**）。测试定位：对账=逐文件读端点·防腐=tools/check_test_dates.py·冒烟=tools/smoke/test_smoke_89。
+2. **M85 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M84 纪律沉淀：候选池勿凭印象写——十三次自证见前轮；「半截链」十一例；功能面饱和+交互完备性[M78]+跨项目依赖面[M79]+写门质量轮[M80]+发布工程[M81]+前端韧性与认证安全[M82]+依赖健康[M83]+测试日期稳健性[M84]均已做；机械防腐六件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账]**）→ 三路并行 WebSearch → docs/01 新节（§CD）+ docs/10 §M85 节 + 看板行 →「M85 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M85 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（留观）；②dnd 触屏改期 pointer 重写（留观）；③删除工件恢复 UI（等证据）；④前端工具链 major（vite 8/vitest 5/TS 7——M83 裁决留观）；⑤v0.8.0 攒批时机（M84 已入 CHANGELOG Unreleased——攒批继续，候选=使用驱动功能增量或质量轮再攒 1~2 轮）；⑥a11y 轮（aria-label 全前端仅 9 处——M84 调研时点观察，无审计无定论，候选化需先做证据收集走查）；⑦维持项长清单。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
@@ -155,14 +155,18 @@
 - **冒烟硬编码历史日期=定时炸弹，窗口类端点必须动态锚定**（M83-I251·M45 教训第三例）：smoke_26 硬编码 `spent_on=2026-09-04` 在跨 2026-10-02 午夜时滑出 /my/timelog 默认 28 天窗→KeyError 假红（发布验证当场抓获）；同族排查四文件——判别法=看被测端点 SQL 有无 `spent_on >=` 窗口（portfolio/cost-report 全时段安全·/my/timelog 与 workload 有窗）；一律 `date.today()-N` 锚定。
 - **新依赖装前先核 wheel METADATA 三元组**（M83-I249）：`pip download <pkg> --no-deps` 解 METADATA 核对 **Author/Maintainer/Project-URL**（httpx2 案=Tom Christie/Pydantic Services/github.com/pydantic/httpx2 正统后继）；弃用警告文本与第三方文章（含「投毒诱饵」指控）都只是线索不是依据——元数据定案。
 - **smoke 86 的版本钉已改锚定一致性**（M83-I251）：字面量 `== "0.6.0"` 改 semver 形态+四锚一致——「当前版本是几」由冒烟 88 `test_smoke_88_release_pin_v0_7_0` 钉；每次发布只改冒烟 88 那一行+version.py/package.json/README/test_version 四锚。
+- **对账台账只登记扫描器会点名的交集文件**（M84-I253）：check_test_dates 台账=「日期字面量×窗口端点引用」被点名后的人工裁决记录，非问题清单——首轮把无窗口引用的①类文件（test_weekly_report 等）也登记，冒烟 89 台账完整性断言当场纠正；扫描器连自己冒烟文件里的哨兵字符串都点名（登记①解决）——机检的自证价值双料（还抓到人工对账漏网的 smoke_58）。
+- **测试默认日期参数必须动态锚定**（M84-I252）：helper 的默认日期（如 test_timelog._log 原默认 spent_on="2026-09-04"） today 看只喂无窗聚合就「安全」，但距窗口化只差一次重构——默认值一律 `None`→函数内 today.isoformat()。
+- **动态锚定必须保持日期相对次序，不只是窗口成员资格**（M84-I254 再证）：test_timelog 的 [e1, e2] 排序断言依赖「e1 日期 < e2 日期」（原 09-04<09-05 恰好成立）——把 e1 锚到 today 后 today>09-05 次序翻转、列表 ASC 断言红；修法=配对日期一起锚并显式保持时序（today-1 与 today）。改动跑全量的兜底价值实证：单文件绿看不出、全量一把揪出。
 
 ## 6. 快速上手命令
 
 ```bash
 cd app && python -m pytest            # 477 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
-python tools/smoke/run_smoke.py       # 冒烟基线 94 例（88 文件·smoke 87/88 双用例），应 GREEN（repo 根目录跑）
+python tools/smoke/run_smoke.py       # 冒烟基线 96 例（89 文件·smoke 87/88/89 双用例），应 GREEN（repo 根目录跑）
 python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 已锁）
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
+python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0/v0.6.0/v0.7.0 在案·版本四锚由冒烟 86+88 锁定）
 cd web && pnpm vitest run             # 前端单测 35 项；pnpm build 须绿（主 bundle 376KB·35 chunks——页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
