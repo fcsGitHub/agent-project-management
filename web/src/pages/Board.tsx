@@ -1266,12 +1266,38 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
   const cyclesQ = useQuery({ queryKey: ["cycles", item.project_id], queryFn: () => api.listCycles(item.project_id) });
   // I234: 关系区（docs/01 §BW.1）——解除入口 + 非拖拽建立路径（WCAG 2.5.7）
+  // I238（docs/01 §BX.2）: 目标选择二级化——项目 select（默认本项目）+
+  // 目标 items 随项目 lazy 加载；建链/解除走 M47/M78 既有 API 零后端改动。
   const qc = useQueryClient();
   const detail = useQuery({ queryKey: ["item-detail", item.id], queryFn: () => api.getItem(item.id) });
   const projItems = useQuery({ queryKey: ["items", item.project_id], queryFn: () => api.listItems(item.project_id, { limit: 200 }) });
+  const projectsQ = useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
+  const [relPid, setRelPid] = useState(item.project_id);
   const [relType, setRelType] = useState("depends_on");
   const [relTarget, setRelTarget] = useState("");
-  const titleOf = (id: string) => projItems.data?.items.find((i) => i.id === id)?.title ?? id;
+  const relTargetItems = useQuery({
+    queryKey: ["items", relPid],
+    queryFn: () => api.listItems(relPid, { limit: 200 }),
+    enabled: relPid !== item.project_id, // 本项目复用 projItems
+  });
+  const relForeignIds = useMemo(() => {
+    const known = new Set((projItems.data?.items ?? []).map((i) => i.id));
+    return [...new Set((detail.data?.relations ?? []).flatMap((r) => [r.from_item, r.to_item]))]
+      .filter((id) => !known.has(id));
+  }, [detail.data, projItems.data]);
+  const relForeignQ = useQuery({
+    queryKey: ["rel-foreign", item.id, relForeignIds.join(",")],
+    queryFn: async () => {
+      const out: Record<string, string> = {};
+      await Promise.all(relForeignIds.map(async (id) => {
+        try { out[id] = (await api.getItem(id)).title; } catch { out[id] = "🔒 外部依赖"; }
+      }));
+      return out;
+    },
+    enabled: relForeignIds.length > 0,
+  });
+  const titleOf = (id: string) =>
+    projItems.data?.items.find((i) => i.id === id)?.title ?? relForeignQ.data?.[id] ?? id;
 
   const afterRelChange = () => {
     qc.invalidateQueries({ queryKey: ["item-detail", item.id] });
@@ -1292,7 +1318,9 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
     if (!relTarget) return;
     try {
       await api.addRelation(item.id, { to_item: relTarget, relation_type: relType });
-      toast.success("关系已建立");
+      toast.success(relPid !== item.project_id
+        ? "跨项目依赖已建立——事件聚合在本项目（from 侧）"
+        : "关系已建立");
       setRelTarget("");
       afterRelChange();
     } catch (e) {
@@ -1466,12 +1494,21 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
               <option value="duplicates">重复于</option>
               <option value="includes">包含</option>
             </select>
+            <select value={relPid}
+              onChange={(e) => { setRelPid(e.target.value); setRelTarget(""); }}
+              className="rounded border border-line bg-surface px-1 py-0.5"
+              title="目标项目（跨项目建链：事件聚合在本项目·需双方可读）">
+              {(projectsQ.data?.projects ?? []).map((p) => (
+                <option key={p.id} value={p.id}>{p.id === item.project_id ? `本项目 · ${p.name}` : p.name}</option>
+              ))}
+            </select>
             <select value={relTarget} onChange={(e) => setRelTarget(e.target.value)}
               className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5">
               <option value="">选择目标项…</option>
-              {(projItems.data?.items ?? []).filter((i) => i.id !== item.id).map((i) => (
-                <option key={i.id} value={i.id}>{i.title}</option>
-              ))}
+              {(relPid === item.project_id ? (projItems.data?.items ?? []) : (relTargetItems.data?.items ?? []))
+                .filter((i) => i.id !== item.id).map((i) => (
+                  <option key={i.id} value={i.id}>{i.title}</option>
+                ))}
             </select>
             <Button size="sm" variant="outline" disabled={!relTarget} onClick={() => void addRel()}>建立</Button>
           </div>
