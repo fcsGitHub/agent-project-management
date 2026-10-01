@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M87 工具链 major 升级轮 完成[v0.9.0 已 tag]，下一步 M88 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M88 调研已定案 f468e2a，下一步 I266 发布面补课）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M88 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M87 纪律沉淀：候选池勿凭印象写——十六次自证见前轮；「半截链」十一例；功能面饱和+交互完备性[M78]+跨项目依赖面[M79]+写门质量轮[M80]+发布工程[M81]+前端韧性与认证安全[M82]+依赖健康[M83]+测试日期稳健性[M84]+a11y[M85]+运维验证[M86]+前端工具链 major[M87]均已做；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]**）→ 三路并行 WebSearch → docs/01 新节（§CG）+ docs/10 §M88 节 + 看板行 →「M88 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M88 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（留观）；②dnd 触屏改期 pointer 重写（留观）；③删除工件恢复 UI（等证据）；④a11y 二期（色彩对比+低频管理面 input——需浏览器级 axe 证据）；⑤init_db 幂等化（M86 发现——schema 手术·真实事故再触发）；⑥v0.10.0 攒批（M88+M89 两轮成版·M88 不 tag）；⑦工具链升级余项留观（rolldown-vite 中间步未走/react-router 8 等 major 动向）；⑧维持项长清单。
+2. **I266 v0.9.0 发布面补课（下一步·M88 已定案 docs/01 §CG）**：`docker compose build` 双镜像（app 镜像 M86 后首次重建+web 新 lockfile）→ `compose up -d` healthcheck → 容器 /api/health version=**v0.9.0** 对账 → seed→建项目→看板核心冒烟 → **v0.9.0 数据全链演练补课**（隔离 APM_DATA_DIR：造数→backup.py→毁库[**闸在备份 EXIT=0**]→restore.py→rebuild→四项对账[项目数/事件数/FTS/工件内容]→计时；Windows git 只读属性先清——M86 纪律②；M87 收口漏跑演练的节律缺口**如实登记附录 C**）。→ I267 `tools/release_drill.py` 演练机械化（一键全流程·M86 三条纪律内嵌·python 写文本 newline="\n"）+ docs/11 解冻至 v0.9.0（时效戳+web 构建链换代须知[node:24/vite8/vitest5 门槛]+演练脚本用法·**smoke 86 解冻代标记 M86-I262→M88-I267**）→ I268 收口（全量回归+CHANGELOG Unreleased 记 M88+看板闭环+附录 C+**收口 DoD 修订入档**[发布轮收口迭代 DoD 增「全链演练+docs/11 时效戳核对」]·攒批 v0.10.0 不 tag[M88+M89 两轮成版]）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
