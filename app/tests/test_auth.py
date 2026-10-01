@@ -76,3 +76,82 @@ def test_passwordless_user_cannot_login(client, tmp_data):
                            json={"user_id": "qa-li", "password": "whatever"}).status_code == 401
     finally:
         _disable_network()
+
+
+# ---- 登录防爆破（M82-I247）----
+
+import time
+
+from apm.domains import auth_api
+
+
+def _clear_login_guard() -> None:
+    auth_api._login_failures.clear()
+
+
+def test_login_lockout_window(client, tmp_data):
+    """窗口内失败达阈值→临时锁定（正确密码也 429）→窗口滑出自动解除。"""
+    _enable_network()
+    try:
+        _clear_login_guard()
+        for _ in range(auth_api.LOCKOUT_MAX_FAILURES - 1):
+            assert client.post("/api/auth/login",
+                               json={"user_id": "u_admin", "password": "nope"}).status_code == 401
+        # 第 5 次失败（达阈值的那次本身）仍是 401——锁定从下一次尝试起生效。
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "nope"}).status_code == 401
+        # 锁定生效：正确密码也 429 + Retry-After。
+        r = client.post("/api/auth/login",
+                        json={"user_id": "u_admin", "password": "admin-pass"})
+        assert r.status_code == 429
+        assert 0 < int(r.headers["Retry-After"]) <= auth_api.LOCKOUT_WINDOW_SECONDS
+        # 锁定转折点只发一次 session.login_locked（防攻击者逐次 429 灌水审计流）。
+        evs = client.get("/api/events",
+                         params={"event_type": "session.login_locked"}).json()["events"]
+        assert len(evs) == 1 and evs[0]["payload"]["user_id"] == "u_admin"
+
+        # 窗口滑出 → 自动解除，正确密码恢复登录。
+        auth_api._login_failures["u_admin"] = [time.monotonic() - auth_api.LOCKOUT_WINDOW_SECONDS - 1]
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+    finally:
+        _clear_login_guard()
+        _disable_network()
+
+
+def test_login_success_clears_failure_count(client, tmp_data):
+    """成功登录清零计数：3 败→成功→再 4 败仍是 401 而非 429。"""
+    _enable_network()
+    try:
+        _clear_login_guard()
+        for _ in range(3):
+            assert client.post("/api/auth/login",
+                               json={"user_id": "u_admin", "password": "nope"}).status_code == 401
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+        for _ in range(4):
+            assert client.post("/api/auth/login",
+                               json={"user_id": "u_admin", "password": "nope"}).status_code == 401
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "nope"}).status_code == 401
+    finally:
+        _clear_login_guard()
+        _disable_network()
+
+
+def test_lockout_is_per_user_and_covers_unknown(client, tmp_data):
+    """锁定按用户隔离：未知用户名同样计入锁定，且不殃及他人。"""
+    _enable_network()
+    try:
+        _clear_login_guard()
+        for _ in range(auth_api.LOCKOUT_MAX_FAILURES):
+            assert client.post("/api/auth/login",
+                               json={"user_id": "u_ghost", "password": "x"}).status_code == 401
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_ghost", "password": "x"}).status_code == 429
+        # 其他用户不受影响。
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+    finally:
+        _clear_login_guard()
+        _disable_network()
