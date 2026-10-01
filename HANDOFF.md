@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M79 跨项目依赖面收口轮 完成，下一步 M80 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M80 调研已定案，下一步 I240 写门对齐）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M80 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M79 纪律沉淀：候选池勿凭印象写——十次自证见前轮；「半截链」十一例；api 级+事件级两层扫描枯竭·功能面饱和；交互完备性深审[M78]与跨项目依赖面[M79]已做；交付面防腐已入冒烟**）→ 三路并行 WebSearch → docs/01 新节（§BY）+ docs/10 §M80 节 + 看板行 →「M80 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M80 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（M79 附录 C 登记——「别人依赖我」入边 GraphView 不显而 /deps 显——等真实跨项目上游使用证据，留观）；②条目卡片 HTML5 dnd 触屏改期 pointer 重写（M78 登记留观——等真实移动使用证据）；③删除工件恢复 UI（等真实误删证据——维持；惯例已备[浏览历史版本重加·事件溯源走 PUT 新事件非 revert]）；④维持项长清单；⑤**全局质量轮按节奏可提前**（M59/M76 模式——距 M76 已 3 轮，若本轮无证据驱动的新候选即启动：全库审计+交互面增量复查+E2E 复演）。
+2. **M80 全局质量轮·写门对齐（下一步，调研已定案 7cbc35b）**：docs/01 §BY + docs/10 §M80（I240-I242）。**定案依据（grep 实证四件）**：assets 写端点六写全裸（post/submit_review/deprecate/archive/restore/link——中间件白名单不含 /api/assets/*·M76 只补读面）；cycles/milestones/features/risks 四域 id-path 写端点零门禁（views 内联门作对照）；POST /runs、POST /conversations 无 /{id} 段不匹配白名单；白名单 allow-if-matched 新域从未回补。**执行序**：I240 写门对齐（四域 PATCH/DELETE 域内挂项目成员门[items require_visible_item 同款] + assets 六写分门[deprecate/archive/restore/submit_review/link=require_instance_user·post_asset=from 侧项目成员门] + runs/conversations 入口核验 + tools/check_write_gates.py[遍历 app.routes 非 GET·显式已审清单外即非零退出] + 矩阵测试[非成员 403/成员 200/local 可信]）→ I241 校验抽查+E2E 复演（隔离环境 CUA 走 M77~M79 新面全旅程·发现即修）→ I242 冒烟 85（对账脚本入冒烟含故意红自证）+ 附录 C + 全量回归 + M80 审阅。测试参照：test_read_gates（M76 矩阵惯例）、test_relation_removal（M78 写门测试惯例）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
