@@ -59,18 +59,75 @@ export function DependencyGraphPage() {
     return m;
   }, [items.data]);
 
+  // I237 (docs/01 §BX.1): cross-project edges used to be silently dropped
+  // (foreign ids missing from byId → filtered out at render). M47-I143's
+  //「外部依赖」placeholder lives in the graph endpoint (projects.py) consumed
+  // by GraphView — bring /deps to the same semantics: fetch each foreign id
+  // once; readable → real title + source project name, 404 → 🔒 (existence
+  // details not leaked).
+  const foreignIds = useMemo(() => {
+    const local = new Set(byId.keys());
+    const out = new Set<string>();
+    for (const e of edges) {
+      if (!local.has(e.from)) out.add(e.from);
+      if (!local.has(e.to)) out.add(e.to);
+    }
+    return [...out];
+  }, [edges, byId]);
+
+  const foreignQ = useQuery({
+    queryKey: ["dep-foreign", pid, foreignIds.join(",")],
+    queryFn: async () => {
+      const out: Record<string, { title: string; status_group: string; project_id: string; readable: boolean }> = {};
+      await Promise.all(foreignIds.map(async (id) => {
+        try {
+          const it = await api.getItem(id);
+          out[id] = { title: it.title, status_group: it.status_group, project_id: it.project_id, readable: true };
+        } catch {
+          out[id] = { title: "🔒 外部依赖", status_group: "external-unknown", project_id: "", readable: false };
+        }
+      }));
+      return out;
+    },
+    enabled: foreignIds.length > 0,
+  });
+
+  const projectsQ = useQuery({ queryKey: ["projects-graph"], queryFn: () => api.listProjects() });
+
+  // allNodes = 本地项 + 外部占位节点（可读显真名+来源项目名、不可读 🔒）——
+  // /deps 与 graph 端点同语义；unreadable 状态未知不参与阻塞判定（宁缺勿假红，
+  // 与看板 I128 SQL 口径在「不可读外部上游」子场景的已知差异，注释钉住）。
+  const allNodes = useMemo(() => {
+    const m = new Map<string, { id: string; title: string; status: string; status_group: string; foreignReadable?: boolean }>();
+    for (const [id, it] of byId) m.set(id, { ...it });
+    for (const [id, f] of Object.entries(foreignQ.data ?? {})) {
+      const pname = f.project_id ? projectsQ.data?.projects.find((p) => p.id === f.project_id)?.name : null;
+      m.set(id, {
+        id,
+        title: f.readable ? f.title : "🔒 外部依赖",
+        status: f.readable ? `${pname ?? "外部项目"}` : "外部依赖",
+        status_group: f.status_group,
+        foreignReadable: f.readable,
+      });
+    }
+    return m;
+  }, [byId, foreignQ.data, projectsQ.data]);
+
   // blocked = unfinished item with an unfinished upstream (depends_on source
-  // or an unfinished blocks blocker)
+  // or an unfinished blocks blocker) — I237: foreign upstream counts too when
+  // its status is readable (board I128 SQL has no project filter; unknown-
+  // status 🔒 placeholders are honestly NOT counted)
   const blockedIds = useMemo(() => {
     const bad = new Set<string>();
     for (const e of edges) {
-      const upstream = byId.get(e.from);
-      if (!upstream || upstream.status_group === "done" || upstream.status_group === "cancelled") continue;
-      const down = byId.get(e.to);
+      const upstream = allNodes.get(e.from);
+      if (!upstream || upstream.status_group === "done" || upstream.status_group === "cancelled"
+        || upstream.status_group === "external-unknown") continue;
+      const down = allNodes.get(e.to);
       if (down && down.status_group !== "done" && down.status_group !== "cancelled") bad.add(e.to);
     }
     return bad;
-  }, [edges, byId]);
+  }, [edges, allNodes]);
 
   // topological levels: level(x) = 0 without upstream edges, else max(up)+1
   const levels = useMemo(() => {
@@ -87,14 +144,14 @@ export function DependencyGraphPage() {
       level.set(id, Math.max(level.get(id) ?? 0, lv));
       return level.get(id) ?? 0;
     };
-    for (const id of byId.keys()) calc(id, 0);
+    for (const id of allNodes.keys()) calc(id, 0);
     const rows = new Map<number, string[]>();
-    for (const id of byId.keys()) {
+    for (const id of allNodes.keys()) {
       const lv = level.get(id) ?? 0;
       rows.set(lv, [...(rows.get(lv) ?? []), id]);
     }
     return rows;
-  }, [edges, byId]);
+  }, [edges, allNodes]);
 
   const layout = useMemo(() => {
     const pos = new Map<string, { x: number; y: number }>();
@@ -113,10 +170,10 @@ export function DependencyGraphPage() {
 
   const critical = new Set(cp.data?.chain ?? []);
   const visibleIds = useMemo(() => {
-    if (!onlyBlocked) return [...byId.keys()];
-    return [...byId.keys()].filter((id) => blockedIds.has(id));
-  }, [onlyBlocked, blockedIds, byId]);
-  const visible = new Set(onlyBlocked ? visibleIds : byId.keys());
+    if (!onlyBlocked) return [...allNodes.keys()];
+    return [...allNodes.keys()].filter((id) => blockedIds.has(id));
+  }, [onlyBlocked, blockedIds, allNodes]);
+  const visible = new Set(onlyBlocked ? visibleIds : allNodes.keys());
 
   if (items.data && byId.size === 0) {
     return (
@@ -157,18 +214,20 @@ export function DependencyGraphPage() {
                 markerEnd="" />
             );
           })}
-          {[...byId.entries()].filter(([id]) => visible.has(id)).map(([id, it]) => {
+          {[...allNodes.entries()].filter(([id]) => visible.has(id)).map(([id, it]) => {
             const p = layout.pos.get(id);
             if (!p) return null;
             const done = it.status_group === "done";
             const blocked = blockedIds.has(id);
-            const fill = done ? "#e2e8f0" : blocked ? "#fee2e2" : "#dcfce7";
-            const stroke = done ? "#cbd5e1" : blocked ? "#ef4444" : "#22c55e";
+            const foreign = it.foreignReadable !== undefined;
+            const fill = foreign ? "#f1f5f9" : done ? "#e2e8f0" : blocked ? "#fee2e2" : "#dcfce7";
+            const stroke = foreign ? "#94a3b8" : done ? "#cbd5e1" : blocked ? "#ef4444" : "#22c55e";
             return (
               <g key={id} data-dep-node={id}>
                 <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={10}
                   fill={fill} stroke={critical.has(id) ? "#f59e0b" : stroke}
-                  strokeWidth={critical.has(id) ? 3 : 1.5} />
+                  strokeWidth={critical.has(id) ? 3 : 1.5}
+                  strokeDasharray={foreign ? "4 3" : undefined} />
                 <text x={p.x + 10} y={p.y + 18} fontSize={12} fontWeight={600}
                   className="select-none" fill="#0f172a">
                   {it.title.length > 16 ? `${it.title.slice(0, 15)}…` : it.title}
@@ -179,7 +238,7 @@ export function DependencyGraphPage() {
               </g>
             );
           })}
-          {byId.size > 0 && visible.size === 0 && (
+          {allNodes.size > 0 && visible.size === 0 && (
             <text x={20} y={40} fontSize={12} fill="#64748b">当前过滤下没有节点</text>
           )}
         </svg>
@@ -189,6 +248,7 @@ export function DependencyGraphPage() {
         <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-okln" />进行中</span>
         <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-red-200" />被阻塞</span>
         <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-warnln" />关键链</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm border border-dashed border-slate-400 bg-slate-100" />外部依赖（可读显名/不可读 🔒）</span>
         <span className={cx(critical.size ? "" : "hidden")}>链长 {critical.size}</span>
       </div>
     </div>
