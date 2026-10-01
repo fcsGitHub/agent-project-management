@@ -6,10 +6,17 @@
 
 ## [Unreleased]
 
-M84（测试日期稳健性对账——攒批中：随 v0.8.0 统一 bump+tag）。
+## [0.8.0] — 2026-10-02
+
+M84~M85（测试日期稳健性 + 对话框键盘可用性）。攒批节奏第二版：两轮一版。基线：pytest 477 / 冒烟 96 / vitest 41 / 机械防腐七件 ✓。
+
+### Added
+- **对话框焦点管理**：Modal/Drawer 两原语接入 ARIA 对话框语义（`role="dialog"`/`aria-modal`/`aria-labelledby`）与零依赖焦点管理——打开即聚焦第一个可聚焦元素、Tab 循环陷阱（焦点不再逃逸进被遮挡背景）、关闭还原触发元素焦点；Drawer Escape 契约与 Modal 统一（修嵌套弹窗一次 Esc 双关）。
+- **测试日期稳健性对账**：全库测试硬编码日期×真实时钟窗口端点对账（三分类判据——存量零真炸弹）；新增 `tools/check_test_dates.py` 机械防腐（窗口端点名册+REVIEWED 台账，冒烟 89 锁定含故意红自证）。
 
 ### Changed
-- **测试日期稳健性对账**：全库测试硬编码日期×真实时钟窗口端点对账（三分类判据：密闭合成时钟/静态实体锚/真窗 HTTP 炸弹——存量零真炸弹）；新增 `tools/check_test_dates.py` 机械防腐（窗口端点名册+REVIEWED 台账，冒烟 89 锁定含故意红自证）；M82 路由懒加载全量复验（29 路由浏览器逐个加载零 fallback，35 chunks 与构建产物一致）。
+- **可访问名长尾清零**：全库唯一无名符号按钮与高频模态表单（新建项目/评论/周期）placeholder-only 输入框补 `aria-label`。
+- **a11y 机械锁**：axe-core（dequelabs 官方引擎）入 devDependencies，Modal/Drawer 代表性内容零 serious/critical 违规锁定（含故意红自证）；M82 路由懒加载全量复验（29 路由零 fallback）。
 
 ## [0.7.0] — 2026-10-02
 

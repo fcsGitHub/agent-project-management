@@ -2,7 +2,7 @@
 satisfied by the installed environment and pip-check-clean within AgentPM's
 dependency closure (shared-env neighbours pinning older versions are out of
 scope: docker deploys build a fresh env from requirements.txt); ② the
-release pin: APP_VERSION is 0.7.0 (smoke 86 locks cross-anchor agreement,
+release pin: APP_VERSION carries the current release (smoke 86 locks cross-anchor agreement,
 this file pins the current release value); ③ deprecation regression locks:
 the starlette testclient stays on httpx2 (no "httpx with" warning at import)
 and no per-request cookies= usage remains in the test suite."""
@@ -83,9 +83,9 @@ def _vnum(parts: list[str]) -> tuple[int, ...]:
 
 
 @pytest.mark.smoke
-def test_smoke_88_release_pin_v0_7_0():
-    # 当前发布钉（冒烟 86 锁四锚一致，这里钉「这一版是 0.7.0」——逐版编辑收敛到这一行）
-    assert APP_VERSION == "0.7.0"
+def test_smoke_88_release_pin():
+    # 当前发布钉（冒烟 86 锁四锚一致，这里钉「这一版是几」——每次发布只改这一行）
+    assert APP_VERSION == "0.8.0"
 
     pkg = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     assert pkg["version"] == APP_VERSION
