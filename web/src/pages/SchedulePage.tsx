@@ -134,6 +134,19 @@ export function SchedulePage() {
                   if (rangeAnchor && inRange) setCreateRange({ start: rangeSel![0], end: rangeSel![1] });
                   setRangeAnchor(null); setRangeHover(null);
                 }}
+                onPointerDown={(e) => {
+                  // I235（docs/01 §BW.2）：触屏无 hover——两段点选（首点锚定、次点收尾）；
+                  // preventDefault 抑制合成 mouse 事件序列，避免与 onMouseDown/Up 双触发。
+                  if (e.pointerType === "mouse" || list.length) return;
+                  e.preventDefault();
+                  if (rangeAnchor) {
+                    const [s, en] = day >= rangeAnchor ? [rangeAnchor, day] : [day, rangeAnchor];
+                    setCreateRange({ start: s, end: en });
+                    setRangeAnchor(null); setRangeHover(null);
+                  } else {
+                    setRangeAnchor(day); setRangeHover(day);
+                  }
+                }}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(day); }}
                 onDragLeave={() => setDragOver((d) => (d === day ? null : d))}
                 onDrop={(e) => {
@@ -141,7 +154,7 @@ export function SchedulePage() {
                   const raw = e.dataTransfer.getData("text/plain");
                   if (raw) drop(day, raw);
                 }}
-                className={cx("min-h-24 rounded-lg border p-1 transition-colors",
+                className={cx("min-h-24 rounded-lg border p-1 transition-colors touch-manipulation",
                   dim ? "border-line/50 opacity-45" : "border-line",
                   day === today && "border-acc",
                   dragOver === day && "border-acc bg-accbg/40",
