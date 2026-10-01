@@ -40,10 +40,13 @@ def test_malformed_session_cookie_is_rejected_not_500(client, project):
     不得让每个请求抛 ValueError 变 500。"""
     saved = config.settings.auth_mode
     config.settings.auth_mode = "network"
+    # per-request cookies=<...> 已被 starlette 弃用（语义歧义）——改设 client 级 cookie 后还原
+    client.cookies.set("apm_session", "u_admin.notanumber.deadbeef")
     try:
-        r = client.get("/api/auth/me", cookies={"apm_session": "u_admin.notanumber.deadbeef"})
+        r = client.get("/api/auth/me")
         assert r.status_code == 401
     finally:
+        client.cookies.clear()
         config.settings.auth_mode = saved
 
 
