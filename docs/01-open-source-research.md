@@ -2315,3 +2315,30 @@ M85 = **a11y 轮·对话框语义与键盘可用性**：I257 Dialog 焦点管理
 **CE.4 M86 取舍**
 
 M86 = **运维验证轮·部署链与备份恢复**：I260 docker compose build 双镜像+镜像内版本对账+compose 起服务健康检查+核心冒烟 / I261 备份恢复演练（隔离目录毁库恢复对账计时）+事件体积观测 / I262 docs/11 解冻至 v0.8.0+docs/12 对账+收尾审阅（攒批 v0.9.0 不 tag），约 5 人日。pip-compile/hash pinning/pip-audit CI、自动化定期演练、多架构镜像/registry、留观三候选（graph 入边/dnd 触屏/工件恢复）留 backlog。
+
+## CF. M87 前置调研：前端工具链 major 升级轮（2026-10-01）
+
+> 目标协议触发：M86 完成后开启。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**；a11y 二期仍无新证据（色彩对比需浏览器级 axe·jsdom 不可评——M85 机检边界入档·继续留观）；init_db 幂等化维持「真实事故再触发」（M86 登记）；v0.9.0 攒批继续（本轮不 tag）。**候选④前端工具链 major 转正**：M83-CB 裁决「vite 8/vitest 5/TS 7 留观」的解除条件=major 稳定发布——`pnpm outdated` 实测（2026-10-01）**typescript 5.9.3→7.0.2（Latest·落后 2 major）/ vitest 3.2.7→5.0.3（2 major）/ vite 7.3.6→8.3.2（8.x 已迭代 3 minor）/ @vitejs/plugin-react 5.2.0→6.1.1 / jsdom 27.4.0→30.1.1（3 major）/ lucide-react 0.549.0→1.49.0（0.x→1.0 GA）**——全部 GA 且有多个 minor 稳定迭代，留观到期。本地命中面 grep 实证三件：**vite.config.ts 零 manualChunks**（Vite 8 最大破坏点不命中·35 chunks 全来自 React.lazy 路由分割）；**零 vitest workspace 配置**（Vitest 4 `workspace→projects` 变更不命中·test 配置内嵌 vite.config.ts）；**node v24.11.1** 满足 Vitest 5 门槛（≥22.12）。本轮三路新调研（**TS 7 tsgo / Vite 8 Rolldown / Vitest 5 迁移**），选定 **M87 = 前端工具链 major 升级轮**。
+
+**CF.1 TypeScript 7 = Go 原生编译器（tsgo——类型检查器换内核）**
+
+- 产品共识（[Microsoft 官宣 TS 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0)——编译器移植 Go·**5-10x 提速**·类型级字符串工具按 UTF-16 code units 建模的用法有破坏性变更；[TS 6.0 桥接版](https://dev.to/matheus_releaserun/typescript-70-goes-native-in-go-ts-60-breaks-defaults-3kb8)——改默认值+删旧逃生舱为 7 铺路；[迁移指南共识](https://www.sitepoint.com/typescript-70-rc-the-go-rewrite-migration-guide)——多数项目 <5 处配置改动；[Stackademic](https://blog.stackademic.com/three-tools-in-your-typescript-stack-will-break-on-the-7-0-fd2d61ff5416)——生态工具三类会 break）：升级的共识=**先过桥接版再上原生·验证工具链兼容**。
+- 对本项目的映射：`tsc -b` 仅做类型检查（noEmit·转译归 vite）——tsconfig 单配置标准选项（strict/verbatimModuleSyntax/moduleResolution bundler），兼容面小；**`tsc -b` 在 7.0 的 CLI 形态是 I263 首关**——失败预案=回落 typescript 6.x 桥接版（npm 在案）而非回滚全车。UTF-16 语义变更风险低（无类型级字符串 Length 工具用法·grep 实证）。**不做** vite 侧 ts 转译迁移/tsx 直接运行（tsc -b 门禁形态不变）。
+
+**CF.2 Vite 8 = Rolldown 内核（esbuild+Rollup 合一为 Rust）**
+
+- 产品共识（[官方迁移指南](https://vite.dev/guide/migration)——**rolldown-vite 可作中间步**；[Vite 8 官宣](https://vite.dev/blog/announcing-vite8)——Rolldown 社区驱动迁移正式转正；[manualChunks 迁移](https://laplusda.com/en/posts/vite-8-manualchunks-rolldown)——**对象形式移除·改函数形式或 advancedChunks**；社区实践——esbuild 特定插件与依赖 Rollup 内部实现的插件会 break）：升级的共识=**插件兼容面先行验证·大配置迁移走中间步**。
+- 对本项目的映射：命中面收敛到**三个插件**（@vitejs/plugin-react 6 + @tailwindcss/vite + vite-plugin-pwa——官方维护度依次递减·PWA 插件是最大不确定）+ 零 manualChunks/零自定义 Rollup 配置（grep 实证）；35 chunks 全来自 React.lazy 天然分割不受影响。**不做** rolldown-vite 中间步（一步到位失败再降·多一步=多一次迁移税）、构建产物字节级对比（chunk 数与体积带对账已够）。
+
+**CF.3 Vitest 5 + jsdom 30（测试运行器两 major 连跳）**
+
+- 产品共识（[Vitest 5 官宣](https://vitest.dev/blog/vitest-5.html)——**要求 vite>=6.4.0 + node>=22.12.0**；[官方迁移指南](https://vitest.dev/guide/migration)——`bench` 不再顶层导出/reporter 输出路径变化；[3→5 无直达指南](https://blog.openreplay.com/vitest-5-changes)——需过 Vitest 4 的 **`workspace→projects` 配置更名**）：升级的共识=**逐 major 过变更清单**。
+- 对本项目的映射：node v24.11.1 ✓ 门槛；`workspace` 配置不存在（不命中）；`bench` 零使用（41 测试全 run/watch 面）；jsdom 27→30 三 major 的 window API 收紧由 41 项 vitest（含 axe a11y 锁与 dialogFocus 焦点测试）回归背书——**a11y 机械锁在新 jsdom 下仍绿即 jsdom 升级验收**。**不做** vitest browser mode（jsdom 语境够用·M85 已裁决浏览器走查走真实浏览器）。
+
+**CF.4 lucide-react 1.0 + minor 一车（图标库 GA 与其余追赶）**
+
+- lucide-react 0.549→1.49：0.x→1.0 是 GA 门槛非 API 重写（具名 import 用法 grep 实证约 40 处·1.0 保持具名导出惯例）——随一车升级回归背书；react 19.2→19.3/react-router 7.18.2→7.18.4/@tanstack/react-query 5.101→5.104 等 minor/patch 同车（pnpm outdated 全量清单）。**不升** react 20（不存在）/大版本观望项之外的东西。
+
+**CF.5 M87 取舍**
+
+M87 = **前端工具链 major 升级轮**：I263 一车升级（六 major+minor 全量·pnpm install→tsc/vitest/build 三关） / I264 随升修复+产物审计（chunk 数与体积对账 35 基线+axe a11y 锁回归+web/Dockerfile frozen-lockfile 构建验证[M86 惯例·lockfile 变更必须过镜像]） / I265 收口审阅（全量回归+CHANGELOG Unreleased+看板闭环·攒批 v0.9.0 不 tag），约 4 人日。rolldown-vite 中间步、react 20 观望、a11y 二期、graph 入边/dnd 触屏/工件恢复留观三候选、init_db 幂等化留 backlog。**失败预案**：TS 7 阻塞→回落 6.x 桥接；Vite 8 插件阻塞→vite 7+vitest 5 组合兜底（vitest 5 只要求 vite>=6.4）。

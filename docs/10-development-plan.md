@@ -2653,6 +2653,36 @@ agent-project-management/
 
 ---
 
+### M87 · 前端工具链 major 升级轮（I263-I265，约 4 人日）
+
+> v3.0 新增（2026-10-01，docs/01 §CF 前置调研）。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据维持、a11y 二期仍无新证据、init_db 幂等化维持真实事故再触发；**候选④转正**=M83-CB 留观解除条件已满足——`pnpm outdated` 实测 typescript 5.9.3→**7.0.2**/vitest 3.2.7→**5.0.3**/vite 7.3.6→**8.3.2**/plugin-react 5→**6.1.1**/jsdom 27→**30.1.1**/lucide-react 0.549→**1.49.0**（全部 GA+多 minor 迭代）。本地命中面 grep：零 manualChunks（Vite 8 最大破坏点不命中）/零 vitest workspace（4.x 更名不命中）/node v24.11.1 ✓ 满足 Vitest 5 门槛。**防重查：rolldown-vite 中间步不做（一步到位失败再降）、react 20 无此版本、构建产物字节级对比不做（chunk 数体积对账已够）、a11y 二期/graph 入边/dnd 触屏/工件恢复/init_db 幂等化均不做。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I263 | 前端工具链一车升级（typescript ~7.0.2/vitest 5.0.3/vite 8.3.2/@vitejs/plugin-react 6.1.1/jsdom 30.1.1/lucide-react 1.49.0+minor 全量·pnpm install→tsc -b/vitest 41/build 三关——失败预案：TS 7 阻塞回落 6.x 桥接·Vite 8 插件阻塞回落 vite 7+vitest 5 组合） | docs/01 §CF.1-4 | M83 I249 一车升级惯例/I22 纪律 | 1.5d |
+| I264 | 随升修复+产物审计（chunk 数与体积对账 35 基线[React.lazy 分割在 Rolldown 下的形态]+axe a11y 锁回归[新 jsdom 下仍绿=jsdom 升级验收]+浏览器隔离冒烟[懒加载 chunk 真实拉取]+web/Dockerfile frozen-lockfile 构建验证[M86 惯例·lockfile 变更必须过镜像]+vitest 组件测试回归） | docs/01 §CF.2 | M82 I248 chunk 走查/M86 compose build 惯例 | 1.5d |
+| I265 | M87 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M87+看板闭环+附录 C 登记+攒批 v0.9.0 不 tag 裁决复核） | docs/01 §CF.5 | M81~M86 收口惯例 | 1d |
+
+#### I263 · 前端工具链一车升级（1.5d）
+
+- 任务：web/package.json 六处 devDependencies major 更新（typescript ~5.9.3→~7.0.2/vitest ^3.2.4→^5.0.3/vite ^7.1.9→^8.3.2/@vitejs/plugin-react ^5→^6.1.1/jsdom ^27→^30.1.1/lucide-react ^0.549→^1.49.0）+ 其余 outdated minor/patch 同车 + `pnpm install` 重新解析 lockfile + `tsc -b`（TS 7 tsgo 内核首验）/`pnpm vitest run`（41 项）/`pnpm build` 三关全绿。
+- DoD：三关 EXIT=0；lockfile 一致性绿；无新增弃用警告。
+- 演示路径：`pnpm outdated` 升级前后对照；`node_modules/.bin/tsc --version`=7.x。
+
+#### I264 · 随升修复+产物审计（1.5d）
+
+- 任务：build 产物 chunk 审计（dist/assets 计数与体积对账 M82 基线 35 chunks/主 bundle 376KB——Rolldown 分割形态变化如实记录）+ axe a11y.test.tsx 回归（jsdom 30 下零 serious+critical+故意红自证仍有效）+ dialogFocus/vitest 组件测试 41 项全绿 + 浏览器隔离冒烟（双隔离端口·懒加载 chunk 真实拉取渲染+核心路径）+ `docker compose build web` frozen-lockfile 构建验证（lockfile 变更必过镜像·M86 惯例）。
+- DoD：chunk 审计在案；axe 锁绿；镜像构建成功。
+- 演示路径：浏览器隔离环境走 Dashboard/Board 懒加载；`docker compose build web` 成功。
+
+#### I265 · M87 收口审阅（1d）
+
+- 任务：全量回归（非 smoke 分片+冒烟 runner+vitest+build+机械防腐七件）+ CHANGELOG Unreleased 记 M87 + docs/10 看板闭环+附录 C 登记 + M87 审阅（DoD 逐项+攒批 v0.9.0 时机裁决复核——M86+M87 两轮是否成版在本轮定）。
+- DoD：全量 EXIT=0；冒烟 runner GREEN；七件 ✓；CHANGELOG 在案。
+- 演示路径：git describe 仍 v0.8.0-N（未 tag）+ CHANGELOG Unreleased 段含 M87 条目。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2899,6 +2929,7 @@ agent-project-management/
 | I261 备份恢复演练+事件体积观测 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境全链=造数[项目/项/评论/工时/工件 git 仓]→backup.py[在线快照 events 入 manifest]→**毁库**→restore.py→rebuild→对账全一致[项目数/事件数/FTS uniqueDRILLTOKEN 命中/工件内容逐字节]——恢复 RTO≈0.4s（该规模）·**验证≠校验兑现：备份成功到恢复证明首次闭环** + ops.py 补源库存在性 loud fail[sqlite3.connect 对缺失路径静默建空库→「空成功」让毁库闸失效——演练首跑实录] + 演练四发现：①静默空库已修②毁库必须闸在备份 EXIT=0③**git 对象只读属性**=Windows 删库 PermissionError 真因[force_remove chmod 后过·部署者恢复法入 docs/11]④事件体积=13 事件 636KB db[schema+FTS 基线主导·M58 慢增长结论维持] |
 | I262 docs/11 解冻至 v0.8.0+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | docs/11 时效戳+覆盖声明改至 v0.8.0[部署链已验证声明入档] + **新增 §2.5 部署后自检速查**[compose ps+health 版本核对+机械防腐七件部署前自检命令+部署故障速查表[bool_parsing/缺 cryptography/半成品 schema 卷 down -v/git 只读对象/端口占用五症状]] + §5.2.1 补 M86 演练实录三条纪律[毁库闸备份 EXIT=0/git 只读属性清法/对账四项] + smoke 86 解冻代标记随代更新[M81-I244→M86-I262——解冻推进锁随代走] + 全量回归（非 smoke **477 EXIT=0**/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest 41/build 绿/机械防腐七件 ✓）+ CHANGELOG Unreleased 记 M86（攒批待 v0.9.0 不 tag） |
 | **M86 运维验证轮·部署链与备份恢复（I260-I262）** | 已完成 | 2026-10-02 | 2026-10-02 | 3 迭代 / 约 5 人日（docs/01 §CE + docs/10 §M86）：I260 部署链首次验证（compose build 双镜像+镜像内版本对账一致+**两部署 bug 修复**[布尔透传空串/cryptography 缺声明]+init_db 半成品卷发现登记）/ I261 备份恢复演练（v0.8.0 数据首次真演练·对账全一致·RTO≈0.4s+backup loud fail 修复+git 只读属性发现）/ I262 docs/11 解冻至 v0.8.0（自检速查+故障速查表+演练纪律）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + 冒烟 runner **96 GREEN** EXIT=0[89 文件]）+ vitest **41** + build 绿 + 机械防腐七件 ✓；**攒批 v0.9.0 不 tag** |
+| 2026-10-01 M87 调研定义（§CF） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**、a11y 二期仍无新证据[色彩对比需浏览器级 axe·jsdom 不可评·M85 机检边界]、init_db 幂等化维持真实事故再触发[M86 登记]；**候选④前端工具链 major 转正**=M83-CB 留观解除条件已满足——pnpm outdated 实测（2026-10-01）typescript 5.9.3→**7.0.2**[落后 2 major·Go 原生 tsgo]/vitest 3.2.7→**5.0.3**[2 major]/vite 7.3.6→**8.3.2**[8.x 已迭代 3 minor·Rolldown 内核]/@vitejs/plugin-react 5→**6.1.1**/jsdom 27→**30.1.1**[3 major]/lucide-react 0.549→**1.49.0**[0.x→1.0 GA]——全部 GA+多 minor 稳定迭代。本地命中面 grep 三件：**vite.config.ts 零 manualChunks**[Vite 8 最大破坏点不命中·35 chunks 全来自 React.lazy 天然分割]/零 vitest workspace[Vitest 4 workspace→projects 不命中]/node v24.11.1 ✓ 满足 Vitest 5 门槛（≥22.12）。三路 WebSearch：TS 7（[Microsoft 官宣](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0) Go 原生 5-10x+UTF-16 类型级字符串破坏/[SitePoint 迁移指南](https://www.sitepoint.com/typescript-70-rc-the-go-rewrite-migration-guide) 多数项目 <5 配置改动/[Stackademic](https://blog.stackademic.com/three-tools-in-your-typescript-stack-will-break-on-the-7-0-fd2d61ff5416) 三类生态工具会 break——tsc -b CLI 形态=I263 首关·失败预案回落 6.x 桥接）、Vite 8（[官方迁移指南](https://vite.dev/guide/migration) rolldown-vite 中间步/[Vite 8 官宣](https://vite.dev/blog/announcing-vite8) Rolldown 转正/[manualChunks 迁移](https://laplusda.com/en/posts/vite-8-manualchunks-rolldown) 对象形式移除——命中面收敛三插件兼容·**不做中间步**一步到位失败再降）、Vitest 5（[官方 blog](https://vitest.dev/blog/vitest-5.html) 要求 vite>=6.4+node>=22.12/[OpenReplay](https://blog.openreplay.com/vitest-5-changes) bench 顶层导出移除+reporter 路径变化——零 workspace/零 bench 命中·jsdom 30 升级由 41 项 vitest+axe 锁回归背书）。定案 M87=前端工具链 major 升级轮（I263 一车升级+三关/I264 随升修复+chunk 审计+镜像构建/I265 收口审阅[攒批 v0.9.0 不 tag]） |
 | I257 Dialog 焦点管理 hook+两原语语义 | 已完成 | 2026-10-02 | 2026-10-02 | web/src/components/dialogFocus.ts 零依赖 hook（~40 行——打开记触发元素→初始焦点入第一个可聚焦元素→Tab 循环陷阱[末尾前向循环回首/首元素反向循环至末尾]→关闭[Esc/遮罩/卸载]还原触发元素焦点——native dialog 裁决不做：jsdom 无法组件级验证 showModal+top-layer 迁移动弹层样式）+ Modal/Drawer 接线（role=dialog+aria-modal+aria-labelledby[useId]·遮罩 aria-hidden·Drawer 消费面 8+ 文件一次收口）+ **Drawer Escape 统一 Modal defaultPrevented 契约**（检查并设置——修嵌套双关：此前一次 Esc 会同时关掉 Modal 和所有 Drawer）+ vitest 组件测试 3 项（语义+初始焦点/Tab 双向陷阱/关闭还原——jsdom focus API 全支持）·tsc/build/vitest 38 全绿 |
 | I258 可访问名长尾清零+axe-core 机械锁 | 已完成 | 2026-10-02 | 2026-10-02 | SchedulePage 唯一无名符号按钮（✕）补 aria-label + 高频模态表单 placeholder-only input 补 aria-label（新建项目/评论抽屉/看板周期——title= 纪律 290 处既有资产不动·不做全站 71 input 翻新）+ axe-core 4.13.0 入 devDependencies（**npm 侧供应链核验：repository=github.com/dequelabs/axe-core 官方——M83 三元组纪律同构**）+ a11y.test.tsx 3 用例（Modal 表单/Drawer 内容零 serious+critical violation 锁 + 故意红自证[空文本按钮必被 button-name 点名]——规则裁剪仅页面级 region/landmark/heading）=**机械防腐第七件** + **机检边界入档：axe 只能抓无文本按钮不能抓「有名无实」符号按钮**（✕ 非空文本=有名字——此类缺口仍需人工走查）·tsc/build/vitest 41 全绿 |
 | I259 纯键盘旅程 E2E+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境（8139/4179 双隔离）浏览器旅程：**弹窗打开→初始焦点精确落在「项目名称」input**[I257 hook 真实浏览器实证·a11y 树可见 dialog 新建项目+两 textbox 有名]→填表→提交→**跳转新项目 dashboard 全链走通**；**Tab 旅程在 IAB 不可行**（应用内浏览器外壳拦截 Tab/合成按键——probe 实证 keydown 根本不入页·环境限制非应用缺陷——陷阱/还原由 vitest 锁背书·附录 C 登记）+ 全量回归 + 收口（见 M85 行基线） |
