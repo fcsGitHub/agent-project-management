@@ -11,7 +11,8 @@ services:
       APM_SMTP_HOST: ${APM_SMTP_HOST:-}
       APM_SMTP_FROM: ${APM_SMTP_FROM:-}
       APM_OIDC_ALLOWED_GROUPS: ${APM_OIDC_ALLOWED_GROUPS:-}
-      APM_METRICS_ENABLED: ${APM_METRICS_ENABLED:-}
+      # 布尔透传必须给非空默认——pydantic-settings 拒绝空串作 bool（M86-I260 构建验证抓出）
+      APM_METRICS_ENABLED: ${APM_METRICS_ENABLED:-false}
     ports:
       - "8000:8000"
     volumes:

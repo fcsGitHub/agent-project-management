@@ -8,6 +8,7 @@ pydantic>=2.13.5
 pydantic-settings>=2.15.0
 PyYAML>=6.0
 jsonschema>=4.23
+cryptography>=50.0.1
 httpx2>=2.13.1
 openai>=3.22.1
 langgraph>=1.2.11
