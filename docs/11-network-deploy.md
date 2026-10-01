@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-02 更新（M86-I262 解冻——覆盖至 v0.8.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/**部署后自检速查[§2.5·M86 新增]**/**部署链已验证声明**[M86-I260：v0.8.0 镜像 compose build 双镜像跑通+healthcheck 通过——此前的依赖一车[M83]后镜像内组合从未验证过]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。依赖底座：httpx2 2.13/openai 3.22/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
+> 时效：2026-10-02 更新（M88-I267 解冻——覆盖至 v0.9.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/**部署后自检速查[§2.5·M86 新增]**/**一键发布演练[§5.2.1·M88 新增 `tools/release_drill.py`]**/**部署链已验证声明**[M86-I260 双镜像首验+M88-I266 v0.9.0 双镜像重建对账——app 镜像 python:3.12-slim/web 镜像 node:24-alpine]；**web 构建链 M87 换代**[vite 8 Rolldown 内核/vitest 5 要求 node≥22.12——镜像 node:24-alpine 已满足·构建仍为 `pnpm install --frozen-lockfile`+`pnpm build`]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。依赖底座：httpx2 2.13/openai 3.22/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
@@ -86,6 +86,9 @@ python tools/check_test_dates.py  # 测试日期×窗口端点对账
 cd web && pnpm vitest run         # 前端单测（含 axe a11y 锁）
 cd app && python -m pytest --ignore=tests/smoke   # 后端全量（分片跑，>10 分钟）
 python tools/smoke/run_smoke.py   # 冒烟基线（repo 根目录）
+# —— 发布轮收口追加（M88 起·收口 DoD 机制位）——
+python tools/release_drill.py     # 一键发布演练（备份→毁库→恢复→对账→RTO·EXIT=0 即过）
+grep -n "解冻" docs/11-network-deploy.md | head -1   # 时效戳应与当前版本一致
 ```
 
 部署故障速查（M86 验证实录）：
@@ -163,6 +166,7 @@ compose 全栈（api + web/nginx 代理 SSE）见仓库根 `docker-compose.yml`�
 - **演练三步（定期执行）**：① `python tools/backup.py -o drill.zip` → ② `--data-dir` 指向空目录执行 restore → ③ 启动 api 后 `POST /api/system/rebuild-projections`（`events_replayed` 应等于 manifest 的 event_count）。**备份会自己跑，演练是为了证明恢复仍然有效**；冒烟 65 固化了该闭环（备份→清空→恢复→一致性断言）；
 - 连续流复制（Litestream 等 WAL→对象存储方案）不内置：单机手动档已覆盖；接入时以其恢复产物替换演练第 ② 步的输入即可。
 - **M86-I261 首次全链演练实录（v0.8.0 数据）**：备份→毁库→恢复→rebuild 后项目数/事件数/FTS 命中/工件内容逐字节一致，恢复 RTO≈0.4s（小规模）。三条演练纪律：①备份源缺失时工具已 loud fail（sqlite3.connect 对缺失路径静默建空库会让「空备份」通过——I261 已修，**毁库必须闸在备份 EXIT=0**）；②Windows 下 content/ 的 git 对象文件为只读属性，毁库删目录需先清属性（`attrib -r /s` 或脚本 chmod）；③演练造数与基线对账分开记录（项目数/事件数/FTS 命中/工件内容四项足够）。
+- **M88-I267 一键演练（发布轮节律的机制位）**：`python tools/release_drill.py` 一条命令跑全流程——临时隔离目录造数（seed）→基线四项→backup→**毁库闸在备份 EXIT=0**→restore→rebuild→四项对账（项目数/事件数/FTS 命中/工件内容 sha）→分步计时 RTO；EXIT=0 且 `reconciled: True` 即过。三条 M86 纪律已内嵌（毁库闸/只读属性清理/四项对账口径）。**脚本化才暴露的两个坑**（手工演练不触发）：`with sqlite3.connect()` 只管事务不关连接——泄漏句柄会让毁库 WinError 32；对 POST 端点误发 GET 得 405。发布轮收口跑一次（见 §2.5 自检速查）；`--keep` 保留演练目录供检查。
 
 ### 5.3 恢复
 
