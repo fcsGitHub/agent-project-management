@@ -2108,3 +2108,26 @@ M76 = **审计与复演轮**：I228 权限面审计（读面门禁对齐·BOLA �
 **BV.4 M77 取舍**
 
 M77 = **交付面与新面可达轮**：I231 README 解冻+env 三面同步（对账脚本+compose 透传）/ I232 前端新面 375px+空态走查·发现即修 / I233 冒烟 82+收尾审阅，约 7 人日。设计册回填、CHANGELOG 生成、CI 文档检查、全站重审、触目标全量测量、分叉合并采纳面（继续等证据）、删除恢复 UI（等证据）留 backlog。
+
+## BW. M78 前置调研：交互完备性深审 / 关系生命周期闭合 / 遗留清账（2026-10-01）
+
+> 目标协议触发：M77 完成后开启。防重查：候选池 grep——**①分叉采纳面（M74~M77 连续四轮降级零翻案证据——本轮正式关闭：分叉发起[forkRun·RunsPage 消费在]+血缘展示[retryLineage 链/分支对话树]只读面 M65 已建成且消费中，合并采纳面按「使用证据驱动」原则结案——出现真实分叉复用工作流再议）**、**②重交互面深审（M59 只做 375px 布局未做交互完备性——grep 实证逐面盘点：时间线拖拽 kb=0/link 触点 hover-only、SchedulePage onMouseDown 拖选、DependencyGraphPage 只读[I124 裁决]、GraphView React Flow Controls 缩放自带、Board 菜单语义无拖拽——真缺口见下）**、**③附录 B/C 清账（附录 C 仅 3 条逐条核验：M38 IntakePanel 非 owner 隐藏[M42-I130 已消化——调用点条件渲染·登记未标记→本轮清账]、M41 rebuild 后 admin 静默丢失[条件未触发：产品 UI 无 rebuild 按钮·grep 实证→注明维持]、M4 apply 权限分层[V2 治理→维持]；附录 B 为 append-only 审阅日志无待办）**、④删除恢复 UI（等证据——维持）。深审计证真缺口：**依赖关系解除面四层全缺**（API 仅 POST /items/{id}/relations[items.py:1113]·事件仅 item.related·投影 INSERT-only[items.py:140]·前端 api.ts 无 deleteRelation·grep 解除/unlink 零命中——误建依赖永久无法移除，自动排期被永久占用；I128 阻塞徽标的「完成自动解除」是状态性解除非关系删除，两回事）——**「创建面在·解除面从未设计」生命周期半边，半截链家族第十一例变体**；**触屏双缺口**（时间线依赖连线触点 opacity-0 group-hover——hover-only 在触屏不可见不可达[TimelinePage:487]·而 addRelation 全前端唯一消费方就是这条连线拖拽[TimelinePage:174]——**依赖建立在触屏零路径**；SchedulePage 休假日历 onMouseDown 拖选触屏无效[SchedulePage:131]）。本轮三路新调研（**依赖删除产品语义 / 触屏拖拽惯例 / 可达拖拽模式**），选定 **M78 = 交互完备性深审轮**。
+
+**BW.1 依赖关系解除（创建的对称闭合——Jira 删链语义）**
+
+- 产品共识（[Atlassian Jira 文档](https://downloads.atlassian.com)——issue link 双向镜像、删一侧两侧同删、删除需 Delete Issues 专用权限+确认对话+issue 历史留痕；Gantt 删依赖惯例——删前列影响、**后果说明**「移除将取消 B 的排期约束」、理想 undo）：关系删除的共识=**确认对话+后果说明+审计留痕+权限门**。
+- 对本项目的映射：POST /items/{item_id}/relations（M17-I62）建、无解——事件/投影/API/UI 四层都没设计解除。补法=`DELETE /items/{item_id}/relations`（to_item+relation_type 复合定位[投影行 id=new_id("rel") 调用方不可知·复合键幂等]·不存在 404）+ `item.relation_removed` 事件（append-only 审计链天然满足 Jira 的「历史留痕」）+ 投影 DELETE handler + rebuild 存活 + 前端解除入口放详情载荷 relations 的消费点就近（节点抽屉）。**不做** Jira 式专用删链权限（写门禁沿用 POST 同款项目成员制·一人工厂最小语义）、undo（事件溯源可查历史·排期重算由 propagate 既有链自动跟随——不是静默改日期）、双向镜像删除（AgentPM relations 单向存储 from/to 明确·无镜像行）。
+
+**BW.2 触屏交互补课（W3C 明文：hover 显隐与无 hover 设备不兼容）**
+
+- 产品共识（[W3C Pointer Events](https://www.w3.org/TR/pointerevents/)——**「hover 用于显隐 UI 的内容常与不支持 hover 的设备不兼容」**+[MDN Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events) touch-action 控制浏览器手势接管+[w3c/pointerevents#346](https://github.com/w3c/pointerevents/issues/346) 触屏拖拽中 pointerover/enter 不触发（隐式捕获）·拖拽逻辑须走 pointermove、[UX.SE](https://ux.stackexchange.com/questions/5109/what-are-some-alternatives-to-hover-on-touch-based-devices) 替代模式=点按显隐/长按/常显）：hover-only 的共识=**触屏下给出常显或点按显隐替代**。
+- 对本项目的映射：时间线 link 触点 `opacity-0 group-hover:opacity-100` → 窄屏/触屏常显（hover 类保留·加常显兜底）——事件可达性其实已在（move bar 父级 touch-none 的有效 touch-action 沿祖先链相交覆盖子元素），缺的只是可见性；SchedulePage 休假日历 onMouseDown 拖选 → onPointerDown+touch-none+setPointerCapture（pointer events 统一鼠标/触屏·与 TimelinePage beginDrag 同构）。**不做** 长按显隐（常显最简零学习成本）、pointerenter 重构（#346 教训——现有 beginDrag 已是 pointermove+capture 的正确形态）。
+
+**BW.3 键盘可达裁决（WCAG 2.5.7——拖拽必须有非拖拽替代）**
+
+- 产品共识（[Salesforce UX 四模式](https://medium.com/salesforce-ux/4-major-patterns-for-accessible-drag-and-drop-1d43f64ebf09)+[live examples](https://salesforce-ux.github.io/dnd-a11y-patterns/)——键盘 lift-move/菜单命令式替代、[React Aria](https://react-aria.adobe.com/blog/drag-and-drop) 键盘/触屏/鼠标全 parity、[ARIA APG](https://www.w3.org/WAI/ARIA/apg/) 基线模式；aria-grabbed/aria-dropeffect [已废弃](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-grabbed)勿用；WCAG 2.5.7 Dragging Movements 要求非拖拽方法）：可达性的共识=**拖拽面必须配菜单/命令式替代路径**。
+- 对本项目的映射：**登记不补键盘 lift-move**——拖拽改期的替代路径已在（卡片快捷编辑 M29 菜单改日期）、依赖建立/解除的「Link to」式非拖拽路径本轮随抽屉入口成型（表单建/删关系·与拖拽连线并存——**拖拽是快捷方式不是唯一方式**即满足 2.5.7）；Board 移动本就是菜单语义无拖拽；aria-grabbed 类废弃属性全前端零使用 ✓。**不做** Space 抓取方向键移动的键盘拖拽（一人工厂·替代路径已满足可操作性）。
+
+**BW.4 M78 取舍**
+
+M78 = **交互完备性深审轮**：I234 依赖关系解除面（DELETE 端点+relation_removed 事件+投影删除+抽屉解除入口）/ I235 触屏补课（link 触点常显+SchedulePage 拖选 pointer 化）/ I236 冒烟 83+附录 C 清账+收尾审阅，约 7 人日。键盘 lift-move、Jira 式专用删链权限、undo、长按显隐、分叉合并采纳面（**正式关闭**——等真实证据）、删除恢复 UI（等证据）留 backlog。
