@@ -1,5 +1,6 @@
 /** Design-system primitives in the demo.html visual language (zinc + indigo). */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
+import { useDialogFocus } from "./dialogFocus";
 
 export const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
@@ -104,21 +105,29 @@ export function Drawer({
 }: {
   open: boolean; onClose: () => void; title: React.ReactNode; width?: string; children: React.ReactNode;
 }) {
+  const ref = useDialogFocus<HTMLElement>(open);
+  const titleId = useId();
+  // M85-I257：Escape 契约与 Modal 统一——检查并设置 defaultPrevented（嵌套双关修复）
   useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
+        onClose();
+      }
+    };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <aside
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} aria-hidden="true" />
+      <aside ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
         className="relative z-10 flex h-full flex-col border-l border-line bg-surface shadow-xl"
         style={{ width: `min(${width}, 720px)` }}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
-          <div className="text-sm font-semibold">{title}</div>
+          <div id={titleId} className="text-sm font-semibold">{title}</div>
           <Button variant="ghost" size="sm" onClick={onClose}>Esc ✕</Button>
         </header>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
@@ -206,13 +215,17 @@ export function Collapse({ title, children, defaultOpen = false }: {
 export function Modal({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useDialogFocus<HTMLDivElement>(open);
+  const titleId = useId();
   // I95/SHORTCUTS contract: "Esc 关闭弹窗" — every open modal listens for
   // Escape (an overlay that handled it first sets defaultPrevented).
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) onClose();
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault(); // 嵌套弹窗时只关最上层注册者（M85-I257 契约统一）
+        onClose();
+      }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -220,9 +233,10 @@ export function Modal({ open, onClose, title, children }: {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/25" onClick={onClose} />
-      <div ref={ref} className="relative z-10 w-full max-w-lg rounded-[12px] border border-line bg-surface shadow-xl">
-        <header className="border-b border-line px-4 py-3 text-sm font-semibold">{title}</header>
+      <div className="absolute inset-0 bg-black/25" onClick={onClose} aria-hidden="true" />
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
+        className="relative z-10 w-full max-w-lg rounded-[12px] border border-line bg-surface shadow-xl">
+        <header id={titleId} className="border-b border-line px-4 py-3 text-sm font-semibold">{title}</header>
         <div className="p-4">{children}</div>
       </div>
     </div>
