@@ -147,7 +147,7 @@ export function SettingsPage() {
           <Card className="p-3 text-xs">
             <div className="text-mut">
               WIP 上限、泳道与保存的视图是看板的现场控制（使用即配）——
-              <Link className="text-acc hover:underline" to={`/p/${pid}/board`}>去看板 →</Link>
+              <Link className="text-acc underline hover:no-underline" to={`/p/${pid}/board`}>去看板 →</Link>
             </div>
           </Card>
         </section>

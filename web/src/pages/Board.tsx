@@ -532,7 +532,7 @@ export function Board() {
         {/* 控件反映实际生效分组：显式 ?group= 优先，否则显示后端落的（默认视图）值 */}
         <select value={cycleId} onChange={(e) => setFilter("cycle", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
-          title="按迭代周期过滤（I119）">
+          title="按迭代周期过滤（I119）" aria-label="按迭代周期过滤">
           <option value="">周期：全部</option>
           {(cyclesQ.data?.cycles ?? []).map((c) => (
             <option key={c.id} value={c.id}>周期：{c.name}</option>
@@ -543,7 +543,8 @@ export function Board() {
         {/* M65-I196: swimlane selector — second grouping dimension */}
         <select value={swimlane} onChange={(e) => setFilter("swimlane", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
-          title="泳道：列之外的行维度（Taiga/Kanboard 语义）——按执行者/功能/优先级在列内分行">
+          title="泳道：列之外的行维度（Taiga/Kanboard 语义）——按执行者/功能/优先级在列内分行"
+          aria-label="泳道维度">
           <option value="">泳道：无</option>
           <option value="assignee_id">泳道：执行者</option>
           <option value="feature_id">泳道：功能</option>
@@ -567,7 +568,8 @@ export function Board() {
             }}>✕ 取消周期</Button>
         )}
         <select value={group || board.data?.group_by || ""} onChange={(e) => setFilter("group", e.target.value)}
-          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
+          aria-label="按字段分组">
           <option value="">分组：生命周期</option>
           {fieldOptions.map(([fid, fname]) => (
             <option key={fid} value={`field:${fid}`}>分组：{fname}</option>
@@ -584,14 +586,14 @@ export function Board() {
               title="清除后代范围">仅看「{scopeDesc.title}」后代 ✕</button>
           )}
           <select value={priority} onChange={(e) => setFilter("priority", e.target.value)}
-            className="rounded-lg border border-line bg-surface px-2 py-1.5">
+            className="rounded-lg border border-line bg-surface px-2 py-1.5" aria-label="按优先级过滤">
             <option value="">优先级（全部）</option>
             <option value="high">高</option>
             <option value="medium">中</option>
             <option value="low">低</option>
           </select>
           <select value={assignee} onChange={(e) => setFilter("assignee", e.target.value)}
-            className="rounded-lg border border-line bg-surface px-2 py-1.5">
+            className="rounded-lg border border-line bg-surface px-2 py-1.5" aria-label="按执行者过滤">
             <option value="">执行者（全部）</option>
             <option value="dev-agent">🤖 dev-agent</option>
             <option value="planner-agent">🤖 planner-agent</option>
@@ -610,13 +612,14 @@ export function Board() {
                       onChange={(e) => { setBatchStatus(e.target.value); if (e.target.value) applyBatch({ status: e.target.value }); }}
                       disabled={!sameConcept}
                       title={sameConcept ? "批量改状态" : "所选工作项概念不同，无法统一改状态"}
+                      aria-label="批量改状态"
                       className="rounded-lg border border-line bg-surface px-2 py-1.5 disabled:opacity-50">
                       <option value="">{sameConcept ? "改状态…" : "改状态（概念不同）"}</option>
                       {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                     <select value={batchPriority}
                       onChange={(e) => { setBatchPriority(e.target.value); if (e.target.value) applyBatch({ priority: e.target.value }); }}
-                      className="rounded-lg border border-line bg-surface px-2 py-1.5">
+                      className="rounded-lg border border-line bg-surface px-2 py-1.5" aria-label="批量改优先级">
                       <option value="">改优先级…</option>
                       <option value="high">高</option>
                       <option value="medium">中</option>
@@ -624,7 +627,7 @@ export function Board() {
                     </select>
                     <select value={batchAssignee}
                       onChange={(e) => { setBatchAssignee(e.target.value); if (e.target.value) applyBatch({ assignee_type: "human", assignee_id: e.target.value }); }}
-                      className="rounded-lg border border-line bg-surface px-2 py-1.5">
+                      className="rounded-lg border border-line bg-surface px-2 py-1.5" aria-label="批量指派">
                       <option value="">指派…</option>
                       {(users.data?.users ?? []).map((u) => <option key={u.id} value={u.id}>👤 {u.name}</option>)}
                     </select>
@@ -661,6 +664,7 @@ export function Board() {
               <tr className="border-b border-line text-mut">
                 <th className="py-2">
                   <input type="checkbox" title="全选/全不选（当前列表）"
+                    aria-label="全选/全不选（当前列表）"
                     checked={pagedRows.length > 0 && pagedRows.every(({ item }) => selected.has(item.id))}
                     onChange={(e) => {
                       const next = new Set(selected);
@@ -709,6 +713,7 @@ export function Board() {
                       <tr key={item.id} className="border-b border-line/60 hover:bg-bg">
                         <td className="py-2">
                           <input type="checkbox" checked={selected.has(item.id)} readOnly
+                            aria-label={`选择：${item.title}`}
                             onClick={(e) => {
                               const next = new Set(selected);
                               e.currentTarget.checked ? next.add(item.id) : next.delete(item.id);
@@ -850,7 +855,8 @@ export function Board() {
                         )}
                       >
                         <div className="flex items-start gap-1.5">
-                          <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5" />
+                          <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5"
+                            aria-label={`选择：${item.title}`} />
                           <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">{item.title}</div>
                             {item.parent_id && titleMap[item.parent_id] && (
@@ -905,7 +911,8 @@ export function Board() {
                       )}
                     >
                       <div className="flex items-start gap-1.5">
-                        <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5" />
+                        <input type="checkbox" checked={selected.has(item.id)} readOnly className="mt-0.5"
+                          aria-label={`选择：${item.title}`} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">{item.title}</div>
                           {item.parent_id && titleMap[item.parent_id] && (
@@ -1422,7 +1429,7 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
               <div key={i} className="flex items-center gap-1.5">
                 <input type="checkbox" checked={c.done} onChange={() =>
                   saveChecklist(checklist.map((x, j) => j === i ? { ...x, done: !x.done } : x))
-                } />
+                } aria-label={`清单项：${c.text}`} />
                 <span className={cx("min-w-0 flex-1 truncate", c.done && "text-mut line-through")}>
                   {c.text}
                   {"extracted" in c && c.extracted && (

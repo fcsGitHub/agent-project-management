@@ -333,7 +333,7 @@ function CycleBurndownCard({ pid }: { pid: string }) {
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-semibold">🔁 周期燃尽</span>
         <select value={cid} onChange={(e) => setCid(e.target.value)}
-          className="ml-auto rounded-md border border-line bg-bg px-2 py-1 text-xs">
+          className="ml-auto rounded-md border border-line bg-bg px-2 py-1 text-xs" aria-label="选择周期">
           <option value="">（选周期）</option>
           {(cycles.data?.cycles ?? []).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
@@ -546,7 +546,8 @@ function CostCard({ pid }: { pid: string }) {
               onChange={(e) => setLlmBudget(e.target.value)}
               placeholder={d.cost_budget_usd != null ? String(d.cost_budget_usd) : "未设置"}
               className="w-24 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink"
-              title="当月 agent 运行成本达到该值后新 run 会被拦截（80% 起提醒）" />
+              title="当月 agent 运行成本达到该值后新 run 会被拦截（80% 起提醒）"
+              aria-label="LLM 月预算（USD）" />
             <Button size="sm" variant="outline" disabled={busy || llmBudget === ""}
               onClick={async () => {
                 setBusy(true);
@@ -756,14 +757,14 @@ function SCurveCard({ pid }: { pid: string }) {
             <Badge tone={d.spi >= 1 ? "green" : "amber"}>SPI {d.spi}</Badge>
           )}
           <select value={selected} onChange={(e) => setBid(e.target.value)}
-            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="选择基线">
             {list.map((b) => (
               <option key={b.id} value={b.id}>{b.created_at?.slice(0, 10) || b.id}</option>
             ))}
             {!list.length && <option value="">（无基线）</option>}
           </select>
           <select value={compareId} onChange={(e) => setCompareId(e.target.value)}
-            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" title="叠加另一条基线的 PV 对比计划漂移">
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" title="叠加另一条基线的 PV 对比计划漂移" aria-label="选择对比基线">
             <option value="">不对比</option>
             {list.filter((b) => b.id !== selected).map((b) => (
               <option key={b.id} value={b.id}>对比 {b.created_at?.slice(0, 10) || b.id}</option>
@@ -849,7 +850,7 @@ function BurndownCard({ pid }: { pid: string }) {
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-semibold">🔥 燃尽</span>
         <select value={selected} onChange={(e) => setMid(e.target.value)}
-          className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+          className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="选择里程碑">
           {list.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
           {!list.length && <option value="">（无里程碑）</option>}
         </select>
