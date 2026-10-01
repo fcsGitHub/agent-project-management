@@ -2683,6 +2683,36 @@ agent-project-management/
 
 ---
 
+### M88 · 发布工程第二轮·发布面补课与演练机械化（I266-I268，约 4 人日）
+
+> v3.0 新增（2026-10-02，docs/01 §CG 前置调研）。防重查：留观候选逐一核验维持（graph 入边/dnd 触屏/工件恢复/a11y 二期/init_db 幂等化/工具链余项）；审计种子三件：**①v0.9.0 发布前演练承诺未兑现**（M86 附录 C ③ 自立「v0.9.0 发布前再演」——M87 收口未跑演练即打 tag·节律挂在「tag 动作前」靠记忆必然失守）；**②docs/11 时效戳停在 v0.8.0**（v0.9.0 已发布+web 构建链 M87 换代[node:24/vite8]）；**③v0.9.0 双镜像完整链从未同时验证**（app 镜像 M86 后未重建·M87 只建了 web）。**防重查：CI 化 release gate 不做（无 CI 面）、发布分支/RC 流程不做（单人直主干）、定时演练调度不做、docs/01~09 设计册回填不做、文档自动生成不做（手写精选 M81 已立）。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I266 | v0.9.0 发布面补课（compose build 双镜像[app 镜像 M86 后首次重建]+compose up 全链 healthcheck+容器 /api/health=v0.9.0 对账+seed→建项目→看板核心冒烟+**v0.9.0 数据全链演练补课**[隔离目录：造数→backup→毁库→restore→rebuild→四项对账→RTO 计时——节律缺口如实登记附录 C]） | docs/01 §CG.1 | M86 I260/I261 全套惯例 | 1.5d |
+| I267 | 演练机械化+docs/11 解冻（tools/release_drill.py 一键演练[造数→backup→毁库闸备份 EXIT=0→restore→rebuild→对账→计时·M86 三条演练纪律内嵌·Windows 只读属性清理内嵌]+docs/11 时效戳/覆盖声明至 v0.9.0+web 构建链换代入档[node:24/vite8/vitest5 门槛]+演练脚本用法节） | docs/01 §CG.2-3 | M86 演练纪律/docs/11 惯例 | 1.5d |
+| I268 | M88 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M88+看板闭环+附录 C+**收口 DoD 修订入档**[发布轮收口迭代 DoD 增「全链演练+docs/11 时效戳核对」两项·机制位替代记忆]+攒批 v0.10.0 不 tag 裁决复核） | docs/01 §CG.4 | M81~M87 收口惯例 | 1d |
+
+#### I266 · v0.9.0 发布面补课（1.5d）
+
+- 任务：`docker compose build` 双镜像（app 镜像 M86 后首次重建+web 新 lockfile 全链）+ `docker compose up -d` healthcheck + 容器内 /api/health version=v0.9.0 对账（四锚一致性部署面验证）+ seed→建项目→看板核心路径冒烟 + v0.9.0 数据全链演练（隔离 APM_DATA_DIR：造数→backup.py→毁库[闸备份 EXIT=0]→restore.py→rebuild→项目数/事件数/FTS/工件内容对账→计时）+ 节律缺口登记（M87 收口漏跑演练——附录 C 如实入档）。
+- DoD：双镜像 build+healthcheck 绿；版本对账一致；演练对账全一致；缺口登记在案。
+- 演示路径：compose ps healthy；curl /api/health=v0.9.0；演练对账输出。
+
+#### I267 · 演练机械化+docs/11 解冻（1.5d）
+
+- 任务：tools/release_drill.py（一键：临时隔离目录造数→backup→毁库[仅在备份 EXIT=0 后]→restore→rebuild→四项对账→各步计时打印 RTO；内嵌 M86 三条纪律[毁库闸/Windows git 只读属性清理/对账口径四项]——python 写文本 newline="\n"）+ 冒烟验证（脚本 subprocess 跑通+故意红自证可选）+ docs/11 时效戳/覆盖声明改 v0.9.0+web 构建链换代须知（node:24-alpine/vite8 Rolldown/vitest5 node≥22.12）+ §2.5 补演练脚本用法 + smoke 86 解冻代标记随代更新（M86-I262→M88-I267）。
+- DoD：脚本一键跑通对账全一致；docs/11 覆盖 v0.9.0 部署面；冒烟 86 绿。
+- 演示路径：`python tools/release_drill.py` 一条命令输出对账+计时。
+
+#### I268 · M88 收口审阅（1d）
+
+- 任务：全量回归（非 smoke 分片+冒烟 runner+vitest+build+机械防腐七件）+ CHANGELOG Unreleased 记 M88 + docs/10 看板闭环+附录 C 登记 + **收口 DoD 修订入档**（发布轮收口迭代 DoD 增「全链演练+docs/11 时效戳核对」——HANDOFF §4 与 docs/10 收口惯例同步）+ M88 审阅（攒批 v0.10.0 时机=M88+M89 两轮成版·本轮不 tag）。
+- DoD：全量 EXIT=0；冒烟 runner GREEN；七件 ✓；CHANGELOG 在案。
+- 演示路径：git describe=v0.9.0-N（未 tag）+ CHANGELOG Unreleased 含 M88 条目。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2929,6 +2959,7 @@ agent-project-management/
 | I261 备份恢复演练+事件体积观测 | 已完成 | 2026-10-02 | 2026-10-02 | 隔离环境全链=造数[项目/项/评论/工时/工件 git 仓]→backup.py[在线快照 events 入 manifest]→**毁库**→restore.py→rebuild→对账全一致[项目数/事件数/FTS uniqueDRILLTOKEN 命中/工件内容逐字节]——恢复 RTO≈0.4s（该规模）·**验证≠校验兑现：备份成功到恢复证明首次闭环** + ops.py 补源库存在性 loud fail[sqlite3.connect 对缺失路径静默建空库→「空成功」让毁库闸失效——演练首跑实录] + 演练四发现：①静默空库已修②毁库必须闸在备份 EXIT=0③**git 对象只读属性**=Windows 删库 PermissionError 真因[force_remove chmod 后过·部署者恢复法入 docs/11]④事件体积=13 事件 636KB db[schema+FTS 基线主导·M58 慢增长结论维持] |
 | I262 docs/11 解冻至 v0.8.0+收尾审阅 | 已完成 | 2026-10-02 | 2026-10-02 | docs/11 时效戳+覆盖声明改至 v0.8.0[部署链已验证声明入档] + **新增 §2.5 部署后自检速查**[compose ps+health 版本核对+机械防腐七件部署前自检命令+部署故障速查表[bool_parsing/缺 cryptography/半成品 schema 卷 down -v/git 只读对象/端口占用五症状]] + §5.2.1 补 M86 演练实录三条纪律[毁库闸备份 EXIT=0/git 只读属性清法/对账四项] + smoke 86 解冻代标记随代更新[M81-I244→M86-I262——解冻推进锁随代走] + 全量回归（非 smoke **477 EXIT=0**/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest 41/build 绿/机械防腐七件 ✓）+ CHANGELOG Unreleased 记 M86（攒批待 v0.9.0 不 tag） |
 | **M86 运维验证轮·部署链与备份恢复（I260-I262）** | 已完成 | 2026-10-02 | 2026-10-02 | 3 迭代 / 约 5 人日（docs/01 §CE + docs/10 §M86）：I260 部署链首次验证（compose build 双镜像+镜像内版本对账一致+**两部署 bug 修复**[布尔透传空串/cryptography 缺声明]+init_db 半成品卷发现登记）/ I261 备份恢复演练（v0.8.0 数据首次真演练·对账全一致·RTO≈0.4s+backup loud fail 修复+git 只读属性发现）/ I262 docs/11 解冻至 v0.8.0（自检速查+故障速查表+演练纪律）。基线：pytest **477** 全绿（非 smoke **477 EXIT=0** + 冒烟 runner **96 GREEN** EXIT=0[89 文件]）+ vitest **41** + build 绿 + 机械防腐七件 ✓；**攒批 v0.9.0 不 tag** |
+| 2026-10-02 M88 调研定义（§CG） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：留观候选逐一核验零新证据**维持**[graph 入边/dnd 触屏/工件恢复/a11y 二期/init_db 幂等化/工具链余项 rolldown-vite 中间步]；v0.10.0 攒批[M88+M89 两轮成版]。审计种子三件——**①v0.9.0 发布前演练承诺未兑现**[M86 附录 C ③ 自立节律「每个 tag 版本发布前跑一次全链演练——下版本 v0.9.0 发布前再演」·M87 收口 I265 看板行只有全量回归+机械防腐**未跑演练即打 tag**——自立节律下一轮就被自己漏掉·节律挂在「tag 动作前」靠记忆必然失守]、**②docs/11 时效戳停在 v0.8.0**[M86-I262 解冻——v0.9.0 已发布且 web 构建链 M87 换代 node:24-alpine/vite8 Rolldown/vitest5 node≥22.12 门槛·覆盖声明过期·AWS OPS07 明文反模式]、**③v0.9.0 双镜像完整链从未同时验证**[app 镜像 M86 后未重建·M87 只 compose build web]。三路 WebSearch：tag 前发布门（[BrowserStack](https://www.browserstack.com/guide/questions-to-ask-before-software-release) 四段清单/[LaunchDarkly 25 步](https://launchdarkly.com/blog/release-management-checklist) release preparation 含文档/[Cortex readiness gates](https://www.cortex.io/post/software-release-checklist) 全过**才动 tag**——共识=文档更新与验证面完整是 tag 前置非 tag 后补课·**裁决节律修订：演练+时效戳核对进发布轮收口迭代 DoD[机制位]非 tag 动作前[记忆位]**·v0.9.0 演练 M88 补课如实登记）、演练脚本化（[Deska](https://deska.dev/blog/agent-backup-restore-drill) 脚本拉备份进隔离环境自动验证/[Tech-Insider](https://tech-insider.org/au/cloud-backup-restore-drills-testing-2026) 可调度脚本全流程/[PBS](https://remote-backups.com/blog/restore-testing-dr-drills) 系统化验证作业——共识=演练是可重复脚本化工作流非手工 runbook·**tools/release_drill.py 一键化**[M86 三条纪律内嵌]）、runbook 漂移（[AWS OPS07-BP03](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_runbooks.html) runbook 失步=明文反模式/[Sync-o](https://sync-o.io/blog/runbook-documentation-best-practices) 「运营上最危险的文档漂移」防漂移靠机制/[Mintlify](https://www.mintlify.com/library/how-to-stop-documentation-drift) 挂进发布管线——**时效戳核对进收口 DoD 即机制位**）。定案 M88=发布工程第二轮·发布面补课与演练机械化（I266 v0.9.0 发布面补课[双镜像+全链 up+演练补课]/I267 release_drill.py 机械化+docs/11 解冻 v0.9.0/I268 收口+收口 DoD 修订入档[攒批 v0.10.0 不 tag]） |
 | 2026-10-01 M87 调研定义（§CF） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**、a11y 二期仍无新证据[色彩对比需浏览器级 axe·jsdom 不可评·M85 机检边界]、init_db 幂等化维持真实事故再触发[M86 登记]；**候选④前端工具链 major 转正**=M83-CB 留观解除条件已满足——pnpm outdated 实测（2026-10-01）typescript 5.9.3→**7.0.2**[落后 2 major·Go 原生 tsgo]/vitest 3.2.7→**5.0.3**[2 major]/vite 7.3.6→**8.3.2**[8.x 已迭代 3 minor·Rolldown 内核]/@vitejs/plugin-react 5→**6.1.1**/jsdom 27→**30.1.1**[3 major]/lucide-react 0.549→**1.49.0**[0.x→1.0 GA]——全部 GA+多 minor 稳定迭代。本地命中面 grep 三件：**vite.config.ts 零 manualChunks**[Vite 8 最大破坏点不命中·35 chunks 全来自 React.lazy 天然分割]/零 vitest workspace[Vitest 4 workspace→projects 不命中]/node v24.11.1 ✓ 满足 Vitest 5 门槛（≥22.12）。三路 WebSearch：TS 7（[Microsoft 官宣](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0) Go 原生 5-10x+UTF-16 类型级字符串破坏/[SitePoint 迁移指南](https://www.sitepoint.com/typescript-70-rc-the-go-rewrite-migration-guide) 多数项目 <5 配置改动/[Stackademic](https://blog.stackademic.com/three-tools-in-your-typescript-stack-will-break-on-the-7-0-fd2d61ff5416) 三类生态工具会 break——tsc -b CLI 形态=I263 首关·失败预案回落 6.x 桥接）、Vite 8（[官方迁移指南](https://vite.dev/guide/migration) rolldown-vite 中间步/[Vite 8 官宣](https://vite.dev/blog/announcing-vite8) Rolldown 转正/[manualChunks 迁移](https://laplusda.com/en/posts/vite-8-manualchunks-rolldown) 对象形式移除——命中面收敛三插件兼容·**不做中间步**一步到位失败再降）、Vitest 5（[官方 blog](https://vitest.dev/blog/vitest-5.html) 要求 vite>=6.4+node>=22.12/[OpenReplay](https://blog.openreplay.com/vitest-5-changes) bench 顶层导出移除+reporter 路径变化——零 workspace/零 bench 命中·jsdom 30 升级由 41 项 vitest+axe 锁回归背书）。定案 M87=前端工具链 major 升级轮（I263 一车升级+三关/I264 随升修复+chunk 审计+镜像构建/I265 收口审阅[攒批 v0.9.0 不 tag]） |
 | I263 前端工具链一车升级 | 已完成 | 2026-10-01 | 2026-10-01 | web/package.json 六 major 一次解析（typescript ~5.9.3→**~7.0.2**[tsgo Go 原生]/vitest ^3.2.4→**^5.0.3**/vite ^7.1.9→**^8.3.2**[Rolldown 内核]/@vitejs/plugin-react ^5→**^6.1.1**/jsdom ^27→**^30.1.1**/lucide-react ^0.549→**^1.49.0**）+ pnpm install 16.7s 干净解析（650 包 resolved·零 peer 冲突）+ **三关首验全绿**：`tsc -b` EXIT=0 零错误（**TS 7 tsgo CLI 形态兼容——`tsc -b` 单配置 noEmit 直通·调研首关担忧证伪**）/ `pnpm vitest run` **41/41 EXIT=0**（axe a11y 锁+dialogFocus 焦点在 jsdom 30 下全绿）/ `pnpm build` EXIT=0 零警告（vite 8 Rolldown 首建 2.92s·vite-plugin-pwa generateSW 正常·precache 42 entries）——**零修复零预案触发**（命中面 grep 前置的红利：三破坏点[manualChunks/workspace/node 门槛]全不命中·两插件[tailwindcss/PWA]在 Rolldown 下直接兼容） |
 | I265 全量回归+v0.9.0 攒批发布+收口审阅 | 已完成 | 2026-10-02 | 2026-10-02 | 全量回归（非 smoke **477 EXIT=0**/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest **41**/build 绿/机械防腐七件 ✓[env_doc/write_gates/check_test_dates 本轮实测·源码锁/版本四锚/依赖闭包/axe 随冒烟绿]）+ **攒批发布裁决=tag v0.9.0**（§CF.5 定义时「不 tag」保守预设被 I265 裁决复核推翻——节奏先例 M83-I251/M85 均在配对第二轮收口 bump+tag·M86 CHANGELOG 条目自记「随 v0.9.0 统一 bump+tag」）+ 版本四锚 bump 0.8.0→**0.9.0**（version.py/web/package.json/README/test_version）+ 冒烟 88 发布钉同步 0.9.0 + CHANGELOG [Unreleased]→**[0.9.0] — 2026-10-02** 段[M86+M87 精选·Unreleased 空段保持——冒烟 86 结构断言] + `git tag -a v0.9.0`（annotated·攒批第三版） |

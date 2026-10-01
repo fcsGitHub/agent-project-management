@@ -2342,3 +2342,26 @@ M86 = **运维验证轮·部署链与备份恢复**：I260 docker compose build 
 **CF.5 M87 取舍**
 
 M87 = **前端工具链 major 升级轮**：I263 一车升级（六 major+minor 全量·pnpm install→tsc/vitest/build 三关） / I264 随升修复+产物审计（chunk 数与体积对账 35 基线+axe a11y 锁回归+web/Dockerfile frozen-lockfile 构建验证[M86 惯例·lockfile 变更必须过镜像]） / I265 收口审阅（全量回归+CHANGELOG Unreleased+看板闭环·攒批 v0.9.0 不 tag），约 4 人日。rolldown-vite 中间步、react 20 观望、a11y 二期、graph 入边/dnd 触屏/工件恢复留观三候选、init_db 幂等化留 backlog。**失败预案**：TS 7 阻塞→回落 6.x 桥接；Vite 8 插件阻塞→vite 7+vitest 5 组合兜底（vitest 5 只要求 vite>=6.4）。
+
+## CG. M88 前置调研：发布工程第二轮·发布面补课与演练机械化（2026-10-02）
+
+> 目标协议触发：M87 完成后开启。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复/a11y 二期零新证据**维持**；init_db 幂等化维持「真实事故再触发」；工具链余项（rolldown-vite 中间步/react-router major 动向）留观；v0.10.0 攒批（M88+M89 两轮成版·本轮不 tag）。**审计种子三件（grep/看板实证）**：**①v0.9.0 发布前演练承诺未兑现**（M86 附录 C ③ 自立节律「每个 tag 版本发布前跑一次全链演练……下版本 v0.9.0 发布前再演」——M87 收口 I265 看板行只有全量回归+机械防腐七件，**未跑演练即打 tag v0.9.0**——自立的节律在下一轮就被自己漏掉·流程债）；**②docs/11 时效戳停在 v0.8.0**（M86-I262 解冻——而 v0.9.0 已发布且 web 构建链在 M87 换代[node:24-alpine 下 vite8/Rolldown·vitest5 node≥22.12 门槛]——部署文档覆盖声明过期·AWS OPS07 称 runbook 漂移为反模式）；**③v0.9.0 双镜像完整链从未同时验证**（M87 只 compose build web[lockfile 惯例]·app 镜像自 M86 后未重建——compose 全链 up+健康检查+v0.9.0 版本对账缺失）。本轮三路新调研（**tag 前发布验证清单 / 演练脚本化 / runbook 漂移防治**），选定 **M88 = 发布工程第二轮·发布面补课与演练机械化**。
+
+**CG.1 tag 前发布验证清单（验证面不完整就 tag=节律失守）**
+
+- 产品共识（[BrowserStack 发布清单](https://www.browserstack.com/guide/questions-to-ask-before-software-release)——规划/测试/部署/post-release 四段；[LaunchDarkly 25 步](https://launchdarkly.com/blog/release-management-checklist)——release preparation 段含文档与发布说明；[Cortex 就绪门](https://www.cortex.io/post/software-release-checklist)——测试完成+评审签认+readiness gates 全过**才动 tag**）：发布门的共识=**文档更新与验证面完整是 tag 的前置条件，不是 tag 后的补课**。
+- 对本项目的映射：M86 立的节律（tag 前全链演练）本质是发布门的一项 readiness gate——M87 收口把它漏掉说明**节律挂错了位置**（挂在「tag 动作前」靠记忆执行，而非挂在发布轮收口迭代的 DoD 里）。裁决：节律修订为**「发布轮收口迭代 DoD 含全链演练+docs/11 时效戳核对」**（与全量回归并列为收口必过项），v0.9.0 演练在 M88 补课执行并如实登记缺口。**不引** CI 化 release gate（无 CI 面——收口 DoD 即人工 gate）、发布分支/RC 流程（单人工厂直主干）。
+
+**CG.2 演练脚本化（手工多步演练不可持续——节律立了执行昂贵必然被漏）**
+
+- 产品共识（[Deska agent 演练脚本](https://deska.dev/blog/agent-backup-restore-drill)——脚本/代理把最新备份拉进隔离环境自动验证；[Tech-Insider 演练程序](https://tech-insider.org/au/cloud-backup-restore-drills-testing-2026)——可调度脚本一次跑全流程；[PBS 恢复测试](https://remote-backups.com/blog/restore-testing-dr-drills)——系统化验证作业+DR 测试时间表）：演练的共识=**可重复的脚本化工作流，不是手工 runbook**。
+- 对本项目的映射：`tools/release_drill.py` 一键演练（隔离 APM_DATA_DIR 造数→backup.py→**毁库闸在备份 EXIT=0**[M86 纪律①内嵌]→restore.py→rebuild→四项对账[项目数/事件数/FTS 命中/工件内容]→各步计时 RTO 观测；Windows git 只读属性清理内嵌[纪律②]）——M86 手工演练的三条纪律与对账口径变成代码，发布轮收口跑一条命令。**不做** 定时自动调度（无 CI 面·收口人工触发）、跨备份代际管理/异地策略（单机 compose 语境）。
+
+**CG.3 runbook 漂移防治（时效戳核对入收口 DoD——机制而非提醒）**
+
+- 产品共识（[AWS Well-Architected OPS07-BP03](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_runbooks.html)——**runbook 与系统变更失步是明文反模式**；[Sync-o runbook 漂移](https://sync-o.io/blog/runbook-documentation-best-practices)——「运营上最危险的文档漂移类别」·防漂移靠机制非风格指南；[Mintlify](https://www.mintlify.com/library/how-to-stop-documentation-drift)——代码变更快于文档更新是漂移根源·挂进发布管线）：防漂移的共识=**把文档新鲜度挂进发布流程的机制位**。
+- 对本项目的映射：docs/11 解冻至 v0.9.0（时效戳+覆盖声明+web 构建链换代入档：node:24-alpine/vite8 Rolldown/vitest5 node≥22.12 门槛/演练脚本用法）+ **收口 DoD 增「docs/11 时效戳核对」项**（M88 起：每次发布轮收口核对时效戳与当前版本一致——检查动作进 DoD 清单即机制位，不再依赖记忆）。**不做** docs/01~09 设计册回填（设计时点快照裁决不变）、文档自动生成（手写精选纪律 M81 已立）。
+
+**CG.4 M88 取舍**
+
+M88 = **发布工程第二轮·发布面补课与演练机械化**：I266 v0.9.0 发布面补课（compose build 双镜像[app 重建]+全链 up 健康检查+版本对账+v0.9.0 数据全链演练[节律缺口如实登记]） / I267 tools/release_drill.py 演练机械化+docs/11 解冻至 v0.9.0 / I268 收口审阅（全量回归+CHANGELOG Unreleased+看板闭环+收口 DoD 修订入档·攒批 v0.10.0 不 tag），约 4 人日。CI 化 release gate、发布分支/RC、定时演练调度、docs/01~09 回填、留观候选（graph 入边/dnd 触屏/工件恢复/a11y 二期/init_db 幂等化）留 backlog。
