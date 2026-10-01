@@ -421,15 +421,27 @@ def _apply(name: str, body: dict) -> dict:
 
 @router.post("/ontologies/{name}/learn")
 def learn(name: str) -> dict:
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin only")  # M80-I240: M4 C 级部分清账
     return _learn(name)
 
 
 @router.post("/ontologies/{name}/learn-llm")
 def learn_llm(name: str) -> dict:
     """LLM 层归纳（docs/08 §8.4）：pattern 候选 + LLM 候选去重合并。"""
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin only")  # M80-I240: M4 C 级部分清账
     return _scan(name, with_llm=True)
 
 
 @router.post("/ontologies/{name}/apply")
 def apply_candidates(name: str, body: dict) -> dict:
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin only")  # M80-I240: M4 C 级部分清账（分层仍 V2）
     return _apply(name, body)

@@ -533,9 +533,9 @@ class PromptLayerIn(BaseModel):
 
 @router.post("/conversations")
 def post_conversation(body: ConversationIn) -> dict:
-    from apm.domains.projects import require_project
+    from apm.domains.members import require_project_write
 
-    require_project(body.project_id)
+    require_project_write(body.project_id)  # M80-I240: 存在性→成员制（require_project 仅查 404）
     conv = create_conversation(
         project_id=body.project_id,
         feature_id=body.feature_id,

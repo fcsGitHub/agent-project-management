@@ -356,6 +356,10 @@ def get_ontology(name: str) -> dict:
 
 @router.post("/system/reload-ontologies")
 def reload_ontologies() -> dict:
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin only")  # M80-I240: M4 C 级部分清账（裸奔先收·分层仍 V2）
     ontos = reload_all()
     events.emit(
         event_type="ontology.changed",

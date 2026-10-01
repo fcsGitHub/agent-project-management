@@ -144,6 +144,8 @@ def get_feature_detail(feature_id: str, include: str = "items,conversations,arti
 @router.patch("/features/{feature_id}")
 def patch_feature(feature_id: str, body: FeaturePatch) -> dict:
     feature = require_feature(feature_id)
+    from apm.domains.members import require_project_write
+    require_project_write(feature["project_id"])  # M80-I240
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         return feature
@@ -160,6 +162,8 @@ def patch_feature(feature_id: str, body: FeaturePatch) -> dict:
 @router.post("/features/{feature_id}/archive")
 def archive_feature(feature_id: str) -> dict:
     feature = require_feature(feature_id)
+    from apm.domains.members import require_project_write
+    require_project_write(feature["project_id"])  # M80-I240
     events.emit(
         event_type="feature.archived",
         agg_type="feature",

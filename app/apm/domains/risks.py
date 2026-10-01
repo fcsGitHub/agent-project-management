@@ -130,6 +130,8 @@ def create_risk(project_id: str, body: RiskIn) -> dict:
 @router.patch("/risks/{risk_id}")
 def patch_risk(risk_id: str, body: RiskPatch) -> dict:
     r = require_risk(risk_id)
+    from apm.domains.members import require_project_write
+    require_project_write(r["project_id"])  # M80-I240
     if r["status"] == "closed":
         raise HTTPException(status_code=409, detail="risk is closed")
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
@@ -158,6 +160,8 @@ def patch_risk(risk_id: str, body: RiskPatch) -> dict:
 @router.post("/risks/{risk_id}/close")
 def close_risk(risk_id: str) -> dict:
     r = require_risk(risk_id)
+    from apm.domains.members import require_project_write
+    require_project_write(r["project_id"])  # M80-I240
     events.emit(
         event_type="risk.closed", agg_type="risk", agg_id=risk_id,
         project_id=r["project_id"], actor_type="human", actor_id=events.effective_actor(),

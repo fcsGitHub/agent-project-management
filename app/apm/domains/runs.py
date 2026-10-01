@@ -112,7 +112,15 @@ def _run_detail(run: dict) -> dict:
 
 @router.post("/runs")
 def post_run(body: RunIn) -> dict:
+    from apm.domains.conversations import get_conversation
+    from apm.domains.members import require_project_write
     from apm.runtime.engine import start_run
+
+    conv = get_conversation(body.conversation_id)
+    if not conv:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"conversation {body.conversation_id} not found")
+    require_project_write(conv["project_id"])  # M80-I240: POST /runs 无 /{id} 段不匹配白名单——入口补成员门
 
     try:
         run = start_run(

@@ -221,6 +221,10 @@ def post_ui_command(body: UICommandIn) -> dict:
         m = re.search(r"/p/([^/]+)", route)
         if m:
             page_state["project_id"] = m.group(1)
+    pid = page_state.get("project_id")
+    if pid:
+        from apm.domains.members import require_project_write
+        require_project_write(pid)  # M80-I240: L2 解析消耗 LLM 预算且落 ui_commands 行——项目成员门
     actions = parse(body.utterance, page_state)
     parser = "rules"
     if not actions and config.settings.provider_mode != "replay":

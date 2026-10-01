@@ -13,8 +13,16 @@ class BatchStartIn(BaseModel):
 
 @router.post("/orchestrator/batch-start")
 def post_batch_start(body: BatchStartIn) -> dict:
+    from apm.domains.items import get_item
+    from apm.domains.members import require_project_write
     from apm.orchestrator.scheduler import batch_start
 
+    seen: set[str] = set()
+    for iid in body.item_ids:
+        it = get_item(iid)
+        if it and it["project_id"] not in seen:
+            seen.add(it["project_id"])
+            require_project_write(it["project_id"])  # M80-I240
     return batch_start(body.item_ids)
 
 

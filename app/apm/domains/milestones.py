@@ -171,6 +171,8 @@ def get_milestone_detail(milestone_id: str) -> dict:
 @router.patch("/milestones/{milestone_id}")
 def patch_milestone(milestone_id: str, body: MilestonePatch) -> dict:
     m = require_milestone(milestone_id)
+    from apm.domains.members import require_project_write
+    require_project_write(m["project_id"])  # M80-I240
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         return m
@@ -194,6 +196,8 @@ def patch_milestone(milestone_id: str, body: MilestonePatch) -> dict:
 @router.delete("/milestones/{milestone_id}")
 def delete_milestone(milestone_id: str) -> dict:
     m = require_milestone(milestone_id)
+    from apm.domains.members import require_project_write
+    require_project_write(m["project_id"])  # M80-I240
     events.emit(
         event_type="milestone.deleted",
         agg_type="milestone",

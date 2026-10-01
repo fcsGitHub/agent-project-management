@@ -120,6 +120,8 @@ def create_cycle(project_id: str, body: CycleIn) -> dict:
 @router.patch("/cycles/{cycle_id}")
 def patch_cycle(cycle_id: str, body: CyclePatch) -> dict:
     c = require_cycle(cycle_id)
+    from apm.domains.members import require_project_write
+    require_project_write(c["project_id"])  # M80-I240
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     if not changes:
         return c
@@ -139,6 +141,8 @@ def patch_cycle(cycle_id: str, body: CyclePatch) -> dict:
 @router.delete("/cycles/{cycle_id}")
 def cancel_cycle(cycle_id: str) -> dict:
     c = require_cycle(cycle_id)
+    from apm.domains.members import require_project_write
+    require_project_write(c["project_id"])  # M80-I240
     events.emit(
         event_type="cycle.cancelled", agg_type="cycle", agg_id=cycle_id,
         project_id=c["project_id"], actor_type="human", actor_id=events.effective_actor(),
@@ -365,6 +369,8 @@ def create_action_items(cycle_id: str, body: dict) -> dict:
     from apm.domains.items import create_item
 
     c = require_cycle(cycle_id)
+    from apm.domains.members import require_project_write
+    require_project_write(c["project_id"])  # M80-I240
     items_in = body.get("items")
     if not isinstance(items_in, list) or not items_in:
         raise HTTPException(status_code=422, detail="items must be a non-empty list")

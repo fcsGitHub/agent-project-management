@@ -108,6 +108,19 @@ def check_project_write(project_id: str, user_id: str) -> tuple[bool, str | None
     return False, role  # None = non-member; "viewer" = read-only member
 
 
+def require_project_write(project_id: str) -> None:
+    """M80-I240 (docs/01 §BY.1): domain-level write gate for id-path resources
+    the middleware whitelist never covered (cycles/milestones/features/risks,
+    conversations/runs entries, asset deposits). check_project_write already
+    grants the local-mode trusted user (bootstrap admin), so local behavior
+    is unchanged; network-mode non-members/viewers get 403."""
+    allowed, role = check_project_write(project_id, events.effective_actor())
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"project write requires a member role (you are {role or 'not a member'} of {project_id})")
+
+
 def project_id_for_path(path: str) -> str | None:
     """Best-effort project context for a /api path (M8-I27 write gating)."""
     m = re.match(r"^/api/projects/([^/]+)", path)

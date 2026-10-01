@@ -555,6 +555,8 @@ def asset_insights(now: str | None = None) -> dict:
 
 @router.post("/assets")
 def post_asset(body: DepositIn) -> dict:
+    from apm.domains.members import require_project_write
+    require_project_write(body.source_project_id)  # M80-I240: deposit 是 from 侧项目写语义
     return deposit(
         source_project_id=body.source_project_id,
         artifact_path=body.artifact_path,
@@ -569,6 +571,7 @@ def post_asset(body: DepositIn) -> dict:
 
 @router.post("/assets/{asset_id}/submit_review")
 def post_submit_review(asset_id: str) -> dict:
+    require_instance_user()  # M80-I240: org 管理动作=实例成员门（与读面同门·防御性显式）
     return submit_review(asset_id)
 
 
@@ -603,6 +606,7 @@ def _emit_asset_transition(asset: dict, status: str, event_type: str) -> None:
 
 @router.post("/assets/{asset_id}/deprecate")
 def post_deprecate_asset(asset_id: str) -> dict:
+    require_instance_user()  # M80-I240: org 管理动作=实例成员门（与读面同门·防御性显式）
     asset = require_asset(asset_id)
     if asset["status"] == "deprecated":
         raise HTTPException(status_code=409, detail="asset is already deprecated")
@@ -614,6 +618,7 @@ def post_deprecate_asset(asset_id: str) -> dict:
 
 @router.post("/assets/{asset_id}/archive")
 def post_archive_asset(asset_id: str) -> dict:
+    require_instance_user()  # M80-I240: org 管理动作=实例成员门（与读面同门·防御性显式）
     asset = require_asset(asset_id)
     if asset["status"] == "archived":
         raise HTTPException(status_code=409, detail="asset is already archived")
@@ -673,6 +678,7 @@ class RestoreIn(BaseModel):
 
 @router.post("/assets/{asset_id}/restore")
 def restore_asset_version(asset_id: str, body: RestoreIn) -> dict:
+    require_instance_user()  # M80-I240: org 管理动作=实例成员门（与读面同门·防御性显式）
     """Append-only restore: the historical body is re-written as a NEW version
     (version+1 via the asset.restored projection) — history is never rewound,
     the same discipline the event stream itself follows."""
@@ -702,6 +708,7 @@ def restore_asset_version(asset_id: str, body: RestoreIn) -> dict:
 
 @router.post("/assets/{asset_id}/link")
 def post_link(asset_id: str, body: LinkIn) -> dict:
+    require_instance_user()  # M80-I240: org 管理动作=实例成员门（与读面同门·防御性显式）
     return link_usage(
         asset_id, project_id=body.project_id, artifact_path=body.artifact_path,
         conversation_id=body.conversation_id, actor_type="human",

@@ -151,6 +151,7 @@ def from_asset(body: FromAssetIn) -> dict:
     from apm.domains.assets import get_asset_detail
     from apm.domains.projects import require_project
 
+    require_instance_user()  # M80-I240: org 治理动作=实例成员门
     asset = get_asset_detail(body.asset_id)
     _check_name(body.pack_name)
     project_id = (asset["provenance"][0]["target"].get("project_id") if asset["provenance"] else None)
