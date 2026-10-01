@@ -1,4 +1,6 @@
-# 11 · 网络协作部署指南（M8）
+# 11 · 网络协作部署指南
+
+> 时效：2026-10-01 更新（M81-I244 解冻——覆盖至 v0.6.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
@@ -50,6 +52,25 @@ curl -X POST http://host:8000/api/users -H "Content-Type: application/json" \
 - **JIT 注册四约束**（详见 docs/12 §14）：email 必须已验证；角色一次性定 viewer 缺省、重登不提升；组白名单 fail-closed；同 email/name 的本地账号冲突 409 不自动合并（合并 = 管理员手工动作）；
 - **redirect_uri 必须与前端同源**（经反代时指向对外域名）——回调会话 cookie 落在该域；
 - 本地演示：`tools/keycloak/docker-compose.yml`（realm import 一键）或 `tools/oidc_stub.py`（无容器 mini IdP）。
+
+### 2.2 PAT 机器接入（M26-I199，可选）
+
+机器/脚本以 Bearer 令牌代替会话 cookie 调用写端点：
+
+- 登录后「我的工作」→ 机器接入令牌：创建（**display-once**——明文只显示一次，服务端只存哈希）、吊销。
+- 调用方式：`Authorization: Bearer apm_pat_xxx`；令牌以其创建者为事件 actor（权限=本人）。
+- 会话 cookie 优先于 Bearer——脚本环境务必登出态或独立 cookie jar（M66 坑）。
+
+### 2.3 推送与出站观测（M67-I202/I206，可选）
+
+- **ntfy 推送**：`APM_PUSH_URL=https://ntfy.corp.test/agentpm`（我的工作→推送通道配置写入用户偏好；服务端出站复用 webhook SSRF 门——自托管内网 ntfy 需 `APM_WEBHOOK_ALLOW_PRIVATE=1`）。
+- **Prometheus**：`APM_METRICS_ENABLED=1` 后 `GET /api/metrics` 暴露计数（events 账本的读侧投影；抓取目标配到该路径）。
+
+### 2.4 写门语义须知（M80-I240 起）
+
+- network 模式下**全部 141 条写路由**有门：`/api/projects/*` 与 id 白名单由中间件把守，其余由域内成员门/实例门/admin 门把守（对账：`python tools/check_write_gates.py`）。
+- 部署者须知：非项目成员写操作 403（含 cycles/milestones/features/risks 的改期/删除）；资产库 org 治理动作（退役/归档/恢复/评审）需登录（实例成员）；本体 learn/apply 与 sweep force 仅 admin。
+- local 模式零影响（可信单用户语义不变）。
 
 ## 3. 角色与归账规则（M8-I27/I28）
 
