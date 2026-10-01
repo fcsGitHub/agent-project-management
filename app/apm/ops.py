@@ -38,6 +38,12 @@ def create_backup(out_path: Path) -> dict:
         # online backup API: consistent snapshot with WAL frames folded in
         tmp_db = data / "apm.backup.tmp.db"
         tmp_db.parent.mkdir(parents=True, exist_ok=True)
+        # 源库必须存在——sqlite3.connect 对缺失路径静默建空库，备份出"空成功"
+        # 会让毁库闸失效（M86-I261 演练实录：未设 APM_DATA_DIR 时静默连默认路径）。
+        if not Path(s.db_path).exists():
+            raise SystemExit(
+                f"backup: source db not found at {s.db_path} — "
+                "check APM_DATA_DIR before wiping anything")
         src = sqlite3.connect(s.db_path)
         dst = sqlite3.connect(tmp_db)
         src.backup(dst)
