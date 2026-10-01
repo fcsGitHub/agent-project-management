@@ -2440,6 +2440,36 @@ agent-project-management/
 
 ---
 
+### M80 · 全局质量轮·写门对齐（I240-I242，约 8 人日）
+
+> v3.0 新增（2026-10-01，docs/01 §BY 前置调研）。距 M76 全库审计已 3 轮，按 M59/M76 节奏启动全局质量轮。审计种子 grep 实证四件：**assets 写端点六写全裸**（post/submit_review/deprecate/archive/restore/link 函数体零成员门——中间件白名单不含 /api/assets/*·M76 只补读面）；**cycles/milestones/features/risks 四域 id-path 写端点零门禁**（不在白名单→绕过中间件写门·views 有内联门作对照）；**POST /runs、POST /conversations 无 /{id} 段不匹配白名单**；机制层教训=白名单 allow-if-matched、新资源域从未回补。**防重查：三条留观候选（graph 入边/dnd 触屏/工件恢复）零新证据维持；GET 读面 M76 已对齐不动。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I240 | 写门对齐审计+修复（四域 [cycles/milestones/features/risks] 域内挂项目成员门 + assets 六写端点按语义分门[org 动作=实例成员门·deposit=from 侧项目门·link=实例成员门] + runs/conversations 入口核验补门 + tools/check_write_gates.py 路由×门禁对账脚本[显式已审清单外新写路由即红] + 矩阵测试[非成员 403/成员 200]） | docs/01 §BY.1/§BY.2 | OWASP API1 端点×对象×角色矩阵/M45-M76 门禁惯例 | 3d |
+| I241 | 校验抽查+E2E 复演（新端点 4xx 边界入 I240 矩阵 + 隔离环境 CUA 走 M77~M79 新面全旅程[工件删除/导出→退役卡→关系建/解→跨项目建链→/deps 占位→375px 触屏]·发现即修） | docs/01 §BY.3 | M76 复演惯例 | 3d |
+| I242 | 冒烟 85+附录 C+收尾审阅（写门对账脚本入冒烟[含故意红自证] + 门禁矩阵回归 + 附录 C 登记 + 全量回归 + M80 审阅） | docs/01 §BY.4 | smoke runner 惯例 | 2d |
+
+#### I240 · 写门对齐审计+修复（3d）
+
+- 任务：四域（cycles/milestones/features/risks）id-path 写端点域内补项目成员门（local 模式零影响）+ assets 六写端点分门（deprecate/archive/restore/submit_review/link=require_instance_user·post_asset=from 侧项目成员门）+ POST /runs 入口与 require_project 语义核验（裸则补成员门）+ tools/check_write_gates.py（遍历 app.routes 非 GET——白名单/已审清单外即非零退出）+ 矩阵测试（非成员 403·成员 200·local 可信）。
+- DoD：对账脚本 EXIT=0；矩阵测试全绿；非 smoke 全量不回归。
+- 演示路径：非成员 PATCH /cycles/{id} → 403 → 补门前后对比。
+
+#### I241 · 校验抽查+E2E 复演（3d）
+
+- 任务：新端点 4xx 矩阵抽查（并入 I240 测试）+ 隔离环境（APM_DATA_DIR+APM_ONTOLOGY_DIR_OVERRIDE+拷本体+netstat）起服务 + 浏览器 CUA 走 M77~M79 新面全旅程（工件清单页删除/包导出→资产退役卡→关系区建/解→跨项目二级选择器建链→/deps 占位节点→375px 触屏 affordance）+ 发现即修。
+- DoD：全旅程无阻断；发现即修入本迭代提交。
+- 演示路径：一台干净浏览器从零走完跨项目依赖全旅程。
+
+#### I242 · 冒烟 85+附录 C+收尾审阅（2d）
+
+- 任务：**冒烟 85**（写门对账脚本绿[含故意红一次自证：临时注册裸路由→必须红→移除] + 四域/assets 门禁矩阵回归）+ 附录 C 登记（复盘维持项）+ 全量回归 + docs 收口 + M80 审阅。
+- DoD：冒烟 85 GREEN；非 smoke 全量 EXIT=0。
+- 演示路径：一条冒烟锁住写门不再裸奔。
+
+---
+
 ### 4.6 冒烟脚本 × 迭代落点（续）
 
 | 冒烟条 | 首次全绿迭代 |
@@ -2655,6 +2685,7 @@ agent-project-management/
 | I237 /deps 依赖图跨项目收口 | 已完成 | 2026-10-01 | 2026-10-01 | DependencyGraphPage foreignIds 全集（edges 中不在本项目的外部 id）→ 批量 GET /items/{id}（成功=可读显真实标题+来源项目名；404=🔒 外部依赖不泄露——projects.py:564-588 M47 占位语义归一）+ allNodes 合并本地与外部节点进拓扑分层/渲染（跨项目边不再静默丢弃·虚线灰态占位+图例）+ blockedIds 修正（跨项目可读未完结上游计入——对齐看板 I128 SQL 口径；不可读 🔒 状态未知宁缺勿假红·注释钉住已知差异） |
 | I238 跨项目建链二级选择器 | 已完成 | 2026-10-01 | 2026-10-01 | QuickEditModal 关系区目标选择升级二级（项目 select[本项目标注·listProjects]+目标 items 随项目 lazy[relPid!=本项目才发查询·切项目清空已选]）+ 跨项目建链 toast 诚实提示（事件聚合在本项目 from 侧）+ 关系行外部项标题解析（relForeignQ 批量 GET——可读显标题/不可读 🔒）——建链/解除走 M47/M78 既有 API 零后端改动。走查实证（隔离环境双项目）：切项目→lazy 加载→建链→关系行显外部标题→item.related 聚合 from 侧→/deps 占位节点[虚线+「上游交付件」+「M79 上游 · 被阻塞」]全链可达 |
 | I239 冒烟 84+附录 C 登记+收尾审阅 | 已完成 | 2026-10-01 | 2026-10-01 | test_smoke_84（跨项目链 API roundtrip[from 侧建链→事件聚合 from 侧→详情 relations 双向→graph 端点可读占位显真名+来源项目名→M78 解除→rebuild 存活] + /deps 占位与 blocked 口径源码锁 + 二级选择器源码锁）+ 附录 C M79 登记（**graph 端点入边不对称**[I143 只扫 from 侧——入边 GraphView 不显而 /deps 显·I237 后两图此子面反转] + dnd 触屏/工件恢复维持）+ 全量回归（非 smoke **469 EXIT=0**/smoke runner **86 GREEN** EXIT=0/vitest 30/build 绿/check_env_doc ✓） |
+| 2026-10-01 M80 调研定义（§BY） | 已完成 | 2026-10-01 | 2026-10-01 | 防重查：三条留观候选（graph 入边/dnd 触屏/工件恢复）零新证据**维持**；距 M76 全库审计已 3 轮按 M59/M76 节奏启动**全局质量轮**。审计种子 grep 实证四件：**assets 写端点六写全裸**[post/submit_review/deprecate/archive/restore/link 函数边界分析零成员门——中间件白名单不含 /api/assets/*·M76-I228 只补读面五处]、**cycles/milestones/features/risks 四域 id-path 写端点零门禁**[域内 grep 零命中·views 有内联门作对照——不在白名单→绕过中间件写门·非成员可改期/取消/关闭任意项目资源]、**POST /runs、POST /conversations 无 /{id} 段不匹配白名单**[start_run/require_project 语义待核]、**机制层教训=白名单 allow-if-matched·新资源域从未回补**。三路 WebSearch：OWASP API1 连任+端点×对象×角色矩阵（[OWASP](https://owasp.org)/[SecureKhan](https://securekhan.com) 换对象 id 不换令牌逐格测）、deny-by-default 惯例（[FastAPI Security](https://fastapi.tiangolo.com/reference/dependencies/) **漏挂 Depends 即裸奔**/[global dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/global-dependencies/) 全局兜底）、静态路由覆盖测试（遍历 app.routes 断言授权门·~20 行自写·显式公开清单除外）。定案 M80=全局质量轮·写门对齐（I240 四域+assets 补门+check_write_gates.py 对账脚本+矩阵测试/I241 校验抽查+E2E 复演 M77~M79 新面/I242 冒烟 85+故意红自证） |
 | **M76 审计与复演轮（I228-I230）** | 已完成 | 2026-09-30 | 2026-09-30 | 3 迭代 / 约 9 人日（docs/01 §BU + docs/10 §M76）：I228 权限面审计（**读面门禁对齐 API1 BOLA**——auth_gate GET 全开放是 M8 惯性·读门下放域内而四域漏配：members.require_instance_user 新助手[org 库=实例成员可读·network 匿名 401·local 零影响]挂 assets 五读+template_packs 三读·expense/automations 项目读挂 _gate 对齐 items 惯例·feed_key 语义不误伤 + test_read_gates 矩阵）/ I229 校验与性能审计（**EXPLAIN 对账：四热查询形状全命中 idx_events_type 无表扫描→不加索引**·perf 实测温读端点 mean 1-12ms 健康·POST /projects 2.2s 为冷启动一次性→无需修复·校验矩阵钉住退役/归档 404+draft 直归档语义）/ I230 E2E 复演+**冒烟 81**（隔离双服务 replay 走核心旅程[建项目→run→门→批准→自动接续 WBS→工件→沉淀]→**复演发现：asset_review 门挂 project_id="" 项目审批面与我的工作均不可达[UI 无批准入口·资产卡死 in_review]**→发现即修[AssetActionsCard 就近拉 pending 审批渲染批准入库/拒绝]→批准入库 published→退役 deprecated 全链验证）。基线：pytest **547** 全绿（非 smoke 466 EXIT=0 + smoke runner **81 GREEN** EXIT=0 对账）+ vitest **30** + build 绿 |
 | 2026-09-30 M76 调研定义（§BU） | 已完成 | 2026-09-30 | 2026-09-30 | 防重查：候选①**事件级反向扫描（api 级镜像扫描的下一层）——131 发射 vs 119 @on，25 个无投影事件逐个核验：全部活账本[item.respawned/run.retried_from_checkpoint/automation.swept=幂等查询·run.forked=血缘遍历·project.cloned=写 guard 白名单·session.*/webhook.delivered/email.notified/push.notified=审计显示]——投影缺失≠消费缺失·事件流即读侧·当场作废[防重查第九例自证变体：我以为的「死事件」早已是设计内 fact 载体]**；②分叉采纳面[继续降级]；③删除恢复 UI[等证据]。**功能面经 api 级+事件级两层扫描后饱和——按预案走④质量与演示轮[M45 模式：距上次全库审计已新增 M46~M75 约 90 迭代的面]**。审计种子四项 grep 实证：**assets.py 全域零门禁[network 模式 auth_gate GET 全开放→匿名可读全局资产库含正文]**、**expense.py/automations.py 项目读面无 _gate[items/comments 惯例未覆盖]**、**template_packs.py 零门禁[org 级同题]**。三路 WebSearch：OWASP API 审计（[OWASP API Top 10 2023 现行版](https://owasp.org/API-Security/editions/2023/en/0x11-t10/)——**API1 BOLA 连任第一：每个对象访问都要过授权**/[aquilax 清单](https://aquilax.ai/tools/api-security-checklist) 响应只返回有权见的字段/[2026 指南](https://xhack.io/blog/owasp-api-security-top-10-guide) 授权类失败霸榜）、SQLite 性能审计（[Query Optimizer Overview](https://www.sqlite.org/optoverview.html) 索引只在 WHERE 命中最左列时有用/[forum 调优](https://www.sqliteforum.com/p/indexing-and-performance-tuning-in) **EXPLAIN QUERY PLAN 验证索引使用**/[phiresky](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/) PRAGMA）、交付复演（[ERP 实施清单](https://www.gullysystem.com) 测试→UAT→切换→稳定/[AI 原型演示脚本](https://provn.co) **演示=判断力与取舍的展示**）。定案 M76=审计与复演轮（I228 权限面审计/I229 校验与性能审计/I230 E2E 复演+冒烟 81） |
 | I228 权限面审计 | 已完成 | 2026-09-30 | 2026-09-30 | members.require_instance_user 新助手（**org 库语义=实例成员可读——network 匿名 401 非 403[无项目可成员]·local 零影响**）挂 assets 五读端点[list/insights/detail/history/diff]+template_packs 三读[list/preview/usages] + expense/automations 项目读挂 _gate（comments 同款 items 惯例）+ feed_key 语义不误伤 + test_read_gates 矩阵 2 项（**匿名 org 401/项目 403·登录外人 org 200 项目 403·owner 全 200·local 全通**）——相关族 51 passed（**两次 M63 老坑再现：规则 schema 与 feed 路由先 grep 再写**） |

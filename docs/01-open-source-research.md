@@ -2154,3 +2154,26 @@ M78 = **交互完备性深审轮**：I234 依赖关系解除面（DELETE 端点+
 **BX.4 M79 取舍**
 
 M79 = **跨项目依赖面收口轮**：I237 /deps 图跨项目收口（占位节点渲染+blocked 口径修正）/ I238 跨项目建链二级选择器 / I239 冒烟 84+收尾审阅，约 6 人日。dnd 触屏改期（留观）、工件恢复 UI（等证据）、#ID 直输、两图合并、CPM 跨项目重算留 backlog。
+
+## BY. M80 前置调研：全局质量轮·写门对齐（2026-10-01）
+
+> 目标协议触发：M79 完成后开启。防重查：候选池三条留观项（graph 入边/dnd 触屏/工件恢复）均无新使用证据——**维持留观，零翻案**；距 M76 全库审计已 3 轮（M77~M79 约 9 迭代），按 M59/M76 节奏启动**全局质量轮**。审计种子 grep 实证四件：**①assets 写端点六写全裸**（POST /assets、submit_review、deprecate、archive、restore、link——函数体零成员门[函数边界分析实证]·中间件白名单不含 /api/assets/*·M76-I228 只补了读面五处 require_instance_user——org 库写面任何登录用户可退役/归档/恢复/链接任何资产）；**②cycles/milestones/features/risks 四域 id-path 写端点零门禁**（PATCH/DELETE /cycles|milestones|features|risks/{id}——域内 grep require*/member_role 零命中[views 有内联门作对照]·路径不在白名单→绕过中间件写门——非成员可改期/取消/关闭任意项目的资源）；**③POST /runs、POST /conversations 无 /{id} 段不匹配白名单**（runs start_run 入口门禁、conversations require_project 语义待核）；**④机制层教训**：中间件白名单是 allow-if-matched——M8 起新增 id-path 资源域从未回补白名单或域内门。本轮三路新调研（**OWASP API1 矩阵复核 / deny-by-default 路由授权惯例 / 静态路由覆盖测试**），选定 **M80 = 全局质量轮·写门对齐**。
+
+**BY.1 写门对齐审计（API1:2023 BOLA 第二轮——写面补齐）**
+
+- 产品共识（[OWASP API Top 10 2023](https://owasp.org)——API1 BOLA 连任第一·授权类失败占 top 5 中三席、[SecureKhan 测试指引](https://securekhan.com)——**端点×对象×角色矩阵**：换对象 id 不换令牌，读写删逐格测）：审计的共识=**矩阵化核验+自动化证明**。
+- 对本项目的映射：**四域补门**（cycles/milestones/features/risks 的 PATCH/DELETE 域内挂项目成员门——items require_visible_item+comments _gate 同款惯例）+ **assets 写面六端点按语义分门**（deprecate/archive/restore/submit_review=org 管理动作→require_instance_user 与读面同门；post_asset=deposit→from 侧项目成员门[M47 relations 写门同构]；link=消费登记→require_instance_user）+ **runs/conversations 入口核验**（POST /runs 的 start_run、require_project 成员制语义——裸则补）。**不做** 全局 deny-by-default 中间件重写（auth_gate「GET 保持开放」哲学不动·白名单机制保留但加机械防腐）、property-level 授权（API3 无多租户面）。
+
+**BY.2 路由×门禁对账脚本（deny-by-default 的机械防腐——缺 Depends=裸奔的静态证明）**
+
+- 产品共识（[FastAPI Security 惯例](https://fastapi.tiangolo.com/reference/dependencies/)——**「漏挂 Depends 即裸奔」**、[官方 global dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/global-dependencies/) 全局兜底、[静态覆盖测试模式](https://fastapi.tiangolo.com/advanced/testing-dependencies/)——遍历 app.routes 断言依赖树含授权门·显式公开清单除外）：防腐的共识=**机检而非人记**（envsync/check_env_doc 同哲学第三次落地）。
+- 对本项目的映射：`tools/check_write_gates.py`——遍历 app.routes 非 GET 路由，路径必须命中 {/api/projects/*、id 白名单[items|conversations|runs|approvals|artifacts + 本轮新补的表]、显式已审清单[auth/login、intake/{token} 令牌面、me/* 自面、system/*、calendar 等]} 之一，否则非零退出——挂冒烟 85 含**故意红自证**（临时加一条裸路由→脚本必须红→移除）。**不做** FastAPI Depends 重构（改动面=全部端点签名·与既有 middleware+域内门混合架构冲突——机械对账已达同一防御目标）。
+
+**BY.3 E2E 复演与校验抽查（M77~M79 新面全旅程）**
+
+- 产品共识（M76 BU.3 惯例延续——真实环境走全旅程清单化验收）：复演的共识=**新面就走一遍，发现即修**。
+- 对本项目的映射：隔离环境起服务→CUA 走 M77~M79 新面（工件清单删除/包导出→资产退役卡→关系区建/解→跨项目二级选择器建链→/deps 占位节点→触屏 affordance 375px）+ 校验矩阵抽查（新端点 4xx 边界：cycle/milestone/risk 越权 403 矩阵入 I240 测试·deprecate/archive 已有）。**不做** 自动化 E2E 框架（CUA+冒烟已覆盖）。
+
+**BY.4 M80 取舍**
+
+M80 = **全局质量轮·写门对齐**：I240 写门审计+四域/assets/runs 补门+check_write_gates.py+矩阵测试 / I241 校验抽查+E2E 复演（新面全旅程·发现即修）/ I242 冒烟 85+附录 C+收尾审阅，约 8 人日。deny-by-default 中间件重写、API3 property-level、graph 入边补显（留观）、dnd 触屏（留观）、工件恢复 UI（等证据）留 backlog。
