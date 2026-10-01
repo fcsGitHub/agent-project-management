@@ -28,6 +28,14 @@ const invalidateItemData = (qc: QueryClient) => {
 /** M48-I146: 看板列渐进渲染页大小（与列表视图 LIST_PAGE 同思路）。 */
 const COLUMN_PAGE = 12;
 
+/** I234: 关系类型方向标签 [from 侧说法, to 侧说法]——depends_on 的 from=后继（I83 口径）。 */
+const REL_LABEL: Record<string, [string, string]> = {
+  depends_on: ["依赖于", "被依赖"],
+  blocks: ["阻塞", "被阻塞"],
+  duplicates: ["重复于", "重复自"],
+  includes: ["包含", "属于"],
+};
+
 const LIST_PAGE = 20;
 
 export function Board() {
@@ -1257,6 +1265,40 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
   const [newCheck, setNewCheck] = useState("");
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
   const cyclesQ = useQuery({ queryKey: ["cycles", item.project_id], queryFn: () => api.listCycles(item.project_id) });
+  // I234: 关系区（docs/01 §BW.1）——解除入口 + 非拖拽建立路径（WCAG 2.5.7）
+  const qc = useQueryClient();
+  const detail = useQuery({ queryKey: ["item-detail", item.id], queryFn: () => api.getItem(item.id) });
+  const projItems = useQuery({ queryKey: ["items", item.project_id], queryFn: () => api.listItems(item.project_id, { limit: 200 }) });
+  const [relType, setRelType] = useState("depends_on");
+  const [relTarget, setRelTarget] = useState("");
+  const titleOf = (id: string) => projItems.data?.items.find((i) => i.id === id)?.title ?? id;
+
+  const afterRelChange = () => {
+    qc.invalidateQueries({ queryKey: ["item-detail", item.id] });
+    invalidateItemData(qc); // blocked 徽标随关系变化
+  };
+  const removeRel = async (rel: { from_item: string; to_item: string; relation_type: string }) => {
+    const other = rel.from_item === item.id ? rel.to_item : rel.from_item;
+    if (!window.confirm(`解除与「${titleOf(other)}」的 ${rel.relation_type} 关系？约束消失、日期保持不变（事件流审计可追溯）。`)) return;
+    try {
+      await api.removeRelation(item.id, other, rel.relation_type);
+      toast.success("关系已解除");
+      afterRelChange();
+    } catch (e) {
+      toast.error(`解除失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const addRel = async () => {
+    if (!relTarget) return;
+    try {
+      await api.addRelation(item.id, { to_item: relTarget, relation_type: relType });
+      toast.success("关系已建立");
+      setRelTarget("");
+      afterRelChange();
+    } catch (e) {
+      toast.error(`建立失败：${e instanceof Error ? e.message : e}`);
+    }
+  };
 
   const saveChecklist = async (next: { text: string; done: boolean }[]) => {
     setChecklist(next);
@@ -1391,6 +1433,47 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
               }}
               placeholder="添加清单项，回车确认（≤200 字）"
               className="w-0 flex-1 rounded border border-line bg-surface px-1.5 py-0.5" />
+          </div>
+        </div>
+        {/* I234: 关系——就近解除 + 非拖拽建立（与时间线连线拖拽并存） */}
+        <div className="rounded-lg border border-line bg-bg p-2">
+          <div className="mb-1 text-[10px] text-mut">🔗 关系 {detail.data?.relations?.length ?? 0} 条</div>
+          <div className="space-y-0.5">
+            {(detail.data?.relations ?? []).map((rel) => {
+              const mine = rel.from_item === item.id;
+              const other = mine ? rel.to_item : rel.from_item;
+              const pair = REL_LABEL[rel.relation_type] ?? [rel.relation_type, rel.relation_type];
+              return (
+                <div key={rel.id} className="flex items-center gap-1.5">
+                  <span className="min-w-0 flex-1 truncate">
+                    {mine ? "→" : "←"} {mine ? pair[0] : pair[1]}：{titleOf(other)}
+                  </span>
+                  <button title="解除关系（约束消失、日期不变；事件流审计可追溯）"
+                    onClick={() => void removeRel(rel)}
+                    className="text-[10px] text-mut hover:text-dan">✕</button>
+                </div>
+              );
+            })}
+            {!detail.data?.relations?.length && (
+              <div className="text-[10px] text-mut">暂无关系——时间线连线拖拽或下方表单均可建立</div>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-1">
+            <select value={relType} onChange={(e) => setRelType(e.target.value)}
+              className="rounded border border-line bg-surface px-1 py-0.5" title="关系方向：本项 → 目标项">
+              <option value="depends_on">依赖于</option>
+              <option value="blocks">阻塞</option>
+              <option value="duplicates">重复于</option>
+              <option value="includes">包含</option>
+            </select>
+            <select value={relTarget} onChange={(e) => setRelTarget(e.target.value)}
+              className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5">
+              <option value="">选择目标项…</option>
+              {(projItems.data?.items ?? []).filter((i) => i.id !== item.id).map((i) => (
+                <option key={i.id} value={i.id}>{i.title}</option>
+              ))}
+            </select>
+            <Button size="sm" variant="outline" disabled={!relTarget} onClick={() => void addRel()}>建立</Button>
           </div>
         </div>
         <div className="flex items-center justify-between pt-1">

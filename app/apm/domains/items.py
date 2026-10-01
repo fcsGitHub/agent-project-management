@@ -148,6 +148,17 @@ def _proj_item_related(conn, e):
     )
 
 
+@on("item.relation_removed")
+def _proj_item_relation_removed(conn, e):
+    # I234 (docs/01 §BW.1): inverse of _proj_item_related — composite key
+    # (from, to, type), so a duplicate-created pair is removed as a whole.
+    p = e.payload
+    conn.execute(
+        "DELETE FROM item_relations WHERE from_item = ? AND to_item = ? AND relation_type = ?",
+        (p["from_item"], p["to_item"], p["relation_type"]),
+    )
+
+
 # ---------------------------------------------------------------- helpers
 def get_item(item_id: str) -> dict | None:
     row = db.get_conn().execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
@@ -1173,6 +1184,47 @@ def post_relation(item_id: str, body: RelationIn) -> dict:
             )
             propagate_reschedule(item["project_id"], item_id, succ["due_date"], new_due,
                                  depth=1, visited={target["id"], item_id})
+    return get_item_detail(item_id)
+
+
+@router.delete("/items/{item_id}/relations")
+def delete_relation(item_id: str, to_item: str, relation_type: str) -> dict:
+    """I234 (docs/01 §BW.1): the removal face of item relations — creation
+    (M17-I62) shipped without one, so a mistaken dependency was permanent.
+    Composite key (from, to, type) locates the row (its surrogate `rel_*` id
+    is minted inside the projection, unknown to callers); either side of the
+    pair may bring the delete. Dates are NOT touched — removing a constraint
+    is not a reschedule (Jira unlink semantics); the audit trail is the
+    item.relation_removed fact itself."""
+    require_visible_item(item_id)
+    require_item(to_item)
+    row = db.get_conn().execute(
+        "SELECT * FROM item_relations WHERE relation_type = ?"
+        " AND ((from_item = ? AND to_item = ?) OR (from_item = ? AND to_item = ?))",
+        (relation_type, item_id, to_item, to_item, item_id)).fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail=f"relation between {item_id} and {to_item} ({relation_type}) not found")
+    # The removal fact lands in the from-side project (same ledger as
+    # item.related — append-only single-writer preserved), so the from-side
+    # project's write gate governs wherever the request came in.
+    from apm.core.events import effective_actor as _actor
+    from apm.domains.members import is_instance_admin, member_role
+
+    me = _actor()
+    if not (is_instance_admin(me) or member_role(row["project_id"], me)):
+        raise HTTPException(
+            status_code=403,
+            detail=f"removal requires membership of the from-side project ({row['project_id']})")
+    events.emit(
+        event_type="item.relation_removed",
+        agg_type="item",
+        agg_id=row["from_item"],
+        project_id=row["project_id"],
+        payload={"from_item": row["from_item"], "to_item": row["to_item"],
+                 "relation_type": relation_type},
+    )
     return get_item_detail(item_id)
 
 
