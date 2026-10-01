@@ -7,6 +7,12 @@ import pytest
 
 from apm.core import projections
 
+# 日期动态锚定（M45 教训：/my/timelog 默认 28 天窗——硬编码历史日期会在跨日后滑出窗口，
+# smoke_26 曾于 2026-10-02 午夜爆 KeyError）
+from datetime import date, timedelta
+_d3 = (date.today() - timedelta(days=3)).isoformat()
+_d2 = (date.today() - timedelta(days=2)).isoformat()
+
 
 @pytest.mark.smoke
 def test_smoke_26_m20_experience(client, tmp_data, isolated_ontologies):
@@ -28,16 +34,16 @@ def test_smoke_26_m20_experience(client, tmp_data, isolated_ontologies):
     assert a.status_code == 200, a.text
     item_a = a.json()
     e1 = client.post(f"/api/items/{item_a['id']}/time_entries",
-                     json={"minutes": 90, "spent_on": "2026-09-04", "note": "开发"}).json()
+                     json={"minutes": 90, "spent_on": _d3, "note": "开发"}).json()
     switch("u_qa")
     e2 = client.post(f"/api/items/{item_a['id']}/time_entries",
-                     json={"minutes": 45, "spent_on": "2026-09-05", "note": "评审"}).json()
+                     json={"minutes": 45, "spent_on": _d2, "note": "评审"}).json()
     switch(saved)
     assert e1["user_id"] == "u_admin" and e2["user_id"] == "u_qa"
 
     feed = client.get("/api/my/timelog").json()
     by_day = {d["date"]: d["total_minutes"] for d in feed["days"]}
-    assert by_day["2026-09-04"] == 90 and feed["total_minutes"] == 90
+    assert by_day[_d3] == 90 and feed["total_minutes"] == 90
     switch("u_qa")
     feed_qa = client.get("/api/my/timelog").json()
     assert feed_qa["total_minutes"] == 45

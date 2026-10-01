@@ -19,7 +19,8 @@ from tests.smoke.test_smoke_82_m77_delivery_surface import ROOT
 
 @pytest.mark.smoke
 def test_smoke_86_version_anchors_agree():
-    assert APP_VERSION == "0.6.0"
+    # M83-I251：字面量钉改锚定一致性——「当前版本是几」由冒烟 88 钉，此处锁四锚一致与 semver 形态
+    assert re.match(r"^\d+\.\d+\.\d+$", APP_VERSION)
 
     pkg = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     assert pkg["version"] == APP_VERSION

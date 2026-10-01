@@ -6,14 +6,20 @@
 
 ## [Unreleased]
 
-M82（前端韧性与认证安全——攒批中：发布节奏已从每轮转攒批，随 v0.7.0 统一 bump+tag）。
+## [0.7.0] — 2026-10-02
+
+M82~M83（前端韧性与认证安全 + 依赖健康）。攒批节奏首次兑现：两轮一版。基线：pytest 477 / 冒烟 93 / vitest 35 / check_env_doc ✓ / check_write_gates ✓。
 
 ### Added
 - **前端错误边界**：零依赖 React 错误边界两级——App 级整树兜底（渲染崩溃不再白屏，错误卡+错误摘要+重载）、路由级单页隔离（单页崩溃不拖垮导航，就地重试、切页自动复位）；动态 chunk 加载失败（重部署后旧 hash 404）识别为「新版本已发布」刷新引导。
 - **路由级代码分割**：27 个页面 `React.lazy` 按路由拆 chunk（vite 自动分包），主 bundle 1.1MB→376KB，首屏只加载当前页所需代码。
 
+### Changed
+- **后端依赖一车升级（I22 升级验证纪律第五次执行）**：fastapi 0.142.2 / pydantic 2.13.5 / pydantic-settings 2.15.0 / uvicorn 0.54.0 / sse-starlette 3.5.0 / openai 3.22.1（major，唯一 breaking=HTTP 客户端换装 HTTPX2，本项目零代码改动）/ **httpx→httpx2 2.13.1**（httpx 停维护后的 Pydantic 接棒正统后继，供应链核验见下）/ pytest-asyncio 1.4.0；`requirements.txt` 重写为实测版本下限（声明=装机=实测，消灭新环境拉到未验证版本组合的漂移）；全量测试日志弃用警告归零。
+
 ### Security
 - **登录防爆破（OWASP API2:2023）**：`/auth/login` 失败滑窗——同一用户 10 分钟内失败 5 次即临时锁定（429+Retry-After，正确密码同样拒绝），窗口滑出自动解除、成功登录清零；锁定生效的转折点发 `session.login_locked` 审计事件（后续 429 不逐次发，防审计流灌水）；未知用户名跑同价哈希校验（计时不可用于枚举用户名）。
+- **依赖供应链核验纪律**：新依赖装前 `pip download --no-deps` 解 wheel METADATA 核对 Author/Maintainer/Project-URL 三元组——弃用警告文本与第三方文章只是线索不是依据（httpx2「投毒诱饵」传言被元数据证伪案例入档 docs/01 §CB.1）。
 
 ## [0.6.0] — 2026-10-01
 
