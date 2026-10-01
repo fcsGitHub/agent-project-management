@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M86 运维验证轮 完成，下一步 M87 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-01 更新 · M87 调研已定案 b2f96c9，下一步 I263 工具链升级）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M87 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M86 纪律沉淀：候选池勿凭印象写——十五次自证见前轮；「半截链」十一例；功能面饱和+交互完备性[M78]+跨项目依赖面[M79]+写门质量轮[M80]+发布工程[M81]+前端韧性与认证安全[M82]+依赖健康[M83]+测试日期稳健性[M84]+a11y[M85]+运维验证[M86]均已做；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]**）→ 三路并行 WebSearch → docs/01 新节（§CF）+ docs/10 §M87 节 + 看板行 →「M87 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M87 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（留观）；②dnd 触屏改期 pointer 重写（留观）；③删除工件恢复 UI（等证据）；④前端工具链 major（vite 8/vitest 5/TS 7——M83 裁决留观）；⑤v0.9.0 攒批时机（M86 已入 CHANGELOG Unreleased——攒批继续）；⑥a11y 二期（色彩对比+低频管理面 input——需先证据收集）；⑦init_db 幂等化（M86 发现半成品卷不自愈——schema 手术·真实事故再触发）；⑧维持项长清单。
+2. **I263 前端工具链一车升级（下一步·M87 已定案 docs/01 §CF）**：web/package.json 六处 devDependencies major（typescript ~5.9.3→**~7.0.2**/vitest ^3.2.4→**^5.0.3**/vite ^7.1.9→**^8.3.2**/@vitejs/plugin-react ^5→**^6.1.1**/jsdom ^27→**^30.1.1**/lucide-react ^0.549→**^1.49.0**）+ 其余 outdated minor/patch 同车 → `pnpm install` → 三关（`tsc -b`/`pnpm vitest run`[41 项]/`pnpm build`）。**命中面已 grep 实证**：零 manualChunks（Vite 8 最大破坏点不命中）/零 vitest workspace/node v24.11.1 满足 Vitest 5 门槛（≥22.12）。**失败预案**：TS 7 `tsc -b` 阻塞→回落 typescript 6.x 桥接；Vite 8 三插件（react/tailwindcss/vite-plugin-pwa）阻塞→vite 7+vitest 5 组合兜底。命中即修的预期点：tsc -b CLI 形态/axe+dialogFocus 在 jsdom 30 下回归/lucide-react 1.0 具名 import（~40 处）。→ I264 随升修复+产物审计（chunk 对账 35 基线+axe 锁回归+浏览器隔离冒烟+`docker compose build web`[M86 惯例·lockfile 变更必过镜像]）→ I265 收口（全量回归+CHANGELOG Unreleased 记 M87+看板闭环+附录 C+攒批 v0.9.0 时机裁决复核）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
