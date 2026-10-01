@@ -235,7 +235,7 @@ function CreateModal({ range, onClose, onCreated }: {
       <Card className="mt-16 w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold">🆕 新任务 · {range.start}{range.end !== range.start ? ` ~ ${range.end}` : ""}</span>
-          <button onClick={onClose} className="text-xs text-mut hover:text-ink">✕</button>
+          <button onClick={onClose} aria-label="关闭" className="text-xs text-mut hover:text-ink">✕</button>
         </div>
         <div className="space-y-2 text-xs">
           <select value={pid} onChange={(e) => setPid(e.target.value)}

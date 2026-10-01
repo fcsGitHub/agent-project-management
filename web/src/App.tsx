@@ -189,8 +189,8 @@ function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchive
 
       <Modal open={open} onClose={() => setOpen(false)} title="新建项目">
         <div className="space-y-3">
-          <Input placeholder="项目名称" value={name} onChange={(e) => setName(e.target.value)} />
-          <Textarea rows={3} placeholder="一句话需求（PM-Agent 将据此起草 PRD）" value={req} onChange={(e) => setReq(e.target.value)} />
+          <Input aria-label="项目名称" placeholder="项目名称" value={name} onChange={(e) => setName(e.target.value)} />
+          <Textarea aria-label="一句话需求" rows={3} placeholder="一句话需求（PM-Agent 将据此起草 PRD）" value={req} onChange={(e) => setReq(e.target.value)} />
           <div className="flex gap-2">
             {[
               { id: "software-dev", label: "软件研发 · 完整七阶段" },

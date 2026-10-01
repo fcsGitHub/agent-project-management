@@ -1068,7 +1068,7 @@ export function Board() {
       {cycleOpen && pid && (
         <Modal open onClose={() => setCycleOpen(false)} title="🔁 新建迭代周期">
           <div className="space-y-3 text-xs">
-            <input value={cycleName} onChange={(e) => setCycleName(e.target.value)} placeholder="周期名称（如：Sprint 1）"
+            <input aria-label="周期名称" value={cycleName} onChange={(e) => setCycleName(e.target.value)} placeholder="周期名称（如：Sprint 1）"
               className="w-full rounded-lg border border-line bg-bg px-3 py-2" />
             <div className="flex items-center gap-2">
               <input type="date" value={cycleStart} onChange={(e) => setCycleStart(e.target.value)}

@@ -370,6 +370,7 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
               <div className="mb-1 rounded-lg border border-line bg-bg p-1.5">
                 <input
                   autoFocus
+                  aria-label="过滤常用回复"
                   value={replyFilter}
                   onChange={(e) => setReplyFilter(e.target.value)}
                   onKeyDown={(e) => {
@@ -406,6 +407,7 @@ export function CommentsModal({ itemId, title, onClose, autoQuote = false }: {
             )}
             <textarea
               ref={inputRef}
+              aria-label="评论内容"
               className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs"
               rows={3}
               placeholder="写下评论… 用 @ 提及同事，支持 Markdown（表格 / 清单 / 代码块）"
