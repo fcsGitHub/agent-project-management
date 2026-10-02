@@ -2432,3 +2432,25 @@ M90 = **a11y 三期·低频管理面长尾收口**：I272 risks+ontology 17 处 
 **CJ.4 M91 取舍**
 
 M91 = **交付文档轮·自动化指南重写解冻**：I275 自动化面全量盘点+docs/12 重写（任务拓扑五域+时效戳+真源指针·覆盖 M10~M91） / I276 指南断言核验+UI 走查+兜底同族收官 / I277 v0.11.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 4 人日。真实 LLM 回归轮（持续待 key）、init_db 幂等化、webhooks 优雅停机、--seed-light、留观三候选、依赖 patch 一车留 backlog。
+
+## CK. M92 前置调研：后台线程韧性轮·webhooks 停机竞态修复（2026-10-02）
+
+> 目标协议触发：M91 完成后开启。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**；init_db 幂等化维持「真实事故再触发」；--seed-light 留观；**真实 LLM 回归轮仍挂起**（key 前提持续缺失·M92 未启动）；依赖漂移复核（pip 闭包 patch/minor 级[继承 M91 复核]·pnpm 小版本累积——均不构成一轮主题）。**候选① webhooks teardown 竞态转正——阈值已到达**（M91-I277 收口实测：本轮 2 次·累计 3 次/3 轮[M89:1/M90:0/M91:2]——M89 登记的触发条件「3 次」成立）。**证据当场收集（本轮代码审读——全库 5 个后台 worker 线程循环体逐一过目）**：mailer（mailer.py `_worker_loop`）/pusher（pusher.py）/automations 调度（`_scheduler_loop`）/assets 自动沉淀（`_ad_worker_loop`）四处均为「try/except Exception 包住整个循环体 + logger.exception('the worker must survive anything')」习语；**唯独 webhooks `_worker_loop`（webhooks.py:336）外层 try 只有 finally 没有 except**——`db.get_conn().execute("SELECT * FROM webhooks ...")` 在 teardown/换代间隙（reset_for_tests 换代 vs worker 旧连接仍活；或新库已开而 schema 未建）抛 sqlite3.OperationalError（no such table / unable to open database file 族）→ 异常穿透 while True → **线程死亡且无人拉起**（`install_webhooks_engine` 的幂等重启只在 lifespan 再调用时生效）。测试态症状=输出噪声；生产态真伤=**db 短暂不可用（备份/恢复/迁移）一次，出站 webhook 即永久静默**，而应用表面健康——正是调研③点名的「silent thread death: app appears healthy but does nothing」。三路调研（**本轮 WebSearch 配额可用·三路全通**）：①后台线程优雅停机模式（[Stack Overflow 6359597](https://stackoverflow.com/questions/6359597/gracefully-terminating-python-threads) Queue+sentinel 经典 / [oneoffcoder](https://python.oneoffcoder.com/queue-shutdown.html) Python 3.13 `Queue.shutdown()` / [OneUptime](https://oneuptime.com/blog/post/2025-01-06-python-graceful-shutdown-kubernetes/view) Event+join+SIGTERM 处理 / [discuss.python.org](https://discuss.python.org/t/daemon-threads-and-background-task-termination/77604) daemon 线程终止语义）②sqlite teardown 竞态（[Hyperledger Indy 测试实录](https://hyperledger-archives.github.io/rocket-chat-export/indy-sdk.html)「Some test thread performed storage cleanup while another thread used the DB」与本项目同型 / [Stack Overflow 34931263](https://stackoverflow.com/questions/34931263/how-to-run-specific-code-after-all-tests-are-executed) pytest after-all 删库实例 / [ckanext-harvest](https://github.com/ckan/ckanext-harvest/blob/master/README.rst) 连接活得比 schema 久 → OperationalError 惯例）③worker 韧性模式（[Literate Java](https://literatejava.com/threading/silent-thread-death-unhandled-exceptions) silent thread death / [O'Reilly C# Cookbook 15.3](https://www.oreilly.com/library/view/c-cookbook/0596003390/ch15s03.html) catch-all=异常终结的是任务而非循环 / [Stuart Sierra](https://stuartsierra.com/2015/05/27/clojure-uncaught-exceptions) 「全部 worker 死光=应用看起来健康却什么都不做」/ [Inngest](https://www.inngest.com/blog/node-worker-threads-production) crash-cap 防无限重启）。定案 **M92 = 后台线程韧性轮·webhooks 停机竞态修复**。
+
+**CK.1 webhooks worker 循环补外层 except（一行级·mailer/pusher 习语对齐）**
+
+- 共识映射：**逐项包 try/except——异常终结的是这一条任务，不是 worker 循环**（O'Reilly 15.3 / Reddit r/learnpython 同款）+ logger.exception 大声记录（Literate Java：无声死亡才是要害）。webhooks 补上外层 `except Exception: logger.exception(...)`，与 mailer.py/pusher.py 现存习语逐字同构——同族即修不发明新机制。
+- **不引**：Python 3.13 `Queue.shutdown()`（本机 3.11.5+零依赖纪律——现语义够用）；sentinel/stop-event 优雅停机机制位（daemon 线程+进程生命周期=uvicorn lifespan，测试态走 reset_for_tests 换代——机制位是过度工程，一行 except 已达「任务死 worker 活」）；非 daemon 改造（进程退出语义变化面大·收益低）。
+
+**CK.2 队列条目代际标记（跨代脏投递的真伤修复——比吞异常更本质的一层）**
+
+- 深挖发现第二层问题：reset_for_tests 换代后，**旧代 enqueue 的残留事件会被 worker 在新代处理**——SELECT 打到新库，若恰好存在同名项目即旧代事件触发新代投递（测试间串扰；生产恢复场景=旧事件复活）；打到未初始化空库则炸 no such table。三代观测到的竞态噪声全部源于「陈旧事件被跨代处理」。
+- 修法：db.py 增公开 `generation()` 读取器（`_generation` 现为模块私有）；webhooks `enqueue` 在条目上盖 `_gen` 代戳；worker 取到 `_gen != 当前代` 的条目**静默丢弃**（debug 级日志）——旧代事件永不跨代投递，teardown 噪声从源头归零而非仅被吞噬。外层 except（CK.1）保留作最后防线：代戳=预防，except=兜底，两层各司其职。
+
+**CK.3 同族审读 sweep（四线程确认免疫·防再犯清单入档）**
+
+- mailer/pusher：循环体全包 try/except ✓；automations scheduler：sleep+逐任务 try/except ✓（循环体无裸 db 访问）；assets auto-deposit：worker 循环同 mailer 习语 ✓（其 enqueue 侧 `_auto_deposit_enqueue` 有裸 SELECT——但在 post-emit hook 主线程执行，属写路径既有保护面，非 worker 竞态）。**结论：仅 webhooks 一处缺口。** 未来新增后台线程以 mailer 习语为模板（worker 循环体三层：代戳检查→try/except Exception 包全部→finally task_done）。
+
+**CK.4 M92 取舍**
+
+M92 = **后台线程韧性轮·webhooks 停机竞态修复**：I278 webhooks `_worker_loop` 补外层 except+线程存活真场景测试（reset 至无 schema 空库→入队→join→worker 仍活→队列清空——先红后绿自证） / I279 队列条目代际标记+跨代脏投递防护测试（db.generation() 读取器+enqueue 盖戳+worker 丢旧代·旧代残留事件换代后被丢弃零投递零错误） / I280 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M92+看板闭环+附录 C+HANDOFF 修剪·**v0.12.0 攒批不 tag**[M92+M93 两轮成版]），约 3 人日。Python 3.13 Queue.shutdown、sentinel/stop-event 机制位、非 daemon 改造、真实 LLM 回归轮（持续待 key）、init_db 幂等化、--seed-light、留观三候选留 backlog。
