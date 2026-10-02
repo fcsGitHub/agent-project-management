@@ -6,10 +6,17 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M92~M93 两轮一版（v0.12.0）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。
+
+## [0.12.0] — 2026-10-02
+
+M92~M93（后台线程韧性轮·webhooks 停机竞态修复 + 发布工程第三轮·依赖小版本跟随与攒批发布）。攒批节奏第六版：两轮一版。基线：pytest 479 / 冒烟 96 / vitest 41 / 机械防腐七件 ✓。
 
 ### Fixed
 - **出站 webhook worker 停机竞态修复**（M92-I278/279）：teardown/换代间隙的缺表错误不再杀死后台投递线程（此前 db 短暂不可用一次即令出站 webhook 永久静默——daemon 线程死了无人拉起、应用表面健康）；队列条目代际标记——换代前入队的残留事件被直接丢弃，不再跨代处理（杜绝测试间串扰与恢复场景旧事件复活，`no such table` 噪声从源头归零）。
+
+### Changed
+- **依赖小版本一车跟随**（M93-I281/I282）：后端 cryptography 50.0.2 / jsonschema 4.26.0 / langgraph 1.2.12 / openai 3.23.0 / PyYAML 6.0.3（requirements 下限=实测装机，M83「声明=装机=实测」纪律第三次执行）；前端 14 项 lockfile 跟随（react 19.3.0 / react-router-dom 7.18.4 / tailwindcss 4.3.3 等，全 patch/minor 零 major）。双镜像构建+镜像内 pip 对账逐一致验证；顺带将 webhook 投递事件断言改轮询（M67-I202 坑的最后一处冷查询）。
 
 ## [0.11.0] — 2026-10-02
 
