@@ -37,7 +37,23 @@ def list_events(
         limit=limit,
         offset=offset,
     )
-    return {"events": [e.as_dict() for e in evts], "total": total}
+    return {"events": _with_actor_names(evts), "total": total}
+
+
+def _with_actor_names(evts: list) -> list[dict]:
+    """M95-I288: 用户 actor 批量富化显示名（reports._activity_list 同款先例）；
+    automation/system actor 不富化（前端图标已区分），删户兜底 actor_id。"""
+    out = [e.as_dict() for e in evts]
+    user_ids = {e2["actor_id"] for e2 in out
+                if e2["actor_type"] == "user" and e2.get("actor_id")}
+    if user_ids:
+        marks = ",".join("?" for _ in user_ids)
+        names = {r["id"]: r["name"] for r in db.get_conn().execute(
+            f"SELECT id, name FROM users WHERE id IN ({marks})", tuple(user_ids)).fetchall()}
+        for e2 in out:
+            if e2["actor_type"] == "user":
+                e2["actor_name"] = names.get(e2["actor_id"], e2["actor_id"])
+    return out
 
 
 @router.post("/system/rebuild-projections")

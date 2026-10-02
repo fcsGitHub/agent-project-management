@@ -194,7 +194,7 @@ export function Dashboard() {
             <div key={e.id} className="flex items-center gap-2 px-1 py-1 text-xs">
               <span className="w-12 shrink-0 font-mono text-mut">{timeAgo(e.ts)}</span>
               <span>{ICON[e.actor_type] ?? "•"}</span>
-              <span className="w-20 shrink-0 truncate text-mut">{e.actor_id.split(":")[0]}</span>
+              <span className="w-20 shrink-0 truncate text-mut" title={e.actor_id.split(":")[0]}>{e.actor_name ?? e.actor_id.split(":")[0]}</span>
               <span className="font-medium">{e.event_type}</span>
               <span className="truncate text-mut">{summaryOf(e)}</span>
             </div>

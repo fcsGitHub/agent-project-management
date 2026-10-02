@@ -54,6 +54,21 @@ def test_events_api_filters_and_pagination(client, tmp_data):
     assert r.json()["total"] == 0
 
 
+def test_events_api_actor_name_enrichment(client, tmp_data):
+    """M95-I288: 用户 actor 富化 actor_name；automation/system 不富化；删户兜底 actor_id（reports._activity_list 同款语义）。"""
+    events.emit(event_type="test.byuser", agg_type="test", agg_id="enr-1",
+                actor_type="user", actor_id="u_admin", payload={})
+    events.emit(event_type="test.byauto", agg_type="test", agg_id="enr-2",
+                actor_type="automation", actor_id="ar_x", payload={})
+    events.emit(event_type="test.bygone", agg_type="test", agg_id="enr-3",
+                actor_type="user", actor_id="u_deleted", payload={})
+    body = client.get("/api/events", params={"agg_type": "test"}).json()
+    by_type = {e["event_type"]: e for e in body["events"]}
+    assert by_type["test.byuser"]["actor_name"] == "李雷"
+    assert "actor_name" not in by_type["test.byauto"]
+    assert by_type["test.bygone"]["actor_name"] == "u_deleted"  # 删户兜底
+
+
 def test_replay_consistency_with_random_event_stream(tmp_data):
     """Live projections must equal a full rebuild after a random event stream."""
     conn = db.get_conn()

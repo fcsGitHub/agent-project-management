@@ -134,6 +134,7 @@ export type Approval = {
 export type AEvent = {
   id: number; ts: string; actor_type: string; actor_id: string; project_id: string;
   agg_type: string; agg_id: string; event_type: string; payload: Record<string, unknown>;
+  actor_name?: string; // M95-I288: user actor 显示名（端点富化·删户兜底缺省）
 };
 export type PromptTemplate = {
   id: string; title: string; agent_role: string | null;
