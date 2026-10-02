@@ -221,3 +221,49 @@ def test_webhook_private_target_blocked_by_default(client, project, monkeypatch)
     r = client.post(f"/api/projects/{project['id']}/webhooks",
                     json={"url": "http://127.0.0.1:9/hook", "events": ["item.created"]})
     assert r.status_code == 422 and "public address" in r.json()["detail"]
+
+
+def test_worker_survives_db_gap(tmp_data, tmp_path, receiver, caplog, monkeypatch):
+    """I278: teardown/换代间隙 db 缺表——worker 必须存活、大声记录、队列清空，
+    且恢复后继续正常服务（先红后绿自证：修复前线程死 is_alive=False）。"""
+    import logging
+
+    from apm import config
+    from apm.core import db, events
+
+    # Point the (global) db at an uninitialized dir: empty schema → the worker's
+    # SELECT hits "no such table: webhooks" — the teardown-race the 3-round
+    # threshold caught live. No delivery may be attempted; the thread must live.
+    # data_dir must follow: reset_for_tests only re-seats the *calling* thread;
+    # the worker reopens lazily from config.settings.db_path (I278 red-run lesson).
+    fresh = tmp_path / "gap"
+    monkeypatch.setattr(config.settings, "data_dir", fresh)
+    db.reset_for_tests(fresh)
+    webhooks.install_webhooks_engine()  # direct-call test: no app lifespan ran
+    try:
+        ev = events.Event(id=1, ts="2026-10-02T00:00:00", actor_type="system",
+                          actor_id="", project_id="p_gap", agg_type="item",
+                          agg_id="i_gap", event_type="item.created",
+                          payload={}, prev_event_id=0)
+        with caplog.at_level(logging.ERROR, logger="apm.domains.webhooks"):
+            webhooks.enqueue(ev)
+            webhooks._queue.join()  # task_done runs in finally either way
+        assert any("webhook worker" in rec.message for rec in caplog.records),             "the gap error must be logged loudly, not swallowed silently"
+        assert webhooks._worker is not None and webhooks._worker.is_alive()
+
+        # Recovery: after the db comes back (next generation), the same worker
+        # keeps serving — releases the stale handle and drains normally.
+        monkeypatch.setattr(config.settings, "data_dir", tmp_data)
+        db.reset_for_tests(tmp_data)
+        db.init_db()
+        ev2 = events.Event(id=2, ts="2026-10-02T00:00:01", actor_type="system",
+                           actor_id="", project_id="p_gap", agg_type="item",
+                           agg_id="i_gap2", event_type="item.created",
+                           payload={}, prev_event_id=1)
+        webhooks.enqueue(ev2)
+        webhooks._queue.join()
+        assert webhooks._worker.is_alive()
+        assert Receiver.requests == []  # nothing was ever delivered
+    finally:
+        db.reset_for_tests(tmp_data)
+        db.init_db()

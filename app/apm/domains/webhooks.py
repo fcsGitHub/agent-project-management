@@ -349,6 +349,9 @@ def _worker_loop() -> None:
                     _deliver(_parse(row, with_secret=True), event_dict)
                 except Exception:  # a broken webhook must never kill the worker
                     logger.exception("webhook delivery crashed for %s", row["id"])
+        except Exception:
+            # The worker must survive anything (M92-I278: e.g. db gone mid-teardown).
+            logger.exception("webhook worker crashed on %s", event_dict.get("event_type"))
         finally:
             _queue.task_done()
 
