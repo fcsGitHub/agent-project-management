@@ -134,10 +134,12 @@ def test_delivery_signed_and_recorded(client, project, receiver):
     assert json.loads(got["raw"])["agg_id"] == item["id"]  # 事件字典：工作项 id 在 agg_id
 
     from apm.core import db
-    row = db.get_conn().execute(
+    from tests.conftest import wait_for
+    # The delivery lands over HTTP before the worker thread commits its
+    # webhook.delivered event (M67-I202 pitfall) — poll, never query cold.
+    wait_for(lambda: db.get_conn().execute(
         "SELECT 1 FROM events WHERE event_type = 'webhook.delivered' AND agg_id = ?",
-        (wh["id"],)).fetchone()
-    assert row, "webhook.delivered must be recorded on the event stream"
+        (wh["id"],)).fetchone() is not None)
 
 
 def test_failure_retries_then_failed_recorded(client, project, receiver):
