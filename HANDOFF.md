@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M91 交付文档轮 完成[v0.11.0 已 tag]，下一步 M92 前置调研[webhooks 竞态修复高位]）
+# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M91 交付文档轮 完成[v0.11.0 已 tag]，M92 调研已定案[webhooks 竞态修复·后台线程韧性轮]，下一步 I278）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M92 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M91 纪律沉淀：候选池勿凭印象写——二十次自证见前轮[最新=M91 断言核验抓获自写凭印象错误两例——文档断言逐条 vs 代码与测试同等必要]**；写门[M80]+发布工程[M81/M88]+前端韧性[M82]+依赖健康[M83]+测试日期[M84]+a11y[M85/M89/M90]+运维验证[M86]+工具链[M87]+交付文档[M91]均已做；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]；**发布轮收口 DoD 两项**[release_drill+docs/11 时效戳核对——M89/M91 两次执行]）→ 三路并行 WebSearch[配额 2026-10-07 重置·429 降级路径已立] → docs/01 新节（§CK）+ docs/10 §M92 节 + 看板行 →「M92 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M92 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**webhooks teardown 竞态修复（高位·阈值已到达）**[累计 3 次/3 轮——worker 循环对 shutdown 间隙 no such table 吞噬或优雅停机事件·一行级+测试]；②**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[test_llm_real 全 MockTransport+M44 后 45+ 轮无真实复演+M83 动 provider 面]；③graph 端点入边补显（留观）；④dnd 触屏改期 pointer 重写（留观）；⑤删除工件恢复 UI（等证据）；⑥init_db 幂等化（真实事故再触发）；⑦演练 --seed-light（留观）；⑧v0.12.0 攒批（M92+M93 两轮成版·M92 不 tag）；⑨维持项长清单。
+2. **M92 执行序（调研已定案 5542a68·docs/01 §CK）**：I278 webhooks `_worker_loop` 补外层 `except Exception: logger.exception(...)`（mailer/pusher 习语逐字同构——现病灶=外层 try 只有 finally 无 except，teardown/换代间隙 SELECT 抛 sqlite3.OperationalError 穿透 while True 线程死亡无人拉起）+线程存活真场景测试（reset_for_tests 指向未初始化空目录→enqueue 合成事件[events.Event 直建不 emit]→`_queue.join()`→assert `_worker.is_alive()`→队列清空；先红后绿自证·测试落 app/tests/test_webhooks.py）→ I279 队列条目代际标记防跨代脏投递（db.py 增 `generation()` 公开读取器[`_generation` 现模块私有]→enqueue 盖 `_gen` 代戳→worker 循环开头 `_gen != db.generation()` 静默丢弃[debug 日志]——跨代测试：入队→reset 换代→join→零投递零错误；CK.1 except 保留兜底·代戳=预防两层各司其职）→ I280 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M92+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.12.0 不 tag**[M92+M93 两轮成版]）。**裁决备忘（CK.1 在案）**：Python 3.13 Queue.shutdown（本机 3.11.5）、sentinel/stop-event 机制位、非 daemon 改造——均不做。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
