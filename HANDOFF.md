@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M93 发布工程第三轮 完成[v0.12.0 已 tag]，下一步 M94 前置调研[LLM 回归轮仍待 key·候选池待核]）
+# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M93 发布工程第三轮 完成[v0.12.0 已 tag]，M94 调研已定案[全旅程自用复演轮·工程管理落地预演]，下一步 I284）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M94 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M93 纪律沉淀：候选池勿凭印象写——二十次自证见前轮[最新=M93 附录 C：pnpm update 重写 manifest range 须同车/M67-I202 坑冷查询收口/cwd 漂移 M61 再证两连]**；写门[M80]+发布工程[M81/M88/M93]+前端韧性[M82]+依赖健康[M83]+测试日期[M84]+a11y[M85/M89/M90]+运维验证[M86]+工具链[M87]+交付文档[M91]+后台线程韧性[M92]均已做；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]；**发布轮收口 DoD 两项**[release_drill+docs/11 时效戳核对——M89/M91/M93 三次执行]）→ 三路并行 WebSearch[429 降级路径已立] → docs/01 新节（§CM）+ docs/10 §M94 节 + 看板行 →「M94 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M94 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[test_llm_real 全 MockTransport+M44 后 45+ 轮无真实复演+M83 动 provider 面——key 前提实测两轮均缺（.env 不存在）·不成立则维持挂起]；②graph 端点入边补显（留观·单用户环境无真实使用证据）；③dnd 触屏改期 pointer 重写（留观）；④删除工件恢复 UI（等证据）；⑤init_db 幂等化（真实事故再触发）；⑥演练 --seed-light（留观）；⑦**v0.13.0 攒批=M94+M95 两轮成版（M94 不 tag·M95 收口 bump 四锚+CHANGELOG [0.13.0]+tag+发布轮收口 DoD 两项第四次执行）**；⑧维持项长清单。
+2. **M94 执行序（调研已定案 637aa99·docs/01 §CM）**：I284 开局旅程（全新隔离库 network 模式起服务[APM_DATA_DIR+APM_ONTOLOGY_DIR_OVERRIDE+netstat 单监听+preview 从 web/ 起]→按 README/docs/12 从注册登录走开局链[建项目选本体→规划面 features/cycles/milestones/依赖建链→成员角色]·NN/g 首用三问逐屏记分[这是什么/对我有何用/下一步]→断链/死按钮/文案缺漏级小项**发现即修**+冒烟补断言→结构性缺口如实留观不扩轮）→ I285 执行旅程（带「交付一个真特性」目标：看板/列表/时间线→自动化规则+watch→run 发起[replay]→Gate 审批→工件沉淀+资产→评论通知→工时·每步证据=后端请求/页面状态[IAB 拦截纪律·cua 坐标为准]·「数据驱动文本必须兜底」「org 级门 UI 出口」两教训随行核对·发现即修同 I284 口径）→ I286 收尾旅程（报表面→导出面 CSV/iCal/Atom/工件包→机器接入 PAT+Bearer+webhook roundtrip→项目收尾清单）+全量回归（非 smoke 分片+冒烟 runner+vitest+build+机械防腐七件）+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.13.0 不 tag**[M94+M95 两轮成版·M95 收口 bump+tag+DoD 两项第四次执行]。**裁决备忘（§CM 在案）**：自动化 E2E 框架引入不做（§CF 裁决不变）、结构性新功能不做（发现即留观）、docs 面回填不做。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
