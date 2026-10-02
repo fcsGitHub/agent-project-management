@@ -2526,3 +2526,27 @@ M94 = **全旅程自用复演轮·工程管理落地预演**：I284 开局旅程
 **CN.4 M95 取舍**
 
 M95 = **旅程 UX 反馈轮·登录语义与信息流富化**：I287 登录引导+returnTo+草稿保留 / I288 活动流 actor_name 富化+Dashboard 消费 / I289 v0.13.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 3 人日。结构性 UX 重构（全站路由守卫体系/服务端草稿 API）、popup 登录、留观五候选、真实 LLM 回归轮（key 第五轮实测仍缺）留 backlog。
+
+
+## CO. M96 前置调研：账号安全补课轮·密码自助修改与会话失效（2026-10-03）
+
+> 目标协议触发：M95 完成后开启。防重查：**①真实 LLM 回归轮 key 第六轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light）；依赖面=继承 M94 全清判定（M93 一车后两轮内无新扫必要·如实记录）。**候选=账号安全补课转正——证据本轮当场收集（grep 实证）**：**①全库零改密面**——`hash_password` 仅两处调用：账号创建时设密（users.py:135·且 user 存在即 409 不可重入）与 boot 重放 `APM_ADMIN_PASSWORD`（users.py:87·仅引导管理员）——**网络多用户部署下普通用户永远无法修改密码**（忘密码=管理员删库重建级操作）；端点清单复核（auth_api 3 枚+users 域无 password 路由·前端 api.ts 仅 login·SettingsPage 零密码面）三向印证。**②凭据变更→会话失效语义缺失**——会话为无状态 HMAC TTL 令牌（security.py `user_id.expiry.signature`·默认 24h），将来任何改密面落地后旧会话必然存活到过期（OWASP Session Management Cheat Sheet 明文：凭据变更须作废该账号全部会话·ASVS 3.3.x）；本轮把失效语义与改密面**同轮建齐**避免先留缺口。**③同族先例**=M82 登录防爆破（OWASP API2:2023·哑哈希计时均衡/滑窗锁定在库）——本轮补齐账号安全面的最后一块。三路调研：**WebSearch 配额仍耗尽（429·2026-10-07 16:06 重置）如实降级**（M90/M91/M95 已立路径）：本轮规则族（凭据变更会话失效/改密前再认证）引用 [OWASP Session Management Cheat Sheet]（凭据变更→invalidate all sessions·re-authenticate before sensitive operations）与 [OWASP ASVS V3]（3.3.x 会话终止要求）条文+仓库内 M82 先例替代——无新规则族。定案 **M96 = 账号安全补课轮·密码自助修改与会话失效**。
+
+**CO.1 密码自助修改+管理员重置+会话失效语义（I290）**
+
+- users 投影加 `pw_epoch INTEGER NOT NULL DEFAULT 0`（init_db 轻量迁移惯例第 N 例）；令牌升级四段 `user_id.epoch.expiry.signature`——**session_user 兼容三段 legacy（epoch=0）**，新令牌携当前 epoch，校验时与库内值比对（懒加载 db——core 不新增顶层耦合·三处调用点零改动）；**boot 重放不动 epoch**（`APM_ADMIN_PASSWORD` 重应用保会话存活=延续 M8「会话跨重启」语义·仅 API 改密路径 bump）。
+- `POST /me/password`（own-data：verify 旧密码[哑哈希计时均衡=M82 同款]→新哈希落库+epoch+1→`user.password_changed` 审计事件[载荷永不含密码=M8-I26 纪律]→当前会话同灭·前端引至重登）；`POST /users/{uid}/password`（admin 门=is_instance_admin·`user.password_reset` 事件）。
+- 密码复杂度策略**本轮不做**（创建流现状无策略·单方面加新策略会造成不对称——留观登记）。
+
+**CO.2 前端改密面+部署文档（I291）**
+
+- AppShell 身份区（⭐ 名字/登出旁）加「改密」入口→Modal 三字段（旧密码/新密码/确认新密码）→成功 toast「密码已更新，请重新登录」→清 cookie 跳 /login（守卫已就位=M95-I287 红利）；浏览器 IAB 走查（隔离 network 环境）。
+- docs/11 解冻补节：安全须知（改密/会话失效语义/epoch 兼容·部署者须知=改密后全员重登该账号）。
+
+**CO.3 收口（I292）**
+
+- 全量回归+机械防腐七件+CHANGELOG Unreleased 记 M96+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.14.0 不 tag**（M96+M97 两轮成版·M97 收口 bump+tag+DoD 两项第五次执行）。
+
+**CO.4 M96 取舍**
+
+M96 = **账号安全补课轮·密码自助修改与会话失效**：I290 pw_epoch+令牌 v2+双端点+失效语义+测试矩阵 / I291 前端改密 Modal+IAB 走查+docs/11 补节 / I292 收口审阅，约 3 人日。密码复杂度策略（留观）、会话服务端吊销清单（stateless 取舍·epoch 已覆盖凭据变更场景）、OIDC 侧密码面（SSO 账号无本地密码·不适用）、「登出所有设备」独立按钮（改密即达同效）、真实 LLM 回归轮（key 第六轮实测仍缺）、留观五候选留 backlog。
