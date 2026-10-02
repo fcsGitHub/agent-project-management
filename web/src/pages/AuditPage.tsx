@@ -58,7 +58,7 @@ export function AuditPage() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <select value={actor} onChange={(e) => setActor(e.target.value)}
-            className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+            className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs" aria-label="按发起者过滤">
             <option value="">发起者（全部）</option>
             <option value="human">👤 人</option>
             <option value="agent">🤖 Agent</option>

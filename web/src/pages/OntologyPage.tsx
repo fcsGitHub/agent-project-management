@@ -584,14 +584,15 @@ function TimeOffPanel() {
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="休假开始日期" />
         <span className="text-xs text-mut">至</span>
         <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="休假结束日期" />
         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="原因（如：年假）"
-          className="w-32 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+          className="w-32 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="休假原因" />
         <input value={delegate} onChange={(e) => setDelegate(e.target.value)} placeholder="代理人（可选，用户 ID）"
           title="休假期间活跃任务将临时转给该同项目成员，结束后自动转回"
+          aria-label="代理人"
           className="w-40 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
         <Button size="sm" variant="outline" disabled={busy || !start || !end} onClick={add}>登记休假</Button>
       </div>
@@ -664,7 +665,7 @@ function CalendarPanel() {
       </div>
       <div className="mt-2 flex items-center gap-2">
         <input type="date" value={day} onChange={(e) => setDay(e.target.value)}
-          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
+          className="rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="非工作日日期" />
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注（如：国庆节）"
           className="w-40 rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink" />
         <Button size="sm" variant="outline" disabled={busy || !day} onClick={add}>加入非工作日</Button>
@@ -753,14 +754,14 @@ function MembersPanel({ pid }: { pid: string }) {
       </div>
       <div className="mt-2 flex items-center gap-1.5">
         <select value={addId} onChange={(e) => setAddId(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs" aria-label="添加用户">
           <option value="">添加用户…</option>
           {candidates.map((u) => (
             <option key={u.id} value={u.id}>{u.name}（{u.id}）</option>
           ))}
         </select>
         <select value={addRole} onChange={(e) => setAddRole(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs">
+          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs" aria-label="项目角色">
           {Object.entries(MEMBER_ROLE).map(([r, def]) => (
             <option key={r} value={r}>{def.label}</option>
           ))}

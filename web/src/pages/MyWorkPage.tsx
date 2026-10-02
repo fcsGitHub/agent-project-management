@@ -185,7 +185,7 @@ function ApiTokenCard() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="用途，如 CI 发布脚本"
           className="w-48 rounded-lg border border-line bg-surface px-2 py-1" />
         <select value={days} onChange={(e) => setDays(e.target.value)}
-          className="rounded-lg border border-line bg-surface px-2 py-1">
+          className="rounded-lg border border-line bg-surface px-2 py-1" aria-label="订阅链接有效期">
           <option value="7">7 天过期</option>
           <option value="30">30 天过期</option>
           <option value="60">60 天过期</option>

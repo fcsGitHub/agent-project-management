@@ -75,7 +75,7 @@ export function RisksPage() {
                 return (
                   <div key={`${p}-${i}`}
                     className={cx("min-h-14 rounded-lg p-1.5", CELL_TONE[p * i] ?? "bg-bg")}>
-                    <span className="text-[10px] opacity-70">{p * i}分</span>
+                    <span className="text-[10px]">{p * i}分</span>
                     {cellRows.map((r) => (
                       <div key={r.id} className="mt-0.5 truncate rounded bg-white/70 px-1 text-[10px]"
                         title={r.title}>{r.title}</div>
@@ -95,11 +95,11 @@ export function RisksPage() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Input className="w-56" placeholder="风险标题" value={title} onChange={(e) => setTitle(e.target.value)} />
           <select value={probability} onChange={(e) => setProbability(Number(e.target.value))}
-            className="rounded-md border border-line bg-bg px-2 py-1.5 text-xs">
+            className="rounded-md border border-line bg-bg px-2 py-1.5 text-xs" aria-label="概率">
             {[1, 2, 3].map((v) => <option key={v} value={v}>概率 {LEVEL_LABEL[v]}</option>)}
           </select>
           <select value={impact} onChange={(e) => setImpact(Number(e.target.value))}
-            className="rounded-md border border-line bg-bg px-2 py-1.5 text-xs">
+            className="rounded-md border border-line bg-bg px-2 py-1.5 text-xs" aria-label="影响">
             {[1, 2, 3].map((v) => <option key={v} value={v}>影响 {LEVEL_LABEL[v]}</option>)}
           </select>
           <Button size="sm" variant="primary" disabled={busy || !title.trim()} onClick={add}>登记</Button>

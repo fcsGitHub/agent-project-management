@@ -132,12 +132,12 @@ export function ActivityPage() {
       <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="按项目过滤">
             <option value="">全部项目</option>
             {projects.map((p) => <option key={p.project_id} value={p.project_id}>{p.name}</option>)}
           </select>
           <select value={kind} onChange={(e) => setKind(e.target.value)}
-            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink">
+            className="rounded-lg border border-line bg-bg px-2 py-1 text-xs text-ink" aria-label="按类型过滤">
             {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
           <span className="ml-auto text-[10px] text-mut">最近 {acts.length} 条 · 30 秒自动刷新</span>
@@ -162,7 +162,7 @@ export function ActivityPage() {
                     <span className="text-mut"> {a.summary}</span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-[10px] text-mut">
-                    <Link to={`/p/${a.project_id}/board`} className="hover:text-acc">{a.project_name}</Link>
+                    <Link to={`/p/${a.project_id}/board`} className="hover:text-acc">{a.project_name || "（未命名项目）"}</Link>
                     <span title={a.ts}>{relTime(a.ts)}</span>
                   </div>
                 </div>
