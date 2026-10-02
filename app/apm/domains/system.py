@@ -19,6 +19,10 @@ def health() -> dict:
         "app": "AgentPM",
         "version": APP_VERSION,  # M81-I243: 单源（原 0.1.0 死字面量）
         "provider_mode": config.settings.provider_mode,
+        # M95-I287: SPA 首屏据此决定是否主动引导登录（此前网络匿名只在写失败
+        # 后被 401 重定向——现在首屏即可判定）。只读非敏感：401 行为本就公开
+        # 暴露网络模式（M8-I26），字段化只是显式化。
+        "auth_mode": config.settings.auth_mode,
         "user": {"id": config.settings.user_id, "name": config.settings.user_name},
     }
 

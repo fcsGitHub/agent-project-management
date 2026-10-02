@@ -357,7 +357,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => req<{ status: string; version: string; provider_mode: string }>("/health"),
+  health: () => req<{ status: string; version: string; provider_mode: string; auth_mode: string }>("/health"),
   // M44: real-LLM wiring status + live connectivity ping (admin)
   llmStatus: () =>
     req<{

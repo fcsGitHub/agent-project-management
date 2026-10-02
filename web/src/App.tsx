@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
-import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./lib/api";
 import { AppShell } from "./components/AppShell";
@@ -51,42 +51,65 @@ export default function App() {
     <HashRouter>
       {/* App 级兜底（rail/路由表/内联页崩溃→整窗错误卡+重载；页面级崩溃被 pg 拦在页内）。 */}
       <ErrorBoundary level="app">
-        <Routes>
-          <Route path="/" element={<ProjectPicker />} />
-          <Route path="/intake/:token" element={pg("intake", <IntakePage />)} />
-          <Route path="/p/:pid" element={<AppShell />}>
-            <Route index element={pg("dashboard", <Dashboard />)} />
-            <Route path="board" element={pg("board", <Board />)} />
-            <Route path="timeline" element={pg("timeline", <TimelinePage />)} />
-            <Route path="deps" element={pg("deps", <DependencyGraphPage />)} />
-            <Route path="risks" element={pg("risks", <RisksPage />)} />
-            <Route path="f/:fid" element={pg("feature", <FeaturePage />)} />
-            <Route path="c/:cid" element={pg("conversation", <ConversationView />)} />
-            <Route path="conversations" element={pg("conversations", <ConversationsPage />)} />
-            <Route path="runs" element={pg("runs", <RunsPage />)} />
-            <Route path="graph" element={pg("graph", <GraphView />)} />
-            <Route path="approvals" element={pg("approvals", <ApprovalsPage />)} />
-            <Route path="audit" element={pg("audit", <AuditPage />)} />
-            <Route path="reports" element={pg("reports", <ReportsPage />)} />
-            <Route path="ontology" element={pg("ontology", <OntologyPage />)} />
-            <Route path="settings" element={pg("settings", <SettingsPage />)} />
-            <Route path="artifacts" element={pg("artifacts", <ArtifactsPage />)} />
-          </Route>
-          <Route path="/assets" element={pg("assets", <AssetsPage />)} />
-          <Route path="/templates" element={pg("templates", <TemplatesPage />)} />
-          <Route path="/my/work" element={pg("my-work", <MyWorkPage />)} />
-          <Route path="/my/time" element={pg("my-time", <MyTimePage />)} />
-          <Route path="/roadmap" element={pg("roadmap", <RoadmapPage />)} />
-          <Route path="/workload" element={pg("workload", <WorkloadPage />)} />
-          <Route path="/activity" element={pg("activity", <ActivityPage />)} />
-          <Route path="/my/schedule" element={pg("my-schedule", <SchedulePage />)} />
-          <Route path="/search" element={pg("search", <SearchPage />)} />
-          <Route path="/login" element={pg("login", <LoginPage />)} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <RequireSession>
+          <Routes>
+            <Route path="/" element={<ProjectPicker />} />
+            <Route path="/intake/:token" element={pg("intake", <IntakePage />)} />
+            <Route path="/p/:pid" element={<AppShell />}>
+              <Route index element={pg("dashboard", <Dashboard />)} />
+              <Route path="board" element={pg("board", <Board />)} />
+              <Route path="timeline" element={pg("timeline", <TimelinePage />)} />
+              <Route path="deps" element={pg("deps", <DependencyGraphPage />)} />
+              <Route path="risks" element={pg("risks", <RisksPage />)} />
+              <Route path="f/:fid" element={pg("feature", <FeaturePage />)} />
+              <Route path="c/:cid" element={pg("conversation", <ConversationView />)} />
+              <Route path="conversations" element={pg("conversations", <ConversationsPage />)} />
+              <Route path="runs" element={pg("runs", <RunsPage />)} />
+              <Route path="graph" element={pg("graph", <GraphView />)} />
+              <Route path="approvals" element={pg("approvals", <ApprovalsPage />)} />
+              <Route path="audit" element={pg("audit", <AuditPage />)} />
+              <Route path="reports" element={pg("reports", <ReportsPage />)} />
+              <Route path="ontology" element={pg("ontology", <OntologyPage />)} />
+              <Route path="settings" element={pg("settings", <SettingsPage />)} />
+              <Route path="artifacts" element={pg("artifacts", <ArtifactsPage />)} />
+            </Route>
+            <Route path="/assets" element={pg("assets", <AssetsPage />)} />
+            <Route path="/templates" element={pg("templates", <TemplatesPage />)} />
+            <Route path="/my/work" element={pg("my-work", <MyWorkPage />)} />
+            <Route path="/my/time" element={pg("my-time", <MyTimePage />)} />
+            <Route path="/roadmap" element={pg("roadmap", <RoadmapPage />)} />
+            <Route path="/workload" element={pg("workload", <WorkloadPage />)} />
+            <Route path="/activity" element={pg("activity", <ActivityPage />)} />
+            <Route path="/my/schedule" element={pg("my-schedule", <SchedulePage />)} />
+            <Route path="/search" element={pg("search", <SearchPage />)} />
+            <Route path="/login" element={pg("login", <LoginPage />)} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </RequireSession>
       </ErrorBoundary>
     </HashRouter>
   );
+}
+
+/** M95-I287: network 匿名首访主动引导登录——此前只有写请求吃了 401 才被
+ * 重定向（api.ts 反应式），首屏渲染的是全功能界面+本地身份切换器（误导）。
+ * local 模式零影响；/login 本身与公开的 /intake 提交面不拦。 */
+function RequireSession({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const healthQ = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: 60_000 });
+  const meQ = useQuery({ queryKey: ["auth-me-boot"], queryFn: api.authMe, retry: false });
+  if (!healthQ.data) return null; // 加载中/后端不可达：渲染空而非误导性界面
+  if (healthQ.data.auth_mode !== "network") return children;
+  const onPublicPage = location.pathname.startsWith("/login") || location.pathname.startsWith("/intake/");
+  if (!onPublicPage && meQ.isError) {
+    const dest = location.pathname + location.search;
+    if (dest.startsWith("/") && !dest.startsWith("//")) {
+      // 仅相对 hash 路径——防 open-redirect；登录成功后由 LoginPage 消费。
+      sessionStorage.setItem("apm-returnTo", dest);
+    }
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 /** Redirect to the first project when one exists, else show the picker. */
@@ -106,6 +129,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+// M95-I287: 新建弹窗草稿跨登录/刷新保留（M94 journey 发现②——表单填一半
+// 被登录重定向打断，回来全丢）。sessionStorage 生命周期=标签页，恰好够用。
+const DRAFT_NAME = "apm-draft-new-project:name";
+const DRAFT_REQ = "apm-draft-new-project:req";
+
 function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchived }: {
   projects: { id: string; name: string; ontology: string; status: string; item_counts?: Record<string, number>; gates_pending?: number }[];
   autoOpen?: boolean;
@@ -115,10 +143,21 @@ function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchive
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(autoOpen);
-  const [name, setName] = useState("");
-  const [req, setReq] = useState("");
+  const [name, setName] = useState(() => sessionStorage.getItem(DRAFT_NAME) ?? "");
+  const [req, setReq] = useState(() => sessionStorage.getItem(DRAFT_REQ) ?? "");
   const [ontology, setOntology] = useState("software-dev");
   const [busy, setBusy] = useState(false);
+  const [restored] = useState(() => Boolean(sessionStorage.getItem(DRAFT_NAME) || sessionStorage.getItem(DRAFT_REQ)));
+
+  useEffect(() => {
+    if (restored && (name || req)) toast.info("已恢复上次填写的草稿");
+    // 只在挂载时提示一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (name) sessionStorage.setItem(DRAFT_NAME, name); else sessionStorage.removeItem(DRAFT_NAME);
+    if (req) sessionStorage.setItem(DRAFT_REQ, req); else sessionStorage.removeItem(DRAFT_REQ);
+  }, [name, req]);
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try { await fn(); toast.success(ok); qc.invalidateQueries(); }
@@ -216,6 +255,8 @@ function PickerInner({ projects, autoOpen = false, showArchived, onToggleArchive
                 setBusy(true);
                 try {
                   const p = await api.createProject({ name, ontology, requirement: req });
+                  sessionStorage.removeItem(DRAFT_NAME);
+                  sessionStorage.removeItem(DRAFT_REQ);
                   await qc.invalidateQueries({ queryKey: ["projects"] });
                   navigate(`/p/${p.id}`);
                 } catch (e) {

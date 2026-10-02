@@ -54,7 +54,10 @@ export function LoginPage() {
       const r = await api.login(userId.trim(), password);
       await qc.invalidateQueries();
       toast.success(`欢迎，${r.name}`);
-      navigate("/");
+      // M95-I287: 登录前被守卫拦下的页面（returnTo）——回原处而非总回首页。
+      const from = sessionStorage.getItem("apm-returnTo");
+      sessionStorage.removeItem("apm-returnTo");
+      navigate(from && from.startsWith("/") && !from.startsWith("//") ? from : "/", { replace: true });
     } catch (e) {
       toast.error("登录失败", { description: e instanceof Error ? e.message : String(e) });
     } finally {
