@@ -2502,3 +2502,27 @@ M93 = **发布工程第三轮·依赖小版本跟随与 v0.12.0 攒批发布**�
 **CM.4 M94 取舍**
 
 M94 = **全旅程自用复演轮·工程管理落地预演**：I284 开局旅程（空库→规划面·NN/g 三问逐屏记分+发现即修） / I285 执行旅程（看板→自动化→run→审批→工件资产→通知·发现即修） / I286 收尾旅程（报表→导出→机器接入）+全量回归+收口审阅，约 4 人日。自动化 E2E 框架引入（CUA+冒烟已覆盖·一人工厂性价比·§CF 裁决不变）、结构性新功能（发现即留观不扩轮）、真实 LLM 回归轮（key 第三轮实测仍缺）、留观五候选留 backlog。
+
+
+## CN. M95 前置调研：旅程 UX 反馈轮·登录语义与信息流富化（2026-10-02）
+
+> 目标协议触发：M94 完成后开启。防重查：**①真实 LLM 回归轮 key 第五轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light——触发条件未变）；依赖面复核=继承 M94 全清判定（pnpm outdated/pip outdated/pnpm audit/pip-audit 四面 M94 刚扫·两轮内无重测必要·如实记录）。**候选=journey UX 三发现转正——证据 M94 当场收集·本轮代码现状逐条复核**：①network 匿名首访无主动登录引导（代码级病灶定位：`/auth/me` 网络匿名 401[auth_api.py:150-158]→AppShell `me.data` undefined→**回落渲染 LocalSwitcher 本地切换器**[AppShell.tsx:832-854——网络模式访客看到的是本地身份切换器=误导]；401 重定向只在写失败后触发[api.ts:345 反应式]）；②登录重定向后表单清空（LoginPage submit 成功后无条件 `navigate("/")`[LoginPage.tsx:55-58]——无 returnTo 语义；首页新建弹窗状态为组件 state 随卸载丢失）；③仪表盘活动流显原始 actor_id（Dashboard 用裸 `api.listEvents`[Dashboard.tsx:20·`e.actor_id.split(":")[0]` 直显]——而 ActivityPage 走 `portfolio_activity` 有 `_activity_list` 的 actor_names 批量富化[reports.py:245-263·**仓库内先例逐字在案**]——同产品两信息流显示语义分叉）。三路调研：**WebSearch 每周配额再耗尽（429·2026-10-07 16:06 重置）三路全拦——如实降级**（M90/M91 已立路径）：本轮规则族（SPA 登录重定向/表单草稿保留/信息流名字富化）均有**仓库内先例或通识条文**可引——React Router 官方 auth 范式[location.state.from + replace + sessionStorage 兜底·open-redirect 防御=仅接受相对路径]、表单草稿 sessionStorage 保存+恢复确认 toast 惯例、Stream/GetStream 式 feed actor 内嵌富化+批量 IN 查询防 N+1——引用通识+仓库内 `_activity_list` 先例替代·无新规则族·配额重置后无需补搜。定案 **M95 = 旅程 UX 反馈轮·登录语义与信息流富化**。
+
+**CN.1 登录引导与重定向语义（I287——三发现①②）**
+
+- **health 增 `auth_mode` 字段**（system.py——只读非敏感：M8 I26 起 401 行为本就公开暴露网络模式·字段化只是显式化）；SPA App 级守卫：`api.health`+`api.authMe` 双查询——`auth_mode==="network"` 且 me 401 → 全路由渲染 LoginPage（**主动引导替代写失败才重定向**·local 模式零影响）；AppShell 网络匿名回落 LocalSwitcher 的误导随之消失。
+- **returnTo 语义**：守卫重定向前 sessionStorage 记 `apm-returnTo`（仅相对 hash 路径·防御 open-redirect）；登录成功 `navigate(returnTo ?? "/")`——M94 场景（填一半表单→登录→回原页）闭环。
+- **新建弹窗草稿保留**：Home 新建弹窗 name/requirement 变更即 sessionStorage 草稿（键 `apm-draft-new-project`）·挂载恢复+「已恢复上次填写的草稿」toast·创建成功清除——最小面：只做 M94 观察到丢失的这一张表单。
+
+**CN.2 活动流名字富化（I288——发现③）**
+
+- `list_events` 响应增 `actor_name`：actor_type==="user" 的事件批量 `SELECT id,name FROM users WHERE id IN (...)`（**_activity_list 先例逐字同构**[reports.py:245-263]·删户/未知 actor 兜底 actor_id——M90「数据驱动文本必须兜底」纪律）；automation/system actor 不富化（徽标已有 ICON 区分）。
+- Dashboard 活动流显 `{e.actor_name ?? e.actor_id.split(":")[0]}`；vitest 不锁显示文本（页面级 mock 不成比例——既有裁决）·pytest 锁端点字段。
+
+**CN.3 v0.13.0 攒批发布（I289——发布轮收口 DoD 两项第四次执行）**
+
+- M94+M95 两轮成版：四锚 bump 0.12.0→0.13.0+CHANGELOG [0.13.0] 段[M94+M95 精选·Unreleased 回空]+冒烟 88 发布钉+冒烟 86 解冻代标记 M93-I283→M95-I289+`python tools/release_drill.py` EXIT=0（RTO 入档）+docs/11 时效戳解冻至 v0.13.0+`git tag -a v0.13.0`（M89-I271/M91-I277/M93-I283 后第四次执行）。
+
+**CN.4 M95 取舍**
+
+M95 = **旅程 UX 反馈轮·登录语义与信息流富化**：I287 登录引导+returnTo+草稿保留 / I288 活动流 actor_name 富化+Dashboard 消费 / I289 v0.13.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 3 人日。结构性 UX 重构（全站路由守卫体系/服务端草稿 API）、popup 登录、留观五候选、真实 LLM 回归轮（key 第五轮实测仍缺）留 backlog。
