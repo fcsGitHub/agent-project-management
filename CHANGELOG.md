@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M98~M99 两轮一版（v0.15.0）。
+
+### Fixed
+- **弹窗标题栏 landmark 伪影根治**（M98-I297）：Modal/Drawer 标题栏 `<header>`→`<div>`（语义无损）——弹窗在应用横幅内打开时不再产生重复 banner landmark（axe moderate×3）；语义由容器 `role=dialog`+`aria-labelledby` 承担。
+
+### Changed
+- **docs/12 覆盖声明随版至 v0.14.0**（M98-I296）：真源指针首次年度体检——修正「动作六种」漏记（实为七种，`create_recurring` 日历节拍自 M13 即在）；NOTIFY_KINDS/WATCHABLE_EVENTS/sweep 员清单对账一致。docs/06 §7 a11y 基线随版（受影响路由复扫 8 项全 clean+bundle 基线刷新）。
 
 ## [0.14.0] — 2026-10-03
 
