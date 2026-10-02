@@ -1391,9 +1391,10 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
           优先级
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className={`mt-0.5 ${selectCls}`}>
             <option value="">（无）</option>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
+            {/* M94-I285: show localized labels — board filter already uses 高/中/低 */}
+            <option value="low">低</option>
+            <option value="medium">中</option>
+            <option value="high">高</option>
           </select>
         </label>
         <label className="block text-[10px] text-mut">
