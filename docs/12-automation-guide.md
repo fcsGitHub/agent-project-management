@@ -1,6 +1,6 @@
 # 12 · 自动化与集成指南
 
-> 时效：2026-10-02 更新（M91-I275 重写解冻——覆盖至 v0.11.0 全部自动化面：规则引擎 / 通知与 watch / 定时 sweep / 机器接入 / 指令模板与运行产物。此前的里程碑堆叠版[§1~§40·覆盖止于 M43]退役——章节级细节真源=[docs/10 §7 看板](10-development-plan.md)，本页按**用户任务**组织；每节末尾的「真源」指向代码中的权威枚举/实现，**文档描述语义，代码持有清单**——两处冲突时以代码为准并请回报，这是活文档的契约）。
+> 时效：2026-10-03 更新（M98-I296 随版解冻——覆盖至 v0.14.0 全部自动化面：规则引擎 / 通知与 watch / 定时 sweep / 机器接入 / 指令模板与运行产物。M92~M97 逐轮核验自动化面零新增[webhooks worker 内部/依赖跟随/旅程复演/UX 读侧/账号安全=部署面归 docs/11 §2.6]；真源指针体检=M98-I296 抓获并修正「动作六种」漏记——实为七种[create_recurring 日历节拍自 M13-I40 即在·M91 重写时遗失]。（此前的里程碑堆叠版[§1~§40·覆盖止于 M43]退役——章节级细节真源=[docs/10 §7 看板](10-development-plan.md)，本页按**用户任务**组织；每节末尾的「真源」指向代码中的权威枚举/实现，**文档描述语义，代码持有清单**——两处冲突时以代码为准并请回报，这是活文档的契约）。
 > 相关文档：部署与认证底座=[docs/11](11-network-deploy.md)（env 速查单一真源=[.env.example](.env.example)）；前端界面语义=[docs/06](06-webui-design.md)。
 
 ## 任务速查
@@ -28,7 +28,7 @@
 
 - **触发**：创建工作项 / 更新字段 / 状态变更 / 指派变更等事件（与 watch 白名单同源的事件集，见 §2.3）；
 - **条件**（可选）：「满足〈概念〉+〈字段谓词〉」——字段可为内置（priority / status / assignee_id）或本体声明字段（severity、regression…）。谓词当前为**标量相等 / multiselect 包含**（区间与 AND/OR 留真实需求再上——backlog）；
-- **动作**（六种，真源 `_execute_action`）：`assign` 指派 / `set_priority` 置优先级 / `set_field` 设自定义字段（enum/boolean 按本体声明出值；multiselect 逗号分隔）/ `set_status` 改状态（状态池按概念收窄）/ `notify` 发站内提醒 / `run_agent` 让 Agent 执行（项目级角色指令生效）。
+- **动作**（七种，真源 `_execute_action` 与 `ACTION_TYPES`）：`assign` 指派 / `set_priority` 置优先级 / `set_field` 设自定义字段（enum/boolean 按本体声明出值；multiselect 逗号分隔）/ `set_status` 改状态（状态池按概念收窄）/ `notify` 发站内提醒 / `create_recurring` 按日历节拍自动建卡（M13-I40·到点日 emit item.created，需 action.concept_id+title≤200）/ `run_agent` 让 Agent 执行（项目级角色指令生效）——与 sweep 的 `_respawn_recurring` 互补：前者日历节拍、后者完成节拍（`recurrence_days`）。
 
 每条规则绑定**单个动作**——组合动作=多条规则（同触发按创建顺序执行）。
 
