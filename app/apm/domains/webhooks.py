@@ -337,6 +337,13 @@ def _worker_loop() -> None:
     while True:
         event_dict = _queue.get()
         try:
+            if event_dict.get("_gen") != db.generation():
+                # Enqueued before a reset — processing it against the new
+                # generation's db would deliver a stale event (or crash on a
+                # missing table). Drop before any db access (M92-I279).
+                logger.debug("webhook worker dropped stale-generation event #%s",
+                             event_dict.get("id"))
+                continue
             rows = db.get_conn().execute(
                 "SELECT * FROM webhooks WHERE project_id = ? AND enabled = 1",
                 (event_dict.get("project_id") or "",),
@@ -361,7 +368,9 @@ def enqueue(event: events.Event) -> None:
     if not event.project_id:
         return
     try:
-        _queue.put_nowait(event.as_dict())
+        item = event.as_dict()
+        item["_gen"] = db.generation()  # stale items are dropped after a test reset (M92-I279)
+        _queue.put_nowait(item)
     except queue.Full:
         logger.warning("webhook queue full; dropping event #%s", event.id)
 

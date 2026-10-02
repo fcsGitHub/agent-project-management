@@ -16,6 +16,13 @@ _local = threading.local()
 _generation = 0  # bumped by test resets so stale thread connections reopen
 
 
+def generation() -> int:
+    """Current data generation (bumped by test resets). Background workers stamp
+    queue items with it and drop stale ones — an event enqueued before a reset
+    must never be processed against the next generation's database (M92-I279)."""
+    return _generation
+
+
 def get_conn() -> sqlite3.Connection:
     global _generation
     conn = getattr(_local, "conn", None)

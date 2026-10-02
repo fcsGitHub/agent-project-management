@@ -267,3 +267,47 @@ def test_worker_survives_db_gap(tmp_data, tmp_path, receiver, caplog, monkeypatc
     finally:
         db.reset_for_tests(tmp_data)
         db.init_db()
+
+
+def test_worker_drops_stale_generation_events(client, project, receiver, tmp_data, tmp_path, caplog, monkeypatch):
+    """I279: 换代前入队的残留事件被代戳拦截——零投递零错误；当前代事件照常
+    投递（正控制）。真伤=旧代事件跨代触发新库投递（测试间串扰/恢复场景旧事件
+    复活），三代 teardown 竞态噪声全部源于「陈旧事件被跨代处理」。"""
+    import logging
+
+    from apm import config
+    from apm.core import db, events
+
+    pid = project["id"]
+    client.post(f"/api/projects/{pid}/webhooks",
+                json={"url": receiver, "events": ["item.created"]})
+
+    # Positive control: a current-generation event still delivers normally.
+    ev = events.Event(id=9001, ts="2026-10-02T00:00:00", actor_type="system",
+                      actor_id="", project_id=pid, agg_type="item", agg_id="i1",
+                      event_type="item.created", payload={}, prev_event_id=0)
+    webhooks.enqueue(ev)
+    webhooks._queue.join()
+    assert len(Receiver.requests) == 1
+
+    # The race, deterministically: swap the generation BEFORE the worker sees
+    # the next item — exactly what a test reset does to a pending queue.
+    old_gen = db.generation()
+    gen2 = tmp_path / "gen2"
+    monkeypatch.setattr(config.settings, "data_dir", gen2)
+    db.reset_for_tests(gen2)
+    db.init_db()  # new generation: empty schema, no webhooks at all
+    try:
+        stale = ev.as_dict()
+        stale["id"] = 9002
+        stale["_gen"] = old_gen  # enqueued before the reset
+        with caplog.at_level(logging.DEBUG, logger="apm.domains.webhooks"):
+            webhooks._queue.put(stale)
+            webhooks._queue.join()
+        assert len(Receiver.requests) == 1  # unchanged — nothing delivered
+        assert any("stale-generation" in rec.getMessage() for rec in caplog.records),             "the drop must be deliberate and observable, never silent confusion"
+        assert webhooks._worker is not None and webhooks._worker.is_alive()
+    finally:
+        monkeypatch.setattr(config.settings, "data_dir", tmp_data)
+        db.reset_for_tests(tmp_data)
+        db.init_db()
