@@ -2388,3 +2388,25 @@ M88 = **发布工程第二轮·发布面补课与演练机械化**：I266 v0.9.0
 **CH.4 M89 取舍**
 
 M89 = **a11y 二期·色彩对比与表单可访问名长尾**：I269 表单可访问名 critical 清零（label×12+select-name×6+label-title-only×4+link-in-text-block×1——Board/Reports/Settings axe 点名处） / I270 色彩对比 token 级修复（72 处→根因 2~3 token 双主题收敛+全量复扫归零） / I271 收口+**v0.10.0 攒批发布**（全量回归+CHANGELOG [0.10.0]+四锚 bump+tag+发布轮收口 DoD 两项[release_drill 演练+时效戳核对]首次执行），约 4 人日。全站 71 input 翻新、vitest browser mode/playwright 引入、逐处内联对比度覆盖、留观候选（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light）留 backlog。
+
+## CI. M90 前置调研：a11y 三期·低频管理面长尾收口（2026-10-02）
+
+> 目标协议触发：M89 完成后开启。防重查：留观候选逐一核验——graph 入边/dnd 触屏/工件恢复零新证据**维持**；init_db 幂等化维持「真实事故再触发」；--seed-light 留观；**真实 LLM 回归候选登记但前置缺失**（审计种子成立：test_llm_real 文件头自述「Network is never touched」全 MockTransport·M44 2026-09-15 后 45 轮无真实复演·而 M83 动了 provider 直用面[httpx2+openai 3 major]——**mock 绿≠真实通**与 M86「构建即验证」同构；但 key 前提不成立：环境仅有 ZAI OAuth 宿主配置无静态 API key·M44 是用户在场指令轮——**挂起待用户提供 APM_LLM_API_KEY**，不选为主题）；webhooks teardown 竞态仅 1 次观测未达阈值；v0.11.0 攒批=M90+M91 两轮成版（本轮不 tag）。**候选=a11y 三期转正——证据本轮当场收集**（方法=docs/06 §7 已立双防线扫描法）：M89 只扫 6 条重路由，本轮补扫**剩余 20 条路由**（隔离 8142/4181+seed·每次 goto 重注入 axe[整页导航会抹掉 window.axe——M89 时未遇因走查路由少]）：**23 处违规集中在 5 条低频路由**——risks×11（评分字 `text-[10px] opacity-70` color-contrast serious×9 + 概率/影响 select-name critical×2）/ ontology×6（label×3 date input + select-name×2 + 代理人 label-title-only×1）/ activity×4（**link-name serious×2 空文本链接** `<a></a>` 图标链接 + select-name×2）/ audit×1 + my-work×1（select-name critical）——**正是 M85 预言的「低频管理面 input 长尾」**。三路调研：**WebSearch 每周配额耗尽（429·2026-10-07 重置）三路全拦**——如实降级：本轮规则族（WCAG 1.4.3 对比/4.1.2 可访问名/2.4.4 链接目的 Link Purpose）与 M85/M89 已调研族完全同源，引用官方条文与前轮共识替代（图标链接修法=锚元素 aria-label+图标 aria-hidden；opacity 淡出对低视力伤害与 I270 排程格同判；低频页 triage=critical 先清+文档化基线），配额重置后如需新规则族调研再补。定案 **M90 = a11y 三期·低频管理面长尾收口**。
+
+**CI.1 risks+ontology（17 处——I270 同族模式再现）**
+
+- risks×11：评分徽标 `text-[10px] opacity-70`（3分/6分/9分…）——**与 I270 排程格完全同构**（整格 opacity 拖文字对比）：修法=去 opacity 改达标记名色（mut 已 4.87 ✓ 或对应语义色）；概率/影响两个行内编辑 select 补 aria-label。
+- ontology×6：三个 date input 补 aria-label（休假代理起止）；「添加用户…」成员 select+角色 select 补名；代理人 input title= 保留+补 aria-label（M85 惯例 title= 资产不动是「不删」不是「不可加」）。
+
+**CI.2 activity+audit+my-work（6 处——新规则族 link-name 首修）**
+
+- activity×4：**空文本链接**（`<a class="hover:text-acc" href="#/p/board"></a>` 事件图标链接——icon-only link 无 accessible name·WCAG 2.4.4 Link Purpose）——修法=锚上 aria-label（「查看项目看板」等）+图标 aria-hidden；全部项目/全部类型过滤 select 补名。
+- audit×1+my-work×1：无名 select 补 aria-label（审计类型过滤/feed 有效期）。
+
+**CI.3 全路由覆盖闭环（26 路基线——docs/06 §7 扩版）**
+
+- M89 六路由+M90 二十路由=**26 路由全量基线**（App.tsx 路由全集中除 intake 占位/bogus-token 错误态等非产品面）：双主题终扫归零后 docs/06 §7 基线数字更新——**a11y 长尾清偿正式闭环**（M85 高频面→M89 重路由+对比→M90 低频管理面），后续新增页面按「新页面进终扫清单」纪律维持。
+
+**CI.4 M90 取舍**
+
+M90 = **a11y 三期·低频管理面长尾收口**：I272 risks+ontology 17 处 / I273 activity+audit+my-work 6 处+26 路由双主题终扫归零+docs/06 基线更新 / I274 收口审阅（全量回归+CHANGELOG Unreleased 记 M90+攒批 v0.11.0 不 tag），约 3 人日。真实 LLM 回归轮（待用户 key）、init_db 幂等化、webhooks 优雅停机（阈值未达）、--seed-light、留观三候选留 backlog。
