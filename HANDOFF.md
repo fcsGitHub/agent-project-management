@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M89 a11y 二期 完成[v0.10.0 已 tag]，下一步 M90 前置调研）
+# HANDOFF —— 写给下一个新会话（2026-10-02 更新 · M90 调研已定案 155da36，下一步 I272 risks+ontology 修复）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -45,7 +45,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M90 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M89 纪律沉淀：候选池勿凭印象写——十八次自证见前轮；「半截链」十一例；写门质量轮[M80]+发布工程[M81]+前端韧性与认证安全[M82]+依赖健康[M83]+测试日期稳健性[M84]+a11y[M85]+运维验证[M86]+前端工具链 major[M87]+发布工程第二轮[M88]+a11y 二期[M89]均已做；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]**；**发布轮收口 DoD 两项**[release_drill 演练+docs/11 时效戳核对——M88 起机制位·M89-I271 已首演]）→ 三路并行 WebSearch → docs/01 新节（§CI）+ docs/10 §M90 节 + 看板行 →「M90 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M90 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①graph 端点入边补显（留观）；②dnd 触屏改期 pointer 重写（留观）；③删除工件恢复 UI（等证据）；④init_db 幂等化（M86 发现——schema 手术·真实事故再触发）；⑤apm-webhooks teardown 竞态警告（M89 附录 C 登记——再现频次升高则 worker 优雅停机）；⑥v0.11.0 攒批（M90+M91 两轮成版·M90 不 tag）；⑦演练 --seed-light（M88 留观）；⑧维持项长清单。
+2. **I272 risks+ontology 17 处修复（下一步·M90 已定案 docs/01 §CI）**：RisksPage 评分徽标 `text-[10px] opacity-70`（~9 处）去 opacity 改达标记名色（I270 排程格同构）+ 概率/影响行内 select aria-label；OntologyPage 三个 date input+「添加用户…」select+角色 select+代理人 input（title= 保留补 aria-label）。→ I273 activity（**空文本链接×2 锚 aria-label+图标 aria-hidden[WCAG 2.4.4]**+两 select）+audit+my-work 各 1 select → **26 路由亮暗双主题终扫归零**（M89 六路+M90 二十路·**每次 goto 重注入 axe**——整页导航抹 window.axe·M90 新发现）+ docs/06 §7 基线更新 26 路全覆盖 → I274 收口（全量回归+CHANGELOG Unreleased 记 M90+看板闭环+附录 C+攒批 v0.11.0 不 tag[M90+M91 两轮成版]）。挂起候选：真实 LLM 回归轮（种子成立[test_llm_real 全 MockTransport+M44 后 45 轮无真实复演+M83 动 provider 面]但**待用户提供 APM_LLM_API_KEY**）。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
