@@ -126,10 +126,10 @@ export function Drawer({
         className="relative z-10 flex h-full flex-col border-l border-line bg-surface shadow-xl"
         style={{ width: `min(${width}, 720px)` }}
       >
-        <header className="flex items-center justify-between border-b border-line px-4 py-3">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div id={titleId} className="text-sm font-semibold">{title}</div>
           <Button variant="ghost" size="sm" onClick={onClose}>Esc ✕</Button>
-        </header>
+        </div>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
       </aside>
     </div>
@@ -236,7 +236,7 @@ export function Modal({ open, onClose, title, children }: {
       <div className="absolute inset-0 bg-black/25" onClick={onClose} aria-hidden="true" />
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
         className="relative z-10 w-full max-w-lg rounded-[12px] border border-line bg-surface shadow-xl">
-        <header id={titleId} className="border-b border-line px-4 py-3 text-sm font-semibold">{title}</header>
+        <div id={titleId} className="border-b border-line px-4 py-3 text-sm font-semibold">{title}</div>
         <div className="p-4">{children}</div>
       </div>
     </div>
