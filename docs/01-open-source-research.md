@@ -2454,3 +2454,27 @@ M91 = **交付文档轮·自动化指南重写解冻**：I275 自动化面全量
 **CK.4 M92 取舍**
 
 M92 = **后台线程韧性轮·webhooks 停机竞态修复**：I278 webhooks `_worker_loop` 补外层 except+线程存活真场景测试（reset 至无 schema 空库→入队→join→worker 仍活→队列清空——先红后绿自证） / I279 队列条目代际标记+跨代脏投递防护测试（db.generation() 读取器+enqueue 盖戳+worker 丢旧代·旧代残留事件换代后被丢弃零投递零错误） / I280 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M92+看板闭环+附录 C+HANDOFF 修剪·**v0.12.0 攒批不 tag**[M92+M93 两轮成版]），约 3 人日。Python 3.13 Queue.shutdown、sentinel/stop-event 机制位、非 daemon 改造、真实 LLM 回归轮（持续待 key）、init_db 幂等化、--seed-light、留观三候选留 backlog。
+
+
+## CL. M93 前置调研：发布工程第三轮·依赖小版本跟随与 v0.12.0 攒批发布（2026-10-02）
+
+> 目标协议触发：M92 完成后开启。防重查：**①真实 LLM 回归轮维持挂起——key 前提实测仍不成立**（`.env` 不存在——`APM_LLM_API_KEY` 未提供·种子证据在案不变[test_llm_real 全 MockTransport+M44 后 45+ 轮无真实复演+M83 动 provider 面]）；留观候选逐一核验零新证据**维持**（graph 入边/dnd 触屏/工件恢复——「使用证据驱动」在单用户开发环境无真实使用可发生·如实永久留观至有真实用户；init_db 幂等化维持「真实事故再触发」；--seed-light 维持[95s 可接受]）；webhooks teardown 竞态 M92 已修（I278/I279·全量回归 0 噪声——从候选池移除）。**②依赖漂移复核——本轮当场实测**：前端 `pnpm outdated` 11 项**全 patch/minor 零 major**（react/react-dom 19.2.8→19.3.0·react-router-dom 7.18.2→7.18.4·@types/react 19.3.0·lucide-react 1.50.0·@xyflow 12.12.0·dompurify/marked/react-query/@testing-library 小版本）；后端 `pip list --outdated` ∩ requirements 集 **5 项全小版本**（cryptography 50.0.1→50.0.2·jsonschema 4.23.0→4.26.0·langgraph 1.2.11→1.2.12·openai 3.22.1→3.23.0·PyYAML 6.0.2→6.0.3）——**与 M91 同判「不构成独立主题」，但 M92 已不 tag、v0.12.0 攒批义务落在本轮**：发布轮起点一车跟随+全量冻结=配对轮的自然实体。定案 **M93 = 发布工程第三轮·依赖小版本跟随与 v0.12.0 攒批发布**。三路调研（**本轮配额可用·三路全通**）：①发布前依赖更新策略（[Software Engineering SE](https://softwareengineering.stackexchange.com/questions/340705/when-should-dependencies-be-updated) 有利即升 / [Reddit r/devops](https://www.reddit.com/r/devops/comments/x7cbvu/how_long_to_wait_before_updating_third_party) 实务节律=**安全补丁立即·patch 等数日·minor 等 1~3 月** / [GitGuardian](https://blog.gitguardian.com/always-be-updating) 常态小步更新免得发布时 scramble / [HN 反方](https://news.ycombinator.com/item?id=48302319) 无理由不升防供应链面——**裁决=发布轮起点小版本一车+全量回归冻结**：小步连续（本项目节律=两轮一版·每版一车）而非 tag 前积大 diff；反方回应=理由就是「发布本身+M83 实测下限纪律[声明=装机=实测]要求 requirements 与装机一致」）②lockfile 钉版与风险（[Renovate](https://docs.renovatebot.com/dependency-pinning) **lockfile-only 钉版=共识**：manifest 用 semver range+lockfile 给可复现 / [CrashOverride](https://crashoverride.com/blog/dependency-pinning-only-works-if-you-actually-review-the-updates) 钉版只在更新被审时有效 / [Semgrep](https://semgrep.dev/blog/2023/efficient-dependency-management) semver 知情升级——**映射=本项目双 manifest 各有冻结面**[pnpm-lock.yaml 提交+requirements 实测下限]·「审」=全量回归+镜像内对账，minor 仍可能回归故不许裸升）③镜像作为发布门（[Docker 官方 validate-images](https://docs.docker.com/build/policies/validate-images) 构建输入校验进发布门 / [Docker Compose build 规范](https://docs.docker.com/reference/compose-file/build) / [SO 镜像标签取自版本源](https://stackoverflow.com/questions/78855000/how-do-i-get-the-version-from-package-json-and-use-it-in-my-cloud-build-step-to)——**映射=M86 惯例升级执行**：frozen-lockfile 构建+镜像内 pip 对账[装机=声明]·compose build 即人工 CI）。
+
+**CL.1 依赖小版本一车跟随（发布轮起点·早升+冻结）**
+
+- 后端 5 项：`pip install -U` 实测→requirements.txt 下限同步（M83「声明=装机=实测」纪律第三次执行）→`pip check` 闭包绿（冒烟 88 口径=冲突行 dependent 不在 requirements 集）→非 smoke 分片回归。
+- 前端 11 项：`pnpm update` lockfile→`tsc -b`+vitest 41+build 三关（M87 惯例）。
+- 共识映射：小步连续不积大 diff（Reddit/GitGuardian）；审=全量（CrashOverride）；minor 可回归故不裸升（Semgrep）。
+
+**CL.2 发布面验证（compose build 双镜像+镜像内对账）**
+
+- 依赖车后 `docker compose build` 双镜像（app+web[M86 起发布轮惯例]）——app 镜像内 `pip list` 对账=五项新版本逐一致（装机=声明·M86 首立·M86/M88 两次执行）；web 镜像 frozen-lockfile（pnpm-lock.yaml 刚随 I281 更新——lockfile 变更必过镜像构建[M87 惯例]）。
+- 版本四锚一致性预检（health/package.json/README/test_version——bump 前基线 0.11.0 全一致·bump 后冒烟 86+88 锁定）。
+
+**CL.3 v0.12.0 攒批发布（发布轮收口 DoD 两项第三次执行）**
+
+- M92+M93 两轮成版：四锚 bump 0.11.0→0.12.0+CHANGELOG [0.12.0] 段[M92+M93 精选·Unreleased 回空]+冒烟 88 发布钉+冒烟 86 解冻代标记 M91-I277→M93-I283+`python tools/release_drill.py` EXIT=0（RTO 记录入档）+docs/11 时效戳解冻至 v0.12.0+`git tag -a v0.12.0`（M89-I271/M91-I277 后第三次执行）。
+
+**CL.4 M93 取舍**
+
+M93 = **发布工程第三轮·依赖小版本跟随与 v0.12.0 攒批发布**：I281 依赖小版本一车跟随（后端 5+前端 11·实测下限+闭包+三关回归） / I282 发布面验证（compose build 双镜像+镜像内对账+版本链预检） / I283 v0.12.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 3 人日。真实 LLM 回归轮（key 实测仍缺·持续挂起）、留观候选（graph 入边/dnd 触屏/工件恢复）、init_db 幂等化、--seed-light 留 backlog。
