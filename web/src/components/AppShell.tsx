@@ -832,6 +832,7 @@ function IdentitySwitcher() {
   const me = useQuery({ queryKey: ["auth-me"], queryFn: api.authMe });
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [pwOpen, setPwOpen] = useState(false);
   if (me.data?.source === "session") {
     // network 模式：身份 = 登录人，切换 = 登出重登。
     return (
@@ -840,15 +841,71 @@ function IdentitySwitcher() {
           title="网络模式 · 以登录身份归账">
           {me.data.is_admin ? "⭐" : "👤"} {me.data.name}
         </span>
+        <button onClick={() => setPwOpen(true)}
+          title="修改密码（改完全部会话需重新登录·M96）"
+          className="rounded-lg border border-line px-2 py-1.5 text-xs text-mut hover:text-ink">改密</button>
         <button onClick={async () => {
           await api.logout();
           await qc.invalidateQueries();
           navigate("/login");
         }} className="rounded-lg border border-line px-2 py-1.5 text-xs text-mut hover:text-ink">登出</button>
+        <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)}
+          onDone={async () => {
+            await api.logout();
+            await qc.invalidateQueries();
+            navigate("/login");
+          }} />
       </div>
     );
   }
   return <LocalSwitcher />;
+}
+
+/** M96-I291: self-service password change — the server invalidates every
+ * session for the account, so success always ends in a fresh login. */
+function ChangePasswordModal({ open, onClose, onDone }: {
+  open: boolean; onClose: () => void; onDone: () => void | Promise<void>;
+}) {
+  const [oldPw, setOldPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const mismatch = confirm.length > 0 && confirm !== newPw;
+  const canSubmit = oldPw && newPw && newPw === confirm && !busy;
+
+  return (
+    <Modal open={open} onClose={onClose} title="修改密码">
+      <div className="space-y-3">
+        <Input type="password" aria-label="旧密码" placeholder="旧密码"
+          value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
+        <Input type="password" aria-label="新密码" placeholder="新密码"
+          value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+        <Input type="password" aria-label="确认新密码" placeholder="确认新密码"
+          value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        {mismatch && <div className="text-xs text-dan">两次输入的新密码不一致</div>}
+        <div className="text-[11px] text-mut">改密成功后所有会话失效（含本机），需用新密码重新登录。</div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>取消</Button>
+          <Button variant="primary" disabled={!canSubmit}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api.changePassword(oldPw, newPw);
+                toast.success("密码已更新，请重新登录");
+                onClose();
+                await onDone();
+              } catch (e) {
+                toast.error("修改失败", { description: e instanceof Error ? e.message : String(e) });
+              } finally {
+                setBusy(false);
+              }
+            }}>
+            {busy ? "提交中…" : "修改密码"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 /** Local-mode identity switcher (M5-I19): 单机多身份——切换后所有操作归到该身份的审计流。 */

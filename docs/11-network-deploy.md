@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-02 更新（M95-I289 解冻——覆盖至 v0.13.0 全部部署面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95 四次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282 依赖车后双镜像重建对账；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.23/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
+> 时效：2026-10-03 更新（M96-I291 解冻——覆盖至 v0.13.0+账号安全面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫/密码自助修改与会话失效=M96-I290 §2.6]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95 四次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282 依赖车后双镜像重建对账；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.23/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
@@ -100,6 +100,13 @@ grep -n "解冻" docs/11-network-deploy.md | head -1   # 时效戳应与当前�
 | 升级后启动 `no such column` | 上次启动中途崩溃留下半成品 schema 卷（init_db 对部分创建态不自愈） | `docker compose down -v` 清卷重启（**丢数据**——先确认卷内无价值数据） |
 | 恢复/删 data 目录报 `PermissionError` | content/ 内 **git 对象文件为只读属性**（Windows） | 清只读属性后重删（`attrib -r /s` 或脚本 chmod） |
 | WEB_PORT 起不来 | 宿主 5173 常被其他项目占用 | `WEB_PORT=其他端口 docker compose up -d` |
+
+### 2.6 账号与凭据须知（M96-I290）
+
+- 普通用户自助改密：右上身份区「改密」→ 旧密码再认证 → 成功后**该账号全部会话立即失效**（含本机），需用新密码重登；失败有审计（`user.password_change_failed`），成功/重置落 `user.password_changed`/`user.password_reset`（载荷永不含密码）。
+- 管理员重置：`POST /api/users/{uid}/password`（admin 门）。SSO（OIDC JIT）账号无本地密码，改密/重置一律 409。
+- 会话令牌 v2：四段 `user_id.epoch.expiry.signature`（三段 legacy 令牌=epoch 0 兼容，改密后即死）；boot 重放 `APM_ADMIN_PASSWORD` **不** bump epoch——重启不影响在线会话。
+- 部署者须知：改密=该账号全员重登；无密码复杂度策略（与创建流一致，留观）。
 
 ## 3. 角色与归账规则（M8-I27/I28）
 

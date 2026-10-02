@@ -833,6 +833,12 @@ export const api = {
       method: "POST", body: JSON.stringify({ user_id: userId, password }),
     }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  // M96-I290: self-service credential change — server bumps the credential
+  // epoch, killing every session for the account (this one included).
+  changePassword: (oldPassword: string, newPassword: string) =>
+    req<{ ok: boolean }>("/me/password", {
+      method: "POST", body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    }),
 
   // Users / identity (M5-I19)
   listUsers: () =>
