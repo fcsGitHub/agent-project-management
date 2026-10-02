@@ -2478,3 +2478,27 @@ M92 = **后台线程韧性轮·webhooks 停机竞态修复**：I278 webhooks `_w
 **CL.4 M93 取舍**
 
 M93 = **发布工程第三轮·依赖小版本跟随与 v0.12.0 攒批发布**：I281 依赖小版本一车跟随（后端 5+前端 11·实测下限+闭包+三关回归） / I282 发布面验证（compose build 双镜像+镜像内对账+版本链预检） / I283 v0.12.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 3 人日。真实 LLM 回归轮（key 实测仍缺·持续挂起）、留观候选（graph 入边/dnd 触屏/工件恢复）、init_db 幂等化、--seed-light 留 backlog。
+
+
+## CM. M94 前置调研：全旅程自用复演轮·工程管理落地预演（2026-10-02）
+
+> 目标协议触发：M93 完成后开启。防重查：**①真实 LLM 回归轮 key 实测第三轮仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light——各自触发条件未变）；**②依赖面两轮连续清零后本轮复核**：`pnpm outdated` 空、`pip list --outdated ∩ requirements` 空、`pnpm audit` **No known vulnerabilities**、`pip-audit` 装机集扫描 **AgentPM 闭包内零 CVE**（命中项 tornado/bleach/langsmith/pypdf/fonttools/jaraco-context 全为共享 conda 环境邻居项目依赖——`pip show openai/langgraph/fastapi` 的 Requires 链逐一核实不含任何命中包·M83 附录 C ①「邻居声明冲突非本项目缺陷」的 CVE 版同判·如实登记）；代码内 TODO/FIXME/XXX/HACK 标记 grep 全库**零命中**；post-emit hook 注册幂等性审读（`events.add_post_emit_hook` 有 `fn not in` 守卫·lifespan 逐次调用不累积——I278 直调测试疑点当场排除）。**候选=全旅程自用复演转正——证据当场收集**：**①docs/01 §CF（M87）已登记的补法从未成轮执行**——「M44 浏览器真实复演后再未整链走过·此后新增约 30 个 UI 面」+ M88~M93 六轮又新增（工件包导出/审计 CSV/费率成本/角色选择器/设置中心 hub/指令模板库/运行徽章/概念可见性/工件权限门/退役处置卡），历史走查全是**单面**（M78 逐面完备性/M84 chunk/M85 键盘/M87 四懒加载路由/M90 a11y 扫描/M91 自动化 API roundtrip）——**端到端项目经理旅程从未走过**；**②留观池饿死在「真实使用证据」上**（graph 入边等真实跨项目上游使用/工件恢复等真实误删——单用户开发环境没人造使用，只有真把产品当 PM 用一遍才可能产生）；**③长期目标的验收条就是「工程管理落地标准」**——机制面全绿（479 测试/96 冒烟/七件防腐/演练 RTO 10.2s/双镜像对账），但「一个项目经理能不能用它管完一个真实小项目」没有证据。三路调研（**本轮配额可用·三路全通**）：①新用户上手旅程评估（[NN/g first-run 体验](https://www.nngroup.com/articles/first-use-experience/) 首用三问「这是什么/对我有何用/下一步做什么」/[Userpilot onboarding 检查单](https://userpilot.com/blog/user-onboarding-checklist/) 空态→首值→习惯回路——**映射=旅程从空库+README 起步：新会话能不能只靠文档走通开局**）②dogfooding 实务（[GitLab dogfooding](https://about.gitlab.com/blog/2023/03/01/how-gitlab-dogfoods-to-improve-their-product/) 自用发现优先修/[Superhuman 内部 dogfood 周](https://www.superhuman.com/blog/inside-superhuman-my-favorite-engineering-onboarding-practice) 带着角色与目标用而非点按钮——**映射=带「要交付一个真项目」的目标走旅程·发现即修·大缺口留观**）③PM 工具验收标尺（[G2 PM 评审维度](https://www.g2.com/categories/project-management) 任务生命周期/协作/可见性/自动化/[Atlassian Jira 使用旅程](https://www.atlassian.com/software/jira/guides/getting-started/introduction) 从 backlog 到发布的标杠旅程——**映射=旅程清单覆盖 建项目→规划→排期→执行→自动化→运行 Agent→审批→报告→机器接入 全链**）。定案 **M94 = 全旅程自用复演轮·工程管理落地预演**。
+
+**CM.1 开局旅程（新用户从零到可用——I284）**
+
+- 全新隔离库（演示纪律：APM_DATA_DIR+APM_ONTOLOGY_DIR_OVERRIDE+netstat 单监听+preview 从 web/ 起），按 README/docs/12 指引走：注册登录（network 模式）→建项目（选本体 software-dev）→规划面（features/概念字段/cycles/milestones/依赖建链）→成员与角色。空态文案/引导可发现性按 NN/g 三问逐屏记分。
+- 发现即修=文案缺漏/断链/死按钮级小项当场修+补断言；结构性缺口（如需新功能）如实入附录 C 留观——**不扩轮**。
+
+**CM.2 执行旅程（管理一个真实小项目——I285）**
+
+- 带「交付一个小特性」的目标走执行面：看板拖拽/列表/时间线改期→自动化规则（trigger→condition→action）+watch 自建通知→发起 run（replay provider）→Gate 审批（批准/拒绝/改后恢复）→工件沉淀+资产入库→评论@与通知到达→工时记账。
+- 每步证据=后端收到请求/页面状态变化（IAB 合成事件拦截纪律·cua 坐标点击为准）；「数据驱动文本必须兜底」「org 级门 UI 出口在 org 级面」两既有教训随行核对。
+
+**CM.3 收尾旅程+报告与机器接入（I286）**
+
+- 报表面（健康评分/燃尽/周报 digest/成本预算）→导出面（CSV/iCal/Atom/工件包）→机器接入（PAT 创建+Bearer 调用+webhook 接收方 roundtrip）→项目收尾清单。
+- 旅程发现汇总入看板+附录 C；全量回归+机械防腐七件+M94 审阅（**攒批 v0.13.0 不 tag**——M94+M95 两轮成版）。
+
+**CM.4 M94 取舍**
+
+M94 = **全旅程自用复演轮·工程管理落地预演**：I284 开局旅程（空库→规划面·NN/g 三问逐屏记分+发现即修） / I285 执行旅程（看板→自动化→run→审批→工件资产→通知·发现即修） / I286 收尾旅程（报表→导出→机器接入）+全量回归+收口审阅，约 4 人日。自动化 E2E 框架引入（CUA+冒烟已覆盖·一人工厂性价比·§CF 裁决不变）、结构性新功能（发现即留观不扩轮）、真实 LLM 回归轮（key 第三轮实测仍缺）、留观五候选留 backlog。
