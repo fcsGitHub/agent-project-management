@@ -2550,3 +2550,24 @@ M95 = **旅程 UX 反馈轮·登录语义与信息流富化**：I287 登录引�
 **CO.4 M96 取舍**
 
 M96 = **账号安全补课轮·密码自助修改与会话失效**：I290 pw_epoch+令牌 v2+双端点+失效语义+测试矩阵 / I291 前端改密 Modal+IAB 走查+docs/11 补节 / I292 收口审阅，约 3 人日。密码复杂度策略（留观）、会话服务端吊销清单（stateless 取舍·epoch 已覆盖凭据变更场景）、OIDC 侧密码面（SSO 账号无本地密码·不适用）、「登出所有设备」独立按钮（改密即达同效）、真实 LLM 回归轮（key 第六轮实测仍缺）、留观五候选留 backlog。
+
+
+## CP. M97 前置调研：发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（2026-10-03）
+
+> 目标协议触发：M96 完成后开启。防重查：**①真实 LLM 回归轮 key 第七轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light）；**②依赖漂移发布轮惯例当轮实测**：前端 `pnpm outdated` **空**（M93 一车后零漂移）、后端 `pip list --outdated ∩ requirements` **仅一项 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题，但 v0.14.0 攒批义务落在本轮（M96 已不 tag）：发布轮起点一车跟随+全量冻结=配对轮实体（M93 §CL 裁决沿用）。openai minor 的验证面=provider 直用面测试全在套件内（test_llm_real 全 MockTransport+provider 单测——M83 主要破坏面已迁移 httpx2 后 minor 风险低）。三路调研：**WebSearch 配额仍耗尽（429·2026-10-07 16:06 重置）如实降级**（M90/M91/M95/M96 已立路径）：本轮规则族（发布前依赖策略/lockfile 钉版/镜像发布门）与 M93 §CL **完全同源**[SE SE/Reddit r/devops/GitGuardian/Renovate/CrashOverride/Docker validate-images 六源已引用在案]——引用前轮共识替代·openai 3.24 变更面核实降级为「装后全量回归」（套件内 provider 面全 MockTransport+单测覆盖）·无新规则族。定案 **M97 = 发布工程第四轮·openai 跟随与 v0.14.0 攒批发布**。
+
+**CP.1 openai minor 一车跟随（I293）**
+
+- `pip install -U openai`（3.24.0）→requirements.txt 下限同步（声明=装机=实测·M83 纪律第四次）→`pip check` 闭包（冒烟 88 口径）→非 smoke 全量回归（provider 面在内）。前端零漂移如实记录（outdated 空·pnpm-lock 无变更）。
+
+**CP.2 发布面验证（I294）**
+
+- `docker compose build` 双镜像（M86 惯例第四次·引擎按需启动）→app 镜像内 pip 对账（openai 3.24.0 逐一致）→web 镜像 frozen-lockfile（lockfile 本轮无变更·构建仍过=M87 惯例）→版本四锚一致性预检 0.13.0。
+
+**CP.3 v0.14.0 攒批发布（I295——发布轮收口 DoD 两项第五次执行）**
+
+- M96+M97 两轮成版：四锚 bump 0.13.0→0.14.0+CHANGELOG [0.14.0] 段[M96+M97 精选·Unreleased 回空]+冒烟 88 发布钉+冒烟 86 解冻代标记 M96-I291→M97-I295+`python tools/release_drill.py` EXIT=0（RTO 入档）+docs/11 时效戳解冻至 v0.14.0+`git tag -a v0.14.0`（第五次执行）。
+
+**CP.4 M97 取舍**
+
+M97 = **发布工程第四轮·openai 跟随与 v0.14.0 攒批发布**：I293 openai 3.24.0 一车+requirements 下限 / I294 发布面双镜像验证 / I295 v0.14.0 攒批发布+收口审阅（全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪），约 3 人日。major 升级（零）、CI 化依赖机器人（无 CI 面）、pip-compile/hash pinning（M86 留观）、真实 LLM 回归轮（key 第七轮实测仍缺）、留观五候选留 backlog。

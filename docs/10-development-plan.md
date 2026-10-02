@@ -2909,6 +2909,34 @@ agent-project-management/
 - 任务：全量回归（非 smoke 分片+冒烟 runner+vitest+build+机械防腐七件）+ CHANGELOG Unreleased 记 M96+看板闭环+附录 C M96 登记+HANDOFF 修剪。攒批裁决复核：v0.14.0=M96+M97 两轮成版·本轮不 tag。
 - DoD：全量 EXIT=0；冒烟 runner GREEN；七件 ✓。
 - 演示路径：看板 M96 闭环行。
+### M97 · 发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293-I295，约 3 人日）
+
+> v3.0 新增（2026-10-03，docs/01 §CP 前置调研）。防重查：LLM 轮 key 第七轮实测仍缺维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空（M93 车后零漂移）+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题，但 v0.14.0 攒批义务落在本轮（M96 已不 tag）：发布轮起点一车跟随+全量冻结=配对轮实体（M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试）。**防重查：WebSearch 仍 429 如实降级（规则族与 M93 §CL 完全同源·六源已引用）——major 不做、依赖机器人不做、hash pinning 不做（M86 留观）。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I293 | openai 3.24.0 一车跟随（pip 实测→requirements 下限=装机·M83 纪律第四次→pip check 闭包→非 smoke 全量回归[provider 面在内]·前端零漂移记录） | docs/01 §CP.1 | M93-I281 一车惯例 | 0.5d |
+| I294 | 发布面验证（compose build 双镜像+app 镜像内 pip 对账 openai 3.24.0+web frozen-lockfile+版本四锚预检 0.13.0） | docs/01 §CP.2 | M86/M93-I282 惯例 | 1d |
+| I295 | **v0.14.0 攒批发布**+收口审阅（四锚 bump 0.13.0→0.14.0+CHANGELOG [0.14.0] 段[M96+M97 精选]+smoke 88 发布钉+smoke 86 代标记 M96-I291→M97-I295+**发布轮收口 DoD 两项第五次执行**[release_drill EXIT=0+docs/11 解冻 v0.14.0]+`git tag -a v0.14.0`+全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪） | docs/01 §CP.3 | M95-I289 发布惯例 | 1d |
+
+#### I293 · openai 一车跟随（0.5d）
+
+- 任务：`pip install -U openai` → requirements.txt `openai>=3.24.0` → `pip check` → 非 smoke 全量回归 EXIT=0。
+- DoD：requirements=装机；闭包绿；回归绿。
+- 演示路径：pip outdated ∩ requirements 清零。
+
+#### I294 · 发布面验证（1d）
+
+- 任务：`docker compose build` 双镜像 EXIT=0 → app 镜像内 pip 对账（openai 3.24.0 与开发机一致）→ web frozen-lockfile 构建 → 四锚预检（0.13.0 全一致）。
+- DoD：双镜像绿；镜像内对账一致；四锚基线一致。
+- 演示路径：镜像内对账实录。
+
+#### I295 · v0.14.0 攒批发布+收口审阅（1d）
+
+- 任务：全量回归+四锚 bump+冒烟 88 钉+冒烟 86 代标记 M96-I291→M97-I295+CHANGELOG [0.14.0] 段[M96+M97 精选·Unreleased 回空]+DoD 两项第五次执行（release_drill+docs/11 解冻 v0.14.0）+`git tag -a v0.14.0`+看板闭环+附录 C+HANDOFF 修剪。
+- DoD：全量 EXIT=0；冒烟 GREEN；七件 ✓；演练 EXIT=0；四锚一致；git describe=v0.14.0。
+- 演示路径：git describe=v0.14.0。
+
 
 
 
@@ -3223,6 +3251,7 @@ agent-project-management/
 | I291 前端改密面+部署文档 | 已完成 | 2026-10-03 | 2026-10-03 | api.ts changePassword + AppShell 身份区「改密」按钮[仅 session 身份渲染]+ChangePasswordModal[旧/新/确认·aria-label 全带·不一致实时提示·失效语义说明]→成功 toast→api.logout+跳 /login[I287 守卫红利] + **IAB 隔离走查全链**[改密按钮→弹窗→提交→toast+强制跳登录→旧密码「登录失败 invalid credentials」→新密码「欢迎，李雷」回项目页·dev server 供新码 curl 验证·页面旧文档 reload 即新=IAB 文档缓存又一形态] + docs/11 解冻 M95-I289→M96-I291[新增 §2.6 账号与凭据须知——§2.5 既有引用不破·插入序修正]+smoke 86 代标记随代 + 三关绿 |
 | I292 M96 收口审阅 | 已完成 | 2026-10-03 | 2026-10-03 | 全量回归（非 smoke **484 EXIT=0**[480+4·collect-only 对账]/冒烟 runner **96 GREEN** EXIT=0[89 文件]/vitest **41** EXIT=0/build EXIT=0/机械防腐七件 ✓[三件直测+四件随冒烟]）+ CHANGELOG Unreleased 记 M96[Added 密码自助修改与会话失效] + 看板 I290/I291/I292/M96 闭环行+附录 C M96 登记+HANDOFF 修剪 + **攒批裁决=v0.14.0 不 tag**（M96+M97 两轮成版·M97 收口 bump+tag） |
 | **M96 账号安全补课轮·密码自助修改与会话失效（I290-I292）** | 已完成 | 2026-10-03 | 2026-10-03 | 3 迭代 / 约 3 人日（docs/01 §CO + docs/10 §M96）：I290 双端点+令牌 v2+失效语义[写门台账机制位首次实战捕获]/I291 前端 Modal+IAB 全链走查+docs/11 §2.6/I292 收口。账号安全面补齐：改密自助+admin 重置+凭据变更会话失效（OWASP Session Management/ASVS 3.3.x 语义）——与 M45 审计/M80 写门/M82 防爆破构成安全四件。基线：pytest **484** 全绿+冒烟 **96 GREEN**+vitest **41**+build 绿+机械防腐七件 ✓+**v0.14.0 攒批不 tag** |
+| 2026-10-03 M97 调研定义（§CP） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第七轮实测仍缺[.env 不存在]维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空[M93 车后零漂移]+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题·但 v0.14.0 攒批义务落在本轮[M96 已不 tag]：发布轮起点一车跟随+全量冻结=配对轮实体[M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试全 MockTransport+单测]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M93 §CL 完全同源·六源已引用在案·openai 3.24 变更面核实降级为装后全量回归·无新规则族]。定案 M97=发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293 一车/I294 双镜像验证/I295 **v0.14.0 攒批发布**[DoD 两项第五次执行]） |
 | 2026-10-03 M96 调研定义（§CO） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第六轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面继承 M94 全清。**候选账号安全补课转正——grep 实证三向印证**：①hash_password 全库仅创建[users.py:135·409 不可重入]+boot 重放[:87·仅引导管理员]两处——**网络多用户部署下普通用户永远无法改密**[忘密码=删库重建级]/②auth_api 3 端点+users 域零 password 路由+前端 api.ts 仅 login+SettingsPage 零密码面/③会话为无状态 HMAC TTL 24h[security.py user_id.expiry.signature]——凭据变更→会话失效语义缺失[OWASP Session Management Cheat Sheet：凭据变更须作废全部会话·ASVS 3.3.x——本轮与改密面**同轮建齐**避免先留缺口]。同族先例=M82 登录防爆破[API2 面·哑哈希计时均衡/滑窗在库]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[M90/M91/M95 路径·OWASP 条文+仓库内先例·无新规则族]。定案 M96=账号安全补课轮·密码自助修改与会话失效（I290 pw_epoch+令牌 v2 兼容 legacy+双端点+失效语义/I291 前端 Modal+IAB 走查+docs/11 补节/I292 收口[攒批 v0.14.0 不 tag]） |
 | 2026-10-02 M95 调研定义（§CN） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：LLM 轮 key 第五轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面复核继承 M94 全清[四面刚扫]。**候选=journey UX 三发现转正——代码现状逐条复核**：①网络匿名 401[auth_api.py:150-158]→AppShell 回落 LocalSwitcher 误导[832-854]+401 重定向仅反应式[api.ts:345 写失败才触发]/②登录成功无条件 navigate("/") 无 returnTo[LoginPage.tsx:55-58]+新建弹窗组件 state 卸载丢失/③Dashboard 裸 listEvents 直显 actor_id[Dashboard.tsx:20] vs ActivityPage 走 _activity_list actor_names 批量富化[reports.py:245-263]——同产品两信息流语义分叉。三路 WebSearch **配额再 429[2026-10-07 16:06 重置]如实降级**[M90/M91 路径·规则族有仓库内先例+通识条文替代：React Router auth 范式 returnTo+相对路径防 open-redirect/表单草稿 sessionStorage+恢复确认/Stream 式 feed actor 内嵌+批量 IN 防 N+1——无新规则族]。定案 M95=旅程 UX 反馈轮·登录语义与信息流富化（I287 登录引导+returnTo+草稿/I288 actor_name 富化/I289 **v0.13.0 攒批发布**[DoD 第四次执行]） |
 | 2026-10-02 M94 调研定义（§CM） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：LLM 轮 key 第三轮实测仍缺[.env 不存在]维持挂起；留观候选维持；**依赖面复核全清**[pnpm outdated 空/requirements 集空/pnpm audit 零漏洞/pip-audit 闭包内零 CVE[命中项 tornado/bleach/langsmith/pypdf 等全为邻居依赖·openai/langgraph/fastapi Requires 链核实不含]/TODO 标记全库零/hook 注册幂等守卫在]。**候选全旅程自用复演转正——证据当场收集**：docs/01 §CF[M87]登记补法「M44 后再未整链走过·约 30 UI 面」**从未成轮执行**——历史走查全单面[M78/M84/M85/M87/M90/M91]·**端到端 PM 旅程从未走过**/留观池饿死在「真实使用证据」/长期目标验收条「工程管理落地标准」无旅程级证据。三路 WebSearch（**配额可用全通**）：上手旅程评估（[NN/g first-use](https://www.nngroup.com/articles/first-use-experience/) 三问/[Userpilot](https://userpilot.com/blog/user-onboarding-checklist/) 空态→首值——**从空库+文档起步走开局**）、dogfooding（[GitLab](https://about.gitlab.com/blog/2023/03/01/how-gitlab-dogfoods-to-improve-their-product/) 自用发现优先修/[Superhuman](https://www.superhuman.com/blog/inside-superhuman-my-favorite-engineering-onboarding-practice) 带目标用——**发现即修·大缺口留观不扩轮**）、PM 验收标尺（[G2 维度](https://www.g2.com/categories/project-management)/[Jira 标杠旅程](https://www.atlassian.com/software/jira/guides/getting-started/introduction)——**旅程清单到机器接入**）。定案 M94=全旅程自用复演轮·工程管理落地预演（I284 开局/I285 执行/I286 收尾+收口[攒批 v0.13.0 不 tag]） |
