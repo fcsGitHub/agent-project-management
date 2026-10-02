@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-02 更新（M89-I271 解冻——覆盖至 v0.10.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 双镜像重建对账；app 镜像 python:3.12-slim/web 镜像 node:24-alpine]；web 构建链[vite 8 Rolldown/vitest 5 node≥22.12——镜像 node:24-alpine 已满足]；a11y 对比 token 基线见 docs/06 §7[前端视觉面·部署者无需动作]；env 速查单一真源=[.env.example](.env.example)，本页不复述会漂移的全量清单）。依赖底座：httpx2 2.13/openai 3.22/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
+> 时效：2026-10-02 更新（M91-I277 解冻——覆盖至 v0.11.0 全部部署面：双模认证[本档 M8 骨架]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91 两次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.22/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
