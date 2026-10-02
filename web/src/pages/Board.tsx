@@ -540,6 +540,10 @@ export function Board() {
         </select>
         <Button size="sm" variant="ghost" onClick={() => setCycleOpen(true)}
           title="新建迭代周期（Plane Cycles 语义）">＋周期</Button>
+        {/* M94-I284: quick create was keyboard-only (C key) — a visible entry
+            for mouse-first users; the empty board had zero create affordance. */}
+        <Button size="sm" variant="ghost" onClick={() => setCreateOpen(true)}
+          title="新建工作项（快捷键 C）">＋新建</Button>
         {/* M65-I196: swimlane selector — second grouping dimension */}
         <select value={swimlane} onChange={(e) => setFilter("swimlane", e.target.value)}
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
