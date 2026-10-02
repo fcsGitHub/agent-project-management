@@ -85,7 +85,7 @@ def _vnum(parts: list[str]) -> tuple[int, ...]:
 @pytest.mark.smoke
 def test_smoke_88_release_pin():
     # 当前发布钉（冒烟 86 锁四锚一致，这里钉「这一版是几」——每次发布只改这一行）
-    assert APP_VERSION == "0.13.0"
+    assert APP_VERSION == "0.14.0"
 
     pkg = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     assert pkg["version"] == APP_VERSION
@@ -94,5 +94,8 @@ def test_smoke_88_release_pin():
     assert f"版本：v{APP_VERSION}" in readme
 
     cl = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert re.search(rf"^## \[{re.escape(APP_VERSION)}\] — 2026-10-02", cl, re.M)
+    # M97-I295 发现即修：段日期原为字面量 2026-10-02（M83 写定当日全版本同日）
+    # ——次日线一跑即炸（M83/M84 讨伐的日期炸弹家族长在防腐件自身）。钉的语义
+    # 是「版本段存在且带 Keep a Changelog 标准日期」，不是冻结日。
+    assert re.search(rf"^## \[{re.escape(APP_VERSION)}\] — \d{{4}}-\d{{2}}-\d{{2}}$", cl, re.M)
     assert re.search(r"^## \[Unreleased\]", cl, re.M)  # 新空段在

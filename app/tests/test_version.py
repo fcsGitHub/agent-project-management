@@ -8,4 +8,4 @@ from apm.version import APP_VERSION
 
 
 def test_health_reports_single_source_version(client, tmp_data, isolated_ontologies):
-    assert client.get("/api/health").json()["version"] == APP_VERSION == "0.13.0"
+    assert client.get("/api/health").json()["version"] == APP_VERSION == "0.14.0"
