@@ -113,6 +113,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN push_url TEXT")
         if "push_token" not in ucols:
             conn.execute("ALTER TABLE users ADD COLUMN push_token TEXT")
+        # M96-I290: 存量库补 users.pw_epoch（凭据版本——API 改密/重置 +1 使旧
+        # 令牌失效；boot 重放 APM_ADMIN_PASSWORD 不 bump=会话跨重启存活）。
+        if "pw_epoch" not in ucols:
+            conn.execute("ALTER TABLE users ADD COLUMN pw_epoch INTEGER NOT NULL DEFAULT 0")
         # M67-I202: 存量库补 notification_prefs.push（通道矩阵第三列）。
         if any(r[0] == "notification_prefs" for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'").fetchall()):

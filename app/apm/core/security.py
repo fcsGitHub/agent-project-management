@@ -50,24 +50,45 @@ def get_secret() -> str:
     return secret
 
 
+def _current_epoch(user_id: str) -> int:
+    """Credential version (M96-I290): bumped by the password endpoints, NOT by
+    the boot-time APM_ADMIN_PASSWORD re-apply (sessions must survive restarts).
+    Lazy db import — core/security stays import-light."""
+    try:
+        from apm.core import db
+
+        row = db.get_conn().execute(
+            "SELECT pw_epoch FROM users WHERE id = ?", (user_id,)).fetchone()
+        return int(row["pw_epoch"] or 0) if row else 0
+    except Exception:
+        return 0
+
+
 def issue_session(user_id: str) -> str:
     ttl = config.settings.session_ttl_hours * 3600
-    msg = f"{user_id}.{int(time.time()) + ttl}"
+    msg = f"{user_id}.{_current_epoch(user_id)}.{int(time.time()) + ttl}"
     sig = hmac.new(get_secret().encode(), msg.encode(), hashlib.sha256).hexdigest()
     return f"{msg}.{sig}"
 
 
 def session_user(token: str | None) -> str | None:
-    """The user_id for a valid, unexpired token — else None."""
+    """The user_id for a valid, unexpired token — else None.
+
+    M96-I290 tokens carry the credential epoch (4 parts); legacy 3-part tokens
+    verify against the pre-epoch scheme and count as epoch 0."""
     if not token:
         return None
     parts = token.split(".")
-    if len(parts) != 3:
+    if len(parts) == 3:
+        user_id, exp, sig = parts
+        epoch = "0"
+        msg = f"{user_id}.{exp}"
+    elif len(parts) == 4:
+        user_id, epoch, exp, sig = parts
+        msg = f"{user_id}.{epoch}.{exp}"
+    else:
         return None
-    user_id, exp, sig = parts
-    expected = hmac.new(
-        get_secret().encode(), f"{user_id}.{exp}".encode(), hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(get_secret().encode(), msg.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig):
         return None
     try:
@@ -76,4 +97,6 @@ def session_user(token: str | None) -> str | None:
         return None
     if exp_ts < time.time():
         return None
+    if _current_epoch(user_id) != int(epoch):
+        return None  # password changed since issue — dead token
     return user_id

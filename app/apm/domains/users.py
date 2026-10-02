@@ -142,6 +142,82 @@ class IdentityIn(BaseModel):
     user_id: str
 
 
+class PasswordChangeIn(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class PasswordResetIn(BaseModel):
+    new_password: str
+
+
+def _set_credential_and_bump_epoch(uid: str, new_password: str) -> None:
+    """M96-I290: write the new hash and bump pw_epoch in one statement pair —
+    the epoch bump kills every outstanding session token for the account.
+    Passwords never enter the event stream (M8-I26); the audit events below
+    carry only shape metadata."""
+    conn = db.get_conn()
+    conn.execute(
+        "UPDATE users SET password_hash = ?, pw_epoch = pw_epoch + 1 WHERE id = ?",
+        (security.hash_password(new_password), uid),
+    )
+    conn.commit()
+
+
+@router.post("/me/password")
+def change_my_password(body: PasswordChangeIn) -> dict:
+    """Self-service credential change (M96-I290). Re-authenticate with the old
+    password (OWASP: sensitive operation), then invalidate all sessions for the
+    account by bumping the credential epoch."""
+    from apm.core.security import verify_password
+
+    uid = events.effective_actor()
+    row = db.get_conn().execute(
+        "SELECT password_hash FROM users WHERE id = ?", (uid,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="unknown user")
+    if not row["password_hash"]:
+        raise HTTPException(status_code=409, detail="SSO account has no local password")
+    if not body.new_password:
+        raise HTTPException(status_code=422, detail="new password must not be empty")
+    # 计时均衡（M82 同款）：无哈希/校验失败都走同价哑哈希路径。
+    if not verify_password(body.old_password, row["password_hash"]):
+        events.emit(
+            event_type="user.password_change_failed", agg_type="user", agg_id=uid,
+            payload={"summary": "改密失败：旧密码不匹配", "reason": "old_password_mismatch"},
+        )
+        raise HTTPException(status_code=422, detail="old password does not match")
+    _set_credential_and_bump_epoch(uid, body.new_password)
+    events.emit(
+        event_type="user.password_changed", agg_type="user", agg_id=uid,
+        payload={"summary": "修改了自己的密码", "via": "self"},
+    )
+    return {"ok": True, "detail": "password updated; all sessions invalidated"}
+
+
+@router.post("/users/{uid}/password")
+def admin_reset_password(uid: str, body: PasswordResetIn) -> dict:
+    """Admin credential reset (M96-I290) — same epoch semantics as self change."""
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required to reset passwords")
+    row = db.get_conn().execute(
+        "SELECT password_hash FROM users WHERE id = ?", (uid,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="unknown user")
+    if not row["password_hash"]:
+        raise HTTPException(status_code=409, detail="SSO account has no local password")
+    if not body.new_password:
+        raise HTTPException(status_code=422, detail="new password must not be empty")
+    _set_credential_and_bump_epoch(uid, body.new_password)
+    events.emit(
+        event_type="user.password_reset", agg_type="user", agg_id=uid,
+        payload={"summary": "管理员重置了该账号的密码", "via": "admin"},
+    )
+    return {"ok": True, "detail": "password reset; all sessions invalidated"}
+
+
 @router.post("/session/identity")
 def switch_identity(body: IdentityIn) -> dict:
     if config.settings.auth_mode == "network":
