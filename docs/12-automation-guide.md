@@ -1,62 +1,128 @@
-# 12 · 自动化规则使用指南（M9）
+# 12 · 自动化与集成指南
 
-> 看板自动化规则 = **触发 → 条件 → 动作** 三段式（docs/01 §H：Kanboard Automatic Actions 的项目级「事件×动作」绑定 × n8n/Node-RED 三段式抽象）。
-> 规则本身事件溯源（`automation.rule_*`），执行挂在事件内核 post-emit hook 上——**事件内核即事件源**，无轮询、无外置 dispatcher。
+> 时效：2026-10-02 更新（M91-I275 重写解冻——覆盖至 v0.11.0 全部自动化面：规则引擎 / 通知与 watch / 定时 sweep / 机器接入 / 指令模板与运行产物。此前的里程碑堆叠版[§1~§40·覆盖止于 M43]退役——章节级细节真源=[docs/10 §7 看板](10-development-plan.md)，本页按**用户任务**组织；每节末尾的「真源」指向代码中的权威枚举/实现，**文档描述语义，代码持有清单**——两处冲突时以代码为准并请回报，这是活文档的契约）。
+> 相关文档：部署与认证底座=[docs/11](11-network-deploy.md)（env 速查单一真源=[.env.example](.env.example)）；前端界面语义=[docs/06](06-webui-design.md)。
 
-## 1. 在哪里配置
+## 任务速查
 
-项目 → 侧栏「本体」（项目设置页）→ **自动化规则** 面板：
+| 我想要… | 去哪节 |
+| --- | --- |
+| 「缺陷被打上严重度标签就自动派给某人」 | §1 规则引擎 |
+| 「任务完成/失败时提醒我」（自定义关注） | §2.3 watch |
+| 「每周一自动收项目周报」 | §3 定时任务 |
+| 「外部系统实时收到项目事件」 | §4.2 webhook 出站 |
+| 「脚本/CI 调 API」 | §4.1 PAT |
+| 「把一条好提示词存下来复用」 | §5.1 指令模板 |
 
-- **列表**：每条规则一行——触发徽章、条件摘要、动作摘要，以及 测试运行 / 历史 / 启停 / 删除 操作；
-- **新建规则**：三段式表单
-  - 「当〈触发事件〉」：创建工作项 / 更新字段 / 状态变更 / 指派变更；
-  - 「满足〈概念〉+〈可选字段谓词〉」：概念可选（如 缺陷 bug）；条件字段可为内置字段（priority / status / assignee_id）或本体声明字段（如 severity、regression）；
-  - 「则〈动作〉」：指派给（用户下拉）/ 置优先级（高·中·低）/ 设自定义字段（enum、boolean 按本体声明出值选项；multiselect 用逗号分隔多个值）/ 改状态（状态池按所选概念收窄）。
+---
 
-## 2. 执行语义（重要）
+## 1. 规则引擎：trigger → condition → action
+
+项目内自动化规则（Kanboard Automatic Actions 的项目级「事件×动作」绑定 × n8n 三段式抽象）。规则本身事件溯源（`automation.rule_*`），执行挂在事件内核 post-emit hook 上——**事件内核即事件源**，无轮询、无外置 dispatcher。真源：`app/apm/domains/automations.py`。
+
+### 1.1 在哪里配置
+
+项目 → 侧栏「本体」（项目设置页）→ **自动化规则** 面板：列表（触发徽章/条件摘要/动作摘要/测试运行/历史/启停/删除）+ 三段式新建表单。
+
+### 1.2 三段式
+
+- **触发**：创建工作项 / 更新字段 / 状态变更 / 指派变更等事件（与 watch 白名单同源的事件集，见 §2.3）；
+- **条件**（可选）：「满足〈概念〉+〈字段谓词〉」——字段可为内置（priority / status / assignee_id）或本体声明字段（severity、regression…）。谓词当前为**标量相等 / multiselect 包含**（区间与 AND/OR 留真实需求再上——backlog）；
+- **动作**（六种，真源 `_execute_action`）：`assign` 指派 / `set_priority` 置优先级 / `set_field` 设自定义字段（enum/boolean 按本体声明出值；multiselect 逗号分隔）/ `set_status` 改状态（状态池按概念收窄）/ `notify` 发站内提醒 / `run_agent` 让 Agent 执行（项目级角色指令生效）。
+
+每条规则绑定**单个动作**——组合动作=多条规则（同触发按创建顺序执行）。
+
+### 1.3 执行语义（重要）
 
 | 语义 | 说明 |
 | --- | --- |
 | 时机 | 触发事件**落库后**执行；条件对事件发生后的工作项状态求值 |
 | 归账 | 动作事件与 `automation.rule_fired` 均以 `actor_type=automation`、`actor_id=<规则id>` 归账——审计页「发起者 → ⚡ 自动化」可单独过滤 |
-| 防循环 | 双保险：automation 归账的事件不再进引擎 + dispatch 期间的一切嵌套 emit 不进引擎（**单层执行**：规则动作永远不会触发其他规则，包括它自己） |
-| 幂等教训 | Plane webhook「一次变更触发 3 次」的教训（docs/01 §H.3）：规则绑定在事件流上而非轮询状态，每条事件至多命中一次 |
-| fail-closed | 创建时即校验：未知触发/动作/用户/字段、enum 越界、未声明状态、停用字段一律 422；运行时动作被拒（如指派人被删）记录为「被拒绝」，不影响触发方 |
+| 防循环 | 双保险：automation 归账的事件不再进引擎 + dispatch 期间嵌套 emit 不进引擎（**单层执行**：规则动作永远不会触发其他规则，包括它自己） |
+| 幂等 | 规则绑定在事件流上而非轮询状态——每条事件至多命中一次（Plane「一次变更触发 3 次」教训，docs/01 §H.3） |
+| fail-closed | 创建即校验：未知触发/动作/用户/字段、enum 越界、未声明状态、停用字段一律 422；运行时被拒（如指派人已删）记录为「被拒绝」，不影响触发方 |
 
-## 3. 测试运行与历史
+### 1.4 测试运行、历史与权限
 
-- **测试运行**：对项目内最近一条同类型触发事件做 dry-run——显示「命中哪个工作项、将执行什么动作」，**不执行任何写操作**；
-- **历史**：每条规则的触发留痕（事件号 / 时间 / 已执行·被拒绝 / 动作明细），来自 `automation.rule_fired` 事件流——rebuild 后依然完整。
+- **测试运行**：对最近一条同类型触发事件 dry-run（显示将命中谁、将做什么），**零写操作**；
+- **历史**：`automation.rule_fired` 事件流（事件号/时间/已执行·被拒绝/明细）——rebuild 后完整；
+- **权限**：规则 CRUD 属项目写（network 模式 owner/contributor 可管理，viewer 与非成员 403 落 `access.denied`；local 单用户直通）；路由×门禁对账由 `tools/check_write_gates.py` 机械锁定。
 
-## 4. 权限与部署
+---
 
-- 规则 CRUD 属项目写操作：network 模式下 owner / contributor 可管理（viewer 与非成员 403 并落 `access.denied` 审计），local 模式单用户直通；
-- 规则随项目数据存于事件溯源库，rebuild / 迁移天然存活；部署形态与 M8 相同（docs/11）。
+## 2. 通知：让人在该看见时看见
 
-## 5. 边界与后续（backlog）
+站内铃铛 + 邮件 + ntfy 推送三通道**共用同一收件人决策**（`plan_notifications` 纯函数——两通道永远不会对「该通知谁」分歧）；投递路径统一过 `pref_allows` 偏好门。真源：`app/apm/domains/notifications.py`（`NOTIFY_KINDS`）+ `mailer.py` / `pusher.py`。
 
-- 每条规则绑定**单个动作**——需要组合动作时建多条规则（同触发事件按创建顺序执行）；
-- 出站 webhook（事件 → 外部 URL）登记 backlog：先内嵌后外联；
-- 条件谓词当前为标量相等 / multiselect 包含；区间与组合条件（AND/OR）留待有真实需求再加。
+### 2.1 通知种类与偏好（真源 `NOTIFY_KINDS`）
 
-## 6. Webhooks 出站（M10-I32/I33）
-
-项目 → 本体页 → **Webhooks 出站** 面板：配置接收端 URL + 订阅事件（白名单：item.* / approval.* / feature.created / automation.rule_fired），创建后 **secret 仅展示一次**（可随时「换发 secret」，旧签名立即失效）。
-
-### 6.1 投递语义（对齐 Gitea/GitLab，docs/01 §I.1）
-
-| 项 | 值 |
+| kind | 含义 |
 | --- | --- |
-| 方法 / 体 | `POST` JSON，体 = 事件完整字典（原始字节） |
+| assigned | 指派给我 |
+| approval | 审批请求 |
+| comment | 参与项新评论 |
+| item | 参与项状态变更 |
+| mention | @提及（**不可关**——pref_allows 直通） |
+| due_soon | 临近截止提醒（sweep 产生，§3） |
+| approval_reminder | 审批超时提醒（升级链，§3） |
+| report_weekly | 周报已生成（sweep 产生，§3） |
+| watch | 自定义关注（§2.3） |
+
+另：规则 `notify` 动作产生 `rule_notify` 通知（**默认送达**、不在偏好面板九类之内——要停它就停用那条规则）。偏好：铃铛面板逐类×通道开关；已读事件溯源（`notification.read`），rebuild 后未读数精确还原。
+
+### 2.2 邮件与推送通道（默认关闭）
+
+| 通道 | 启用 | 说明 |
+| --- | --- | --- |
+| 邮件 | `APM_SMTP_HOST`+`APM_SMTP_FROM` 同时设置 | 465 走 SSL 其余 STARTTLS；**静默时段**（per-user HH:MM 窗口·跨午夜支持·邮件暂停而站内照流——Slack DND 语义）；周报 digest 邮件豁免静默（本身就是批处理窗口）；周报可带 Markdown 附件+HTML part |
+| ntfy 推送 | **用户自配**：铃铛偏好里填自己的 ntfy topic URL（+可选 token）——opt-in per user，无全局 env | mailer 镜像语义（投递事实落 `push.notified/failed` 事件）；清空 URL 即同撤 token；服务端过 SSRF 门（内网须知见 docs/11 §2.3） |
+
+SMTP 未配置时邮件通道整体静默关闭，行为与 M11 前一致。
+
+### 2.3 watch：自定义关注（用户自建通知规则）
+
+「人×项目×事件类型（+可选条件）」的通知订阅——**把系统通知的九类固定面扩展为用户自定义面**。真源：`app/apm/domains/watch.py`（`WATCHABLE_EVENTS`）。
+
+- **可关注事件（15 类白名单）**：`item.created/updated/status_changed/assigned`、`comment.created`、`approval.requested/decided`、`risk.created/updated/closed`、`expense.recorded`、`attachment.created`、`artifact.report_generated`、`run.succeeded/failed`。**设计排除**：`run.interrupted` 不入（门暂停已有 approval.requested 通知，双份破坏噪声预算——M55 降噪折叠的延续）；requested/started/tokens/spans 等过程事实是记账不是新闻；
+- **条件化**：`condition` 字段扁平全等匹配（如 `{"severity":"high"}`——所有键对都须命中·M55）；
+- **规则级通道路由**（M62）：单条 watch 可指定 channels（如只走邮件），缺省跟随全局 kind×channel 偏好；
+- **管理**：铃铛偏好面板创建/暂停/删除（暂停修 M55 的「删了重加」坑）；导入导出 JSON（与指令模板同构·重名不 clobber）；多规则命中**只发一份**（单事件去重）；自事件抑制（自己的动作不通知自己）；
+- **递归防线**：watch 产生的是 `notification.sent`，被排除在可关注白名单外——watch 永远不会触发 watch。
+
+---
+
+## 3. 定时任务：每日 sweep
+
+`run_daily_sweep`（每日心跳·`sweep.run` 事件幂等去重——重放/重启不重复执行；`force` 可重跑，仅 admin）。真源：`automations.py`。全体成员：
+
+| 任务 | 语义 |
+| --- | --- |
+| `_notify_due_soon` | 临近截止的工作项给指派人发 due_soon 通知（derived `overdue` 字段也在此计算） |
+| `_respawn_recurring` | 周期任务到点重生（`item.respawned`——完成自动重建，M43） |
+| `_report_status_weekly` | ISO 周报（`weekly_report_day` 配置默认周一·可关）——汇编+评论语料+可选 AI 叙事[失败降级]→`report_weekly` 通知+digest 邮件+订阅者副本（`report_subscribers`，§2.2） |
+
+---
+
+## 4. 机器接入：PAT / webhook 出站 / Atom / 邮件入口
+
+### 4.1 PAT（脚本与 CI 调 API）
+
+GitHub PAT 语义：**raw token 仅创建时展示一次**（display-once），落库只存 SHA-256；`Authorization: Bearer apm_…` 的有效 token **即其创建者**（无细粒度 scope——单人/可信小团队取舍；最小权限=为每个用途建独立 token，可随时撤销）。真源：`tokens.py`；网络模式认证底座见 docs/11。
+
+### 4.2 webhook 出站（外部系统实时收事件）
+
+项目 → 本体页 → **Webhooks 出站** 面板：接收端 URL+订阅事件白名单（item.* / approval.* / feature.created / automation.rule_fired），secret 仅展示一次（可「换发」——旧签名立即失效）。真源：`webhooks.py`。
+
+| 头 | 值 |
+| --- | --- |
 | `X-APM-Event` | 事件类型（如 `item.created`） |
-| `X-APM-Delivery` | 投递 ID（`dl_` 前缀），接收方按它做幂等去重 |
+| `X-APM-Delivery` | 投递 ID（`dl_` 前缀）——接收方按它幂等去重 |
 | `X-APM-Webhook` | 本条 webhook 的 id |
-| `X-APM-Signature` | `HMAC-SHA256(secret, 原始请求体字节)` 的十六进制摘要 |
-| 超时 / 重试 | 单次 5s 超时；失败按 1s/4s/16s 指数退避重试 3 次，共至多 4 次尝试 |
+| `X-APM-Signature` | `HMAC-SHA256(secret, 原始请求体字节)` 十六进制摘要 |
 
-每次投递终局都落事件流（`webhook.delivered` / `webhook.delivery_failed`：attempts、status_code、duration_ms、error），「投递历史」抽屉可查；失败投递可**一键重发**（新 delivery ID、单次尝试）；「Ping」发送合成测试载荷。投递在后台线程执行，**绝不阻塞写路径**。
+投递：`POST` JSON（事件完整字典）；单次 5s 超时；失败按 1s/4s/16s 退避共至多 4 次尝试；每次终局落事件流（`webhook.delivered` / `webhook.delivery_failed`）；「投递历史」抽屉可查、失败可**一键重发**（新 delivery ID）、「Ping」发合成载荷。投递在后台线程执行，**绝不阻塞写路径**。
 
-### 6.2 接收方验签（Python 示例）
+接收方验签（Python）：
 
 ```python
 import hmac, hashlib
@@ -73,786 +139,39 @@ if event["id"] <= last_seen_id:     # X-APM-Delivery 去重，幂等处理
     return "dup"
 ```
 
-要点（来自 GitLab 明文 token 的历史教训）：**只认 HMAC 签名不认明文 token**；对**原始字节**计算摘要（重序列化会破坏签名）；比较用常量时间函数。
+要点（GitLab 明文 token 历史教训）：**只认 HMAC 不认明文 token**；对**原始字节**算摘要；常量时间比较。
 
-## 7. 站内通知中心（M10-I34）
+### 4.3 Atom 订阅 feed
 
-顶栏铃铛 = 当前登录身份的通知流（15s 轮询 + 操作后刷新）：
+`GET /projects/{id}/feed.atom`——项目动态的只读 Atom 流；`GET /me/feed-key` 取个人订阅键（可 rotate 撤旧）。真源：`feed.py`。
 
-| 通知来源 | kind | 接收人 |
-| --- | --- | --- |
-| 工作项被指派给人类成员（`item.assigned`） | assigned | 被指派人 |
-| 阶段门/工件审批请求（`approval.requested`） | approval | 项目 Owner |
-| 自动化规则 `notify` 动作 | rule_notify | 动作指定的用户 |
+### 4.4 邮件入口与外部收件
 
-- **已读状态事件溯源**（`notification.read`，记录 ids 或 all），rebuild 后未读数精确还原；
-- 通知 id 确定性生成（`n_{源事件id}_{接收人}`），保证重放后与已读事件引用一致——这是事件溯源投影的通用要求（**投影生成的新实体 id 禁止随机**）；
-- 自动化规则里选「通知」动作即给指定用户发站内提醒（走 M9 防循环与 automation 归账，不产生邮件依赖）。
+- **IMAP 邮件转任务**：`[项目名] 主题` 路由建项，回复转评论（真源 `imap_in.py`——M34/M35）；
+- **外部 intake**：匿名收件表单→项目待审池（真源 `intake.py`——M33）。
 
-## 8. 邮件通知与 Atom 订阅（M11-I35/I36/I37）
+---
 
-### 8.1 邮件通道（默认关闭）
+## 5. 指令模板与运行产物
 
-邮件与站内通知**共用同一收件人决策**（`plan_notifications` 纯函数），两条通道永远不会对"该通知谁"产生分歧。SMTP 未配置时整个通道静默关闭，行为与 M11 之前完全一致：
+### 5.1 指令模板库（`.prompt.md` 语义）
 
-| 环境变量 | 说明 | 默认 |
-| --- | --- | --- |
-| `APM_SMTP_HOST` | SMTP 主机（与 FROM 同时设置才启用通道） | 空（关闭） |
-| `APM_SMTP_PORT` | 端口；`465` 走 SMTP_SSL，其余走 STARTTLS | 587 |
-| `APM_SMTP_USER` / `APM_SMTP_PASS` | 登录凭据（可选） | 空 |
-| `APM_SMTP_FROM` | 发件人地址 | 空 |
-| `APM_SMTP_TLS` | 非 465 端口是否 STARTTLS | true |
+项目 → 本体页 → **指令模板**：可复用的角色指令/任务提示（Copilot `.prompt.md` 模式）。**草稿语义**：模板只是起草助手——从模板发起的 run 仍是普通 run，审批门照挂、人审不绕过；内容经 prompts/ 管线 git 版本化；导入导出重名**永不 clobber**。真源：`prompt_templates.py`（M69）。
 
-执行语义（与 M10 webhook 同构）：
+### 5.2 项目级指令层（prompt_layers）
 
-- **写路径零阻塞**：post-emit hook 只把邮件放入内存队列，`apm-mailer` 后台线程负责真实 SMTP I/O（超时 10s）；
-- **投递留痕**：每封邮件的成功/失败落 `email.notified` / `email.failed` 事件（含耗时、失败原因），审计页可查；
-- **用户级偏好**：通知中心「邮件通知」开关（`users.email_notify`，默认开）。关闭后**只停邮件、站内通知照常**——通知是事实投影，邮件是可选的投递介质。
+L1.5 指令层：项目级/功能级/角色级三层可版本化指令（`prompt_layers` 表 version++ 追溯）；与仓库 `.prompt.md`/`AGENTS.md` 的嵌套语义=**深层优先**（更靠近执行面的覆盖更外层）。真源：`conversations.py` + `runtime/roles.py`（M67）。
 
-### 8.2 Atom 订阅 feed
+### 5.3 run 产物回流（write-back）
 
-在通知中心弹层底部获取个人 feed key，用任意 RSS/Atom 阅读器订阅项目动态：
+run 结束后其产出自动回流到绑定的工作项（同步 post-emit hook——**第六员**：同一 run 幂等，不产生重复评论）。真源：`comments.py` `_run_writeback`（M70）。全部 post-emit hook 消费面（7 个）：assets / automations / comments[write-back] / mailer / pusher / watch / webhooks——**hook 只入队不阻塞写路径**。
 
-```
-GET /api/projects/{project_id}/feed.atom?key={feed_key}
-```
+---
 
-- `key` 认证替代 cookie，适合阅读器等无法带会话的客户端；feed key 可随时换发（旧 key 立即失效）；
-- **权限裁剪**：非项目成员即使持有合法 key 也返回 403 + `access.denied`（防 Redmine #20173 式 token 越权泄漏）；
-- feed 返回该项目最近 30 条可见动态（Atom 1.0，XML 转义）。
+## 6. 边界与 backlog
 
-## 9. 报表与跨项目工作台（M12-I38/I39/I40）
-
-报表是**只读聚合**：全部数字来自对既有投影（items/approvals/events）的查询，无新表、无新事件，rebuild 一致性由构造保证（冒烟 18 显式断言）。
-
-### 9.1 页面与 API
-
-| 入口 | 内容 | 数据源 |
-| --- | --- | --- |
-| 项目内「报表」页 `#/p/{pid}/reports` | 五桶漏斗、概念分布、挂起 Gate 卡片、超期/滞留清单、近 14 天吞吐柱图 | `GET /api/projects/{id}/report` |
-| 全局「我的工作」`#/my/work` | 分配给我的活跃项（跨项目）+ 等我决策的 Gate | `GET /api/my/work` |
-| 项目列表（首页）每行徽标 | 待办/进行/完成计数 + ◆N 待审 | `GET /api/projects` 内嵌健康摘要 |
-| CSV 导出 | `GET /api/projects/{id}/report.csv`（section,key,title,reason,value 五列，UTF-8） | 与 JSON 同数 |
-
-### 9.2 口径定义
-
-| 指标 | 口径 |
-| --- | --- |
-| 漏斗（funnel） | 工作项按 `status_group` 五桶计数（待办池/就绪/进行中/已完成/已取消），桶序固定、空桶补零 |
-| 挂起 Gate（gates_pending） | `approvals.status = 'pending'` 的审批（阶段门/工件审批），卡片直达审批中心 |
-| 超期 | 活跃项（非 done/cancelled）的截止日期早于今天 →「超期 N 天」。截止日期取值顺序（M13-I41 起三级回退）：① 工作项自身的 `due_date` 字段；② `due`/`due_date`/`deadline` 自定义字段；③ 两者皆无 → 按滞留口径处理 |
-| 滞留 | 活跃项未声明 due，且创建时间超过 14 天（`STALE_DAYS`）→「滞留超 14 天」；已完成/已取消恒不参与 |
-| 吞吐（throughput） | 近 14 天逐日计数：新建 = `item.created`；完成 = `item.status_changed` 且结果桶为 done |
-
-### 9.3 权限语义
-
-- `/report` 与看板/列表同读语义（项目内读取开放）；
-- `/my/work` **指派即授权**：被指派者恒可见自己的活跃项（否则网络模式下被指派者反而看不到自己的工作）；Gate 清单仅项目 Owner 或实例管理员可见——与 `approval.requested` 通知的接收人决策同源。
-
-## 10. 里程碑与时间线（M13-I41/I42/I43）
-
-### 10.1 里程碑
-
-里程碑是**截止日期锚点**（Plane v1.16 语义：与 sprint 式时间盒正交），把工作项聚到一个 deadline 下：
-
-| API | 说明 |
-| --- | --- |
-| `POST /api/projects/{id}/milestones` | 创建（title + due_date 必填，ISO 日期；status 初始 planned） |
-| `GET /api/projects/{id}/milestones` | 列表（按 due_date 排序，含进度） |
-| `GET /api/milestones/{id}` | 详情（进度 + 关联工作项清单） |
-| `PATCH /api/milestones/{id}` | 改标题/描述/截止日/状态 |
-| `DELETE /api/milestones/{id}` | 删除（关联工作项保留，milestone_id 悬空） |
-
-- 状态取值优先本体 milestone 概念的 states（software-dev：planned / in_progress / achieved），本体未声明时回退通用集；
-- **进度口径**：done 比例 = 关联项中 done 数 ÷ 非 cancelled 总数；逾期数 = 里程碑截止日已过时的活跃关联项数；
-- 工作项在**创建时**（`POST .../items` 带 `milestone_id`）或之后（`PATCH /items/{id}`）关联；未知/跨项目里程碑 422。
-
-### 10.2 工作项排期日期
-
-`items.start_date` / `items.due_date`（ISO 日期，可空，创建与 PATCH 均可设置）——时间线条形的定位依据；**报表「超期」口径自 M13 起为三级回退**：item.due_date → due 类自定义字段 → 滞留（见 §9.2）。
-
-### 10.3 时间线视图
-
-`#/p/{pid}/timeline`（侧栏「时间线」）：
-
-- 日期轴自动适配数据范围（周刻度 + 今日竖线）；
-- 行 = 概念（按本体声明名），条形 = 有起止日期的工作项（已完成绿 / 已取消灰 / 活跃蓝 / **依赖冲突红**）；
-- 菱形 = 里程碑，定位在其截止日，悬停显示进度；
-- `depends_on` 关系中「后置项开始早于前置项截止」视为冲突：红条 + 红色虚线连接（同行走行底边缘）；**只提示不自动改期**（OpenProject 的依赖传播改期留 backlog）。
-
-### 10.4 事件导出
-
-`GET /api/projects/{id}/events/export`（NDJSON，`application/x-ndjson`）：按全局追加序逐行输出项目事件（含 prev_event_id 链位），末行校验和（events 数 / sha256 / 首行 prev / 间隙数）。**导出是补充性数据出口，不是备份**（备份见 docs/11 §5）；跨项目间隙（gaps>0）属正常——全局链包含其他项目的事件。
-
-## 11. 排程自动化与事件可携（M14-I44/I45/I46）
-
-### 11.1 依赖传播自动排期
-
-工作项可开启 `auto_scheduled`（默认**手动**，OpenProject 15.4 同款哲学——自动化是可选项）：
-
-```
-PATCH /api/items/{id}  {"auto_scheduled": true}
-```
-
-- 前置项（被 `depends_on` 指向者）的 `due_date` 变化时，开启自动排期的后继项自动**平移 start/due（保持时长）**；多级依赖递归传播（深度上限 20，环安全）；
-- 每次平移都是**显式 `item.rescheduled` 事件**（payload 含 follow_of/delta_days/新日期/depth）——审计可见「因哪个前置项平移了多少」，投影按绝对日期写入，rebuild 幂等；
-- 手动模式（默认）不受任何影响；时间线条形 hover 标注「⏱ 自动排期」。
-
-### 11.2 事件导入恢复
-
-与导出配对（§10.4）：
-
-```
-POST /api/projects/{id}/events/import   {"data": "<NDJSON 全文>"}
-```
-
-- 校验流水线：校验和重算比对（原始行 sha256，篡改即 422）→ 逐行 JSON/schema + id 严格递增（422）→ 事件 id 与目标库冲突检测（**任一冲突整批 409**，不做部分导入）；
-- **恢复语义面向空/新库**：目标项目可不存在，但 payload 必须包含其 `project.created` 事件；
-- 通过后按序追加（保留原始 id/ts/actor，prev 重链到目标库当前头部）→ 全量 rebuild → 返回 `{imported, rebuilt}`；
-- 操作步骤见 docs/11 §5.3；导出/导入版本需同代（无跨版本兼容承诺）。
-
-## 12. 移动端与 PWA（M15-I47/I48/I49）
-
-AgentPM 前端为可安装 PWA（vite-plugin-pwa，generateSW + autoUpdate），<768px 视口自动切换移动布局。
-
-### 12.1 安装
-
-- 浏览器访问部署地址：桌面 Chrome/Edge 地址栏「安装」；Android Chrome 菜单「添加到主屏幕」；iOS Safari 分享菜单「添加到主屏幕」。
-- manifest 指向实例自身（start_url `/`、standalone 独立窗口、图标 192/512 + maskable）——安装的是「你自己的服务器」，不依赖任何应用商店（WeKan TWA 教训，docs/01 §N.1）。
-
-### 12.2 移动端布局（I47）
-
-| 区域 | 桌面（≥768px） | 移动（<768px） |
-| --- | --- | --- |
-| 导航 | 左侧图标 rail + 功能列 | 汉堡按钮 → 抽屉（导航 + 功能列表） |
-| 看板 | 多列并排 | 单列横向滑动（列宽下限保持可读） |
-| 列表/表格页 | 全宽表格 | 横向滚动（`min-w-[640px]`，不挤压折行） |
-| 报表/我的工作/首页 | 三列栅格 | 单列堆叠 |
-| 时间线 | 全宽 | 横向滚动（日期轴百分比不压缩） |
-| 触控目标 | 常规 | 审批/通知铃 36px、rail 44px、⌘K 窄屏图标化 |
-
-### 12.3 离线边界（I48）
-
-- **外壳可离线**：service worker precache 全部静态资产（HTML/JS/CSS/图标/manifest）——断网 reload 后外壳、导航、布局完整可用；
-- **数据必在线**：`/api/*` 一律透传网络，永入 SW 缓存（`navigateFallbackDenylist` + 零 runtimeCaching）——事件溯源与 SSE/审批实时性要求在线；离线时数据区按请求失败兜底显示，恢复网络后自动回归；
-- 不做离线写（一致性分叉风险，V2 再议只读快照）。
-
-### 12.4 更新与部署注意
-
-- **更新**：新版发布后 SW 后台下载并静默接管，下次打开即新版；新 SW 就绪时弹「已发布新版本 · 立即刷新」toast；
-- **HTTPS**：service worker 仅在 secure context（HTTPS 或 localhost）注册——内网纯 HTTP 部署无 SW/安装能力（其余功能不变），移动端完整体验需按 docs/11 §4 配 TLS；
-- 构建产物断言见冒烟 21（dist 含 manifest.webmanifest + sw.js、precache 零 /api、denylist 在位）。
-
-## 13. 自定义视图与保存筛选（M16-I50/I51/I52）
-
-把常用过滤组合存为命名视图——OpenProject「自定义查询」的 Community 等价物（docs/01 §O.1）。视图 = 过滤参数的快照，执行时**复用既有过滤路径**（不建第二条查询实现）。
-
-### 13.1 定义与 API
-
-定义（definition）键白名单（fail-closed，未知键/空值/坏枚举 422）：
-
-| 键 | 含义 | 校验 |
-| --- | --- | --- |
-| `concept_id` | 概念收窄 | 透传 items 过滤 |
-| `status_group` | 五桶之一 | backlog / todo / in_progress / done / cancelled |
-| `status` | 具体状态 | 透传 items 过滤 |
-| `assignee_id` / `priority` | 执行者 / 优先级 | 透传 |
-| `cf` | 字段过滤 `field:value` | 字段须本体声明**且项目未停用**；multiselect 包含匹配 |
-| `group_by` | 看板分组 | `lifecycle` 或 `field:<id>`（同上声明+停用校验） |
-
-- API：`POST /projects/{pid}/views`（name+definition+is_public）、`GET /projects/{pid}/views`、`GET/PATCH/DELETE /views/{id}`、`POST /views/{id}/make-default`（项目级唯一默认，`view.made_default` 事件先清后设，rebuild 幂等）。
-- 执行：`GET /projects/{pid}/items?view_id=` 与 `GET /projects/{pid}/board?view_id=`——definition 提供基础过滤，显式 query 参数可覆盖。
-
-### 13.2 权限（对齐 M8）
-
-- local 模式全放行（单机可信语义）；
-- network 模式：**public** 视图项目成员可读；**private** 仅 owner 与实例管理员可读；viewer 不可创建；改/删仅 owner 与实例管理员；非成员访问列表/详情/执行一律 403。
-
-### 13.3 前端与默认视图
-
-- 看板工具栏「👁 视图」下拉：保存当前过滤、切换（definition 写回 URL 参数，功能切片保留）、公开徽标、hover 删除、设为默认；
-- 选中态入 URL（`?view=`）；**直开 `?view=<id>` 自动补齐定义参数**（显式参数优先）——分享链接即还原；
-- 默认视图：无显式 view/group 的看板请求自动落项目默认视图（board 响应 `applied_view_id`，工具栏 chip 与分组控件同步显示）。
-
-## 14. OIDC 单点登录（M17-I53/I54/I55）
-
-network 模式的 SSO 扩展：通过任意标准 OIDC 提供方（Keycloak/Authelia/authentik/Entra ID）登录，JIT（首次登录自动）建号。未配置 env 时特性整体关闭，行为与 M17 之前完全一致。
-
-### 14.1 流程与安全语义
-
-- **协议**：Authorization Code + PKCE(S256)；state/nonce/verifier 存 HttpOnly 短命 cookie（10 分钟），回调三方全验（RS256 签名 via jwks、iss/aud/exp/nonce）后才进入建号逻辑；握手后**不缓存 id_token**（凭据不入事件，会话 = M8 同款 HMAC cookie）。
-- **JIT 注册四约束**（Gitea 教训，docs/01 §P.3）：
-
-| 约束 | 语义 | 违反时 |
-| --- | --- | --- |
-| email 可信 | email 存在且 `email_verified=true` 才受理 | 422 |
-| 组白名单 | `APM_OIDC_ALLOWED_GROUPS` 非空时须有交集（fail-closed） | 403 |
-| 角色一次性 | 建号即 viewer 缺省；**重登不重派角色**（规避 Gitea #32566 二次登录时序坑） | — |
-| 不自动合并 | 同 name 本地账号已存在 → 409，合并须管理员显式操作 | 409 |
-
-- **门禁兼容**：JIT 用户与本地建号用户走同一 M8 门禁——未加入项目成员前写操作 403（`access.denied` 审计）；角色提升走管理员建号接口，不由 IdP claim 自动决定。
-
-### 14.2 配置与演示
-
-- 配置走 `APM_OIDC_*` 环境变量（表见 docs/11 §2.1）；本体页「OIDC 单点登录」面板为只读诊断（secret 不回显）。
-- Keycloak 演示：`tools/keycloak/docker-compose.yml`（realm import：client `agentpm` + 用户 zhang.demo/li.admin + 组）→ `docker compose up -d` → 按 §2.1 设 env；
-- 无容器环境：`python tools/oidc_stub.py`（mini IdP，:9001）——authorize 即回 callback，适合本地真流程演示。
-
-## 15. 评论与参与通知（M18-I56/I57/I58）
-
-工作项支持评论线程：看板卡片右下 💬 按钮打开评论抽屉（显示评论数徽标），功能页与看板 `?item=<id>` 链接可直开对应工作项的评论区。
-
-### 15.1 评论与 @提及
-
-- **发评论**：输入框写内容，Ctrl+Enter（或点「发送」）提交；评论按时间正序展示，作者名 + 时间可见，本人或管理员可 hover 删除（✕，软删除——审计流保留）。
-- **@提及**：输入 `@` 后从下拉选择成员（支持多字姓名如「QA 王」），被提及者会收到**专属 mention 通知**（站内铃 + 邮件，若开启）；评论正文中的 @姓名 以高亮展示。提及解析按用户全名精确匹配，未注册姓名不生成通知。
-
-### 15.2 参与与订阅
-
-- **自动参与**：以下三种情况自动成为工作项「参与者」——评论（作者）、被 @提及、被指派（human 指派）。参与者来源以**首次加入**为准（指派后评论不改变来源标注）。
-- **手动订阅**：评论抽屉左下「🔕 订阅」按钮，订阅后无需参与讨论也能收到该工作项的动态；再次点击退订（只移除手动订阅，自动参与不受影响）。
-
-### 15.3 通知面
-
-| 事件 | 谁会收到 | 通知内容 |
-| --- | --- | --- |
-| 评论 @提及 | 被提及者（作者除外） | 「xx 在工作项「<标题>」的评论中提到了你」（点击跳转评论区） |
-| 新评论 | 参与者（作者与被提及者除外——他们已收到各自的定向通知） | 「参与的工作项「<标题>」有新评论：<前 60 字>」 |
-| 状态变更 | 参与者（操作者除外） | 「参与的工作项「<标题>」状态变更为 <状态>」 |
-| 指派 / 审批 / 自动化 | 原有语义不变（M10/M11） | — |
-
-- 通知中心（顶栏铃铛）点击 mention 通知会**直达该工作项的评论抽屉并自动置已读**；「全部已读」一键清零。邮件通道与站内共用同一收件人决策（`plan_notifications`），邮件为资料内 opt-in。
-- 通知为事件溯源投影：rebuild 后通知行 id 与已读状态逐条复现（`n_<事件id>_<用户id>`）。
-
-## 16. 工时跟踪（M19-I59/I60/I61）
-
-工作项支持工时记录（OpenProject time-entry 语义）：计划侧 `estimate_hours`（预估）与实际侧 spent（已投工时）并列，构成「计划 vs 实际」对照。
-
-### 16.1 记工时
-
-- **入口**：看板卡片右下 ⏱ 按钮打开「⏱ 工时」抽屉（显式入口，Redmine 式——不做斜杠命令解析）。
-- **记一笔**：填 时长（分钟，1-1440）+ 日期（默认今天）+ 备注（做了什么，截 500 字）→「记工时」。记录人 = 当前身份，条目按 日期+时间 排序。
-- **删除**：hover 自己的条目点 ✕（软删除——条目从列表与合计消失，事件保留审计）；管理员可删任何人条目（network 模式下本人或 admin）。
-- **合计**：抽屉底部实时显示合计（排除已删除条目）；记工时者自动成为该工作项参与者（见 §15.2）。
-
-### 16.2 工时展示
-
-| 位置 | 展示 |
-| --- | --- |
-| 看板卡片 / 列表视图 | 有工时时显示「⏱ 2h30」徽标（`fmtMinutes`：不足 1 小时显分钟） |
-| 工作项详情 | `spent_minutes` 字段与 `estimate_hours` 并列 |
-| 项目报表（I61） | 按人合计 + 按日趋势小部件 |
-| 我的工作（I61） | 本周记时合计（个人最小面） |
-
-### 16.3 语义与边界
-
-- **校验 fail-closed**：minutes 须为 1-1440 正整数、日期须 ISO 格式（YYYY-MM-DD）、空更新 422。
-- **权限**：与评论一致——local 放行；network 模式项目成员可记/读，非成员 403，改/删限本人或 admin。
-- **事件溯源**：`time.logged/edited/deleted` 三事件，rebuild 后条目、合计与卡片徽标逐项复现。
-- **不做**（有意取舍，docs/01 §R.4）：成本/费率（OpenProject Enterprise 范畴）、斜杠命令、实时计时器打卡；个人日历视图留 backlog。
-
-## 17. 个人工时日历与评论 Markdown（M20-I62/I63/I64）
-
-### 17.1 个人工时日历（I62）
-
-- **入口**：侧栏「我的工时」（`#/my/time`，在工作项无关的全局区，与「我的工作」并列）。
-- **视图**：周（周一始七列）/月（42 格）双视图切换，「‹ 今天 ›」翻页，今日高亮，窗口合计徽章（近 60 天，`GET /my/timelog?days=60`——本人条目按日分组 + 日合计 + 窗口合计）。
-- **快捷记时**：点任意日期格开「记到这天」卡——工作项下拉（取「我的工作」指派项）+ 分钟/备注，**spent_on 预填点选日**；当日已有条目列在卡内，点条目进入编辑（仅时长/备注），✕ 删除。改日期请走工作项 ⏱ 抽屉（`time.edited` 语义不含工作项迁移）。
-- **数据边界**：只看自己的条目（own-data，语义同 `/my/work`，无项目级门禁）；月视图中非当月日期置灰，超出 60 天窗口的日期无数据。
-
-### 17.2 时间线拖拽改期（I63）
-
-- **拖动条形**=整体移动（start/due 同步平移；无 start_date 的项只移 due）；**拖右缘把手**=改截止日（钳制不早于 start）。
-- 拖拽中条形**半透明**并悬浮「改为 X ~ Y」实时预览；**Esc 取消**，落点即 PATCH `start_date/due_date`（一次一个工作项）。
-- **审计与联动全自动**：走既有 PATCH 端点——`item.rescheduled` 审计、auto_scheduled 依赖链顺延、依赖冲突红条重算，全部由后端既有逻辑完成，前端零新事件零新端点。手动拖拽不触发自动排期开关的变更（auto_scheduled 是工作项自身的开关，M14 语义）。
-
-### 17.3 评论 Markdown 渲染（I64）
-
-- **存储与契约不变**：评论正文仍是纯文本原文入库（`comment.created` payload 字节不变），Markdown 只是**渲染层转换**（docs/01 §S.3——GLFM/GFM 只取交集）。
-- **支持**（marked + DOMPurify 消毒，XSS fail-closed）：表格、任务清单（`- [x]` 只读展示不回写——状态走工作项字段）、代码块/行内代码、引用、标题、链接（自动 `target=_blank rel=noopener`）；单个换行渲染为换行（GitHub 评论同款 `breaks` 语义）。
-- **@提及**：渲染层按 users.name 最长优先匹配高亮为蓝色 chip（口径与后端 `_parse_mentions` 一致）；通知仍由后端解析发起，渲染层不参与通知。
-- **编辑器**：输入框右下「👁 预览 / ✏️ 编辑」切换，预览即最终渲染效果；发送后原文入库。
-
-## 18. 日程集成三件套（M21-I65/I66/I67）
-
-### 18.1 依赖连线图内编辑（I65）
-
-- **交互**：时间线页（`#/p/{pid}/timeline`）hover 条形显两端端点圆圈 → 按住圆圈拖到目标条形松手 → 建立「拖动条 depends_on 目标条」（拖动条须等目标条完成后才能开始）。
-- **语义与校验**：走既有 `POST /items/{id}/relations` 端点（后端零新增）；自依赖/落空静默取消，成环/未知目标由后端校验 toast 报错；Esc 取消拖拽。
-- **联动**：建立后依赖连线与冲突重算着色随刷新生效；auto_scheduled 的后继在改期时自动顺延（M14 语义）。
-
-### 18.2 iCal 日历订阅（I66）
-
-- **入口**：「我的工作」页底部「📅 订阅日历」卡 →「显示订阅链接」→ 复制到任意日历客户端（Google/Outlook/Apple 日历的「订阅 URL」）。
-- **内容**（只读）：分配给我的活跃工作项（全日事件：有起止则跨天、否则截止日单日；标题含状态与项目名）+ 可见项目的里程碑截止（`◆` 前缀）。
-- **认证与安全**：URL 携带 M11 feed_key（`?key=`），日历客户端免 cookie；own-data + 项目可见性双重裁剪；「换发密钥」后旧链接立即失效。rebuild 会清空运行态 feed_key（同 password_hash），重新「显示订阅链接」即可再生。
-- **格式**：RFC 5545（UID=`{id}@agentpm`、DTEND 排他、TEXT 转义、CRLF）；ICS 协议无推送提醒——提醒由订阅方日历客户端设置。
-
-### 18.3 评论清单项转子任务（I67）
-
-- **交互**：评论中的任务清单项（`- [ ] 文本`）渲染时，未提取项带显式「转为子任务」按钮（点击触发，非 hover 悬浮——GitHub #4261 误触教训）；已提取项变为「🔗 文本」链接 + 「已提取」徽标，点击跳转该工作项。
-- **语义**：**提取而非回写**——后端按清单项文本创建真实的 task 工作项（`POST /comments/{id}/extract-task`），评论存储字节不变；同一清单项重复提取 409；非清单项文本 422。
-- **事件溯源**：`comment.task_extracted` 事件 + extracted_tasks 投影（comment_id/text/item_id），rebuild 后映射与新建工作项均复现。
-
-## 19. 治理与效率三件套（M22-I68/I69/I70）
-
-### 19.1 全局搜索（I68）
-
-- **入口**：⌘K 命令面板输入任意关键词 → 第一项「🔍 搜索 'xx'」回车直达 `#/search?q=`；结果页可按 工作项/评论 类型 chips 过滤。
-- **范围**：工作项标题（含自定义字段文本值）+ 评论正文；中文按字符 bigram 索引（与资产库同款），latin 按词。
-- **权限**：结果按用户可见项目裁剪（与 Atom/iCal feed 同款 `_visible` 三层：admin 全见 / 项目成员 / local 配置身份）；局外人搜不到即 403 语义的搜索面表达。
-- **一致性**：索引是投影 handler（注册在 items/comments 投影器之后），rebuild 后索引逐条复现；评论软删即出索引。
-
-### 19.2 项目归档与克隆（I69）
-
-- **归档**：项目列表行内「归档」——归档后项目**全端只读**（任何写事件被 pre-emit 守卫以 409 拒绝，含设置编辑/工作项/评论/工时），审计事件 access.denied 仍可写；读路径（看板/报表/搜索）保持开放；列表默认隐藏，「显示已归档」开关可见，「恢复」一键回到 active。
-- **克隆**：列表行内「克隆」——复制 功能结构/工作项/里程碑（可选），depends_on 等关系一并复制（保 M14 自动排程可用）；**成员与指派永不复制**（授权不随克隆扩散，克隆者自动成为新项目 owner）；`project.cloned` 事件记录源项目与各项计数。
-
-### 19.3 批量编辑（I70）
-
-- **交互**：看板列表视图 checkbox 勾选（表头全选当前列表）→ 工具栏出现批量控件：改状态（所选同一概念时可用，状态池按本体声明）/ 改优先级（高中低）/ 指派给人；与既有「▶ 让 Agent 做」并存；选择与分组/过滤解耦（切换过滤不清空选择——Plane #8683 教训）。
-- **语义**：`POST /projects/{id}/items/batch-patch`（ids + patch）**逐项走 patch_item**——每项各自发 item.updated / item.status_changed / item.assigned 事件，审计与自动化看到的就是 N 次手工编辑；单项失败（如状态不属于该概念）只影响该项，逐项返回 ok/失败原因，不整批回滚。
-
-## 20. 计划对照与总览三件套（M23-I71/I72/I73）
-
-### 20.1 甘特基线（I71）
-
-- **设基线**：时间线页工具栏「📌 设为基线」——快照全部已排期项的 start/due 与里程碑截止（无日期项不入快照），`project.baseline_set` 事件留痕；**每项目只保留一个活动基线**，重复设置即覆盖。
-- **读图**：幽灵虚线条形 = 基线位置；当前起止偏离基线时幽灵线变 **amber** 并在 title 标注「已偏离基线」。改期/自动顺延**永不触碰快照**。
-- **清除**：「清除基线」发 `project.baseline_cleared`；不做多基线历史链（backlog）。
-
-### 20.2 组合总览（I72）
-
-- **入口**：任意项目 Dashboard 顶部「🗺 组合总览」卡（15s 轮询）。
-- **内容**：每个可见项目一行——迷你五段漏斗条 + 活跃数 + ⏱ 工时合计 + 超期/Gate 徽标，点击直达该项目；顶部合计行（总计=分项和，可对账）。
-- **权限**：只统计调用方可见项目（`_visible` 三层，与 Atom/iCal 一致）；已归档项目天然排除。
-
-### 20.3 Markdown 工具栏（I73）
-
-- **按钮**：加粗 / 斜体 / 行内代码 / 链接 / 无序列表 / 任务清单 / 引用——对 textarea 选区做**包裹插入**（列表/引用/任务为行前缀），无选区插入占位符，插入后恢复焦点与选区（GitHub markdown-toolbar 语义，零新依赖）。
-- **边界**：工具栏只改**草稿文本**，存储仍是纯文本原文；预览/渲染规则见 §17.3。
-
-## 21. 结构与数据管理三件套（M24-I74/I75/I76）
-
-### 21.1 子任务层级（I74）
-
-- **建立**：创建时传 `parent_id`，或列表行内「＋子」快捷创建（预填父与同概念）；PATCH `parent_id` 可改挂（re-parent）。
-- **校验 fail-closed**：父须存在、同项目；re-parent 沿新祖先链上溯查环，成环 422（含自环）。
-- **查看**：列表视图树形缩进（子行随父、▸/▾ 折叠）；「后代」chip 只看某任务的全部递归后代；`GET /items?parent=`（直接子代）/ `?descendants=`（递归）；看板卡片「↳ 父标题」徽标。
-
-### 21.2 CSV 导入导出（I75）
-
-- **模板**：`GET /api/projects/{id}/items/import-template`——固定表头 `title,concept_id,status,priority,start_date,due_date,estimate_hours,parent_title`。
-- **导入**：看板「⬆ 导入 CSV」→ 选择文件或粘贴 → `POST /items/import`。首行必须是表头；`parent_title` 引用已有项或**同文件先导行**（实现层级导入）；逐行走 create_item 全量校验（含日期/概念状态/父校验），坏行单独报错**不整批回滚**。
-- **导出**：`GET /api/projects/{id}/items.csv`（含 parent_title 层级列、UTF-8 BOM，Excel 直接打开）。
-
-### 21.3 泳道避让与多基线（I76）
-
-- **泳道避让**：时间线同一概念行内条形重叠时自动拆分子行（区间图染色贪心：按 start 排序 + min-heap 行末线，O(n log n)），行高随子行数自适应——同概念多条形不再叠在同一水平线。
-- **多基线**：每次「📌 设为基线」追加一条快照历史（旧快照永不改写）；基线下拉可切换显示某一条或「全部基线」（多条幽灵线在子行内上下错开）；偏离基线的幽灵线呈 amber 虚线。「清除基线」清空该项目全部基线历史。
-
-## 22. 计划治理深化三件套（M25-I77/I78/I79）
-
-### 22.1 基线偏差表（I77）
-
-- **入口**：时间线工具栏「📊 偏差表」抽屉；`GET /api/projects/{id}/baseline-variance?baseline_id=`（缺省=最新基线）。
-- **口径**：逐已排期项对比基线快照 vs 当前行，**偏差天数 = 当前 − 基线**（start/due 各自算，正=推迟红、负=提前绿）；未变化项默认省略，`include_same=1` 全列；基线之后新增的项无快照、不参与对比。汇总行给出偏差项数与最大截止延迟——纯投影对比，零 ETL。
-
-### 22.2 blocks 闭锁与关系可视化（I78）
-
-- **blocks 闭锁**：存在未完结的 `blocks` 关系指向本项（blocker 状态组非 done/cancelled）时，本项**不能置为完成**——422 `"blocked by <title>"`；取消本项不受限（放弃≠完成）。守卫在 change_status 内部，PATCH/批量/NL 命令/Agent 工具全入口一致。
-- **关系类型**：内核关系含 `contains / depends_on / produces / consumes / blocks / precedes / relates`；`blocked_by` **不作为存储类型**——它是 blocks 的反向视图，单向存储双向可查。
-- **lag_days**：关系行可带 `lag_days`（POST relations 传 `lag_days`），precedes 的最小间隔语义（OpenProject），本轮只存储与展示，自动排期联动留 backlog。
-- **时间线连线**：按关系类型分样式——depends_on 红虚线（仅冲突时画）/ blocks 橙实线 / precedes 灰虚线 / relates 灰点线；blocks/precedes 线从 blocker 的 due 边指向 dependent 的 start。
-
-### 22.3 列表分页（I79）
-
-- **API**：`GET /api/projects/{id}/items?limit=&offset=`——**缺省全量**（兼容既有调用），显式 `limit` 才切片（钳 1-200），`offset` ≥ 0；响应新增 `total`（过滤后全量计数，分页与否都有），驱动「加载更多」。keyset 分页留 backlog（SQLite 单机规模 offset 足够）。
-- **前端**：看板列表视图按 LIST_PAGE=20 渐进渲染，底部「加载更多（已显示 X / 共 Y 项）」；过滤/后代聚焦变化时重置回第一页；全选范围=当前已显示行。
-
-## 23. 流程纪律三件套（M26-I80/I81/I82）
-
-### 23.1 看板 WIP 限制（I80）
-
-- **声明**：本体 `board_defaults.wip_limits`（status_group → 上限，如 `wip_limits: {in_progress: 5}`）；generic/software-dev 已内建示例。
-- **口径**：board resp 的 `wip` 计数是**全项目口径**——不看板过滤后的桶计数（Kanboard Changelog「计所有 open 任务而非过滤后」修复语义），feature/执行者过滤不影响警示数字。
-- **语义**：**软约束**（Kanboard）——超限列头显示「n/limit ⚠」红字 + title 提示，**不阻止**任何入口的状态变更（拖拽/批量/NL/Agent 一致）；无声明的本体不出现 wip 字段（向后兼容）。
-
-### 23.2 评论编辑与修订史（I81）
-
-- **编辑**：作者本人 `PATCH /api/comments/{id}`（403 非作者——严于删除的 admin 兜底：旧文进修订表可审计，admin 代改反而模糊归责）；空白 422。
-- **修订**：每次编辑把**编辑前旧文**存入 `comment_revisions`（行 id = `cr_{事件id}` 确定性导出，rebuild 后逐一相同）；`GET /api/comments/{id}/revisions` 倒序（最新在前）。
-- **降噪**：编辑引入的新 @提及把对方**加入参与图但不发通知**（通知只在 comment.created 发；Redmine 编辑同样不重发）。
-- **前端**：「✎ 已编辑」徽标点开行内修订历史；作者悬停行内「✎」就地编辑。
-
-### 23.3 状态流转白名单（I82）
-
-- **声明**：本体概念可选 `transitions: [{from, to}]` 白名单（software-dev 的 bug 已声明：open→fixing→fixed→verified 主链 + 回退/不予修复旁路）；**不声明 = 全部流转合法**（存量本体零破坏）。
-- **校验**：change_status 内置（与 M25-I78 blocks 闭锁同层）——声明后 from→to 不在白名单 422 `transition 'x'→'y' not allowed`；PATCH/批量/NL 命令/Agent 工具/自动化 set_status 全入口一致；rebuild 后约束原样生效。
-- **组合**：与 blocks 闭锁叠加时两个守卫都检查（先流转白名单后闭锁，均 422 但 detail 可区分）。
-
-## 24. 排期深化三件套（M27-I83/I84/I85）
-
-### 24.1 lag 排期联动（I83）
-
-- **语义**：`POST /relations`（depends_on）带**显式非零** `lag_days` 时立即绝对对齐 auto_scheduled 后继：`start = 前置 due + 1 + lag`——lag=2 → +3 天等待；**负 lag = lead 重叠**（lag=-1 → 同日启动，MS Project/OpenProject 语义）；工期 span 保持并级联传播。
-- **两段式**：绝对对齐只发生在建关系那一刻；后续前继改期走 M14 相对平移，lag 间隔**天然保持**（不做绝对重算——避免把手排中间节点拖来拖去）。
-- **兼容**：None/0 不触碰手排日期（opt-in——既有 depends_on 用法零变化）。注意：关系建立在 auto_scheduled 开启**之前**则不对齐（当时还不是自动项）。
-- **可视化**：时间线连线中点「+N 天」注记（|N|≥1 时）。
-
-### 24.2 跨项目里程碑路线图（I84）
-
-- **端点**：`GET /api/portfolio/roadmap`——调用方可见项目（复用 feed._visible 三层，与组合总览同口径）的全部里程碑按 due_date 排序；**归档项目与无里程碑项目不产行**。
-- **字段**：overdue = `due_date < today 且未达成`（achieved/done 永不超期）；progress 复用 milestone_progress（关联项 done 比，cancelled 不计）——与里程碑卡同一口径。
-- **前端**：`#/roadmap`（行=项目、条=里程碑：进度填充+超期红+今日线+双周刻度，窗口自适应包裹全部里程碑 ±7 天）；入口 = Dashboard 组合总览卡「📅 路线图」+ 顶导航。
-
-### 24.3 里程碑燃尽（I85）
-
-- **端点**：`GET /api/milestones/{id}/burndown`——**纯事件重放零新表**：扫 `item.status_changed`（agg_id ∈ 关联项）取各项目**首次进入 done 组**的事件日期，`remaining(d) = total − 首达日 ≤ d 的完成数`。
-- **窗口与曲线**：实际线从里程碑创建日画到 `min(today, due)`（过期定格）；理想线全程 created→due 线性 total→0；`velocity` = 最近 7 天完成数。
-- **口径**：cancelled 项不入 total 与曲线（与 milestone_progress 一致）；同日窗口（建里程碑当天就有完成）series 只有一个点、值为当日末剩余。
-- **一致性**：曲线完全由事件流导出——rebuild 后响应逐字节相同（测试断言 `bd2 == bd`）；replay==live 是事件溯源红利。
-- **前端**：报表页「🔥 燃尽」卡（里程碑下拉 → SVG 双折线：实线实际剩余/虚线理想线/竖虚线今天 + 速率注记）。
-
-## 25. 落地闭环三件套（M28-I86/I87/I88）
-
-### 25.1 工时锁定与审批（I86）
-
-- **提交**：`POST /api/me/timesheets/submit`（body：`project_id + period_start + period_end`）——后端按期间聚合该成员已记工时（total/笔数随提交快照入事件）；空期间 422、同期间重复提交 409、期间与已批准期间重叠 409。
-- **决策**：`POST /api/timesheets/{id}/approve|reject`——**仅项目 Owner 或实例 admin**（local 单用户放行）；非 submitted 状态决策 409；rejected 须 reason（展示给提交人）。
-- **重提交**：驳回后同期间再提交**复用同一 timesheet id**（投影 INSERT OR REPLACE 重置回干净 submitted 态）——期间唯一性防重复行，完整审计在事件流。
-- **锁定**（Redmine 插件 log→submit→lock→approve 语义）：**approved 后该成员该期间内的工时事实冻结**——log 落在期间内日期、edit 期间内条目（含仅改备注）、delete 期间内条目一律 409 `timesheet locked`；要改账只有驳回+重提交一条路。
-- **前端**：「我的工时」页「🧾 工时审批」面板——期间起止 + 项目下拉（候选=记时过的项目）+ 提交；我的提交状态徽标（待审 amber/已批准·已锁定 green/已驳回 red+原因）；可审批项目的待审行 ✓批准/✕驳回。
-
-### 25.2 成员负载横切（I87）
-
-- **端点**：`GET /api/portfolio/workload`——`_visible` 可见项目循环内按 assignee（human）聚合：活跃项数（非 done/cancelled）、超期数（活跃且 due 已过）、项目分布；**7 天工时在项目循环内按项目聚合再累加**——不可见项目的工时永不汇入（聚合粒度与可见性裁剪同构，防从数字反推隐藏项目）。
-- **口径**：无负载成员（active=0 且无工时）不出行；active 降序排序。
-- **前端**：`#/workload`「👥 负载」页——行=成员：负载条（有超期转红）+ 活跃 n + ⏱ x/7d + 超期红徽标 + 项目分布 chips；入口 = Dashboard 组合卡 + 顶导航。
-
-### 25.3 打印视图（I88）
-
-- **机制**：纯浏览器路线（OpenProject 报表呈现语义、零服务端零新依赖）——`index.css` 的 `@media print`：隐藏 `.no-print`（顶栏/导航/侧栏/按钮）与 nav/aside、白底黑字、`main` 解除滚动裁剪；`.print-card`（Card 组件统一挂载）去阴影、细边框、`break-inside: avoid` 保持卡片完整。
-- **入口**：看板页工具条、报表页漏斗卡、Dashboard 组合总览卡的「🖨 打印」按钮（`window.print()`，浏览器「另存为 PDF」即得报表）。
-- **复演要点**：打印预览无导航噪声、卡片单栏可读；打印按钮自身带 no-print（打印件上不出现）。
-
-## 26. 效率与可观测三件套（M29-I89/I90/I91）
-
-### 26.1 个人排期月历（I89）
-
-- **数据源**：`GET /api/my/schedule`——own-data 口径（assignee=我）跨全可见**未归档**项目的有日期项（start/due 任一存在），带项目名与状态组，按 COALESCE(due,start) 排序。
-- **月历**：`#/my/schedule` 月网格——多日期项**按跨度逐日渲染 chip**（项目色点 + done 划线）；拖卡片改期 = **span 保持的 delta 平移**（`due += 落点−start`，与 M14 相对平移同构）→ 单 PATCH start/due（审计/冲突重算/传播全继承）；仅 due 项拖=改 due。
-- **拖选建任务**：空白格按下→滑过→松开 = 高亮日期区间 → 弹创建窗（项目/概念/标题，起止预填、**自动指派自己**）。
-- **口径**：HTML5 原生 DnD（格子落点语义）；拖选仅限空白格（chip 与拖选不抢事件）。
-
-### 26.2 看板卡片快捷编辑（I90）
-
-- **入口**：看板卡片 badge 行与列表标题行的「⚡」→ QuickEditModal：状态（**本体 concept.states** 取集）/优先级（low/medium/high）/执行者（users 下拉 + 取消指派 + `agent:` 前缀保持 agent 指派）/截止日。
-- **铁律**：**仅提交有变化的键**、全部走既有 `PATCH /api/items/{id}`——流转白名单（I82）、blocks 闭锁（I78）、WIP（I80）、审计归因（M18）零成本继承；422 toast 全文透出。
-- **反模式**：另开「快捷路径」端点 = 把四层守卫抄一遍且必然漂移。
-
-### 26.3 运行聚合报表（I91）
-
-- **端点**：`GET /api/projects/{id}/runs/report`——纯投影聚合：运行总数、按状态计数、成功率（succeeded/(succeeded+failed)）、平均时长（started→ended 均存在者）、Gate 挂起率（interrupted/total）、每运行步骤数（spans 计数/run 数）、按角色分组成功率；tokens（input/output/estimated_cost_usd）直接 SUM 既有列——**replay provider 记零就如实报零**，接真实 provider 后自然有数（不造假数）。
-- **前端**：RunsPage 顶部「📊 运行报表」卡（五组数字 + 状态分布条形 + 角色成功率 chips），与运行列表逐条对账。
-- **一致性**：聚合全部来自 runs/spans 投影，rebuild 后响应相等。
-
-## 27. 治理洞察三件套（M30-I92/I93/I94）
-
-### 27.1 项目健康评分（I92）
-
-- **端点**：`GET /api/portfolio/health`——`_visible` 同口径逐项目出 0-100 分，**评分升序**（差的在前）；无活跃项项目 `score: null`（尚无健康可言）。
-- **公式**（加法式，各因子健康时贡献满权重）：`40×(1−超期率) + 20×(1−滞留率) + 30×吞吐动量 + 10×(1−Gate挂起率)`——超期率 = 活跃且 due 已过 / 活跃；滞留率 = 活跃且 updated_at 早于 14 天（STALE_DAYS 复用）；吞吐动量 = min(近 7 天 done 首达数/活跃, 1)（**事件重放**，同燃尽口径）；Gate 挂起率 = min(pending approvals/活跃, 1)。
-- **语义**：done 项退出 active 分母但计入 done_7d 分子——刚完成一批工作时动量分真实反映本周产出。
-- **前端**：Dashboard 组合总览行内 ♥ 评分徽标（绿 ≥80 / 黄 60-79 / 红 <60 / 无活跃灰「♥ —」），行按评分升序插入。
-
-### 27.2 健康趋势（I93）
-
-- **端点**：`GET /api/projects/{id}/health/history?days=30`（7-90 钳制）——**事件重放采样**（燃尽第三例同构）：扫 `item.created / item.updated[due_date] / item.status_changed + approval.requested/granted/rejected`，每 5 天周界（末点强制 = 今天，与 I92 同一真相）重算四因子套用同一评分函数。
-- **近似口径**：stale 因子重放用 **last_touch**（created 或末次状态变更）近似 updated_at——趋势是相对量，一致近似即可（文档明示）。
-- **前端**：报表页「💚 健康趋势」卡——SVG 迷你趋势线（null 分过滤）、末点圆点、当前分徽标、因子权重注记。
-
-### 27.3 评论引用回复（I94）
-
-- **交互**：评论条目「❝ 引用」按钮 → 编辑框填入 `@作者 > 原文逐行`（每行加 blockquote 前缀）并聚焦；预览模式下先切回编辑。
-- **契约**：存储仍是**纯文本**（M20 契约不变）——blockquote 渲染由既有 marked+DOMPurify 链免费获得，mention 解析走既有 @ 口径。
-- **语义**：GitHub quote-reply 的最小面（无 `r` 快捷键、无选区引用——backlog）。
-
-## 28. 响应力三件套（M31-I95/I96/I97）
-
-### 28.1 键盘优先操作面（I95）
-
-- **快捷键清单**（`?` 浮层的真源=`web/src/lib/shortcuts.ts` SHORTCUTS 表——浮层渲染与键位实现共用一份，加新键先改表）：`⌘K/Ctrl K` 命令面板；`?` 本浮层（Shift+/，可搜索）；`Esc` 关弹窗/清游标；看板内 `J/K` 卡片游标（琥珀高亮环，与多选蓝环区分）、`Enter` 打开选中卡评论区、`C` 快捷新建（概念默认 task、自动指派当前用户——与月历拖选建任务同语义）。
-- **让路规则**：`isTypingTarget`（INPUT/TEXTAREA/SELECT/contentEditable）聚焦时所有单键快捷键不劫持；看板 modal 任一打开（anyModalOpen）时 Enter/C 让路。
-- **实现**：window 级单一 keydown listener（AppShell 管 `?`/⌘K，Board 管 j/k/Enter/C/Esc）；游标=扁平 listed 序列的 index，scrollIntoView(block:nearest) 跟随。
-
-### 28.2 通知偏好按事件类型细分（I96）
-
-- **API**：`GET /api/me/notification-prefs`（五类矩阵：assigned/approval/comment/item/mention × 站内/邮件，缺行=全开）；`PUT` 批量更新（mention 关闭与未知 kind 均 **422 fail-closed**）。
-- **闸门**：`pref_allows(conn, user, kind, channel)` 单一函数、双通道各调一次——站内闸在 `_notify`、邮件闸在 `mailer.enqueue`；**mention 恒真**（GitLab mention 档语义：任何级别都收提及，DB 直插关行也拦不住送达）。
-- **存储**：`notification_prefs` 运行态表（user_id×kind 主键）——**不进 drop_projections**：rebuild 后偏好保留（同 email_notify/feed_key 语义）；通知投影重放按**当前偏好**重算（闸门在投递路径，replay 即重新投递决策——live==replay 构造性成立）。
-- **UI**：铃面板「按事件类型」矩阵（mention 行勾死 disabled）。
-
-### 28.3 响应性指标（I97）
-
-- **端点**：`GET /api/projects/{id}/responsiveness?days=30`（7-90 钳制）。
-- **审批响应**：读 approvals 投影 `requested_at→decided_at`（status=approved/rejected；pending 不入样）——均值/中位/超 48h 占比。
-- **评论首响应**：事件流重放——每条评论找**同 item 下一非作者**的 comment.created 或 item.status_changed（作者自评不算；事件 append-only 序即时间序）；无响应评论计入 `comments_unanswered`。
-- **空态**：窗口内无样本的分片输出 `null`（诚实空态，不编 0）——前端报表「⏱ 响应力」卡显示语义文案。
-- **语义注记**：一条回复同时应答它之前的所有无响应评论（「首响应=该评论之后的首个他人事件」），故 count 可大于「被回复讨论数」。
-
-## 29. 引擎与入口三件套（M32-I98/I99/I100）
-
-### 29.1 时间触发自动化（I98）
-
-- **规则形态**：`trigger_event: "schedule:daily"`（与四个事件触发器并列；缺省 `event:*` 全兼容）。schedule 规则**不在**事件 TRIGGERS 集合里——post-emit dispatch 路径零感知，永远不会被事件误触发。
-- **扫描器**：`run_daily_sweep(force=false)` 逐项目取启用的 schedule 规则 → 对每条规则评估条件（复用 M9 条件谓词）→ 命中走既有动作执行器（防循环继承）。**派生字段 `overdue`**：扫描时对每个 item 注入 `overdue = due 已过且未 done/cancelled`，条件里写 `overdue=true` 即「逾期升级」——等值条件引擎零改动。
-- **幂等**：`automation.swept` 心跳事件（payload 记当日 fired/created 数）——当日已存在 swept 事件则整个扫描跳过；心跳是事件流事实，重启/replay 皆持久，**零新表**。`force=true`（手动端点/单测用）忽略心跳强扫。
-- **周期建卡**：`action: {type: "create_recurring", concept_id, title, assignee_id?}` → 每日扫描 emit 真实 `item.created`（actor_type=automation、actor_id=规则 id）——一等卡，审计/投影/通知全链免费。
-- **生产节拍**：后台 ticker 线程每分钟醒来调 `run_daily_sweep()`——正确性靠心跳幂等，轮询频率无关紧要；`POST /api/automations/sweep` 手动触发（设置页规则面板「⟳ 手动扫描」按钮）。
-
-### 29.2 外部 intake 收件（I99）
-
-- **模型**：令牌即凭证（Trello 板级邮箱的 HTTP 版）。owner 在设置页「📮 外部收件」卡生成/吊销/重发（单活动令牌，重发=吊旧发新）；`/#/intake/{token}` 公开表单页无需登录。
-- **提交端点**：`POST /api/intake/{token}`，body 仅 `title`（必填 ≤200）与 `priority`（可选）——Pydantic 白名单 fail-closed，未知字段丢弃。令牌校验=SELECT 命中 + `secrets.compare_digest` 双查，未知/吊销一律 401。
-- **归账与校验链**：提交经 `create_item` 全链（本体概念校验、归档项目 409 emit guard、M8 门禁），`actor_type="intake"` 让审计流可区分外部来源——溯源令牌即溯源到发放者。
-- **存储**：intake_tokens 是 **intake.token_issued/revoked 事件的投影表**（进 drop_projections，rebuild 重现）；值明文存（同 feed_key——可显示的凭证明文、不可恢复的凭证哈希）。
-
-### 29.3 列表分组聚合（I100）
-
-- **交互**：列表视图「按组聚合」下拉（概念/状态/优先级/执行者/自定义字段——复用 M6 fieldOptions）→ 组头行显示「组名 · n 项 · ⏱ 合计」，点击折叠；「全部展开」一键还原。
-- **口径**：分组作用于**已显示行**（I79 渐进渲染兼容——「加载更多」后再分组），组内保持树序（父子缩进保留），组间按首次出现排序；spent 合计取 `spent_minutes` 投影列。
-- **数据源**：零新端点——组头数字与看板列计数同源（同批 items 投影），冒烟 38 逐桶对账。
-
-## 30. 纵深三件套（M33-I101/I102/I103）
-
-### 30.1 关键路径高亮（I101）
-
-- **端点**：`GET /api/projects/{id}/critical-path`——活跃已排期项（有 start/due 且非 done/cancelled）按 depends_on（含 lag）建 DAG，Kahn 拓扑排序（环安全：存在环输出 `cycle: true` 且不出残链）。
-- **算法**：逆向传递 `latest_finish[n] = min(latest_fin[m] − duration[m] − lag)`（后继工期先被扣掉）；无后继项 latest_finish = 项目 max due；`float = latest_finish − due`，**float ≤ 0 入关键链**（负 float = 排程已冲突，最该红）。基于实际排期日的简化 CPM——不重算理论 ES/LS，直接答「这项最多能滑几天」。
-- **前端**：TimelinePage「⛔ 关键路径」开关（环时 title 提示不可算）→ 关键项条形红框（ring-red-500）。
-
-### 30.2 子任务进度汇总（I102）
-
-- **口径**：`lib/rollup.ts subtaskProgress`——per 父任务统计**直接**子任务 done 数/总数 + spent_minutes 合计；孙任务向直接父汇总**不跨级**（GitHub sub-issue 单层语义，递归会稀释完成度且环检测昂贵）。
-- **UI**：看板父卡「🧩 n/m」徽标（全完成转绿）、列表父行同徽标、TimelinePage 父条形底部 emerald 微型进度条（done 百分比）。
-- **实现**：纯前端 useMemo 聚合（items 响应已含全部所需字段）——零后端、三处视图共享同一 Map、单层口径在 vitest 固化。
-
-### 30.3 工作项归档与回收站（I103）
-
-- **语义**：软删除可逆——`item.archived` / `item.restored` 显式事件（payload 带标题），items 投影 `archived_at` 列（存量库 ALTER 迁移）。归档≠删除：事件溯源下恢复零成本、永不真删。
-- **排除面**：`list_items` 默认 `archived_at IS NULL`——看板/列表/时间线/报表等所有走该函数的入口自动排除；critical-path 同步排除（归档任务退出关键链）。
-- **API**：`POST /api/items/{id}/archive`（重复归档 409）、`POST /api/items/{id}/restore`（未归档 409）、`GET /api/projects/{id}/trash`（归档项列表，按归档时间倒序）。
-- **UI**：看板卡片「🗄」按钮（confirm 后归档）+ 视图切换条「🗑」回收站抽屉（列表 + 一键恢复）。
-
-## 31. 时间关怀三件套（M34-I104/I105/I106）
-
-### 31.1 工作日历与非工作日落点顺延（I104）
-
-- **语义**（OpenProject 12.3「高级排期」的轻量版）：管理员维护全局非工作日（法定/本地节假日，叠加在周六日之上）；**auto_scheduled** 任务的 start/due 经 M14 传播或 I83 lag 对齐产生新落点时，落在非工作日则**顺延至下一个工作日**；手排期项零感知（OpenProject manual 语义）；工期保持日历日跨度不重算——落点顺延可能压缩 span（被跳过的本就是非工作时间，工作跨度不变），聚焦「截止日落在周六日」核心痛点。
-- **事件与投影**：`calendar.holiday_added` / `calendar.holiday_removed` 显式事件（agg_id=日期本身，确定性幂等）→ `non_working_days` 投影表（进 drop_projections，rebuild 重放存活）。
-- **收口点**：`advance_to_workday(d)` 单一辅助函数（calendar.py）——items.py 两处调用（M14 `propagate_reschedule` 平移后、I83 lag 绝对对齐处），其余入口不触碰；顺延后 start > due 时以 start 为准。
-- **API**：`GET /api/calendar/holidays`（任何登录者可读）、`POST /api/calendar/holidays`（admin only；重复 409、坏日期 422）、`DELETE /api/calendar/holidays/{date}`（不存在 404）。
-- **UI**：设置页「📅 工作日历」卡（日期+备注添加、chip 列表、✕ 移除）。
-- **测试**：test_calendar 3 项（admin roundtrip/传播跳假日与跨跳/手排期不动 + rebuild 存活）；test_scheduling 造数改锚定周一网格（M34 语义演进：传播落点不再落周末，三处落点数字重排、断言强度不变）。
-
-### 31.2 到期邻近提醒（I105）
-
-- **语义**（Plane automations / Linear due-date 提醒；Taiga 至今无此能力被长年 feature request）：每日 sweep 对「due ∈ [today, today+N] 且未完成未归档且有 human 指派」的工作项 emit `item.due_soon_notified` 专用事件——**事件是事实，投递是收口**：站内投影器与邮件通道（NOTIFY_EVENTS + plan_notifications 共享决策）都按 kind="due_soon" 走 I96 pref_allows 闸门（默认开、可关）。
-- **幂等**：零新表——`_notify_due_soon` 发事件前查事件流「该 agg_id 当日是否已有 due_soon_notified」，同日 force 重扫永不重复；`automation.swept` 心跳 payload 增加 `notified` 计数。
-- **窗口**：`config.settings.due_soon_days`（默认 3，env `APM_DUE_SOON_DAYS` 可调，含当天）。
-- **测试**：test_due_soon 3 项（窗口边界 today/+3 内、+4 外、无指派/done 不发 + 每日幂等 / 偏好闸挡投递不挡事件 + pref_allows 双通道函数级 / rebuild 确定性 id 重放 + 幂等保持）；test_notification_prefs kinds 断言演进含 due_soon。
-
-### 31.3 基线 S 曲线对比（I106）
-
-- **语义**（EVM，docs/01 §AG.3）：**PV**（计划值）按基线快照中每项的 planned due 周界采样累计；**EV**（挣值）按事件重放 `item.status_changed→done` 首达日累计；**SPI = EV/PV**（末点，PV=0 诚实 None）——「基线本质是快照」（Xurrent），S 曲线是 MS Project/ProjectManager 的基线对比标准渲染；开源 OpenProject EVA 仅列表 work vs spent，完整 S 曲线靠外接 BI——AgentPM 用事件重放免费拿到（**事件溯源红利第六例**）。
-- **快照扩展**：`_snapshot` 每项从 `[start, due]` 升为 `[start, due, estimate_hours]`；旧快照（pre-I106）解析回退权重 1.0（项数口径），消费点（幽灵条形 s[0]/s[1]、baseline-variance b[0]/b[1]）全部索引式解构天然兼容。
-- **端点**：`GET /api/projects/{id}/baseline-curve?baseline_id=`（缺省最新基线；未知 404；采样 = 基线 created_at → 今天、步长 5 天、末点必含今天）。
-- **UI**：报表页「📈 S 曲线」卡——基线下拉 + PV 虚线/EV 实线 SVG 双线 + SPI 徽标（≥1 绿 / <1 琥珀）。
-- **测试**：test_baseline_curve 3 项（PV/EV 手算 SPI=4/7 与推进到 5/7、旧格式权重回退 + 空盘诚实 None + 未知 404、rebuild 采样相等）；**冒烟 40** 三段 roundtrip + rebuild。
-
-## 32. 通道与回复三件套（M35-I107/I108/I109）
-
-### 32.1 IMAP 邮件转任务（I107）
-
-- **语义**（Redmine `receive_imap` / Jira mail handler 的最小面）：`IMAP_HOST/IMAP_PORT/IMAP_USER/IMAP_PASS` env 可选通道（**未配置即关闭**，与 SMTP 同构）；ticker 每分钟顺带一次邮箱 pass（`imap_seen` 投影让整轮按 Message-ID 幂等）+ `POST /api/imap/poll` admin 手动触发。
-- **路由**：发件人邮箱（parseaddr 规范化）匹配 `users.email` → 以**该用户身份**把邮件落成其默认项目（成员第一项；admin 取首项目）的一等任务——复用 `create_item` 全校验链，标题=邮件主题（≤200 截断）；**邮件正文转首条评论**（items 无 description 列；显式 `comment.created` 事件、不做 mention 解析——邮件正文永不触发 @通知）；无匹配发件人 → 配置了 `IMAP_FALLBACK_PROJECT_ID` 则降级为 intake 身份投该收件箱项目，否则 **ignore**（Redmine `--unknown-user=ignore`）。每种结局都是一条 `imap.message_processed` 事件（routed=user/intake/skipped），审计可回放。
-- **接缝**：imaplib 触碰只存在于 `_fetch_messages` 一个函数——测试 monkeypatch 它（同 mailer FakeSMTP 的缝），断言走完整路由/投影/幂等管线。
-- **测试**：test_imap_in 4 项（匹配归账 + 正文首评 + 事件归账 qa-wang/降级 intake + ignore 双态/Message-ID 幂等 + rebuild 存活/未配置诚实关闭 409）。
-
-### 34. 通道收尾三件套（M37-I113/I114/I115）
-
-### 34.1 IMAP 主题路由（I113）
-
-- **语义**（Jira Split Regex 轻量版，docs/01 §AJ.1）：subject 以 `[项目名]` 开头且发件人是**该项目成员**时，邮件路由到该项目并把前缀从标题剥离；非成员或项目名不存在 → 落回默认路由（默认项目/fallback/ignore）且**保留前缀**——信息不丢、不静默改道。纯函数零新表（`_route_message` 前置解析），完整正则路由留位。
-- **UI**：设置页「📮 外部收件」说明行提示 `[项目名] 主题` 前缀用法。
-- **测试**：test_imap_in +1 共 5 项（成员前缀命中剥离/非成员前缀落默认保留/不存在项目落默认）。
-
-### 34.2 邮件回复转评论（I114）
-
-- **语义**（Jira replies-become-comments，docs/01 §AJ.2）：邮件的 **In-Reply-To / References** 头指向本系统已处理过的 Message-ID（即由邮件建出的任务）时，该回复**不建新任务**而是给对应任务发一条评论——邮件线程与会话线合一；无命中保持建任务路径。
-- **实现**：`_fetch_messages` 补两个头 + `_find_thread_item` 用线程 Message-ID 集合查 imap_seen 的 message→item 归属；known sender 以其身份评论、unknown sender 走 intake 身份（routed=`reply` / `reply_intake` 留痕）；回复邮件自身的 Message-ID 同样入 imap_seen——幂等与线程链均可回溯。
-- **测试**：test_imap_in +1 共 6 项（回复命中 → 任务数不变 + 评论数增 + routed=reply）。
-
-### 34.3 动态流 Atom 订阅（I115）
-
-- **语义**（「订阅地址即凭证」，docs/01 §AJ.3）：`GET /api/portfolio/activity.atom?key=<feed_key>`——复用 M11 feed_key 认证（错误 key 401），与 GitHub/GitLab 的「Atom URL 携带 token」模式同构；聚合与 JSON 端点同源（`_activity_list` 共用：_visible 裁剪 + 八类白名单 + 倒序）。
-- **实现**：手写 Atom XML（`xml.sax.saxutils` 转义、`request.base_url` 拼绝对链接）——零依赖（I67 iCal 先例）；动态页「🔗 Atom」按钮用 getFeedKey 组订阅地址一键复制。
-- **测试**：test_activity +1 共 4 项（错误 key 401 / content-type=atom+xml / feed xmlns 结构 / 条目摘要入文）；**冒烟 43** 三段 roundtrip + rebuild（主题路由剥离/回复转评论任务数不变/Atom 认证+XML）。
-
-## 35. 层级与代位三件套（M38-I116/I117/I118）
-
-### 35.1 多级进度 rollup（I116）
-
-- **语义**（Jira Plans「Roll up」+ MS Project %Work Complete 加权口径，docs/01 §AK.1）：父级进度不再是个数占比，而是直接子级按 `estimate_hours` **加权**的完成度沿 parent 链**逐级上卷**（孙→子→父）；无估算/零估算回退权重 1.0（与 I106 S 曲线同口径）。I102 单层「n/m 计数」升维：`percent`（加权百分比）+ `done/total/spent`（全后代迭代计数）。
-- **实现**：`rollup.ts` 新增 `weightedProgress` 纯函数——`childrenOf` 索引 + `fractionOf` 递归（`MAX_ROLLUP_DEPTH=10` 深度上限防环，超深按自身状态降级）+ `rollupCounts` **迭代式**显式栈 + visited 环防护（计数无深度损失）；叶子不进结果。看板卡片/列表视图「🧩」徽标升级为 `percent% · done/total`（满 100% 转绿）、时间线父条形进度条同口径。
-- **测试**：vitest +5 共 14 项（三层链上卷 80% 手算 / estimate 权重 67% / 无估算回退 50% / 15 层深链+真环防御 / parents only + 满完成）；build 绿。
-
-### 35.2 休假代理转派（I117）
-
-- **语义**（Atlassian「on leave until」自动转派 + 社区「销假转回」，docs/01 §AK.2）：休假登记带可选 `delegate`（须与休假人**同项目成员**——否则代办者看不到工作，自指 422）；I98 每日 sweep 代位——**段首日**把休假人的活跃未完成任务（仅限与代理人共享的项目，done/归档不动）转给代理人，**段末日**自动转回原人。
-- **实现**：转派/转回都是普通 `item.assigned` 事件——payload 记 `original_assignee` + `delegate_off`（审计与"哪些任务是这段休假的"标记），被转派人的 assigned 通知走既有双通道零改动；末日转回按 `delegate_off` 标记查事件流定位（**不劫持代理人自有任务**，且仅当任务仍在代理人手上）。幂等靠构造：两向移动都以「当前指派方=预期侧」为前提，force 重扫是 no-op，休假期间的人工改派永不被覆盖。存量库 `user_time_off.delegate` ALTER 迁移；设置页休假卡加「代理人（可选）」输入与 chip 展示。
-- **测试**：test_time_off_delegate 5 项（校验 422 矩阵/首日仅共享活跃移动+payload+通知+幂等/末日转回不劫持自有任务/无 delegate no-op/rebuild 重放代理态）；build/vitest 绿。
-
-### 35.3 负载超载标记（I118）
-
-- **语义**（MS Project 自动 leveling 反模式的**检测式解法**，docs/01 §AK.3）：自动 leveling「把任务后移解决超载」会推出关键路径、恶化完成日期（社区公认）——AgentPM 明确不做自动改排（与 I104 手排期零感知一脉相承），只做透明检测：成员活跃任务数**严格大于**阈值时负载页标红「⚠ 超载」，重新均衡由人决策。阈值 `config.workload_overload_threshold` 默认 5，响应携带 `overload_threshold` 供前端提示。
-- **实现**：workload 端点在 on_leave 同一循环加 `overloaded` 布尔（`active > threshold`，纯投影零新表）；负载页红色「⚠ 超载」徽标与「🏖 休假中」并列。
-- **测试**：test_workload_overload_flag（6>5 默认阈值触发 / 3≤5 不触发 / 阈值改 2 后 3>2 翻转）；**冒烟 44** 三段 roundtrip + rebuild（三层链数据契约/转派转回+original_assignee+通知+幂等/超载标记+rebuild 重放）。
-
-## 36. 节奏与预测三件套（M39-I119/I120/I121）
-
-### 36.1 Cycles 迭代最小面（I119）
-
-- **语义**（Plane Cycles + OpenProject 17.3「Sprints 从 Versions 分家」，docs/01 §AL.1）：迭代是**按日期切片的工作容器**，与里程碑（发布点）正交——sprint 不是改名的 version；周期结束未完成项**显式结转**而非静默堆积。最小面：`cycle.created/updated/cancelled` 事件 + `project_cycles` 投影表（进 drop 清单，rebuild 可重放）+ 同项目周期日期重叠 409/倒序 422。
-- **实现**：工作项 `cycle_id` 挂载走 item.updated 白名单（PATCH 校验项目归属 422/未知 404，**空串=清除**——绕开 patch 的 None 过滤）；看板 `?cycle=` 过滤 + 「周期」下拉与「＋周期」Modal + QuickEdit「迭代周期」选择；sweep `_carryover`：周期结束次日把未完成项改挂下一周期（start_date 大于本周期 end_date 的最小者）并 emit `cycle.carried_over`（payload 记 from/to/items/count）——**只动归属不碰 start/due**，事实幂等（已 carried 的周期跳过；无下一周期诚实 no-op）。
-- **测试**：test_cycles 4 项（CRUD 409/422 矩阵+rebuild/挂载校验+看板过滤+重放/结转[完成项留在原周期、due 不动、payload 手算、幂等]/无下一周期 no-op）。
-
-### 36.2 退信静默与邮件过滤（I120）
-
-- **语义**（Jira/JSM suppression list + 标准 bounce 发件人约定，docs/01 §AL.2）：投递失败通知来自 **MAILER-DAEMON/POSTMASTER**（本地部分匹配、大小写与域名不敏感）；失败收件人定位走 **X-Failed-Recipients** 头（Exim/qmail 风格），缺失时回退正文引述地址（永不选中收件箱自身）。
-- **实现**：命中用户且其邮件通道仍开 → `email_notify` 置 0（routed=`suppress`）——**站内通知不受影响**，恢复=用户自己拨既有邮件开关（POST /notifications/prefs，与 M11 运行态同族）；未知收件人/通道已关 → routed=`bounce` 诚实无操作。入站过滤 `imap_ignore_addresses`（精确地址或 @域名后缀）与 `imap_ignore_keywords`（标题关键词，大小写不敏感）逗号分隔、命中即 routed=`ignored` 留痕；普通邮件路由零影响。全部走 `imap.message_processed` 事件审计（rebuild 存活）。
-- **测试**：test_mail_bounce 3 项（退信停投+站内照常+恢复+审计 rebuild/未知与正文引述与已关幂等/三种过滤命中+正常来信不受影响）。
-
-### 36.3 完成日预测（I121）
-
-- **语义**（Jira velocity chart + jira-agile-velocity，docs/01 §AL.3）：完成预测 = 近期吞吐外推——速率取**最近完整 ISO 周的周完成数中位数**（中位数抗单周毛刺；Jira committed vs completed 口径漂移的社区不满提示口径必须单一可解释），剩余活跃项 ÷ 速率 = 预计完成日。`GET /projects/{id}/forecast` 纯事件重放零新表（**事件溯源红利第八例**）。
-- **实现**：done 首达重放与 I85 燃尽/I106 EV 同口径（逐项最早 done、按事件 id 序）；周桶=今天往前最多 4 个完整周一至周日、须全部落在项目史内（`MIN(events.ts)` 判史深）；`<2` 个完整周 → `forecast:null, reason:"insufficient history"`、速率 0 → `"no completion velocity"`、无活跃项 → `"no active items"`（SPI 诚实 None 先例）。逐项风险：按 due 升序第 k 项预计完成日 `ceil((k+1)/rate*7)`，due 早于它即 at_risk（速度配不上期限的诚实清单）。报表「🔮 完成预测」卡：速率徽标 + 周完成柱 + 预计日期 + 风险行。
-- **测试**：test_forecast 3 项（新项目 insufficient null/回填两周完成史 median(3,1)=2 外推手算+at_risk+rebuild 相等[仅 generated_at 漂移]/零速率诚实 null）；**冒烟 45** 三段 roundtrip + rebuild（结转事实/退信 suppress 审计+运行态重置/预测手算）。
-
-## 37. 价值与可见性三件套（M40-I122/I123/I124）
-
-### 37.1 工时成本与预算（I122）
-
-- **语义**（OpenProject Budgets + Time and cost reporting，docs/01 §AM.1）：**工时是事实，成本是工时×费率的派生，预算是阈值线**——不另记第二套成本账。费率是用户自己的运行态偏好（M11 家族：email_notify/feed_key 同款，rebuild 重置属既有语义）；预算以**小时**计（避免货币单位纠缠），消耗比 = spent_hours/budget_hours。
-- **实现**：users.hourly_rate REAL[ALTER 迁移 + GET/POST /me/hourly-rate own-data 直写] + projects.budget_hours[并入 ProjectPatch → project.updated 投影白名单] + `GET /projects/{id}/cost-report`：按人 Σ(minutes)/60×rate（无费率用户 hours 计入、cost 如实为 0）、total_cost、burn_ratio、over_budget 标记——纯投影零新表。报表「💰 成本与预算」卡（预算输入/消耗进度条/按人成本条）+ 设置页「💰 我的时薪」卡。
-- **测试**：test_cost_report 3 项（费率 roundtrip+负数 422/手算 2h×100+3h×60+1h×0=380、burn 0.6→预算 5h 翻 1.2 超支、rebuild 后 hours 存活+费率重置成本归 0[运行态语义对账]/无预算 ratio=None）。
-
-### 37.2 工作项附件（I123）
-
-- **语义**（Redmine files/ 目录 + Jira DC 上传钳制，docs/01 §AM.2）：**二进制进磁盘、元数据进库**——attachments 投影表（drop 清单，rebuild 从事件重建行）+ 文件本体落 `data_dir/attachments/{project_id}/`（事件之外，与工件 Git 仓同理）；存储名 `{附件id}_安全化文件名`（非 \w.- 字符转 _、截 80 字符）防覆盖与路径注入。每文件默认 **10MB** 钳制（Jira DC 同款默认，`attachment_max_mb` 可配）超限 413、空文件 422。
-- **实现**：`item.attachment_added/removed` 事件（stored_path 存相对 data_dir 的路径，不泄漏环境绝对路径）；multipart 直传（Redmine 网页端同款——两步式 token 上传对单机自托管是过度设计）；删除是**软删**（行打 removed_at、磁盘文件保留，与回收站家族一致）；req() 对 FormData 跳过 JSON Content-Type（multipart boundary 必须由浏览器生成）。卡片「📎」按钮 + 附件 Modal（上传/列表/下载/删除）。
-- **测试**：test_attachments 3 项（roundtrip 字节一致+rebuild 元数据存活+软删后列表空下载 404/超限 413+空文件 422/错挂与不存在 404）。
-
-## 38. 节奏治理三件套（M41-I125/I126/I127）
-
-### 38.1 周期燃尽（I125）
-
-- **语义**（Plane Cycles 燃尽 + Jira burnup 教训，docs/01 §AN.1）：**燃尽线会掩盖范围变化**——完成 10 项+新增 10 项=线不动；故返回 **burnup 对**：每日 remaining + total 范围阶梯线（挂载/移出/结转都会抬线）。理想线锚定**首个有范围日**的 total（承诺日）而非窗口首日——晚挂载的周期也有可用的节奏参照。
-- **实现**：`GET /cycles/{id}/burndown` 单次有序重放（item.updated 的 cycle_id 变迁=范围进出；item.status_changed 首达 done/cancelled=解决日，I85 同口径）；窗口=start→min(today,end)；已取消/未知 404。报表「🔁 周期燃尽」卡：周期下拉 + SVG 三线（剩余绿/总范围橙虚/理想灰点）。
-- **测试**：test_cycle_burndown 3 项（手算：3 挂 1 完成→末点 3/2+加塞抬线 3→4+rebuild 相等[仅 generated_at]/取消 404/未知 404——同日挂载使承诺范围不可拆分为 4 的语义入档）。
-
-### 38.2 审批超时提醒（I126）
-
-- **语义**（ServiceNow timer→reminder 模式，docs/01 §AN.2）：Gate 审批 pending 超 `approval_reminder_days`（默认 3，config 可配）→ 每日 sweep 给项目 owner 发**审批超时提醒**——timer 检测 pending、自动提醒、幂等防骚扰；已决审批与无项目行不在射程。
-- **实现**：`_remind_pending_approvals` 挂入每日 sweep（第四个内建动作：due_soon/转派/结转/本项）——SQL 直筛 `status='pending' AND requested_at ≤ today-N`，`approval.pending_reminded` 每审批每日一事件（事件流幂等与 I105 同构）；通知走 NOTIFY_EVENTS/NOTIFY_KINDS 第七类 `approval_reminder` + plan_notifications 分支（提醒 owner）+ @on 投影——**两套名册都挂**；偏好矩阵自动多一行。
-- **测试**：test_approval_reminder 3 项（窗口边界：5 天前提醒+当日重扫幂等+今日请求不提醒/已决跳过零通知/无项目行跳过）——回填 requested_at 用 append-only INSERT + rebuild 重放（投影行带历史日期）。
-
-### 38.3 审计导出（I127）
-
-- **语义**（Jira 原生 audit CSV，docs/01 §AN.3）：审计页给人看、导出给审计员——`GET /projects/{id}/audit.csv` **admin only**（非 admin 403、未知项目 404）、`?days=` 日期窗口（默认 90、钳 1–3650），流式 CSV：id/ts/actor_type/actor_id/event_type/agg_type/agg_id/payload（截 200 字符防巨行）。事件流本身 append-only 即全量审计，导出只是它的一个窗口视图，绝非第二套账。
-- **实现**：events_api.py StreamingResponse + csv 模块转义；Audit 页「⬇ 全量导出」按钮（服务端窗口导出，区别于既有的客户端「导出 CSV」——那只覆盖当前过滤页 50 行）。
-- **测试**：test_audit_export 2 项（admin roundtrip：表头/事件类型/截断+非 admin 403+未知项目 404/days 窗口钳制）。**冒烟 47** 三段 roundtrip + rebuild（燃尽末点 3/2+理想线/提醒幂等+通知/导出类型覆盖+rebuild 行数一致）。
-
-## 39. 流量可见性三件套（M42-I128/I129/I130）
-
-### 39.1 看板阻塞徽标（I128）
-
-- **语义**（Businessmap 阻塞旗标 + Jira flag，docs/01 §AO.1）：**阻塞是一张卡的即时状态，必须在看板上一眼可见**——物理看板的红旗/贴纸的数字版。I78 闭锁守卫只在「想完成时」422，用户在卡片上看不到自己被谁挡着。
-- **实现**：list_items 载荷每项派生 `blocked` 布尔（两条 EXISTS：未完结 blocks 阻塞者 / 未完结 depends_on 前置——与 I78 闭锁守卫同口径，上游 done/cancelled 自动解除）；看板卡片红「🚧 被阻塞」Badge + 列表行 🚧 标记。纯派生零新表零事件。
-- **测试**：test_blocked_flag 2 项（blocks 徽标+阻塞者自身不标+上游完成解除/depends_on 方向[from=后继]+rebuild 稳定）。
-
-### 39.2 速率对比卡（I129）
-
-- **语义**（Jira velocity chart，docs/01 §AO.2）：每个已完结周期两根柱——**committed**（承诺日 total，I125「首个有范围日」锚点同款）vs **completed**（窗口内 first-resolved 数）——再加 `average_completed` 平均线；「哪个周期掉速了」跨周期对比一眼可见（I121 forecast 只有中位数、无周期维度）。
-- **实现**：`GET /projects/{id}/velocity`（cycles.py，与燃尽同源重放）——只取已完结（end<today、未取消）周期逐个重放 scope/resolution；无已完结周期诚实空列表（SPI 先例）。报表「📈 速率对比」卡双柱 SVG 与周期燃尽卡并列。
-- **测试**：test_velocity 2 项（双周期手算 committed 3/2、completed 2/1、平均 1.5+rebuild 相等[仅 generated_at]/无已完结周期诚实空）。
-
-### 39.3 收尾打包（I130）
-
-- **IntakePanel 非 owner 隐藏**（M38 审阅 C 级清账）：设置页「📮 外部收件」卡仅 owner/实例管理员渲染（调用点条件渲染——hooks 规则下不能组件内 early-return），彻底消除贡献者的 403 console 噪声；服务端 owner-only 边界不变。
-- **附件格式白名单**：`attachment_allowed_ext`（逗号分隔，空=全放行，Jira 9.15 allowlist 语义）——白名单外 415，大小写不敏感、无扩展名按空处理；与 10MB 尺寸钳制并列。
-- **审批升级链**：pending 超 `reminder_days×2` → `approval.pending_reminded` payload 带 `escalated=true`，实例管理员与 owner 同收提醒；owner/admin 同人时**收件人去重**（确定性通知 id `n_{事件}_{用户}` 会因同事件同用户双行碰撞）。
-- **测试**：test_closing_sweep 3 项（白名单大小写+415+空配置全放行/升级链 5 天不升级 7 天升级+admin 收件/服务端 owner-only 403 合同不变）；**冒烟 48** 三段 roundtrip + rebuild（阻塞派生/速率手算/升级链 roundtrip）。
-
-## 40. 交付闭环三件套（M43-I131/I132/I133）
-
-### 40.1 风险登记册（I131）
-
-- **语义**（PMBOK 概率×影响矩阵 + OpenProject 原生风险模块，docs/01 §AP.1）：风险是一等公民条目——probability(1-3)×impact(1-3)=score 自动排序，response/owner/review_date 齐备，生命周期 **open→mitigated→closed 严格单向**（跳级 422、closed 终态 409）——PMBOK 落地的最后一块核心知识域。
-- **实现**：risks.py 新域（risk.created/updated/closed 事件 + risks 投影表进 drop 清单）+ related_item_id 关联工作项（不存在 404）+ 「⚠ 风险登记册」页：3×3 矩阵热力（绿→琥珀→红按分）+ 列表按分降序 + 顶导航 ShieldAlert 入口。
-- **测试**：test_risks 2 项（打分 9/1+排序+越界 422+rebuild/生命周期跳级 422+关联 404+closed 后 409+rebuild 后登记册仍空）。
-
-### 40.2 项目收尾清单（I132）
-
-- **语义**（PMBOK Closing Process Group，docs/01 §AP.2）：收尾是**可检查的清单动作**——五项核对全绿才允许标记交付：活跃项=0、待决审批=0、待审工时单=0、未缓解风险=0、未达成里程碑=0（无里程碑空缺通过）。`completed` 是区别于 archived 的交付终态：同样冻结写（409，/reopen 恢复），但列表仍可见并带「✅ 已交付」徽标。
-- **实现**：`GET /projects/{id}/closure-checklist` 纯投影五项计数 + `POST /projects/{id}/complete`（`project.completed` 事件 → 状态 completed；清单不过 409 列出全部差项）；Dashboard「🏁 收尾清单」卡五格勾选 + 「标记交付」按钮。
-- **测试**：test_project_closure 2 项（差项列出→清空→全绿→complete→completed→写 409→reopen 恢复/rebuild 后 completed 存活）。
-
-### 40.3 完成自动重建（I133）
-
-- **语义**（YouTrack reset workflow，docs/01 §AP.3）：周期性任务有两类节拍——日历节拍（I98 recurring 按日建卡）与**完成节拍**（上一期完成 N 天后重建下一期，周会/月报/巡检的真实节奏）。任务 `recurrence_days=N` → done 首达后 N 天，sweep 重建一张同概念新卡。
-- **实现**：`_respawn_recurring`（sweep 第六个内建动作）——SQL 直接按「done 首达+recurrence_days ≤ 今天」筛源卡 → `create_item` 重建（全校验链）→ 继承指派/周期/递归本身（三条后续事件）→ `item.respawned` 事实（respawn_of 指回源卡）幂等防重复 + 审计链可查。卡片「🔄 N天」徽标。
-- **测试**：test_respawn 2 项（回填 done 首达 7 天→窗口到达 spawn 1 张[新卡 open+recurrence 继承+respawn_of 指回源卡+幂等 0]/未完成任务永不 respawn）；**冒烟 49** 三段 roundtrip + rebuild（风险打分+生命周期/收尾清单拒绝→全绿→交付→冻结→reopen/重建 roundtrip）。
-
-### 37.3 依赖图视图（I124）
-
-- **语义**（Jira Plans dependencies map，docs/01 §AM.3）：依赖要一张「谁挡着谁」的图——**分层＝拓扑层级**（无前驱第一层、逐层下移）、边分型（depends_on 灰虚、blocks 橙实）、节点按状态着色（done 灰 / 进行绿 / **被未完成上游阻塞红**）、CPM 关键链琥珀描边。M30 backlog 转正。
-- **实现**：`/p/{pid}/deps` 新页（DependencyGraphPage + 顶导航入口）——纯前端零后端改动：列表 API 取节点、逐项详情取 relations（时间线同款 N+1 范式）、critical-path API 取链；SVG 直绘（零图依赖，SCurve 同款）；「只看被阻塞的」过滤。环防护：层级计算深度 50 上限。
-- **测试**：**冒烟 46** 三段 roundtrip + rebuild（成本手算 120/预算 0.75、附件字节一致+元数据 rebuild、依赖图数据契约：edges+critical chain 覆盖三节链——CPM 只计双日期项、方向约定 from=前置）。
-
-### 32.2 常用回复（I108）
-
-- **语义**（GitHub Saved Replies，docs/01 §AH.2）：`Ctrl+.`（Mac `Cmd+.`）在评论框唤起常用回复面板；输入即过滤（标题或正文命中）、Enter 插入第一条、点击任意条插入**光标处**；「☆ 存为常用」把评论框中**选中的文本**一键入库（GitHub 的 create-saved-reply-from-selection 同款）。
-- **存储**：saved_replies 用户级运行态表（PRIMARY KEY (user_id, id)；**刻意不进 drop_projections**——同 notification_prefs 语义，rebuild 保留用户库）；own-data 严格隔离（GET 只见自己的、DELETE 他人 404）；标题 ≤100、正文 ≤2000 超长 422。
-- **API**：`GET/POST/DELETE /api/me/saved-replies`（登录态 own-data）。
-- **测试**：test_saved_replies 3 项（CRUD roundtrip + 双身份 own-data 隔离/四向校验边界/rebuild 保留）。
-
-## 33. 透明与容量三件套（M36-I110/I111/I112）
-
-### 33.1 跨项目动态流（I110）
-
-- **语义**（OpenProject「My activity」的浏览态聚合，docs/01 §AI.1）：区别于通知（推给个人）与项目内审计（管理视角），动态流回答「**我可见的项目里最近发生了什么**」——直接读事件流（八类白名单：item.created/status_changed、comment.created、milestone.created/achieved、approval.requested/granted/rejected），feed._visible 三层裁剪后按时间倒序输出。**零新表零重放**（事件溯源红利第七例：活动流免费）。
-- **API**：`GET /api/portfolio/activity?project_id=&kind=&actor=&limit=`（kind ∈ item/comment/milestone/approval；over-fetch 3 倍后按可见性裁剪再截 limit，保证页大小）；每条含 icon/中文摘要/操作者名/项目名/相对时间所需的全部字段（批量 map 补齐，无 N+1）。
-- **UI**：侧栏「📰 项目动态」全局页（/activity）——项目下拉 + 类型下拉过滤、30 秒自动刷新、点击项目名跳对应看板。
-- **测试**：test_activity 3 项（成员级裁剪函数级断言——**local 模式切身份即 implicit self 全可见，端点级裁剪不可测**[I87 同款边界]；admin 双项目倒序/过滤与 limit/rebuild 后序不变——直接读事件天然稳定）。
-
-### 33.2 个人 Availability 休假（I111）
-
-- **语义**（Taiga 容量痛点 / Jira PTO 插件语义，docs/01 §AI.2）：休假是**日期段**（start/end/reason），事件化为 `user.time_off_started` / `user.time_off_cancelled`（投影 user_time_off 表进 drop 清单）；own-data（GET/POST/DELETE /api/me/time-off），日期段与既有 active 段重叠 409、end<start 422。
-- **消费两端**：①负载页 `GET /api/portfolio/workload` 成员行 `on_leave: true`（今天落在任一 active 段）→ 前端「🏖 休假中」天蓝徽标；②「我的日程」月历叠加 🏖 日期标记（前端拉 /me/time-off 计算）。不做自动转派（转派规则留 backlog）。
-- **UI**：设置页「🏖 我的休假」卡（起止日期+原因登记、chip 列表、✕ 取消）。
-- **测试**：test_time_off 2 项（roundtrip + 四向重叠 409 + 倒序 422 + own-data 取消 404 / 当天覆盖 on_leave 标记 + rebuild 存活）。
-
-### 33.3 S 曲线扩展：AC 第三线 + 多基线并列（I112）
-
-- **语义**（EVM 完整三线 + 多基线叠图，docs/01 §AI.3）：**AC**（实际工时）重放 `time.logged` 按 `spent_on` 累计基线项 minutes（换算小时）；`time.deleted` 软删条目**永不计入**（先取删除集再过滤）。`?compare=<baseline_id>` 在同一组采样点上并列第二条基线的 PV——「计划漂移了多少」一眼可见。MS Project 原生不支持多基线+EV+AC 单图叠加（需导出 Excel 手工叠），事件溯源下零导出直出。
-- **API**：`GET /api/projects/{id}/baseline-curve?baseline_id=&compare=`——samples 每点加 `ac`；响应加 `ac_last` 与 `compare: {baseline_id, pv_total, samples}`（未知对比基线 404、与主基线相同则排除）。
-- **UI**：报表「📈 S 曲线」卡三线（PV 灰虚 / EV 实 / AC violet 点线）+「不对比 / 对比 <日期>」下拉 + 图例随内容显隐。
-- **测试**：test_baseline_curve +1 共 4 项（AC=90+30min=2h 手算 / 双基线 PV 6 vs 10 并列同采样点 / 删账后 AC=0.5）；**冒烟 42** 三段 roundtrip + rebuild（动态流交错+过滤/休假登记+🏖 标记/S 曲线 AC+compare）。
-
-### 32.3 引用快捷键（I109）
-
-- **语义**（GitHub quote reply 的键位化——I94 ❝ 按钮的三轮 backlog 转正）：看板 j/k 游标选中卡片后按 `R` → 直开该卡评论弹层并**预填引用最后一条评论**（`@作者 引用：` + 逐行 blockquote，复用 I94 预填格式）；`Enter` 依旧是打开评论不预填——两个键位、两种意图。预填是**一次性 effect**：仅在草稿为空时落笔，用户已输入的内容永不被覆盖。
-- **注册表**：SHORTCUTS 单一真源加 `R` 条目——`?` 浮层自动收录，零额外文案维护；vitest 断言 R 存在且 scope=看板。
-- **测试**：vitest shortcuts +1；**冒烟 41** 三段 roundtrip + rebuild（IMAP stub 归账+幂等/常用回复 own-data+rebuild 保留/引用草稿字节一致入库+重放）。
+- 条件谓词=标量相等/multiselect 包含；区间、AND/OR 组合待真实需求；
+- 单规则单动作；watch 白名单/规则动作集演进=代码真源先行、文档随轮解冻；
+- **运行态安全状态不入事件流**（webhook secret 换发、登录失败锁定计数——运行态而非账本事实）；
+- LLM API key 运行时注入（.env/环境变量），永不入事件流与文档；真实 LLM 面的行为验证=待办轮（候选池首位）；
+- 新增自动化面时的文档纪律：**同轮解冻本页对应节**（时效戳+覆盖声明随手更新——收口 DoD 含 docs/11 时效戳核对，本页同规）。
