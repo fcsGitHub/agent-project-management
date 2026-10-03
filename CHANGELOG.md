@@ -6,13 +6,19 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M98~M99 两轮一版（v0.15.0）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：空——v0.15.0 已发布（M98~M99 成版），下两轮（M100~M101）成版 v0.16.0。
+
+## [0.15.0] — 2026-10-03
+
+M98~M99（基线保鲜轮·文档声明与可访问性基线随版 + 发布工程第五轮·零漂移 v0.15.0 攒批发布）。攒批节奏第九版：两轮一版。本版零依赖变更（发布轮当轮实测双生态全零漂移——13 项运行时依赖全顶格，FastAPI 官方 2026-09-30 发版与 LangGraph releases 1.2.12 双外部互证）。基线：pytest 484 / 冒烟 96 / vitest 41 / 机械防腐七件 ✓。
 
 ### Fixed
 - **弹窗标题栏 landmark 伪影根治**（M98-I297）：Modal/Drawer 标题栏 `<header>`→`<div>`（语义无损）——弹窗在应用横幅内打开时不再产生重复 banner landmark（axe moderate×3）；语义由容器 `role=dialog`+`aria-labelledby` 承担。
+- **docs/11 写路由计数对账 141→143**（M99-I300）：M96-I290 改密双端点入台账（64→66）时部署指南冻结窗 §2.4 计数未随——发布轮解冻随车修正（check_write_gates 实测 143=middleware 77+reviewed 66）。
 
 ### Changed
 - **docs/12 覆盖声明随版至 v0.14.0**（M98-I296）：真源指针首次年度体检——修正「动作六种」漏记（实为七种，`create_recurring` 日历节拍自 M13 即在）；NOTIFY_KINDS/WATCHABLE_EVENTS/sweep 员清单对账一致。docs/06 §7 a11y 基线随版（受影响路由复扫 8 项全 clean+bundle 基线刷新）。
+- **docs/11 解冻至 v0.15.0**（M99-I300）：全部部署面时效戳随版；部署链已验证声明追加 M99-I299 零漂移重建对账（双镜像 build EXIT=0+镜像内 pip 对账 13/13 一致）。
 
 ## [0.14.0] — 2026-10-03
 

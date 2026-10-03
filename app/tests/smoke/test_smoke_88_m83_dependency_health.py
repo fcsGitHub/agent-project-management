@@ -85,7 +85,7 @@ def _vnum(parts: list[str]) -> tuple[int, ...]:
 @pytest.mark.smoke
 def test_smoke_88_release_pin():
     # 当前发布钉（冒烟 86 锁四锚一致，这里钉「这一版是几」——每次发布只改这一行）
-    assert APP_VERSION == "0.14.0"
+    assert APP_VERSION == "0.15.0"
 
     pkg = json.loads((ROOT / "web" / "package.json").read_text(encoding="utf-8"))
     assert pkg["version"] == APP_VERSION
