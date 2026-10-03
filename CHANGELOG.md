@@ -6,7 +6,11 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：空——v0.18.0 已发布（M104~M105 成版），下两轮（M106~M107）成版 v0.19.0。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M106 已入批（下述 Changed——v0.19.0 由 M106~M107 两轮成版·M107 收口 bump+tag+发布轮收口 DoD 两项第十次执行）。
+
+### Changed
+- **docs/06 §7 基线章随版对账 + docs/12 覆盖声明随版，均至 v0.18.0**（M106-I320）：v0.18.0 四项数字全持平（主 bundle 374.36KB / gzip 114.52KB / 36 chunks 五巡稳定 / precache 42 entries）——vite-plugin-pwa 2.0.0 构建插件零运行时影响实测坐实；docs/12 核验清单追加 M105 自动化面零新增。
+- **真源指针体检四巡零漂移**（M106-I321）：NOTIFY_KINDS 9 员 / ACTION_TYPES 七种 / WATCHABLE_EVENTS 15 员 / run_daily_sweep 在案；随行写门与 env 速查对账一致——M98 首巡/M102 二巡/M104 三巡后的机制回归第四巡。
 
 ## [0.18.0] — 2026-10-04
 
