@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-03 更新 · M100 看板拖拽补课轮 完成[v0.16.0 攒批中不 tag]，下一步 M101 前置调研[发布轮·候选池待核]）
+# HANDOFF —— 写给下一个新会话（2026-10-03 更新 · M101 调研已定案[发布工程第六轮·零漂移 v0.16.0 攒批发布·docs/01 §CT a25ee15]，下一步 I305 发布面验证）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -47,7 +47,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M101 前置调研（下一步·发布轮）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M100 纪律沉淀：候选池勿凭印象写——二十次自证见前轮[最新=M100 附录 C：jsDEV 拦截探针定位法/pointer 拖拽单代码路径范式/IAB 合成 pointer 事件可用+className 断言须等重渲]**；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]；**发布轮收口 DoD 两项**[release_drill+docs/11 时效戳核对——M89/M91/M93/M95/M97/M99 六次执行·M101 收口第七次]）→ 三路并行 WebSearch[已恢复常态] → docs/01 新节（§CT）+ docs/10 §M101 节 + 看板行 →「M101 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M101 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[test_llm_real 全 MockTransport+M44 后 50+ 轮无真实复演+M83 动 provider 面——key 实测十轮均缺·不成立则维持挂起]；②依赖漂移复核（发布轮惯例当轮实测——M99 双零后 M100 零依赖变更·预期低漂移）；③graph 端点入边补显（留观）；⑤删除工件恢复 UI（等证据）；⑥init_db 幂等化（真实事故再触发）；⑦演练 --seed-light（留观）；⑧事件表体积复测（留观至真实规模库）；⑨**v0.16.0 攒批发布=M100+M101 两轮成版（M101 收口 bump 四锚 0.15.0→0.16.0+CHANGELOG [0.16.0] 段[含 M100 拖拽]+tag+发布轮收口 DoD 两项第七次执行+依赖漂移当轮复核随车）**；⑩维护项长清单。[留观④dnd 触屏已于 M100 销项——真实缺口=Board 拖拽本轮已补齐]
+2. **M101 执行序（已定案·docs/01 §CT·调研定义 a25ee15）**：I305 发布面验证（M99-I299 惯例：Docker Desktop 引擎按需启动→`docker compose build` 双镜像 EXIT=0→app 镜像内 pip freeze 对账 13 项与开发机一致→web frozen-lockfile 构建→四锚预检 0.15.0[bump 前]）→ I306 四锚 bump 0.15.0→0.16.0（version.py/web/package.json/README/**test_version 第三钉随车**）+CHANGELOG [0.16.0] 段[M100+M101 精选·Unreleased 回空]+冒烟 88 发布钉 0.16.0+冒烟 86 解冻代标记 M99-I300→M101-I306+**docs/11 全节时效戳解冻至 v0.16.0（发布链声明追加 M101-I305·写路由计数 143 无变化确认·DoD 第 2 项）** → I307 v0.16.0 攒批发布+收口审阅（release_drill EXIT=0[RTO 入档]+全量回归[非 smoke pytest+冒烟 runner+vitest+build]+看板闭环行+附录 C M101 登记+HANDOFF 修剪+`git tag -a v0.16.0`——DoD 第 1 项·第七次执行）。**本轮要点**：依赖漂移连续第二轮双生态全零·纯发布轮最薄形态；React 19.3 两特性（ViewTransition/Trusted Types）与键盘拖拽模式已登记 backlog/精确留观；key 第十一轮实测仍缺挂起；留观五候选维持。每轮纪律见下条。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
