@@ -476,7 +476,9 @@ export function Board() {
         started = true;
         suppressClickRef.current = true;
         document.body.classList.add("select-none");
-        el.setPointerCapture(ev.pointerId);
+        // Capture is best-effort: window-level listeners already track the
+        // pointer, and environments without an active pointer (jsdom) throw.
+        try { el.setPointerCapture(ev.pointerId); } catch { /* no active pointer */ }
         setDragItem({ id: item.id, fromGroup: item.status_group });
       }
       setHoverGroup(dropGroupAt(ev.clientX, ev.clientY));
