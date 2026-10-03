@@ -1,12 +1,12 @@
 /** Board: five-bucket kanban with NL-aware filters, multi-select, inline batch start.
  * Supports custom-field grouping (M6-I21): ?group=field:<id> switches columns.
  * M25-I79: list view renders progressively (LIST_PAGE rows per page + load more). */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api, API_BASE } from "../lib/api";
+import { api, API_BASE, type BoardData, type Item } from "../lib/api";
 import { customFieldBadges } from "../lib/fmt";
 import { isTypingTarget } from "../lib/shortcuts";
 import { weightedProgress } from "../lib/rollup";
@@ -412,6 +412,96 @@ export function Board() {
     invalidateItemData(qc);
   };
 
+  // M100-I302: drag a card to another lifecycle bucket — pointer events give
+  // mouse and touch one code path (HTML5 DnD never fires dragstart on a touch
+  // screen). Drop semantics: the item's concept first status inside the target
+  // group; lifecycle buckets only (custom-field columns carry no status).
+  const [dragItem, setDragItem] = useState<{ id: string; fromGroup: string } | null>(null);
+  const [hoverGroup, setHoverGroup] = useState<string | null>(null);
+  const suppressClickRef = useRef(false);
+  const lifecycleBoard = !board.data?.groups;
+  const boardQueryKey = ["board", pid, featureId, group, cycleId, swimlane] as const;
+
+  const moveItemToGroup = async (item: Item, targetGroup: string) => {
+    const col = board.data?.columns?.find(
+      (c) => c.concept_id === item.concept_id && c.group === targetGroup,
+    );
+    if (!col) {
+      toast.error(`「${GROUP_NAME[targetGroup] ?? targetGroup}」没有该概念的状态`);
+      return;
+    }
+    if (col.status === item.status) return;
+    // M20 conflict idiom: optimistic move, invalidation rollback on failure.
+    qc.setQueryData<BoardData>(boardQueryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        buckets: old.buckets.map((b) => {
+          const without = b.items.filter((i) => i.id !== item.id);
+          if (b.id === targetGroup && targetGroup !== item.status_group) {
+            return { ...b, items: [...without, { ...item, status: col.status, status_group: targetGroup }] };
+          }
+          return { ...b, items: without };
+        }),
+      };
+    });
+    try {
+      await api.patchItem(item.id, { status: col.status });
+      toast.success(`已移至「${col.name}」`);
+    } catch (e) {
+      toast.error(`移动失败：${e instanceof Error ? e.message : e}`);
+    } finally {
+      invalidateItemData(qc);
+    }
+  };
+
+  const beginCardDrag = (e: React.PointerEvent<HTMLDivElement>, item: Item) => {
+    if (!lifecycleBoard) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const el = e.currentTarget;
+    let started = false;
+    const cleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      document.body.classList.remove("select-none");
+    };
+    const dropGroupAt = (x: number, y: number) =>
+      document.elementFromPoint(x, y)?.closest("[data-drop-group]")?.getAttribute("data-drop-group") ?? null;
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 6) return;
+        started = true;
+        suppressClickRef.current = true;
+        document.body.classList.add("select-none");
+        el.setPointerCapture(ev.pointerId);
+        setDragItem({ id: item.id, fromGroup: item.status_group });
+      }
+      setHoverGroup(dropGroupAt(ev.clientX, ev.clientY));
+    };
+    const up = (ev: PointerEvent) => {
+      const target = started ? dropGroupAt(ev.clientX, ev.clientY) : null;
+      cleanup();
+      setDragItem(null);
+      setHoverGroup(null);
+      if (!started) return;
+      // click (if any) fires synchronously after pointerup — let it consume the
+      // suppress flag, then clear it so a later click isn't swallowed.
+      setTimeout(() => { suppressClickRef.current = false; }, 0);
+      if (target && target !== item.status_group) void moveItemToGroup(item, target);
+    };
+    const cancel = () => {
+      cleanup();
+      setDragItem(null);
+      setHoverGroup(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+  };
+
   // M22-I70: bulk edit — one PATCH per item server-side, per-item results
   const applyBatch = async (patch: Record<string, unknown>) => {
     if (!Object.keys(patch).length) { toast.error("先选择要修改的值"); return; }
@@ -815,7 +905,9 @@ export function Board() {
           const wipCount = board.data?.wip?.[col.id];
           const overWip = wipLimit != null && wipCount != null && wipCount > wipLimit;
           return (
-            <div key={col.id} className="flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50">
+            <div key={col.id} data-drop-group={lifecycleBoard ? col.id : undefined}
+              className={cx("flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50",
+                dragItem && hoverGroup === col.id && "ring-2 ring-acc")}>
               <div className="flex items-center justify-between px-3 py-2">
                 <Badge tone={overWip ? "red" : col.tone}>{col.label}</Badge>
                 {overWip ? (
@@ -851,11 +943,14 @@ export function Board() {
                       <Card
                         key={item.id}
                         data-kb={item.id}
-                        onClick={() => toggle(item.id)}
+                        onPointerDown={(e) => beginCardDrag(e, item)}
+                        onClick={() => { if (suppressClickRef.current) { suppressClickRef.current = false; return; } toggle(item.id); }}
                         className={cx(
                           "cursor-pointer p-2.5 text-xs transition-all",
+                          lifecycleBoard && "touch-none",
                           selected.has(item.id) && "ring-2 ring-acc",
                           listed[kbIndex]?.id === item.id && "ring-2 ring-warnln",
+                          dragItem?.id === item.id && "opacity-40",
                         )}
                       >
                         <div className="flex items-start gap-1.5">
@@ -907,11 +1002,14 @@ export function Board() {
                     <Card
                       key={item.id}
                       data-kb={item.id}
-                      onClick={() => toggle(item.id)}
+                      onPointerDown={(e) => beginCardDrag(e, item)}
+                      onClick={() => { if (suppressClickRef.current) { suppressClickRef.current = false; return; } toggle(item.id); }}
                       className={cx(
                         "cursor-pointer p-2.5 text-xs transition-all",
+                        lifecycleBoard && "touch-none",
                         selected.has(item.id) && "ring-2 ring-acc",
                         listed[kbIndex]?.id === item.id && "ring-2 ring-warnln",
+                        dragItem?.id === item.id && "opacity-40",
                       )}
                     >
                       <div className="flex items-start gap-1.5">
