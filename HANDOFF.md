@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-03 更新 · M99 发布工程第五轮 完成[v0.15.0 已 tag]，下一步 M100 前置调研[候选池待核]）
+# HANDOFF —— 写给下一个新会话（2026-10-03 更新 · M100 调研已定案[看板拖拽补课轮·Board 拖拽换列 pointer 统一鼠标与触屏·docs/01 §CS 78a1345]，下一步 I302 拖拽实现）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -46,7 +46,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M100 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（**M63~M99 纪律沉淀：候选池勿凭印象写——二十次自证见前轮[最新=M99 附录 C：发布轮解冻随车对账抓真漂移[docs/11 计数 141→143]/第三处版本钉 test_version 字面量冒烟首跑 RED 拦截/零漂移发布轮形态入档]**；机械防腐七件在[check_env_doc/check_write_gates/冒烟源码锁/版本四锚锁/冒烟 88 依赖闭包锁/check_test_dates 日期台账/axe a11y 锁]；**发布轮收口 DoD 两项**[release_drill+docs/11 时效戳核对——M89/M91/M93/M95/M97/M99 六次执行·M101 收口第七次]）→ 三路并行 WebSearch[**已恢复**·M99 三路全通] → docs/01 新节（§CS）+ docs/10 §M100 节 + 看板行 →「M100 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M100 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[test_llm_real 全 MockTransport+M44 后 50+ 轮无真实复演+M83 动 provider 面——key 实测九轮均缺·不成立则维持挂起]；②依赖漂移复核（M99 刚扫双生态全零·两轮内无需重测）；③graph 端点入边补显（留观）；④dnd 触屏改期 pointer 重写（留观）；⑤删除工件恢复 UI（等证据）；⑥init_db 幂等化（真实事故再触发）；⑦演练 --seed-light（留观）；⑧事件表体积复测（留观至真实规模库[M98 新登记]）；⑨**v0.16.0 攒批自 M100 起**（M100+M101 两轮成版·M100 不 tag——M101 收口 bump 四锚 0.15.0→0.16.0+CHANGELOG [0.16.0]+tag+发布轮收口 DoD 两项第七次执行）；⑩维护项长清单。
+2. **M100 执行序（已定案·docs/01 §CS·调研定义 78a1345）**：I302 Board 拖拽换列实现（pointer 单代码路径：阈值启动+setPointerCapture+elementFromPoint 落点+落列高亮；落列语义=目标 status_group 默认状态[概念 statuses 该组首个·同组不动]；仅默认五桶与「状态」分组视图启用；PATCH /items/{id} 乐观更新+422/失败回滚[M20 冲突模式]+toast；卡片 touch-none[I63 习语]）→ I303 可达性与测试收口（WCAG 2.5.7 对账=QuickEdit 单指针替代走查确认+j/k 键盘 I95 在案；vitest 拖拽三态单测[jsdom pointer：启动/合法落列/422 回滚]；IAB 鼠标拖拽走查[证据=PATCH 收到+列变化·M87 纪律]；axe Board×双主题复扫[docs/06 §7 法]）→ I304 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M100+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.16.0 不 tag**——M101 收口 bump 四锚 0.15.0→0.16.0+CHANGELOG [0.16.0]+tag+DoD 两项第七次执行）。**本轮要点**：留观④dnd 触屏证据过期销项[Timeline 已 pointer/Schedule 已两段点选/Board 零拖拽=真实缺口]；零新依赖纪律——不引 dnd-kit 不做 polyfill·pointer 手写即达；key 第十轮实测仍缺挂起；留观五候选维持（graph 入边/工件恢复/init_db/--seed-light/事件表体积复测）。每轮纪律见下条。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
