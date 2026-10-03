@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-04 更新 · M105 发布工程第八轮 调研已定案[ee3acf6]，下一步 I317 vite-plugin-pwa 2.0.0 一车）
+# HANDOFF —— 写给下一个新会话（2026-10-04 更新 · M105 发布工程第八轮 完成[v0.18.0 已 tag]，下一步 M106 前置调研[候选池待核]）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -43,6 +43,7 @@
 - **M102 基线保鲜第二轮·文档随版与留观澄清（I308-I310，2026-10-03 完成，docs/01 §CU + docs/10 §M102）**：**docs/12 覆盖声明随版至 v0.16.0**[M99~M101 三轮零新增核验+真源指针体检二巡零漂移——M98 体检机制回归测试通过] + **docs/06 §7 基线章随版**[M100-I303 Board×双主题复扫 0 违规补归档+bundle 383.34KB/36 chunks 持平]+§3.4 拖拽交互补记 + **graph 入边留观技术澄清**[item_relations 按 from 侧记账→跨项目入边目标项目图不可见·修复=入向第二查询+占位语义·维持留观待真实使用证据·设计预研在案] + 三 backlog/留观外部增厚[ViewTransition 列表重排模式/Trusted Types Report-Only 路径/SQLite 增长管理预研] + I310 收口[全量回归 484/96/45/build+三件直测 ✓·攒批 v0.17.0 不 tag]。基线 pytest 484（非 smoke 484+冒烟 96[89 文件]）/ vitest 45 / 机械防腐七件 ✓ / tag v0.5.0~v0.16.0（v0.17.0 攒批中）。
 - **M103 发布工程第七轮·lucide-react 跟随与 v0.17.0 攒批发布（I311-I313，2026-10-03 完成，docs/01 §CV + docs/10 §M103）**：依赖漂移当轮实测[后端连续第三轮零漂移+前端一项 lucide-react 1.50.0→1.51.0 minor=M97 同判发布轮一车] + I311 一车[manifest range 抬升逐行核——pnpm update 重写 manifest 外部检索与实测出入再证·以仓库纪律为准+同车+三关绿] + I312 发布面验证[双镜像 EXIT=0+镜像内对账 13/13+web frozen-lockfile 含 1.51.0+四锚预检 0.16.0] + I313 四锚 bump 0.17.0[第三钉一次改齐零 RED]+CHANGELOG [0.17.0] 段[M102+M103 精选·Unreleased 回空攒批指向 v0.18.0]+冒烟 88 钉+smoke 86 代标记 M101-I306→M103-I313+docs/11 解冻[演练 DoD 计数七→八次]+release_drill RTO 10.0s+全量回归[484/96/45/build]+tag v0.17.0[DoD 两项第八次执行]。WebSearch 索引陈旧不采信第二例[registry 直查为权威源]。
 - **M104 基线保鲜第三轮·v0.17.0 随版记录清偿（I314-I316，2026-10-03 完成，docs/01 §CW + docs/10 §M104）**：docs/06 §7 基线章随版对账 v0.17.0[主 bundle 383.34→374.36KB[-9.0KB]·gzip 118.31→114.52KB·36 chunks 四巡稳定——lucide 1.51.0 一车后缩小·changelog GitHub 直抓无 tree-shaking 声明·归因未定如实记] + docs/12 覆盖声明随版至 v0.17.0[M103 自动化面零新增核验] + 真源指针体检三巡零漂移[NOTIFY_KINDS 9/ACTION_TYPES 7/WATCHABLE_EVENTS 15/run_daily_sweep+写路由 143+env 速查随行] + 429 降级三路走通[WebFetch 权威源直抓+registry 直查]与外部知识陈旧第三例[lucide-react 0.x 说——实测在案] + 攒批 v0.18.0 不 tag[M105 收口 bump+tag+DoD 第九次]。
+- **M105 发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布（I317-I319，2026-10-04 完成，docs/01 §CX + docs/10 §M105）**：major 一车判据破坏面实质裁量延伸[唯一 breaking=assets-generator peer 扩展·本仓未装·vite peer 含 ^8·workbox 无顺抬——验证面加 PWA 产物核对层：generateSW 保持+precache 42 entries 完全一致] + pnpm update 不动 major 超 range·显式 add 改 range[操作差异入档] + I318 发布面验证[双镜像+对账 13/13+frozen-lockfile+四锚预检 0.17.0] + I319 五点 bump 0.18.0 一次改齐零 RED+CHANGELOG [0.18.0]+docs/11 解冻[九次执行计数]+release_drill RTO **9.3s 历史最优**+全量回归 484/96/45/build+tag v0.18.0[**DoD 两项第九次执行**] + 429 降级第二轮走通+cwd 漂移事故即删止损。
 
 ## 3. 现在卡在哪
 
@@ -51,7 +52,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M105 执行序（已定案 §CX ee3acf6：发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布[I317-I319·约 2 人日]）**：**I317** vite-plugin-pwa 2.0.0 一车（`cd web && pnpm update vite-plugin-pwa`+git diff manifest/lockfile 逐行核[workbox ^7.4.1 peer 顺抬显形即记录]+tsc/vitest/build 三关+**PWA 产物核对层**：dist/sw.js 存在+mode generateSW+precache entries 与 1.3.0 基线 42 对账+manifest.webmanifest 不变）→ **I318** 发布面验证（compose 双镜像 EXIT=0+app 镜像内 pip 对账 13/13+web frozen-lockfile 构建含 2.0.0+四锚预检 0.17.0 全一致）→ **I319** 四锚 bump 0.17.0→0.18.0（**三处发布钉五点一次改齐**：version.py+web/package.json+README+test_version 第三钉+冒烟 88 钉）+CHANGELOG [0.18.0] 段[M104+M105 精选·Unreleased 回空]+冒烟 86 解冻代标记 M104-I316→M105-I319+**docs/11 全节时效戳解冻至 v0.18.0**[演练 DoD 计数八→九次·部署链声明追加 I318 pwa 车后重建对账]+`python tools/release_drill.py` EXIT=0（**DoD 两项第九次执行**·RTO 入档）+全量回归+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.18.0`。定案依据：major 版本号实质≈peer 行（唯一 breaking=assets-generator peer 扩展·本仓未装）——M93/M97/M103 一车判据按破坏面实质裁量延伸·无发布轮 major 一车先例故验证面加层。挂起/留观维持：真实 LLM 轮（key 第十五轮实测缺）·graph 入边[修复预研在案]·工件恢复 UI·init_db 幂等化·--seed-light·事件表体积复测[SQLite 策略预研在案]·键盘拖拽模式[精确留观]。429 延续：WebFetch/registry 权威源降级已走通[M104/M105 两轮]。
+2. **M106 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（§CY 为下一节）→ LLM key 第十六轮在场检查（count-grep 只）→ 三路 WebSearch[429 窗 2026-10-07 16:06 重置——未恢复则 WebFetch/registry 权威源降级[M104/M105 两轮已走通]]→ docs/01 新节（§CY）+ docs/10 §M106 节 + 看板行 →「M106 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M106 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[key 实测十五轮均缺·维持挂起]；②依赖漂移复核（M105 刚扫[后端四连零/前端 pwa major 已车]·两轮内免测）；③graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；④删除工件恢复 UI（等证据）；⑤init_db 幂等化（真实事故再触发）；⑥演练 --seed-light（留观）；⑦事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑧**v0.19.0 攒批自 M106 起**（M106+M107 两轮成版·M106 不 tag——M107 收口 bump 四锚 0.18.0→0.19.0+CHANGELOG [0.19.0]+tag+发布轮收口 DoD 两项第十次执行）；⑨维护项长清单。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记：仅当引入图标资产生成需求时再评估]
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
@@ -180,7 +181,7 @@ python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 �
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
 python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 python tools/release_drill.py         # 一键发布演练（发布轮收口 DoD·M88 起——备份→毁库→恢复→对账→RTO，EXIT=0 即过）
-git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.17.0 十三枚在案·版本四锚由冒烟 86+88 锁定）
+git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.18.0 十四枚在案·版本四锚由冒烟 86+88 锁定）
 cd web && pnpm vitest run             # 前端单测 45 项（含 axe a11y 机械锁）；pnpm build 须绿（主 bundle 374.36KB·36 chunks——v0.17.0 实测[M104-I314 对账]·页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
