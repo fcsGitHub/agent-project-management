@@ -2668,3 +2668,22 @@ M101 = **发布工程第六轮·零漂移 v0.16.0 攒批发布**：I305 发布�
 **CU.4 M102 取舍**
 
 M102 = **基线保鲜第二轮·文档随版与留观澄清**：I308 docs/12 随版+指针体检二巡 / I309 docs/06 §7 归档+§3.4 拖拽补记 / I310 收口审阅，约 2 人日。ViewTransition 实施（backlog·无动因）、Trusted Types/CSP 部署面（backlog·无部署面动因）、graph 入边补显（留观·修复设计已预研）、键盘拖拽模式（精确留观）、事件表增长策略实施（留观·预研在案）、真实 LLM 回归轮（key 第十二轮实测仍缺）留 backlog。
+## CV. M103 前置调研：发布工程第七轮·lucide-react 跟随与 v0.17.0 攒批发布（2026-10-03）
+
+> 目标协议触发：M102 完成后开启。防重查：**①真实 LLM 回归轮 key 第十三轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边[修复预研在案]/工件恢复/init_db/--seed-light/事件表体积复测[SQLite 增长策略预研在案]）；**②依赖漂移发布轮惯例当轮实测**：后端 `pip list --outdated ∩ requirements` **空**（连续第三轮零漂移）；前端 `pnpm outdated` **一项——lucide-react 1.50.0→1.51.0（minor）**——M97 openai minor 同判：不构成独立主题·但 v0.17.0 攒批义务落在本轮（M102 已不 tag）：发布轮起点一车跟随+全量冻结=配对轮实体（M93/M97 惯例沿用）。**验证面**：图标库纯展示组件——消费面=全部页面 import 的具名图标[构建期树摇]·验证=装后 vitest 45+build+tsc（渲染面图标缺失在 vitest/走查面即暴露）+npm registry 直查核实（`pnpm view lucide-react version`=1.51.0·WebSearch 索引陈旧不采信——registry 为权威源）。三路调研：①**lucide-react 1.51.0 changelog 检索无果**[索引停留在 1.33 时代——权威源=npm registry/GitHub releases·变更面核实降级为「装后全量回归+图标消费面走查」·M97 openai minor 同款降级]；②**pnpm update 行为外部检索与 M93 ① 实测有出入**（检索称默认 update 只动 lockfile 不重写 manifest range·M93 实测 pnpm 10 抬升了 ^range——**以仓库纪律为准**：更新后 `git diff package.json` 逐行核对+manifest/lockfile 同车提交）；③**同业动向扫描**（OpenProject/Plane/Focalboard 十月无新发版公告·Focalboard=轻量 kanban 定位不变·Plane 快迭代定位不变——对标值守望零新发现）。定案 **M103 = 发布工程第七轮·lucide-react 跟随与 v0.17.0 攒批发布**。
+
+**CV.1 lucide-react 1.51.0 一车（I311）**
+
+- `pnpm update lucide-react`（^1.50.0 range 内）+ `git diff package.json` 逐行核对[M93 ① 纪律] + manifest/lockfile 同车 + tsc/vitest 45/build 三关验证。
+
+**CV.2 发布面验证（I312）**
+
+- M99-I299/M101-I305 惯例：Docker Desktop 引擎按需启动 → `docker compose build` 双镜像 EXIT=0 → app 镜像内 pip freeze 对账（13 项与开发机一致·lucide 只影响 web 镜像）→ web 镜像 frozen-lockfile 构建含 1.51.0 → 四锚预检（0.16.0 全一致·bump 前）。
+
+**CV.3 四锚 bump 0.16.0→0.17.0+docs/11 对账解冻+发布（I313——DoD 两项第八次执行）**
+
+- 四锚 bump（version.py/web/package.json/README/**test_version 第三钉**）+CHANGELOG [0.17.0] 段[M102+M103 精选·Unreleased 回空]+冒烟 88 发布钉 0.17.0+冒烟 86 解冻代标记 M101-I306→M103-I313+**docs/11 全节时效戳解冻至 v0.17.0**（演练 DoD 计数七→八次·部署链声明追加 M103-I312 lucide 小车后重建对账）+release_drill EXIT=0（RTO 入档）+全量回归+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.17.0`。
+
+**CV.4 M103 取舍**
+
+M103 = **发布工程第七轮·lucide-react 跟随与 v0.17.0 攒批发布**：I311 一车 / I312 发布面验证 / I313 bump+DoD 两项+tag+收口审阅，约 2 人日。lucide-react major 化（无迹象）、图标按需字体化（无体积动因·36 chunks 持平）、依赖机器人 CI 化（无 CI 面）、pip-compile/hash pinning（M86 留观）、真实 LLM 回归轮（key 第十三轮实测仍缺）、留观五候选留 backlog。
