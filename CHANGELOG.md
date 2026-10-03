@@ -6,7 +6,11 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：空——v0.16.0 已发布（M100~M101 成版），下两轮（M102~M103）成版 v0.17.0。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M102~M103 两轮一版（v0.17.0）。
+
+### Changed
+- **docs/12 覆盖声明随版至 v0.16.0**（M102-I308）：M99~M101 三轮自动化面零新增核验入档；真源指针体检二巡零漂移（NOTIFY_KINDS 9 员/WATCHABLE_EVENTS/ACTION_TYPES 七种/run_daily_sweep 对账一致）。
+- **docs/06 §7 基线章随版至 v0.16.0 + §3.4 拖拽补记**（M102-I309）：M100-I303 Board×双主题复扫 0 违规补归档+bundle 基线随版（36 chunks/主 bundle 383.34KB 持平）；§3.4 Board 章补卡片拖拽换列交互描述。
 
 ## [0.16.0] — 2026-10-03
 
