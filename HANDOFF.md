@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-04 更新 · M105 发布工程第八轮 完成[v0.18.0 已 tag]，下一步 M106 前置调研[候选池待核]）
+# HANDOFF —— 写给下一个新会话（2026-10-04 更新 · M106 基线保鲜第四轮 调研已定案[fe685fd]，下一步 I320 双文档随版）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -52,7 +52,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M106 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（§CY 为下一节）→ LLM key 第十六轮在场检查（count-grep 只）→ 三路 WebSearch[429 窗 2026-10-07 16:06 重置——未恢复则 WebFetch/registry 权威源降级[M104/M105 两轮已走通]]→ docs/01 新节（§CY）+ docs/10 §M106 节 + 看板行 →「M106 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M106 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[key 实测十五轮均缺·维持挂起]；②依赖漂移复核（M105 刚扫[后端四连零/前端 pwa major 已车]·两轮内免测）；③graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；④删除工件恢复 UI（等证据）；⑤init_db 幂等化（真实事故再触发）；⑥演练 --seed-light（留观）；⑦事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑧**v0.19.0 攒批自 M106 起**（M106+M107 两轮成版·M106 不 tag——M107 收口 bump 四锚 0.18.0→0.19.0+CHANGELOG [0.19.0]+tag+发布轮收口 DoD 两项第十次执行）；⑨维护项长清单。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记：仅当引入图标资产生成需求时再评估]
+2. **M106 执行序（已定案 §CY fe685fd：基线保鲜第四轮·v0.18.0 随版记录清偿[I320-I322·约 2 人日]）**：**I320** docs/06 §7 v0.18.0 随版条目（对账全持平：主 bundle 374.36KB/gzip 114.52KB/36 chunks 五巡稳定/precache 42——pwa 构建插件零运行时影响实测坐实·「持平」亦须随版记录）+docs/12 头注随版（M104-I314→M106-I320·覆盖至 v0.18.0+M105 自动化面零新增核验一行）→ **I321** 真源指针体检四巡（NOTIFY_KINDS/ACTION_TYPES 七种/WATCHABLE_EVENTS/run_daily_sweep 四组 grep 对账）+随行对账（check_write_gates 写路由 143/check_env_doc env 速查）→ **I322** 收口（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M106+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.19.0 不 tag**——M107 收口 bump 四锚 0.18.0→0.19.0+CHANGELOG [0.19.0]+tag+发布轮收口 DoD 两项第十次执行）。挂起/留观维持：真实 LLM 轮（key 第十六轮实测缺）·graph 入边[修复预研在案]·工件恢复 UI·init_db 幂等化·--seed-light·事件表体积复测[SQLite 策略预研在案]·键盘拖拽模式[精确留观]·@vite-pwa/assets-generator[防重查登记]。429 延续：WebFetch/registry 权威源降级三轮已走通。
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
