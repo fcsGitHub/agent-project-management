@@ -2630,3 +2630,22 @@ M99 = **发布工程第五轮·零漂移 v0.15.0 攒批发布**：I299 发布面
 **CS.4 M100 取舍**
 
 M100 = **看板拖拽补课轮·Board 拖拽换列**：I302 pointer 拖拽实现 / I303 可达性+测试+走查 / I304 收口审阅，约 3 人日。dnd-kit 等拖拽库（零新依赖纪律·pointer 手写即达·Timeline I63 同款）、HTML5 DnD polyfill（dragdroptouch——与其补丁不如正统 pointer 单路径）、长按启动延迟（move 阈值即动+touch-none 已防滚动冲突·真实误触留观察）、列内排序（无 order 字段·超出换列语义留观）、graph 入边补显（留观维持）、真实 LLM 回归轮（key 第十轮实测仍缺）留 backlog。
+## CT. M101 前置调研：发布工程第六轮·零漂移 v0.16.0 攒批发布（2026-10-03）
+
+> 目标协议触发：M100 完成后开启。防重查：**①真实 LLM 回归轮 key 第十一轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/工件恢复/init_db/--seed-light/事件表体积复测）；**②依赖漂移发布轮惯例当轮实测（双生态）**：前端 `pnpm outdated` **空**+后端 `pip list --outdated ∩ requirements` **空**——M99 全零后 M100 零依赖变更·连续两轮全零漂移·本轮=纯发布轮（M99 §CR「零漂移发布轮形态」沿用：无依赖车时实体面=发布面验证+解冻随车对账）。三路调研全部走通：①**React 19.3**（2026-09-09 官方博客·minor 非破坏——`<ViewTransition>` 与 Fragment Refs 转正稳定+Trusted Types 支持[CSP 级 XSS 防御·与 M45 安全谱系同向]）与库内 react 19.3.0 零漂移互证·ViewTransition/Trusted Types 登记 backlog 观察[无当轮动因]；②**构建链动向**（Vite 8=Rolldown 内核 2026-03 发版·Rolldown 1.0=2026-05·2026-10 为补丁流[preload CSS 修复/Rolldown runtime 服务]）——本仓 M87 已早期上车 vite 8.3.2 Rolldown·地位验证·零动作；③**ARIA 拖拽无障碍回望 M100**（APG 无官方 DnD 模式·`aria-grabbed`/`aria-dropeffect` 已废弃；业界三路径=React Aria 键盘拖拽模式[Enter 拾起+箭头移动]/Dragon Drop aria-pressed/WebAIM 共识「关键是键盘途径存在」）——M100 裁决外部验证成立：键盘途径（j/k+Enter 开 QuickEdit 状态字段）与单指针替代已在·拖拽为增强·**未用废弃属性**✓；「键盘拖拽模式（Enter 拾起/箭头移动）」登记为精确留观[触发=真实辅助技术用户反馈]。定案 **M101 = 发布工程第六轮·零漂移 v0.16.0 攒批发布**。
+
+**CT.1 发布面验证（I305）**
+
+- M97-I294/M99-I299 惯例：Docker Desktop 引擎按需启动 → `docker compose build` 双镜像 EXIT=0 → app 镜像内 pip freeze 对账（13 项与开发机一致）→ web `pnpm build --frozen-lockfile` EXIT=0 → 四锚预检（0.15.0 全一致·bump 前基线）。
+
+**CT.2 四锚 bump 0.15.0→0.16.0+docs/11 对账解冻（I306——DoD 第 2 项）**
+
+- version.py/web/package.json/README/test_version 四锚 bump（**三处发布钉经验：test_version 字面量随车**）+CHANGELOG [0.16.0] 段（M100+M101 精选·Unreleased 回空）+冒烟 88 发布钉 0.16.0+冒烟 86 解冻代标记 M99-I300→M101-I306+**docs/11 全节时效戳解冻至 v0.16.0**（发布链已验证声明追加 M101-I305·写路由计数 143 无变化确认）。
+
+**CT.3 v0.16.0 攒批发布+收口审阅（I307——DoD 第 1 项·第七次执行）**
+
+- `python tools/release_drill.py` EXIT=0（RTO 入档）+全量回归（非 smoke pytest+冒烟 runner+vitest+build）+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.16.0`。
+
+**CT.4 M101 取舍**
+
+M101 = **发布工程第六轮·零漂移 v0.16.0 攒批发布**：I305 发布面验证 / I306 四锚 bump+docs/11 对账解冻 / I307 DoD+全量回归+tag+收口审阅，约 2 人日（连续第二轮零漂移·发布轮最薄形态）。ViewTransition 交互增强（无动因·backlog）、Trusted Types CSP 加固（M45 谱系·无 CSP 部署面动因·backlog）、键盘拖拽模式（精确留观：真实辅助技术用户反馈触发）、依赖机器人 CI 化（无 CI 面）、真实 LLM 回归轮（key 第十一轮实测仍缺）、留观五候选留 backlog。
