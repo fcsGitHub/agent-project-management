@@ -3052,6 +3052,34 @@ agent-project-management/
 - DoD：全量 EXIT=0；冒烟 GREEN；七件 ✓；演练 EXIT=0；git describe=v0.16.0。
 - 演示路径：git describe=v0.16.0。
 
+### M102 · 基线保鲜第二轮·文档随版与留观澄清（I308-I310，约 2 人日）
+
+> v3.0 新增（2026-10-03，docs/01 §CU 前置调研）。防重查：LLM 轮 key 第十二轮实测仍缺维持挂起；依赖面 M101 刚扫双零免测；**graph 入边留观技术澄清**[根因=item_relations 按 from 侧 project_id 记账·跨项目入边目标项目图不可见·修复路径=入向第二查询+I143 占位语义·维持留观待真实使用证据·设计预研在案]。**候选转正——证据当场收集**：①docs/12 覆盖声明停 v0.14.0[M98-I296 后 v0.15/v0.16 两版发布·随版契约欠账·M99/M100/M101 三轮零新增待核验]；②docs/06 §7 基线章停 M98-I297[M100-I303 Board 复扫 0 违规+拖拽新交互未归档——记录面欠账·证据在 I303 提交与截图]；③docs/06 §3.4 未记拖拽交互。三路检索全服务既有项：ViewTransition 列表重排模式[稳定 key+startTransition·增厚 backlog]/Trusted Types 标准 化[Report-Only 部署路径·增厚 backlog]/SQLite 增长管理预研[auto_vacuum 建库前设+归档分离·留观⑧修法入档]。**防重查：ViewTransition 不做（无动因）、Trusted Types 不做（无部署面动因）、graph 入边不做（留观维持）、事件表策略不做（无真实规模库）。**
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I308 | docs/12 覆盖声明随版（头注 M98-I296→M102-I308·覆盖至 v0.16.0+M99/M100/M101 零新增逐轮核验入档+真源指针体检二巡[NOTIFY_KINDS/WATCHABLE_EVENTS/动作七种/sweep 员 grep 对账]） | docs/01 §CU.1 | M98-I296 惯例 | 0.5d |
+| I309 | docs/06 §7 基线章随版（更新至 v0.16.0：M100-I303 Board×双主题复扫 0 违规归档+拖拽交互面+bundle 数字随版）+§3.4 Board 拖拽交互补记 | docs/01 §CU.2 | M98-I297/I303 证据 | 0.5d |
+| I310 | 收口审阅（全量回归+机械防腐七件+CHANGELOG Unreleased 记 M102+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.17.0 不 tag**——M102+M103 两轮成版） | docs/01 §CU.3 | M98/M100 收口惯例 | 1d |
+
+#### I308 · docs/12 随版+指针体检二巡（0.5d）
+
+- 任务：头注时效戳+覆盖声明刷新→三轮零新增核验清单→真源指针 grep 体检（枚举 vs 代码）→发现不一致当场修。
+- DoD：头注随版；核验清单在案；体检零漂移或已修。
+- 演示路径：头注对照+体检清单。
+
+#### I309 · docs/06 §7 归档+§3.4 补记（0.5d）
+
+- 任务：§7 基线章更新至 v0.16.0（I303 复扫记录+拖拽面+截图交叉引用）→ build 日志 bundle/chunk 对账 → §3.4 补拖拽交互一句（pointer 单代码路径/落列语义/2.5.7 替代关系）。
+- DoD：基线章随版；bundle 对账；§3.4 补记在案。
+- 演示路径：基线章 diff。
+
+#### I310 · 收口审阅（1d）
+
+- 任务：全量回归+机械防腐七件+CHANGELOG Unreleased 记 M102+看板闭环行+附录 C M102 登记+HANDOFF 修剪。攒批裁决：v0.17.0=M102+M103 两轮成版·本轮不 tag。
+- DoD：全量 EXIT=0；冒烟 GREEN；七件 ✓。
+- 演示路径：看板 M102 闭环行。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
 
 > v3.0 新增（2026-10-02，docs/01 §CK 前置调研）。防重查：留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db[--seed-light]）；真实 LLM 轮仍挂起待 key；依赖漂移复核仅 patch/minor 级不构成主题。**候选①转正——阈值已到达**（M91-I277 收口实测累计 3 次/3 轮[M89:1/M90:0/M91:2]）：**证据当场收集（全库 5 个后台线程循环体逐一审读）**——mailer/pusher/scheduler/assets 四处均为「try/except Exception 包住循环体+logger.exception」习语，**唯独 webhooks `_worker_loop` 外层 try 只有 finally 没有 except**——teardown/换代间隙 SELECT 抛 sqlite3.OperationalError（no such table 族）→ 异常穿透 while True → **线程死亡且无人拉起**[测试态=输出噪声；生产态=db 短暂不可用一次即出站 webhook 永久静默的假健康]。**防重查：Python 3.13 Queue.shutdown 不做（本机 3.11.5+零依赖纪律）、sentinel/stop-event 机制位不做（daemon+lifespan 下一行 except 已达「任务死 worker 活」）、非 daemon 改造不做（退出语义变化面大）。**
@@ -3374,6 +3402,7 @@ agent-project-management/
 | **M99 发布工程第五轮·零漂移 v0.15.0 攒批发布（I299-I301）** | 已完成 | 2026-10-03 | 2026-10-03 | 3 迭代 / 约 2 人日（docs/01 §CR + docs/10 §M99）：I299 发布面验证[compose 双镜像 EXIT=0+镜像内 pip 对账 13/13 与开发机一致+web frozen-lockfile 构建·M97-I294 惯例]/I300 四锚 bump 0.15.0+CHANGELOG [0.15.0] 段[M98+M99 精选]+冒烟 88 钉+smoke 86 代标记 M97-I295→M99-I300+test_version 钉补齐[**第三处发布钉·冒烟首跑 RED 拦截**]+docs/11 对账解冻[**§2.4 计数 141→143=写路由真漂移修正**·DoD 第 2 项]/I301 release_drill RTO 10.9s+全量回归[484+96+41+build]+tag v0.15.0[DoD 第 1 项·第六次执行]。发布轮最薄形态结论：零依赖一车时实体面=发布面验证+解冻随车对账。基线：pytest **484** 全绿+冒烟 **96 GREEN**+vitest **41**+build 绿+机械防腐七件 ✓+**tag v0.5.0~v0.15.0** |
 | **M100 看板拖拽补课轮·Board 拖拽换列——pointer 统一鼠标与触屏（I302-I304）** | 已完成 | 2026-10-03 | 2026-10-03 | 3 迭代 / 约 3 人日（docs/01 §CS + docs/10 §M100）：I302 pointer 拖拽单代码路径[6px 阈值+setPointerCapture+elementFromPoint 落点·落列=目标组内同概念状态·PATCH 乐观更新+422 回滚 M20 模式·touch-none 仅随启用·WCAG 2.5.7=QuickEdit 替代不变]/I303 三态单测 4 项[全 Board 真组件挂载]+IAB 走查[拖拽→PATCH 落地+点击回归]+axe Board 双主题 0 违规/I304 收口[全量回归 484/96/45/build·**攒批 v0.16.0 不 tag**——M101 收口 bump+tag+DoD 第七次]。留观④dnd 触屏证据过期销项——真实缺口=Board 拖拽缺失转正。基线：pytest **484** 全绿+冒烟 **96 GREEN**+vitest **45**+build 绿+机械防腐七件 ✓ |
 | **M101 发布工程第六轮·零漂移 v0.16.0 攒批发布（I305-I307）** | 已完成 | 2026-10-03 | 2026-10-03 | 3 迭代 / 约 2 人日（docs/01 §CT + docs/10 §M101）：I305 发布面验证[compose 双镜像 EXIT=0+镜像内 pip 对账 13/13+web frozen-lockfile 构建+四锚预检 0.15.0]/I306 四锚 bump 0.16.0+CHANGELOG [0.16.0] 段[M100+M101 精选]+冒烟 88 钉+smoke 86 代标记 M99-I300→M101-I306+**test_version 第三钉一次改齐零 RED**+docs/11 解冻[DoD 第 2 项]/I307 release_drill RTO 10.1s+全量回归[484/96/45/build]+tag v0.16.0[DoD 第 1 项·第七次执行]。连续第二轮零漂移·纯发布轮最薄形态。基线：pytest **484** 全绿+冒烟 **96 GREEN**+vitest **45**+build 绿+机械防腐七件 ✓+**tag v0.16.0** |
+| **M102 基线保鲜第二轮·文档随版与留观澄清（I308-I310）** | 进行中 | 2026-10-03 | — | 3 迭代 / 约 2 人日（docs/01 §CU + docs/10 §M102）：I308 docs/12 覆盖声明随版至 v0.16.0+三轮零新增核验+指针体检二巡/I309 docs/06 §7 基线章随版[M100-I303 复扫归档+拖拽面]+§3.4 拖拽补记/I310 收口[**攒批 v0.17.0 不 tag**——M103 收口 bump+tag+DoD 第八次]。graph 入边留观技术澄清[from 侧记账根因+修复预研]入档 |
 | 2026-10-03 M98 调研定义（§CQ） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第八轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面 M97 刚扫。**候选基线保鲜轮转正——证据当场收集**：①docs/12 覆盖声明停 v0.11.0[头注实证·v0.12/v0.13/v0.14 三版已发布]——活文档契约[时效戳+覆盖声明随版]·内容初核 M92~M97 无五域新增[webhooks 内部/依赖/旅程/UX 读侧/账号安全=部署面归 docs/11 §2.6]/②a11y 终扫基线[24 路由×双主题·测于 M90]后有新 UI[Board ＋新建/身份区改密+Modal/LoginPage 主动渲染]——受影响面复扫到期。**弱种子如实排除**：事件表体积复测[dev 库 164 行 0.3MB 无代表性·留观至真实规模库]/bundle 体积并入 I297。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M81-BZ.3/M91-CJ+docs/06 §7 完全同源·仓库内先例替代·无新规则族]。定案 M98=基线保鲜轮·文档声明与可访问性基线随版（I296 docs/12 随版+真源体检/I297 a11y 复扫+bundle 对账/I298 收口[攒批 v0.15.0 不 tag]） |
 | 2026-10-03 M97 调研定义（§CP） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第七轮实测仍缺[.env 不存在]维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空[M93 车后零漂移]+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题·但 v0.14.0 攒批义务落在本轮[M96 已不 tag]：发布轮起点一车跟随+全量冻结=配对轮实体[M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试全 MockTransport+单测]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M93 §CL 完全同源·六源已引用在案·openai 3.24 变更面核实降级为装后全量回归·无新规则族]。定案 M97=发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293 一车/I294 双镜像验证/I295 **v0.14.0 攒批发布**[DoD 两项第五次执行]） |
 | 2026-10-03 M96 调研定义（§CO） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第六轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面继承 M94 全清。**候选账号安全补课转正——grep 实证三向印证**：①hash_password 全库仅创建[users.py:135·409 不可重入]+boot 重放[:87·仅引导管理员]两处——**网络多用户部署下普通用户永远无法改密**[忘密码=删库重建级]/②auth_api 3 端点+users 域零 password 路由+前端 api.ts 仅 login+SettingsPage 零密码面/③会话为无状态 HMAC TTL 24h[security.py user_id.expiry.signature]——凭据变更→会话失效语义缺失[OWASP Session Management Cheat Sheet：凭据变更须作废全部会话·ASVS 3.3.x——本轮与改密面**同轮建齐**避免先留缺口]。同族先例=M82 登录防爆破[API2 面·哑哈希计时均衡/滑窗在库]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[M90/M91/M95 路径·OWASP 条文+仓库内先例·无新规则族]。定案 M96=账号安全补课轮·密码自助修改与会话失效（I290 pw_epoch+令牌 v2 兼容 legacy+双端点+失效语义/I291 前端 Modal+IAB 走查+docs/11 补节/I292 收口[攒批 v0.14.0 不 tag]） |
