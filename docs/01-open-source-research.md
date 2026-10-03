@@ -2707,3 +2707,23 @@ M103 = **发布工程第七轮·lucide-react 跟随与 v0.17.0 攒批发布**：
 **CW.4 M104 取舍**
 
 M104 = **基线保鲜第三轮·v0.17.0 随版记录清偿**：I314 双文档随版 / I315 指针体检三巡+随版面核对 / I316 收口审阅，约 2 人日。bundle 字节级归因深挖（变小方向·无机械锁·归因未定如实记即可）、graph 入边补显（留观·触发未到·修复预研在案）、删除工件恢复 UI（等证据）、init_db 幂等化（真实事故再触发）、--seed-light（留观）、事件表体积复测（留观至真实规模库）、键盘拖拽模式（精确留观）、真实 LLM 回归轮（key 第十四轮实测仍缺）留 backlog。
+
+## CX. M105 前置调研：发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布（2026-10-04）
+
+> 目标协议触发：M104 完成后开启。防重查：**①真实 LLM 回归轮 key 第十五轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边[修复预研在案]/工件恢复/init_db/--seed-light/事件表体积复测[SQLite 增长策略预研在案]）；键盘拖拽模式（精确留观）维持。**②依赖漂移发布轮惯例当轮实测（双生态）**：后端 `pip list --outdated ∩ requirements` **空**——连续第四轮零漂移；前端 `pnpm outdated` **一项——vite-plugin-pwa 1.3.0→2.0.0（major·2026-10-03 发版）**。**major 判例核查**：发布轮一车惯例[M93/M97/M103]判例均 minor；major 先例=M87 前端工具链轮[专门主题·约 4 人日]。**破坏面权威源核实（WebSearch 429 延续[窗 2026-10-07 16:06]·WebFetch/registry 降级[M104 已走通]三路全走通）**：①**vite-plugin-pwa 2.0.0 唯一 breaking=assets-generator peer 范围扩展**（GitHub releases 直抓：「allow @vite-pwa/assets-generator ^2.0.0 as a peer dependency」·本仓未装该包零影响）；②registry 直查 peer：vite `^3||…||^8` 含本仓 8.3.2 ✓·workbox-build/window ^7.4.1[peer 顺抬可能在 lockfile 显形——git diff 逐行核对义务]；无 VitePWA 配置改名/无 generateSW/precache 变化声明——**major 版本号·实质≈peer 行·不构成独立主题**；③同业守望（Plane v1.4.2 仍最新零新发版[M104 结论隔日复核一致]·Focalboard v8.0.0[2024-06]停更状态不变·OpenProject 不经 GitHub releases 发版[404·渠道在自身站点]）。**定案：major 一车延伸进发布轮**——M93/M97/M103「不构成独立主题则一车跟随」判据按破坏面实质裁量适用·验证面比 minor 加一层 PWA 产物核对（sw.js 存在+generateSW 模式+precache 42 entries 对账+manifest 不变）。定案 **M105 = 发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布**。
+
+**CX.1 vite-plugin-pwa 2.0.0 一车（I317）**
+
+- `pnpm update vite-plugin-pwa`+manifest/lockfile git diff 逐行核（workbox peer 顺抬显形即记录）+tsc/vitest/build 三关+**PWA 产物核对**（dist/sw.js 存在+generateSW 模式+precache entries 与 1.3.0 基线 42 对账+manifest.webmanifest 不变）。
+
+**CX.2 发布面验证（I318）**
+
+- compose 双镜像 EXIT=0+app 镜像内 pip freeze 对账 13/13[pwa 只影响 web 侧]+web frozen-lockfile 构建含 2.0.0+四锚预检 0.17.0[M101-I305/M103-I312 惯例]。
+
+**CX.3 四锚 bump 0.17.0→0.18.0+docs/11 解冻+发布（I319——DoD 两项第九次执行）**
+
+- 五点一次改齐（version.py/web/package.json/README/test_version 第三钉+冒烟 88 钉）+CHANGELOG [0.18.0] 段[M104+M105 精选·Unreleased 回空]+冒烟 86 解冻代标记 M104-I316→M105-I319+docs/11 全节时效戳解冻至 v0.18.0（演练 DoD 计数八→九次）+release_drill EXIT=0（RTO 入档）+全量回归+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.18.0`。
+
+**CX.4 M105 取舍**
+
+M105 = **发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布**：I317 一车+PWA 产物核对 / I318 发布面验证 / I319 bump+DoD 两项第九次+tag+收口审阅，约 2 人日。@vite-pwa/assets-generator 引入（无使用面）、workbox 手动模式迁移（无动因）、vite/rolldown 跟进升级（M87 已 8.3.2 顶格）、依赖机器人 CI 化（无 CI 面）、真实 LLM 回归轮（key 第十五轮实测仍缺）、留观候选留 backlog。
