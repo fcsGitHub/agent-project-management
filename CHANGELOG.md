@@ -6,7 +6,17 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M104 已入批（下述 Changed——v0.18.0 由 M104~M105 两轮成版·M105 收口 bump+tag+发布轮收口 DoD 两项第九次执行）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：空——v0.18.0 已发布（M104~M105 成版），下两轮（M106~M107）成版 v0.19.0。
+
+## [0.18.0] — 2026-10-04
+
+M104~M105（基线保鲜第三轮·v0.17.0 随版记录清偿 + 发布工程第八轮·vite-plugin-pwa 2.0.0 一车与 v0.18.0 攒批发布）。攒批节奏第十二版：两轮一版。本版前端构建插件 major 一车——唯一 breaking=assets-generator peer 扩展（本仓未装零影响；后端连续第四轮零漂移）。基线：pytest 484 / 冒烟 96 / vitest 45 / 机械防腐七件 ✓。
+
+### Changed
+- **docs/06 §7 基线章随版对账 + docs/12 覆盖声明随版，均至 v0.17.0**（M104-I314）：主 bundle 383.34→374.36KB[-9.0KB]·gzip 118.31→114.52KB·36 chunks 四巡稳定——lucide 1.51.0 一车后缩小，changelog（GitHub releases 直抓）无 tree-shaking 声明·归因未定如实记录；docs/12 核验清单追加 M103 自动化面零新增。
+- **真源指针体检三巡零漂移**（M104-I315）：NOTIFY_KINDS 9 员 / ACTION_TYPES 七种 / WATCHABLE_EVENTS 15 员 / run_daily_sweep 在案；随行对账写路由 143（77 中间件+66 台账）与 env 速查 in sync——M98 首巡/M102 二巡后的机制回归第三巡。
+- **vite-plugin-pwa 2.0.0 跟随**（M105-I317）：构建插件 major 一车——唯一 breaking=assets-generator peer 范围扩展（本仓未装零影响）·vite peer 含 ^8·workbox 7.4.1 无顺抬；PWA 产物核对 generateSW 保持+precache 42 entries 完全一致；pnpm update 不动 major 超 range·显式 add 改 range（minor 一车操作差异入档）。
+- **docs/11 解冻至 v0.18.0**（M105-I319）：全部部署面时效戳随版；部署链已验证声明追加 M105-I318 pwa 车后双镜像重建对账。
 
 ### Changed
 - **docs/06 §7 基线章随版对账 + docs/12 覆盖声明随版，均至 v0.17.0**（M104-I314）：主 bundle 383.34→374.36KB[-9.0KB]·gzip 118.31→114.52KB·36 chunks 四巡稳定——lucide 1.51.0 一车后缩小，changelog（GitHub releases 直抓）无 tree-shaking 声明·归因未定如实记录；docs/12 核验清单追加 M103 自动化面零新增。
