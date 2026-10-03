@@ -188,3 +188,5 @@ jsdom 下的 axe 锁（M85 第七件机械防腐）对**布局依赖规则结构
 **M102-I309 随版归档（v0.16.0）**：M100-I303 拖拽交付时的受影响面复扫补归档——Board×亮暗双主题 0 违规[docs/06 §7 法·同 vitest 锁口径三规则禁用+≥2.6s 等待·新交互面=卡片拖拽换列 pointer 单代码路径 M100-I302·走查截图 docs/m100-review-drag-inprogress.png·纯 click 选择回归同验]。**bundle 基线随版**：36 chunks 持平[三巡稳定]；主 bundle 383.34KB 持平[gzip 118.31KB——M100 拖拽增量在噪声内·无机械锁]。
 
 **M104-I314 随版对账（v0.17.0）**：lucide-react 1.50.0→1.51.0 一车（M103-I311 发布轮·发布面验证=I312 双镜像+frozen-lockfile 在案）后 build 复测对账：**36 chunks 四巡稳定**[M87=I297=I309=本轮]；**主 bundle 383.34→374.36KB[-9.0KB/-2.3%]·gzip 118.31→114.52KB[-3.8KB]**——图标库 minor 后主 bundle 缩小；lucide 1.51.0 changelog（GitHub releases 直抓·2026-10-03）仅 6 新图标+React Native 修复·**无 tree-shaking/构建产物声明——归因未定如实记录**[变小方向无风险·主 bundle 无机械锁纪律不变]。
+
+**M106-I320 随版对账（v0.18.0）**：vite-plugin-pwa 1.3.0→2.0.0 一车（M105-I317 发布轮 major·构建插件不入 bundle）后 build 复测对账：**四项数字全持平**[主 bundle 374.36KB·gzip 114.52KB·36 chunks 五巡稳定[M87=I297=I309=I314=本轮]·precache 42 entries (1192.67KiB)]——构建插件零运行时影响实测坐实[M105-I317 产物核对预判的对账闭环·「持平」亦随版入档]。
