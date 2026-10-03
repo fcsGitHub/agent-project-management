@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-03 更新（M99-I300 解冻——覆盖至 v0.15.0 全部部署面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫/密码自助修改与会话失效=M96-I290 §2.6]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/账号与凭据须知[§2.6 M96-I290]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95/M97/M99 六次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282/M97-I294 依赖车后双镜像重建对账+M99-I299 零漂移重建对账；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.24/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
+> 时效：2026-10-03 更新（M101-I306 解冻——覆盖至 v0.16.0 全部部署面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫/密码自助修改与会话失效=M96-I290 §2.6]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4]/部署后自检速查[§2.5]/账号与凭据须知[§2.6 M96-I290]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95/M97/M99/M101 七次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282/M97-I294 依赖车后双镜像重建对账+M99-I299/M101-I305 零漂移重建对账（连续第二轮）；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.24/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 

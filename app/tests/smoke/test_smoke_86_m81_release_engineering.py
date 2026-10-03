@@ -54,4 +54,4 @@ def test_smoke_86_changelog_shape_and_tags():
 
     docs11 = (ROOT / "docs" / "11-network-deploy.md").read_text(encoding="utf-8")
     # 解冻代标记随最新解冻轮更新（M81-I244 → M86-I262）——锁「docs/11 未冻结在旧代」
-    assert "M99-I300 解冻" in docs11
+    assert "M101-I306 解冻" in docs11
