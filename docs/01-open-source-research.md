@@ -2592,3 +2592,22 @@ M97 = **发布工程第四轮·openai 跟随与 v0.14.0 攒批发布**：I293 op
 **CQ.4 M98 取舍**
 
 M98 = **基线保鲜轮·文档声明与可访问性基线随版**：I296 docs/12 覆盖声明刷新+真源指针体检 / I297 a11y 受影响面复扫+bundle 基线随版 / I298 收口审阅，约 2.5 人日。事件表体积复测（无代表性数据·留观）、文档自动化生成（M77-BV.1 裁决不变）、CI 化链接检查（无 CI 面）、真实 LLM 回归轮（key 第八轮实测仍缺）、留观五候选留 backlog。
+## CR. M99 前置调研：发布工程第五轮·零漂移 v0.15.0 攒批发布（2026-10-03）
+
+> 目标协议触发：M98 完成后开启。防重查：**①真实 LLM 回归轮 key 第九轮实测仍缺**（`.env` 不存在）——维持挂起；留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db/--seed-light/事件表体积复测[M98 新登记]）；**②依赖漂移发布轮惯例当轮实测（双生态）**：前端 `pnpm outdated` **空**+后端 `pip list --outdated ∩ requirements` **空**——M93 一车/M97 openai minor 后**双生态首次全零漂移**（13 项运行时依赖全部顶格：fastapi 0.142.2/langgraph 1.2.12/openai 3.24.0/pydantic 2.13.5/cryptography 50.0.2 等）——连 M97 的 minor 一车都没有·本轮=纯发布轮；**③新证据当场收集：docs/11 §2.4 写路由计数漂移 141→143**（M96-I290 改密双端点补登记台账 64→66 时·docs/11 冻结窗内 §2.4 的「全部 141 条写路由」未随——`python tools/check_write_gates.py` 实测 143=middleware 77+reviewed 66——发布轮解冻 v0.15.0 的实体修正点·「时效戳+覆盖声明必须随版诚实」契约的又一次兑现）。三路调研：**WebSearch 三路全部走通（429 解除·早于预期重置窗 2026-10-07 16:06）——配额耗尽期以来首次成功检索**：①FastAPI 官方 release notes（最新发版 2026-09-30·Swagger UI 5.9.0 无破坏性变更·子依赖 range 放宽）与库内 0.142.2 零漂移互证；②LangGraph 官方 GitHub releases 页（最新=1.2.12·2026-09-23 核实）与库内 1.2.12 零漂移互证；③语义化版本/变更日志自动化业界共识（版本单源一处指定+git tag 作发布触发器/changelog 人写精选分组倒序带日期/semantic-release 类工具自动化）与 M81-I243 版本四锚单源+annotated tag+M77-BV.1「人写精选·排除生成器」裁决**同构互证**——外部共识确认既有决策·无新规则族。定案 **M99 = 发布工程第五轮·零漂移 v0.15.0 攒批发布（附 docs/11 计数对账修正）**。
+
+**CR.1 发布面验证（I299）**
+
+- M97-I294 惯例：Docker Desktop 引擎按需启动（M93 ③）→ `docker compose build` 双镜像 EXIT=0 → app 镜像内 pip freeze 对账（13 项与开发机一致）→ web `pnpm build --frozen-lockfile` EXIT=0 → 四锚预检（0.14.0 全一致·bump 前基线）。
+
+**CR.2 四锚 bump 0.14.0→0.15.0+docs/11 对账解冻（I300——DoD 第 2 项）**
+
+- version.py/web/package.json/README 四锚 bump+CHANGELOG [0.15.0] 段（M98+M99 精选·Unreleased 回空）+冒烟 88 发布钉 0.15.0（M97-I295 后只改这一行）+冒烟 86 解冻代标记 M97-I295→M99-I300+**docs/11 全节时效戳解冻至 v0.15.0**（§2.4 计数 141→143 对账修正随车）。
+
+**CR.3 v0.15.0 攒批发布+收口审阅（I301——DoD 第 1 项·第六次执行）**
+
+- `python tools/release_drill.py` EXIT=0（RTO 入档）+全量回归（非 smoke pytest+冒烟 runner+vitest+build）+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.15.0`。
+
+**CR.4 M99 取舍**
+
+M99 = **发布工程第五轮·零漂移 v0.15.0 攒批发布**：I299 发布面验证 / I300 四锚 bump+docs/11 对账解冻 / I301 DoD+全量回归+tag+收口审阅，约 2 人日（发布轮最薄形态：无依赖一车·实体面=docs/11 计数对账修正）。依赖机器人 CI 化（无 CI 面）、pip-compile/hash pinning（M86 留观）、语义化提交/自动 changelog 生成（M77-BV.1 裁决不变·本仓提交即档案）、真实 LLM 回归轮（key 第九轮实测仍缺）、留观六候选留 backlog。
