@@ -2611,3 +2611,22 @@ M98 = **基线保鲜轮·文档声明与可访问性基线随版**：I296 docs/1
 **CR.4 M99 取舍**
 
 M99 = **发布工程第五轮·零漂移 v0.15.0 攒批发布**：I299 发布面验证 / I300 四锚 bump+docs/11 对账解冻 / I301 DoD+全量回归+tag+收口审阅，约 2 人日（发布轮最薄形态：无依赖一车·实体面=docs/11 计数对账修正）。依赖机器人 CI 化（无 CI 面）、pip-compile/hash pinning（M86 留观）、语义化提交/自动 changelog 生成（M77-BV.1 裁决不变·本仓提交即档案）、真实 LLM 回归轮（key 第九轮实测仍缺）、留观六候选留 backlog。
+## CS. M100 前置调研：看板拖拽补课轮·Board 拖拽换列——pointer 统一鼠标与触屏（2026-10-03）
+
+> 目标协议触发：M99 完成后开启。防重查：**①真实 LLM 回归轮 key 第十轮实测仍缺**（`.env` 不存在）——维持挂起；**②依赖漂移=M99 刚扫双生态全零·两轮内免测**（惯例两轮内不重扫）；**③留观候选本轮逐一核证据——④dnd 触屏改期 pointer 重写：证据过期当场销项**（grep 实证：TimelinePage 拖拽改期自 M20-I63 即 pointer capture 实现[setPointerCapture/pointermove/pointerup+touch-none·触屏天然可用]；SchedulePage M79-I267 已有两段点选替代；Board 零拖拽面——「对既有 dnd 做触屏重写」的对象不存在·真实缺口是 Board 拖拽本身缺失）；③graph 入边补显维持留观（M79 两图分叉已终结·graph 端点边=from→to 有向构造+GraphView Handle 正常渲染·未现不对称实证）；⑤⑥⑦⑧触发条件未到维持。**候选=Board 拖拽换列转正——内外证据当场收集**：**内部**（grep 实证全库 draggable/onDragStart 仅 Timeline/Schedule 两处·Board.tsx 零拖拽——五桶看板换状态只能走 QuickEdit/批量；状态变更路径 PATCH /items/{id}→onto.validate_transition[M26-I82 概念级流转白名单]可直接复用；WIP 限额为展示性[代码注释明示 board never blocks transitions]·拖拽无需门禁改造；TimelinePage pointer 习语+M20 拖拽冲突乐观回滚模式在库）；**外部**（同类六开源工具[Plane/Focalboard/Leantime/Taiga/Kanboard/Planka]看板拖拽均为标配——Plane 2026 Top-6 roundup 与 onplana 自托管对比反向登记 AgentPM 优势：Plane 缺调度引擎/关键路径/资源池·M21/M33/M38 全在；HTML5 DnD API 基于 mouse 事件——**触屏在所有移动浏览器永不触发 dragstart**[drag-drop-touch polyfill/sam.today 实证]·pointer events 单代码路径+touch-action:none+落点 hit-testing 为正统[Medium 无库 pointer 拖拽实现等共识]；WCAG 2.5.7 拖拽移动[AA·WCAG 2.2]要求**单指针替代而非仅键盘**[tap-to-pick-then-tap-to-drop 为合规格式]——QuickEdit 状态字段=点击式单指针替代已在[M79-I267 关系区同款论证]·拖拽属增强不构成可达性回归）。三路 WebSearch 全部走通（M99 起恢复常态）。定案 **M100 = 看板拖拽补课轮·Board 拖拽换列（pointer 统一鼠标与触屏）**。
+
+**CS.1 Board 拖拽换列实现（I302）**
+
+- pointer events 单一代码路径（pointerdown→move 阈值启动→setPointerCapture→pointermove 落点判定→pointerup 落列）+卡片 touch-none（I63 习语）+拖拽视觉（源卡降透明+落列高亮）；落列语义=目标 status_group 的默认状态（概念 statuses 该组首个；同组内拖动不动）；仅默认五桶视图与「状态」分组视图启用（concept/priority/assignee/自定义字段分组列语义非状态·不启用）；PATCH status 乐观更新+422/失败回滚（M20 冲突模式）+toast 提示。
+
+**CS.2 可达性与测试收口（I303）**
+
+- WCAG 2.5.7 对账：QuickEdit 状态字段=单指针替代已在（走查确认+j/k 键盘路径 I95 在案）；vitest：拖拽 handler 三态单测（启动/合法落列 PATCH/422 回滚·jsdom pointer 事件）；IAB 浏览器走查（鼠标拖拽证据=PATCH 收到+列变化·M87 证据基准纪律）；axe 受影响面复扫 Board×双主题（docs/06 §7 法）。
+
+**CS.3 收口（I304）**
+
+- 全量回归+机械防腐七件+CHANGELOG Unreleased 记 M100+看板闭环+附录 C+HANDOFF 修剪·**攒批 v0.16.0 不 tag**（M100+M101 两轮成版·M101 收口 bump 0.15.0→0.16.0+tag+DoD 两项第七次执行）。
+
+**CS.4 M100 取舍**
+
+M100 = **看板拖拽补课轮·Board 拖拽换列**：I302 pointer 拖拽实现 / I303 可达性+测试+走查 / I304 收口审阅，约 3 人日。dnd-kit 等拖拽库（零新依赖纪律·pointer 手写即达·Timeline I63 同款）、HTML5 DnD polyfill（dragdroptouch——与其补丁不如正统 pointer 单路径）、长按启动延迟（move 阈值即动+touch-none 已防滚动冲突·真实误触留观察）、列内排序（无 order 字段·超出换列语义留观）、graph 入边补显（留观维持）、真实 LLM 回归轮（key 第十轮实测仍缺）留 backlog。
