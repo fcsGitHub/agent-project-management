@@ -35,6 +35,7 @@ const SchedulePage = lazy(() => import("./pages/SchedulePage").then((m) => ({ de
 const IntakePage = lazy(() => import("./pages/IntakePage").then((m) => ({ default: m.IntakePage })));
 const RisksPage = lazy(() => import("./pages/RisksPage").then((m) => ({ default: m.RisksPage })));
 const DependencyGraphPage = lazy(() => import("./pages/DependencyGraphPage").then((m) => ({ default: m.DependencyGraphPage })));
+const TracePage = lazy(() => import("./pages/TracePage").then((m) => ({ default: m.TracePage })));
 
 /** 页面级边界（M82-I246）：key=路由形态（非解析后的 pathname——同一路由参数变化不重挂，
  * 保持既有「f/a→f/b 不丢实例」行为；跨路由切换才复位边界错误态）。 */
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="timeline" element={pg("timeline", <TimelinePage />)} />
               <Route path="deps" element={pg("deps", <DependencyGraphPage />)} />
               <Route path="risks" element={pg("risks", <RisksPage />)} />
+              <Route path="trace" element={pg("trace", <TracePage />)} />
               <Route path="f/:fid" element={pg("feature", <FeaturePage />)} />
               <Route path="c/:cid" element={pg("conversation", <ConversationView />)} />
               <Route path="conversations" element={pg("conversations", <ConversationsPage />)} />

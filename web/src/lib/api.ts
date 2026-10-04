@@ -333,6 +333,55 @@ export type Context = {
   merged_preview: string;
 };
 
+// M108-I326: 需求到证据追溯（trace links + impact + coverage）
+export type TraceNodeType = "item" | "artifact" | "asset" | "conversation" | "feature";
+export type TraceRelation = "implements" | "verifies" | "decides" | "delivers" | "documents" | "relates_to";
+export type TraceNode = {
+  type: TraceNodeType; ref: string; title?: string; status?: string;
+  missing: boolean; concept_id?: string; requirement_like?: boolean; archived?: boolean;
+};
+export type TraceLink = {
+  id: string; project_id: string;
+  source_type: TraceNodeType; source_ref: string;
+  relation: TraceRelation;
+  target_type: TraceNodeType; target_ref: string;
+  note?: string | null; created_by?: string; created_at: string;
+  source: TraceNode; target: TraceNode;
+};
+export type TraceImpactEntry = {
+  key: string; type: TraceNodeType; ref: string; title?: string; status?: string;
+  missing: boolean; concept_id?: string; depth: number;
+  via: { relation: TraceRelation; link_id: string; from: string; to: string }[];
+  needs_review: boolean;
+};
+export type TraceImpact = {
+  node: TraceNode; depth: number;
+  groups: Record<"requirements" | "decisions" | "implementation" | "tests" | "deliverables" | "documents" | "related", TraceImpactEntry[]>;
+  summary: Record<string, number>;
+};
+export type TraceCoverageRequirement = {
+  id: string; title: string; status: string; updated_at: string;
+  has_decision: boolean; has_implementation: boolean; has_test: boolean;
+  has_deliverable: boolean; has_document: boolean;
+  links: number; first_evidence_at: string | null; needs_review: boolean; closed: boolean;
+};
+export type TraceCoverage = {
+  requirements: TraceCoverageRequirement[];
+  gaps: {
+    requirements_without_evidence: TraceCoverageRequirement[];
+    requirements_without_tests: TraceCoverageRequirement[];
+    requirements_without_implementation: TraceCoverageRequirement[];
+    orphan_items: { id: string; title: string; concept_id: string; status: string }[];
+    stale_links: { link_id: string; relation: string; missing: string[] }[];
+    changed_after_evidence: TraceCoverageRequirement[];
+  };
+  summary: {
+    requirements: number; with_implementation: number; with_tests: number;
+    closed: number; closed_rate: number | null;
+    orphan_items: number; stale_links: number; needs_review: number;
+  };
+};
+
 const BASE = import.meta.env.VITE_API_BASE || "/api";
 /** 导出/直链用（CSV、NDJSON 等浏览器原生跳转不走 req()）。 */
 export const API_BASE = BASE;
@@ -1113,4 +1162,14 @@ export const api = {
       requires_confirmation: boolean; parser?: "rules" | "llm"; reply?: string;
     }>("/ui_commands", { method: "POST", body: JSON.stringify({ utterance, page_state }) }),
   confirmUiCommand: (id: string) => req<{ status: string }>(`/ui_commands/${id}/confirm`, { method: "POST" }),
+
+  // Trace: 需求到证据（M108-I326）
+  listTraceLinks: (pid: string) => req<{ links: TraceLink[] }>(`/projects/${pid}/trace/links`),
+  createTraceLink: (pid: string, body: { source_type: TraceNodeType; source_ref: string; relation: TraceRelation; target_type: TraceNodeType; target_ref: string; note?: string }) =>
+    req<{ id: string }>(`/projects/${pid}/trace/links`, { method: "POST", body: JSON.stringify(body) }),
+  deleteTraceLink: (id: string) => req<{ unlinked: string }>(`/trace/links/${id}`, { method: "DELETE" }),
+  traceImpact: (pid: string, nodeType: TraceNodeType, nodeRef: string, depth = 2) =>
+    req<TraceImpact>(`/projects/${pid}/trace/impact?node_type=${nodeType}&node_ref=${encodeURIComponent(nodeRef)}&depth=${depth}`),
+  traceCoverage: (pid: string, milestoneId?: string) =>
+    req<TraceCoverage>(`/projects/${pid}/trace/coverage${milestoneId ? `?milestone_id=${encodeURIComponent(milestoneId)}` : ""}`),
 };

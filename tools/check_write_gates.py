@@ -91,6 +91,8 @@ REVIEWED: dict[str, str] = {
     "/api/notifications/read": "自面（user_id 限定）",
     "/api/ui_commands/{cmd_id}/confirm": "只读动作面（navigate/set_filter 白名单·I136）",
     "/api/template-packs/{name}/instantiate": "建项目面（creator=owner·与 POST /projects 同语义）",
+    # —— M108-I326 追溯域内门（id-path 不含 project_id）——
+    "/api/trace/links/{link_id}": "require_project_write（M108-I326）",
 }
 
 

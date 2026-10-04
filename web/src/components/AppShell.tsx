@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useNavigate, useParams, useSearchParams } from "
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, BarChart3, CalendarClock, CalendarRange, FileText, GitBranch, Library, LayoutDashboard, KanbanSquare, ListTodo, Map as MapIcon, Menu, MessagesSquare, Newspaper, ScrollText,
-  Settings as SettingsIcon, Shapes, ShieldAlert, Users, Workflow, Plus, Bell, BellRing, Command,
+  Settings as SettingsIcon, Shapes, ShieldAlert, Users, Workflow, Plus, Bell, BellRing, Command, Link2,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { bundleWatch } from "../lib/notify";
@@ -21,6 +21,7 @@ const RAIL = [
   { to: "/timeline", label: "时间线", icon: CalendarRange },
   { to: "/deps", label: "依赖图", icon: GitBranch },
   { to: "/risks", label: "风险", icon: ShieldAlert },
+  { to: "/trace", label: "追溯", icon: Link2 },
   { to: "/graph", label: "Graph", icon: Workflow },
   { to: "/reports", label: "报表", icon: BarChart3 },
   { to: "/conversations", label: "Conversations", icon: MessagesSquare, page: true },

@@ -2767,3 +2767,12 @@ M106 = **基线保鲜第四轮·v0.18.0 随版记录清偿**：I320 双文档随
 **CZ.4 M107 取舍**
 
 M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布面验证 / I324 四锚 bump+docs/11 对账解冻 / I325 DoD 两项第十次+全量回归+tag+收口审阅，约 2 人日（零漂移发布轮最薄形态·连续第五轮后端零漂移）。OpenTelemetry 自动配置面跟进（本仓无 OTel 部署面）、FastAPI floor 抬升（0.142.2 已顶格无必要）、依赖机器人 CI 化（无 CI 面）、真实 LLM 回归轮（key 第十七轮实测仍缺）、留观候选留 backlog。
+
+## DA. M108 前置调研：需求到证据追溯助手（2026-10-04）
+
+> 目标协议触发：M107 完成后开启（用户目标：「需要增加一个'需求到证据'的项目助手——把需求、设计决定、实现、测试和交付物关联起来。改一条需求，就能看出影响哪些模块、文档和测试；每轮找出遗漏和未闭环项，减少最后集中补文档的压力」）。**现有机制对账（复用优先三问）**：item_relations=工作项→工作项（两端同构·依赖语义）、asset_links=资产→目标（单侧）、工件与对话无链接面——「需求↔证据」是**两端异构**（item/artifact/asset/conversation/feature 五类节点）+**关系携带证据角色**（implements/verifies/decides/delivers/documents/relates_to 六词表）的图，任一现有表装不下——**独立 trace_links 投影表定案**（trace.linked/unlinked 事件·纯投影进 drop_projections·risks I131 同款惯例·rebuild 复现入测）。**需求类概念不硬编码**：取本体 default_phase=intake 的概念（software-dev=requirement·generic=objective——双内置本体均覆盖入测）。**影响分析=无向 BFS 默认两跳**（任务上的测试也算需求的证据；分组随边方向：发现节点是边 source→按关系分桶、是 target→落「需求」桶——任务侧反查同构可用）。**闭环判定 closed=有实现且有测试**（实现链上的测试**传递计入**——测试挂到实现任务即视为需求的测试证据，与 impact 两跳语义一致·决策/交付物为加分项不计硬条件）。**缺口六类**：缺测试/缺实现/零证据的需求+孤儿工作项+失效链接+变更未复核（证据登记早于需求末次变更）；coverage 支持 milestone_id 切片（对应「每轮收口前跑一遍」）。防重查：CSV 矩阵导出不做（读侧 JSON 即够·前端表格即视图）、NL 命令接入不做（另行排期）、item_relations 复用不做（见对账）。定案 **M108 = 需求到证据追溯助手**（I326 单迭代）。
+
+**DA.1 取舍**
+
+- 复用：事件溯源投影惯例（@on 注册表+drop_projections）/members 写门双层（/api/projects/* 中间件+id-path 域内门·check_write_gates 台账登记）/前端 RisksPage 卡片式布局与 toast 惯例。
+- 风险与留观：artifact 存在性查询走 list_artifacts（git ls-files）每次现查——追溯页为低频读面可接受，量大后加缓存（留观登记）；needs_review 用 ISO 毫秒时间戳字符串比较（同源 events.ts 单调可比）。

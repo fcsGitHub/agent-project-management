@@ -619,6 +619,27 @@ CREATE TABLE IF NOT EXISTS expense_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_project ON expense_entries(project_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_item ON expense_entries(item_id);
+
+-- M108-I326: requirements-to-evidence traceability links (docs/04 §3.24) —
+-- one edge row per「需求↔证据」关系：需求(需求类工作项)到设计决定/实现/测试/
+-- 交付物/文档的关联。节点 = item | artifact | asset | conversation | feature，
+-- artifact 以项目仓相对路径为 ref（无投影表，存在性查询时对账）。投影 of
+-- trace.linked/unlinked events — in drop_projections so rebuild reproduces.
+CREATE TABLE IF NOT EXISTS trace_links (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  source_ref TEXT NOT NULL,
+  relation TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_ref TEXT NOT NULL,
+  note TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trace_links_project ON trace_links(project_id);
+CREATE INDEX IF NOT EXISTS idx_trace_links_source ON trace_links(source_type, source_ref);
+CREATE INDEX IF NOT EXISTS idx_trace_links_target ON trace_links(target_type, target_ref);
 """
 
 FTS_DDL = """
@@ -669,6 +690,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "risks",
         "expense_entries",
         "extracted_tasks",
+        "trace_links",
         "baselines",
         "project_members",
         "users",

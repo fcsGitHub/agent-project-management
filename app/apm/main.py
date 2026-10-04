@@ -240,6 +240,8 @@ def create_app() -> FastAPI:
     app.include_router(search_router, prefix="/api")
     app.include_router(baselines_router, prefix="/api")
     app.include_router(nl_router, prefix="/api")
+    from apm.domains.trace import router as trace_router
+    app.include_router(trace_router, prefix="/api")
     from apm.core.oidc import router as oidc_router
     app.include_router(oidc_router, prefix="/api")
     return app
