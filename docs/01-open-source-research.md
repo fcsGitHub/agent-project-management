@@ -2776,3 +2776,13 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 
 - 复用：事件溯源投影惯例（@on 注册表+drop_projections）/members 写门双层（/api/projects/* 中间件+id-path 域内门·check_write_gates 台账登记）/前端 RisksPage 卡片式布局与 toast 惯例。
 - 风险与留观：artifact 存在性查询走 list_artifacts（git ls-files）每次现查——追溯页为低频读面可接受，量大后加缓存（留观登记）；needs_review 用 ISO 毫秒时间戳字符串比较（同源 events.ts 单调可比）。
+
+## DB. M109 前置调研：发布工程第十轮·lucide minor 一车与 v0.20.0 攒批发布（2026-10-05）
+
+> 目标协议触发：M108 完成后开启（收口轮——v0.20.0=M108+M109 两轮成版）。防重查：真实 LLM 回归轮 key 第十八轮实测仍缺维持挂起；留观候选维持（graph 入边/工件恢复/init_db/--seed-light/事件表体积复测/追溯 artifact 存在性缓存[M108 新登记]）。**依赖漂移发布轮惯例当轮实测（双生态）**：后端 `pip list --outdated ∩ requirements` 运行时 13 项**零漂移**——连续第六轮[outdated 命中全为传递依赖：fastjsonschema/jsonschema-path/langgraph-sdk/pydantic_core 等均非 requirements 直依赖]；前端 `pnpm outdated` **lucide-react 1.51.0→1.52.0 minor 有车**——按 M97 openai/M103 lucide 先例**小车随发布轮**（I328·pnpm update 在 range 内抬 ^range+lockfile 同车·M93 操作惯例）。定案 **M109 = 发布工程第十轮·lucide minor 一车与 v0.20.0 攒批发布**。
+
+**DB.1 取舍**
+
+- I327 发布面验证（compose 双镜像 EXIT=0+app 镜像内 pip freeze 对账 13/13 与开发机一致+web frozen-lockfile EXIT=0+四锚预检 0.19.0 全一致）——M105-I318/M107-I323 惯例，M108 追溯域随版基线上重建。
+- I328 lucide 一车+四锚 bump 0.20.0 五点一次改齐+CHANGELOG [0.20.0]+冒烟 86 代标记 M107-I324→M109-I328+docs/11 解冻（演练计数十→十一次+部署链声明追加 M109-I327 lucide 小车后重建对账）。
+- I329 release_drill（DoD 第 1 项第十一次执行·RTO 入档）+全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.20.0`（DoD 第 2 项第十一次执行）。

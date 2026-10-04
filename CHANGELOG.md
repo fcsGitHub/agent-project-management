@@ -6,11 +6,19 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M108（需求到证据追溯助手）。下两轮（M108~M109）成版 v0.20.0。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：空——v0.20.0 已发布（M108~M109 成版），下两轮（M110~M111）成版 v0.21.0。
+
+## [0.20.0] — 2026-10-05
+
+M108~M109（需求到证据追溯助手 + 验收考官 Round 1 + 发布工程第十轮·lucide-react minor 一车与 v0.20.0 攒批发布）。攒批节奏第十四版：两轮一版。功能主体=追溯助手；lucide-react 1.51.0→1.52.0 minor 一车（M97 openai/M103 lucide 先例——发布轮内小车）；后端运行时 13 项零漂移（连续第六轮）。基线：pytest 490 / 冒烟 98 / vitest 47 / 机械防腐七件 ✓。
 
 ### Added
 - **需求到证据追溯助手**（M108-I326）：需求/设计决定/实现/测试/交付物的关联图谱——独立 trace_links 投影表（六关系词表 implements/verifies/decides/delivers/documents/relates_to × 五类节点 item/artifact/asset/conversation/feature，事件溯源可 rebuild 复现）+ 追溯页三卡（覆盖概览/影响分析/链接登记）。改一条需求即见受波及的模块/文档/测试（impact 无向 BFS 两跳——任务上的测试也算需求的证据）；每轮缺口报告六类（缺测试/缺实现/零证据的需求+孤儿工作项+失效链接+变更未复核，支持里程碑切片；闭环=有实现且有测试，实现链上的测试传递计入）。
-- **验收考官机制与首轮审查**（docs/13 Round 1）：新增长期质量轮——把设计要求变成反例与检查清单，专抓「单功能能用、连起来出问题」的接缝缺陷。首轮在追溯域抓获三例并当场修复：F1 归属缝隙（conversation/feature 跨项目可挂链·require_node 补归属门）、F2 登记链接后 trace-impact 缓存未失效（影响面板停留旧图）、F3 影响分析下拉在存在需求时只剩需求（任务侧反查 UI 不可达）——回归用例进套件（test_trace_integration + TracePage.test）。基线：pytest 484→490 / 冒烟 96→98 / vitest 45→47 / precache 42→43（TracePage 新 chunk）。
+- **验收考官机制与首轮审查**（docs/13 Round 1）：新增长期质量轮——把设计要求变成反例与检查清单，专抓「单功能能用、连起来出问题」的接缝缺陷。首轮在追溯域抓获三例并当场修复：F1 归属缝隙（conversation/feature 跨项目可挂链·require_node 补归属门）、F2 登记链接后 trace-impact 缓存未失效（影响面板停留旧图）、F3 影响分析下拉在存在需求时只剩需求（任务侧反查 UI 不可达）——回归用例进套件（test_trace_integration + TracePage.test）。
+
+### Changed
+- **lucide-react 1.52.0 跟随**（M109-I328）：图标库 minor 一车——pnpm update 在 range 内抬 ^1.51.0→^1.52.0+lockfile 同车；vitest 47+build 全绿随收口复验。
+- **docs/11 解冻至 v0.20.0**（M109-I328）：全部部署面时效戳随版；部署链已验证声明追加 M109-I327 lucide minor 车后双镜像重建对账；一键发布演练计数十→十一次。
 
 ## [0.19.0] — 2026-10-04
 

@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-04 更新 · M108 需求到证据追溯助手 完成，下一步 M109 收口[v0.20.0 攒批发布]）
+# HANDOFF —— 写给下一个新会话（2026-10-05 更新 · M109 发布工程第十轮 完成[v0.20.0 已 tag]，下一步 M110 前置调研[候选池待核]）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -47,6 +47,7 @@
 - **M106 基线保鲜第四轮·v0.18.0 随版记录清偿（I320-I322，2026-10-04 完成，docs/01 §CY + docs/10 §M106）**：docs/06 §7 基线章随版对账 v0.18.0[四项数字全持平——主 bundle 374.36KB/gzip 114.52KB/36 chunks 五巡稳定/precache 42——pwa 构建插件零运行时影响实测坐实·「持平」亦随版入档] + docs/12 覆盖声明随版至 v0.18.0[M105 自动化面零新增核验] + 真源指针体检四巡零漂移[四组枚举+写门+env 随行全一致·脚本化计数断言] + 429 降级第三轮走通[Plane 三日零新发版/pwa 2.0.0 顶格/axe+workbox registry 零漂移] + 攒批 v0.19.0 不 tag[M107 收口 bump+tag+DoD 第十次]。
 - **M107 发布工程第九轮·零漂移 v0.19.0 攒批发布（I323-I325，2026-10-04 完成，docs/01 §CZ + docs/10 §M107）**：依赖漂移当轮实测双生态全零[后端连续第五轮零/前端 M105 pwa 车后归零]——零漂移发布轮形态第三轮验证 + 外部互证升级[FastAPI 0.142.2 GitHub 直抓=本仓 floor 顶格+react/vite/lucide registry 三重顶格] + I323 发布面验证[双镜像+对账 13/13+frozen-lockfile+四锚预检 0.18.0] + I324 五点 bump 0.19.0 零 RED+CHANGELOG [0.19.0]+docs/11 解冻[DoD 十次计数] + I325 release_drill RTO **9.2s 新历史最优**+全量回归 484/96/45/build+tag v0.19.0[**DoD 两项第十次执行**]。
 - **M108 需求到证据追溯助手（I326，2026-10-04 完成，docs/01 §DA + docs/10 §M108）**：用户目标轮——需求/设计决定/实现/测试/交付物关联图谱+影响分析+每轮缺口报告。独立 trace_links 投影表[六关系词表×五类节点·trace.linked/unlinked·rebuild 复现入测]+trace 域[links CRUD 校验族+impact 无向 BFS 两跳（分组随边方向·needs_review）+coverage 缺口六类（缺测试/缺实现/零证据/孤儿/失效/变更未复核·milestone_id 切片·closed=有实现且有测试·实现链上的测试传递计入）]+DELETE 域内门登记 check_write_gates[写路由 143→145]+前端追溯页[导航「追溯」+/p/:pid/trace·precache 42→43=TracePage 新 chunk] + **验收考官 Round 1 交付前审查**（docs/13 章程+轮次记录：F1 跨项目 conversation/feature 归属门缺失→require_node 补 422；F2 add() 漏失效 trace-impact；F3 影响分析下拉任务不可达——三缺陷发现即修+回归 4 项[test_trace_integration 2+TracePage.test 2]·复现假阳性自纠入档·/trace axe 基线留观随 v0.20.0 补扫） + pytest **490**（+test_trace_evidence 4+test_trace_integration 2）+冒烟 **98**（+smoke 09 两项）+vitest **47**（+TracePage 2）+build 绿+机械防腐七件 ✓ + 攒批 v0.20.0 不 tag[M109 收口 bump+tag+DoD 两项第十一次]。
+- **M109 发布工程第十轮·lucide minor 一车与 v0.20.0 攒批发布（I327-I329，2026-10-05 完成，docs/01 §DB + docs/10 §M109）**：依赖漂移当轮实测[后端运行时 13 项零漂移连续第六轮+前端 lucide-react 1.51.0→1.52.0 minor 有车——M97/M103 先例小车随发布轮] + I327 发布面验证[双镜像 EXIT=0+镜像内 pip 对账 13/13 与开发机逐版一致+frozen-lockfile+四锚预检 0.19.0] + I328 lucide 一车+五点 bump 0.20.0 零 RED[发布钉清单第五次兑现]+CHANGELOG [0.20.0]+冒烟 86 代标记+docs/11 解冻[演练十一+部署链 M109-I327 追加] + I329 release_drill EXIT=0 RTO **10.7s**[本机高负载如实入档]+全量回归 490/98/47/build+`git tag -a v0.20.0`[**DoD 两项第十一次执行**]。
 
 ## 3. 现在卡在哪
 
@@ -55,7 +56,7 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M109 收口（下一步·v0.20.0 攒批发布）**：M108 功能轮已完成（I326 追溯助手在库），攒批裁决 **v0.20.0=M108+M109 两轮成版·M109 收口**——四锚 bump 0.19.0→0.20.0 五点一次改齐（version.py/web/package.json/README/test_version 第三钉+冒烟 88 发布钉+smoke 86 代标记 M108-I326→M109）→ CHANGELOG [0.20.0] 段（Unreleased 攒批[现含 M108 Added 追溯助手]精选入版）→ docs/11 对账解冻 v0.20.0（演练 DoD 计数十→十一次）→ release_drill EXIT=0（RTO 入档·DoD 第 1 项第十一次执行）→ 全量回归（非 smoke 488+冒烟 98+vitest+build）+机械防腐七件 → 看板闭环+附录 C M109 登记+HANDOFF 修剪 → `git tag -a v0.20.0`。**候选池（均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[key 实测十七轮均缺·维持挂起]；②依赖漂移复核（发布轮惯例当轮实测双生态）；③graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；④删除工件恢复 UI（等证据）；⑤init_db 幂等化（真实事故再触发）；⑥演练 --seed-light（留观）；⑦事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑧追溯 artifact 存在性查询缓存（M108 新登记留观——量大后再做）；⑨维护项长清单。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记]
+2. **M110 前置调研（下一步）**：先 `grep -n "候选\|A[A-Z]\|B[A-Z]\|C[A-Z]" docs/01-open-source-research.md` 防重查（§DB 为最后一节）→ LLM key 第十九轮在场检查（count-grep 只·不回显）→ 三路 WebSearch[429 窗 2026-10-07 16:06 重置——恢复常态则三路走通；未恢复则 WebFetch/registry 权威源降级]→ docs/01 新节（§DC）+ docs/10 §M110 节 + 看板行 →「M110 调研定义」提交 → HANDOFF 收口 → 3 迭代 → M110 审阅。**候选池（待防重查核验，均勿凭印象放行）**：①**真实 LLM 回归轮（待用户提供 APM_LLM_API_KEY）**[key 实测十八轮均缺·维持挂起]；②依赖漂移复核（M109 刚扫：后端零/lucide 1.52.0 刚车·两轮内免测）；③graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；④删除工件恢复 UI（等证据）；⑤init_db 幂等化（真实事故再触发）；⑥演练 --seed-light（留观）；⑦事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑧追溯 artifact 存在性查询缓存（M108 新登记留观——量大后再做）；⑨考官 Round 2（docs/13 优先级=最新发布版块 v0.20.0 接缝抽查·含追溯域旧接缝）；⑩维护项长清单。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记]
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
@@ -184,7 +185,7 @@ python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 �
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
 python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 python tools/release_drill.py         # 一键发布演练（发布轮收口 DoD·M88 起——备份→毁库→恢复→对账→RTO，EXIT=0 即过）
-git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.19.0 十五枚在案·版本四锚由冒烟 86+88 锁定）
+git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.20.0 十六枚在案·版本四锚由冒烟 86+88 锁定）
 cd web && pnpm vitest run             # 前端单测 47 项（含 axe a11y 机械锁）；pnpm build 须绿（主 bundle 374.36KB·36 chunks——v0.17.0 实测[M104-I314 对账]·页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
