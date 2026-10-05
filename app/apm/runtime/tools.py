@@ -17,7 +17,6 @@ PERMISSIONS: dict[str, str] = {
     # read
     "read_artifact": "read",
     "list_artifacts": "read",
-    "search_web": "read",
     "search_assets": "read",
     "read_asset": "read",
     # write (whitelisted domain: this project's content repo / asset links)
@@ -25,9 +24,11 @@ PERMISSIONS: dict[str, str] = {
     "link_asset": "write",
     # dangerous (恒审批)
     "create_git_tag": "dangerous",
-    "publish_external": "dangerous",
-    "run_command": "dangerous",
 }
+# M113-I336 剪枝：search_web/publish_external/run_command 三个非功能性 stub
+# 出注册表（伪搜索/伪发布/恒拒绝占位——权限面只暴露真实能力，deny-by-default
+# 名副其实）；危险档语义由 create_git_tag 真实审批流承载，V2 沙箱承诺留在
+# docs/07 roadmap（设计册不回填）。
 
 
 class ToolDenied(Exception):
@@ -118,11 +119,6 @@ def _write_artifact(args: dict, ctx: ToolContext) -> dict:
     return result
 
 
-def _search_web(args: dict, ctx: ToolContext) -> dict:
-    # Read-only stub in replay/MVP; recorded as a read span by the caller.
-    return {"query": args.get("query", ""), "results": [], "note": "search_web stub (MVP)"}
-
-
 def _create_git_tag(args: dict, ctx: ToolContext) -> dict:
     from apm.content import gitrepo
 
@@ -132,14 +128,6 @@ def _create_git_tag(args: dict, ctx: ToolContext) -> dict:
     root = gitrepo.repo_path(ctx.project_id)
     gitrepo._run(["tag", tag], cwd=root)
     return {"tagged": tag}
-
-
-def _publish_external(args: dict, ctx: ToolContext) -> dict:
-    return {"published": args.get("target", ""), "note": "external publish stub (MVP)"}
-
-
-def _run_command(args: dict, ctx: ToolContext) -> dict:
-    raise ToolDenied("run_command is disabled in MVP (sandbox arrives in V2)")
 
 
 # Asset tools are registered by the assets domain (I12) to avoid a hard
@@ -154,8 +142,5 @@ _HANDLERS: dict[str, Callable[[dict, ToolContext], Any]] = {
     "read_artifact": _read_artifact,
     "list_artifacts": _list_artifacts,
     "write_artifact": _write_artifact,
-    "search_web": _search_web,
     "create_git_tag": _create_git_tag,
-    "publish_external": _publish_external,
-    "run_command": _run_command,
 }

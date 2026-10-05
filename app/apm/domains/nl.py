@@ -184,11 +184,14 @@ def _normalize_llm_actions(raw: str) -> list[dict]:
 
 
 def parse_llm(utterance: str, page_state: dict | None) -> tuple[list[dict], str]:
-    """L2: real-provider intent parsing (ui_agent_model, falls back to llm_model).
-    Returns (actions, model); provider failures degrade to no actions."""
+    """L2: real-provider intent parsing (cheap model first — M113 unified knob:
+    APM_MODEL_CHEAP wins, APM_UI_AGENT_MODEL is the legacy fallback — then
+    llm_model). Returns (actions, model); provider failures degrade to no
+    actions."""
     from apm.runtime.provider import LLMError, get_provider
 
-    model = config.settings.ui_agent_model or config.settings.llm_model
+    model = (config.settings.model_cheap or config.settings.ui_agent_model
+             or config.settings.llm_model)
     user = f"用户指令：{utterance.strip()}"
     pid = (page_state or {}).get("project_id", "")
     if pid:
@@ -263,7 +266,7 @@ def post_ui_command(body: UICommandIn) -> dict:
              json.dumps(actions, ensure_ascii=False), status_value, parser),
         )
         db.get_conn().commit()
-    source = {"rules": "L1 规则解析", "llm": f"L2 模型解析（{config.settings.ui_agent_model or config.settings.llm_model}）"}[parser]
+    source = (f"L2 模型解析（{llm_model}）" if parser == "llm" else "L1 规则解析")
     return {
         "id": cmd_id,
         "actions": actions,

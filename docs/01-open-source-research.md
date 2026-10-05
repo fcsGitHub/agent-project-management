@@ -2796,3 +2796,25 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - I330 追溯域旧接缝复扫（docs/13 §1 契约镜像：docs/01 §DA 设计要求+trace.py docstring 逐句 vs 代码；docs/13 §3 清单全量过：读面口径[missing/archived/跨项目读]、门禁矩阵 network 模式复验、coverage 里程碑切片与全局口径、事件/rebuild 边界）——发现即修+回归锁，Round 1 三缺陷模式（A/B/C 类）为基准再走一遍。
 - I331 发布面接缝+/trace axe 基线转正（lucide 1.52.0 图标消费面对账[AppShell rail+27 页 icon import 零断裂]+CHANGELOG/docs 声明契约镜像[0.20.0 段每条 vs 代码]+/trace 双主题 axe 扫描进 docs/06 §7 基线——Round 1 留观清偿·原生色板 chip 的对比度风险届时暴露）。
 - I332 收口（全量回归+机械防腐七件+考官 Round 2 报告入 docs/13 §4+看板闭环+附录 C+HANDOFF 修剪+攒批 v0.21.0 不 tag[M112 收口 bump+tag+DoD 两项第十二次]）。
+
+
+## DD. M113 前置调研：功能瘦身轮·剪枝与合并（2026-10-05）
+
+> 目标协议触发：用户指令（2026-10-05）——「接管研究，进行必要瘦身，剪枝不必要的功能，进行功能合并」。**证据驱动三分类**：有证据即剪 / 无证据如实排除 / 合并只做语义同源项。全仓盘点六路：工具注册表、读面端点重复、根目录工件、前端死文件、双 IdP 演示环境、配置旋钮重叠。
+
+**剪枝候选（证据在案，转正）**：
+1. **工具注册表三个非功能性 stub**——`search_web`（返回空结果+「stub」注记的伪搜索）、`publish_external`（返回注记的伪发布）、`run_command`（恒 ToolDenied 的占位）——权限表对外暴露 3 个**没有任何真实能力**的名字，deny-by-default 名存实亡（M45 权限面收窄同向）；`search_web` 还被 pm/dev/architect 三份角色 YAML 声明（roles API 展示面继续宣称该能力）。危险档语义由 `create_git_tag`（真实审批流）承载，不留空位。V2 沙箱承诺保留在 docs/07 roadmap（设计册不回填）。
+2. **根目录 review.html（206KB，2026-08-22 生成）**——`tools/build_review_html.py` 的输出物（设计册单页打包，MVP 时代正式审阅用），可再生、零文档引用、内容已冻结两个月；进仓库属生成物误提交。工具本身保留（结构清单在案），输出物 gitignore。
+
+**合并候选（语义同源，转正）**：
+3. **廉价模型旋钮二合一**——`APM_MODEL_CHEAP`（M48 三档）与 `APM_UI_AGENT_MODEL`（M44 L2 解析）语义 90% 重叠（同一件事：廉价的那个模型）。统一为 `model_cheap` 首选、`ui_agent_model` 降为兼容回落（既有部署 .env 不破坏；`_tier_model_name` 的 cheap 回落链本就如此，`parse_llm` 是唯一不对称点）。
+4. **webhooks_router 双注册**——main.py `include_router(webhooks_router)` 出现两次（首匹配 wins 行为不可见，纯注册表冗余）——去重。
+
+**如实排除（证据不足，不剪）**：
+- `demo.html`（127KB）——README/07/10 三处引用的 UI 验收参照与入口演示（「UI 规范即 Demo」），非生成物；保留。
+- `tools/oidc_stub.py` + `tools/keycloak/`——**文档明确的刻意双演示环境**（docs/11 §2.1「两种演示」+ docs/12 §14 + 冒烟 23 桩协议覆盖），零依赖演示与真实 IdP 各司其职；保留。
+- 前端死文件——零引用扫描 13 项命中全为 `*.test.tsx/ts`（vitest glob 拾取，非死码）；**零死组件**。
+- events 读面重复嫌疑——`GET /api/projects/{id}/events` 实测 **404 不存在**（唯一读面 `/api/events?project_id=`），无重复。
+- docs/01-09 历史行（M3 工具层描述等）——「设计时点快照不回填」既有纪律，不改写历史。
+
+定案 **M113 = 功能瘦身轮·剪枝与合并（I336-I338）**；v0.21.0 攒批= M110+M111+M113，M112 收口 bump+tag 顺延其后。

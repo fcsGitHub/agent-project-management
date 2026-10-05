@@ -7,7 +7,7 @@ model:
   tier: standard
   temperature: 0.2
 system_prompt_file: prompts/roles/dev-agent.md
-tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]
+tools: [read_artifact, write_artifact, search_assets, read_asset, link_asset]
 output:
   artifact: artifacts/code/{item_id}.patch.md
   artifact_kind: code

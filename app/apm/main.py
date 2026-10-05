@@ -208,7 +208,6 @@ def create_app() -> FastAPI:
     app.include_router(webhooks_router, prefix="/api")
     app.include_router(notifications_router, prefix="/api")
     app.include_router(feed_router, prefix="/api")
-    app.include_router(webhooks_router, prefix="/api")
     app.include_router(projects_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")
     from apm.domains.watch import router as watch_router

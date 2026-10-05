@@ -3311,6 +3311,34 @@ agent-project-management/
 - DoD：全量 EXIT=0；防腐 ✓；看板 M111 闭环。
 - 演示路径：回归日志+看板行。
 
+### M113 · 功能瘦身轮·剪枝与合并（I336-I338，约 1 人日）
+
+> v3.0 新增（2026-10-05，用户指令轮）。用户指令：「接管研究，进行必要瘦身，剪枝不必要的功能，进行功能合并」——证据驱动三分类（docs/01 §DD）：**有证据即剪 / 无证据如实排除 / 合并只做语义同源项**。六路盘点：工具注册表/读面端点重复/根目录工件/前端死文件/双 IdP 演示环境/配置旋钮重叠。弱剪枝结论如实入档：发现即修纪律使代码面长期无厚积，本轮剪的都是「宣称有能力但无实现」类。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I336 | 研究定案（docs/01 §DD）+剪枝① 工具注册表三 stub 出表（search_web 伪搜索/publish_external 伪发布/run_command 恒拒绝占位）+3 角色 YAML search_web 声明清除+回归锁 test_tool_surface | docs/01 §DD | M45 权限面收窄 | 0.5d |
+| I337 | 剪枝② review.html 生成物出仓（206KB·2026-08-22·可再生零引用·build_review_html.py 工具保留）+合并③ 廉价模型旋钮统一（parse_llm 读 APM_MODEL_CHEAP 首选·ui_agent_model 降兼容回落）+溯源文案用实际模型+去重④ main.py webhooks_router 双注册 | docs/01 §DD | M48-I144 三档 | 0.5d |
+| I338 | 收口：受影响测试+全量回归+防腐三件直测+CHANGELOG Removed/Changed+看板+附录 C+HANDOFF | — | M102-I310 惯例 | 0.5d |
+
+#### I336 · 研究定案+剪枝①（0.5d）
+
+- 任务：六路盘点（§DD）→ PERMISSIONS/_HANDLERS 删三件+注册表注记 → 角色 YAML 三件 → 回归锁两枚（deny-by-default+权限面恰等真实能力集）。
+- DoD：grep 全仓零 search_web 残留（agents/app/tests）；回归锁绿；V2 承诺留在 docs/07 不回填。
+- 演示路径：tools.execute('search_web') → ToolDenied("not registered")。
+
+#### I337 · 剪枝②+合并③+去重④（0.5d）
+
+- 任务：git rm review.html+/gitignore → nl.py parse_llm 三级回落（model_cheap→ui_agent_model→llm_model）+L2 溯源文案改实际模型 llm_model → main.py 去重 include。
+- DoD：受影响测试绿（test_llm_real/test_model_tiers/test_runtime 等 31 项）；.env.example 注记；env 对账 EXIT=0。
+- 演示路径：`git log --oneline -- review.html` 终结于本轮。
+
+#### I338 · 收口（0.5d）
+
+- 任务：全量回归（非 smoke 494+冒烟 98）+防腐三件直测 → CHANGELOG 新增 Removed 段+Changed 增合并条 → 看板 M113 闭环+附录 C M113 登记+HANDOFF 修剪。
+- DoD：全量 EXIT=0；防腐 ✓；文档四处随轮。
+- 演示路径：回归日志+看板行。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
 
 > v3.0 新增（2026-10-02，docs/01 §CK 前置调研）。防重查：留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db[--seed-light]）；真实 LLM 轮仍挂起待 key；依赖漂移复核仅 patch/minor 级不构成主题。**候选①转正——阈值已到达**（M91-I277 收口实测累计 3 次/3 轮[M89:1/M90:0/M91:2]）：**证据当场收集（全库 5 个后台线程循环体逐一审读）**——mailer/pusher/scheduler/assets 四处均为「try/except Exception 包住循环体+logger.exception」习语，**唯独 webhooks `_worker_loop` 外层 try 只有 finally 没有 except**——teardown/换代间隙 SELECT 抛 sqlite3.OperationalError（no such table 族）→ 异常穿透 while True → **线程死亡且无人拉起**[测试态=输出噪声；生产态=db 短暂不可用一次即出站 webhook 永久静默的假健康]。**防重查：Python 3.13 Queue.shutdown 不做（本机 3.11.5+零依赖纪律）、sentinel/stop-event 机制位不做（daemon+lifespan 下一行 except 已达「任务死 worker 活」）、非 daemon 改造不做（退出语义变化面大）。**
@@ -3653,6 +3681,10 @@ agent-project-management/
 | I333 Provider 配置真实化+回落链收拢 | 已完成 | 2026-10-05 | 2026-10-05 | .env（APM_PROVIDER_MODE=openai+https://api.deepseek.com+deepseek-flash 三档全配+MAX_TOKENS 16384——官方 /models 实测 deepseek-flash=DeepSeek-V4.1-Flash·1M 上下文·思考型 reasoning_content）+ 角色 YAML 7 件 tier 化（name: glm-5.3→tier: standard·_tier_resolved 参与 cascade）+ roles.tier_model_name 单一真源[引擎 cascade 改引用]（**先红后绿：test_runtime test_pm_agent_run_to_gate_approval RED——档位未配时解析空名进 span 的 gen_ai.request.model·修复后受影响 4 文件 29 项复跑绿**）+ .env.example/README 示例随迁（DeepSeek 默认·智谱备选）+ keys.txt 入 .gitignore + check_env_doc EXIT=0 |
 | I334 真实复演+F1 发现即修 | 已完成 | 2026-10-05 | 2026-10-05 | .demo-m111 隔离（8014）：GET /system/llm 全对→ping ok 2524ms 40/71→先红 r_8decd61d5f tokens 825/557 但 prd.md 被 DSML 工具调用语法污染[拒绝审批留痕]→6 份角色提示词「工具使用规范」→「执行环境契约」→后绿 p_99c11e5c68：293 行真实 PRD 零标记·tokens 1047/17909→批准→编排器接力 planner（真实 WBS 23 任务```wbs 可解析·合计 2079/31787·平均 134s）→批准→item.created ×23→L2「看看这个项目都产生了哪些文档」parser=llm→navigate /assets·审计事件落账→六段 span 全 deepseek-flash/stream=true/tier=standard/apm.model_degraded=false·证据 .demo-m111/evidence/（README+16 件） |
 | I335 收口 | 已完成 | 2026-10-05 | 2026-10-05 | 全量回归[非 smoke 490 EXIT=0+冒烟 runner 98 GREEN+vitest 47 passed+build EXIT=0（precache 43 持平）]（**冒烟首跑 RED 发现即修**：roles docstring「APM_MODEL_*」被 env 对账提取为假键 APM_MODEL_→smoke 82 RED·措辞改全名后重跑 GREEN）+ 机械防腐[env_doc/写门 145=78+67/日期台账直测 EXIT=0+四件随冒烟] + docs/01 §DC M111→M112 重编号+docs/10 §M111+看板+附录 C+HANDOFF 修剪+CHANGELOG Unreleased 恢复攒批 |
+| **M113 功能瘦身轮·剪枝与合并（I336-I338）** | 已完成 | 2026-10-05 | 2026-10-05 | 3 迭代 / 约 1 人日（用户指令轮 + docs/01 §DD + docs/10 §M113）：I336 研究定案[六路盘点三分类：有证据即剪/无证据如实排除/合并只做语义同源]+剪枝① 工具注册表三 stub 出表[search_web 伪搜索/publish_external 伪发布/run_command 恒拒绝——权限面只暴露真实能力·3 角色 YAML 声明清除·危险档由 create_git_tag 真实审批流承载·V2 承诺留 docs/07]+回归锁 test_tool_surface 两枚/I337 剪枝② review.html 生成物出仓[206KB·可再生零引用·工具保留]+合并③ 廉价模型旋钮统一[parse_llm 读 APM_MODEL_CHEAP 首选·ui_agent_model 降兼容回落——两旋钮一语义]+L2 溯源文案改实际模型+去重④ webhooks_router 双注册/I338 收口[全量回归+防腐三件直测+CHANGELOG Removed 段+文档四处]。**如实排除**：demo.html（三处引用的验收参照）/oidc_stub+keycloak（文档明确双演示+冒烟 23）/前端零死组件/events 无重复读面（404 实证）。v0.21.0 攒批=M110+M111+M113 |
+| I336 研究定案+剪枝① stub 工具三件 | 已完成 | 2026-10-05 | 2026-10-05 | docs/01 §DD 六路盘点 + PERMISSIONS/_HANDLERS 删 search_web/publish_external/run_command+注册表注记（deny-by-default 名副其实——M45 收窄同向）+ pm/dev/architect 三角色 YAML tools 清单去 search_web + test_tool_surface.py 回归锁两枚[pruned stubs 全部 ToolDenied("not registered")+权限面恰等七真实能力集] + grep 全仓零残留 |
+| I337 剪枝②+合并③+去重④ | 已完成 | 2026-10-05 | 2026-10-05 | review.html git rm（206KB·2026-08-22 MVP 评审生成物·可再生·零文档引用）+/gitignore[build_review_html.py 工具保留] + nl.py parse_llm 回落链改三级（model_cheap→ui_agent_model→llm_model·与 _tier_model_name cheap 链同源——「两旋钮一语义」）+post_ui_command L2 溯源文案改用实际返回的 llm_model（原为配置猜测）+ main.py include_router(webhooks_router) 双注册去重（首匹配 wins 行为不可见·纯注册表冗余）+ .env.example UI_AGENT_MODEL 注记降级语义 + 受影响 5 文件 31 项绿 |
+| I338 收口 | 已完成 | 2026-10-05 | 2026-10-05 | 全量回归[非 smoke 494 EXIT=0（+test_tool_surface 2）+冒烟 runner 98 GREEN] + 机械防腐[env_doc/写门/日期台账直测 EXIT=0] + CHANGELOG Unreleased 新增 Removed 段+Changed 合并条 + 看板 M113 闭环+附录 C M113 登记+HANDOFF 修剪（v0.21.0 攒批=M110+M111+M113·M112 收口顺延其后） |
 | 2026-10-03 M97 调研定义（§CP） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第七轮实测仍缺[.env 不存在]维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空[M93 车后零漂移]+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题·但 v0.14.0 攒批义务落在本轮[M96 已不 tag]：发布轮起点一车跟随+全量冻结=配对轮实体[M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试全 MockTransport+单测]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M93 §CL 完全同源·六源已引用在案·openai 3.24 变更面核实降级为装后全量回归·无新规则族]。定案 M97=发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293 一车/I294 双镜像验证/I295 **v0.14.0 攒批发布**[DoD 两项第五次执行]） |
 | 2026-10-03 M96 调研定义（§CO） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第六轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面继承 M94 全清。**候选账号安全补课转正——grep 实证三向印证**：①hash_password 全库仅创建[users.py:135·409 不可重入]+boot 重放[:87·仅引导管理员]两处——**网络多用户部署下普通用户永远无法改密**[忘密码=删库重建级]/②auth_api 3 端点+users 域零 password 路由+前端 api.ts 仅 login+SettingsPage 零密码面/③会话为无状态 HMAC TTL 24h[security.py user_id.expiry.signature]——凭据变更→会话失效语义缺失[OWASP Session Management Cheat Sheet：凭据变更须作废全部会话·ASVS 3.3.x——本轮与改密面**同轮建齐**避免先留缺口]。同族先例=M82 登录防爆破[API2 面·哑哈希计时均衡/滑窗在库]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[M90/M91/M95 路径·OWASP 条文+仓库内先例·无新规则族]。定案 M96=账号安全补课轮·密码自助修改与会话失效（I290 pw_epoch+令牌 v2 兼容 legacy+双端点+失效语义/I291 前端 Modal+IAB 走查+docs/11 补节/I292 收口[攒批 v0.14.0 不 tag]） |
 | 2026-10-02 M95 调研定义（§CN） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：LLM 轮 key 第五轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面复核继承 M94 全清[四面刚扫]。**候选=journey UX 三发现转正——代码现状逐条复核**：①网络匿名 401[auth_api.py:150-158]→AppShell 回落 LocalSwitcher 误导[832-854]+401 重定向仅反应式[api.ts:345 写失败才触发]/②登录成功无条件 navigate("/") 无 returnTo[LoginPage.tsx:55-58]+新建弹窗组件 state 卸载丢失/③Dashboard 裸 listEvents 直显 actor_id[Dashboard.tsx:20] vs ActivityPage 走 _activity_list actor_names 批量富化[reports.py:245-263]——同产品两信息流语义分叉。三路 WebSearch **配额再 429[2026-10-07 16:06 重置]如实降级**[M90/M91 路径·规则族有仓库内先例+通识条文替代：React Router auth 范式 returnTo+相对路径防 open-redirect/表单草稿 sessionStorage+恢复确认/Stream 式 feed actor 内嵌+批量 IN 防 N+1——无新规则族]。定案 M95=旅程 UX 反馈轮·登录语义与信息流富化（I287 登录引导+returnTo+草稿/I288 actor_name 富化/I289 **v0.13.0 攒批发布**[DoD 第四次执行]） |
@@ -4260,6 +4292,8 @@ M109 登记（2026-10-05）：①**依赖小车随发布轮先例第三次兑现
 M111 登记（2026-10-05）：①**先红两连——真实回归轮的价值实证**（Ⅰ：角色 YAML tier 化后 test_runtime RED——档位未配时 `_resolve_model` 解析出空名进 span 的 `gen_ai.request.model`，provider 侧回落掩盖了上下文失真；修=回落链收拢 `roles.tier_model_name` 单一真源[角色加载与 cascade 升档共用]·档位解析永不出空名；Ⅱ：**F1 角色提示词承诺固定图引擎不存在的模型侧工具回路**——「工具使用规范」指示模型 read_artifact/write_artifact，而引擎是 analyze→draft→self_check 固定图每节点一次调用、写工件由引擎代劳，GLM 时代模型未照做所以 45 轮未暴露，deepseek-flash 照做即把 DSML 调用语法原样落进 PRD；修=六份提示词改「执行环境契约」[单轮·无工具·输出即工件·严禁调用标记与开场白]——「mock 绿≠真实通」的 M90 种子双例兑现）；②**提示词即契约面**（角色 YAML `tools:` 列表=权限层登记[危险工具审批用]而非模型侧能力声明——两套语义曾共用一套措辞；后续新增角色提示词必须按执行环境契约模板）；③**docstring 提 APM_MODEL_* 星号会被 env 对账正则提为 APM_MODEL_ 假键**（smoke 82 RED 发现即修——check_env_doc 提取 `APM_[A-Z_]+`·写文档碰 env 名要写全名）；④**DeepSeek flash 思考型适配确认**（reasoning_content 增量被 provider 正确忽略[只采 content]·include_usage 尾块 usage 正常采集·16k max_tokens 足够·estimated_cost_usd 维持诚实零[I188 无人虚报]）；⑤候选池①清偿销号；⑥v0.21.0 攒批调整为 M110~M112 三轮成版（M112 收口 tag）。
 
 M110 登记（2026-10-05）：①**「镜像差先判意图侧」裁决入档**（F2 needs_review 方向 docstring 是唯一 outlier→改 docstring；F3 孤儿口径代码承载意图→改措辞——契约镜像的修复方向不总是代码，改失真侧）；②**R2-F1 读面残留面教训**（R1-F1 修写路径时，其影响分析点名的「标题经 resolve 泄露」在**读侧根节点**仍有残留面——修缝要问「同类门还有几道口」而不是「这一处堵了没」；impact 根改 require_node 读写同门收口）；③**瞬态伪影第三类入档**（主题 toast 进出动画中途采样→color-contrast 一闪重扫消失——M89 过渡采样/M90 数据闪现同族·docs/06 §7 法补「切主题后等 ≥2s」）；④矩阵测试身份时序自纠两例入档（每步操作前核当前会话身份——RED 两轮均为测试自身错误非产品缺陷）；⑤R1 留观①清偿[/trace 进 axe 基线 24→25 路]/R1 留观②维持[过滤参数半传静默忽略待真实使用证据]；⑥pytest 490→**492**（+R2-F1 回归锁+门禁矩阵行）；⑦v0.21.0 攒批=M110~M112 三轮成版（M112 收口 bump+tag+DoD 两项第十二次执行）。
+
+M113 登记（2026-10-05）：①**「宣称有能力但无实现」是独立于死代码的剪枝对象类**（search_web 在权限表+角色 YAML 双处宣称、实现返回空——功能面诚实性剪枝，M45 安全收窄同向；deny-by-default 注册表必须只含真实能力）；②**生成物不进仓库**（review.html=build_review_html.py 输出·2026-08-22 冻结——工具留输出 gitignore·「可再生工件不入版本库」纪律补齐）；③**旋钮合并的兼容式做法**（统一语义时旧键降为回落而非删除——APM_MODEL_CHEAP 首选/APM_UI_AGENT_MODEL 兼容回落·既有 .env 零破坏·.env.example 注记语义）；④弱剪枝轮的如实排除同样入档（demo.html/双 IdP/前端零死组件/events 无重复——证据不足不剪防「为剪而剪」）；⑤pytest 492→**494**（+test_tool_surface 2）；⑥v0.21.0 攒批=M110+M111+M113（M112 收口 bump+tag+DoD 两项第十二次执行·顺延其后）。
 
 
 

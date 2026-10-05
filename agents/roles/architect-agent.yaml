@@ -7,7 +7,7 @@ model:
   tier: standard
   temperature: 0.3
 system_prompt_file: prompts/roles/architect-agent.md
-tools: [read_artifact, write_artifact, search_web, search_assets, read_asset, link_asset]
+tools: [read_artifact, write_artifact, search_assets, read_asset, link_asset]
 output:
   artifact: artifacts/design.md
   artifact_kind: design

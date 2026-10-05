@@ -57,3 +57,6 @@ keys.txt
 .demo-m110-axe/
 .demo-m110-axe-preview.log
 .demo-m110-axe-trace-pid.txt
+
+# build_review_html.py 的输出物（M113 剪枝：生成物不进仓库）
+/review.html

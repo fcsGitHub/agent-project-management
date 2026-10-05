@@ -6,14 +6,19 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）已入批——v0.21.0 由 M112 收口 bump+tag。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）已入批——v0.21.0 由 M112 收口 bump+tag。
 
 ### Changed
 - **真实 LLM 默认示例切换到 DeepSeek 官方**（M111-I333）：`.env.example`/README 以 `https://api.deepseek.com` + `deepseek-flash` 为默认示例（智谱 coding-plan 降为备选）；角色 YAML 七件 `model.name: glm-5.3` 硬编码改为 `tier: standard` 三档路由（M48-I144）——厂商模型名不再进仓库，由 `APM_MODEL_*` 环境键解析，未配置时按回落链落到 `APM_LLM_MODEL`（回落链收拢 `roles.tier_model_name` 单一真源，档位解析永不出空模型名）。
 - **角色提示词执行环境契约**（M111-I334）：六份角色提示词移除「工具使用规范」——旧文案承诺了固定图引擎不存在的模型侧工具回路，真实模型会把工具调用语法原样写进工件（DeepSeek flash 实测抓获）；改为「执行环境契约」：单轮、无工具、输出即工件、严禁工具调用标记与开场白。
+- **廉价模型旋钮统一**（M113-I337）：L2 命令解析的模型选择改为 `APM_MODEL_CHEAP` 首选、`APM_UI_AGENT_MODEL` 降为兼容回落（两旋钮一语义，既有 .env 零破坏）；L2 溯源文案改用实际调用的模型名。
 
 ### Fixed
 - **追溯影响分析读侧归属校验**（M110-I330·验收考官 Round 2 R2-F1）：`/trace/impact` 根节点此前只查存在性不查归属——其他项目的节点 id 可作为读根返回其标题/状态（Round 1 已堵写路径，读侧为残留面）。现读写同门：404=不存在 / 422=属别家；回归锁 `test_trace_impact_root_cross_project_refused` + 写门矩阵 trace 行（pytest 490→492）。
+
+### Removed
+- **工具注册表三个非功能性 stub**（M113-I336）：`search_web`（返回空结果的伪搜索）、`publish_external`（无实现的伪发布）、`run_command`（恒拒绝的占位）——权限面对外只暴露真实能力，deny-by-default 名副其实（M45 收窄同向）；pm/dev/architect 角色声明同步清除，危险档语义由 `create_git_tag` 真实审批流承载，V2 沙箱承诺保留在 roadmap。
+- **review.html 生成物出仓**（M113-I337）：根目录 206KB 的 MVP 评审打包页（2026-08-22 生成、可再生、零引用）不再进版本库——`tools/build_review_html.py` 工具保留，输出物 gitignore。
 
 ## [0.20.0] — 2026-10-05
 
