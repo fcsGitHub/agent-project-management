@@ -28,16 +28,9 @@ from apm.runtime.provider import LLMError
 
 _TIER_ORDER = ["cheap", "standard", "reasoning"]
 
-
-def _tier_model_name(tier: str) -> str:
-    """I144 档位 → 模型名（cheap 缺省回落 ui_agent_model，standard 回落
-    llm_model，reasoning 回落 standard 再回落 llm_model）。"""
-    if tier == "cheap":
-        return config.settings.model_cheap or config.settings.ui_agent_model
-    if tier == "reasoning":
-        return (config.settings.model_reasoning or config.settings.model_standard
-                or config.settings.llm_model)
-    return config.settings.model_standard or config.settings.llm_model
+# M111：档位→模型名回落链唯一真源在 roles.tier_model_name（角色加载与
+# cascade 升档共用，避免两份链漂移）；别名保留 engine._tier_model_name 旧引用面。
+from apm.runtime.roles import tier_model_name as _tier_model_name  # noqa: E402
 
 
 def _next_tier(tier: str | None) -> str | None:

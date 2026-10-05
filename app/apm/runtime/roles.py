@@ -27,16 +27,12 @@ class Role:
         """M48-I144：`model.tier: cheap|standard|reasoning` 解析为具体模型名——
         显式 `model.name` 仍最高优先（tier 只在缺省 name 时生效）。tier 解析
         成功时标 `_tier_resolved=True`（该角色参与 cascade 降级）；显式 name
-        的角色不参与（用户明确指定，不静默替换）。"""
+        的角色不参与（用户明确指定，不静默替换）。M111：解析走 tier_model_name
+        回落链，档位声明在环境未配 APM_MODEL_CHEAP 等三键时回落 llm_model，永不出空名。"""
         m = dict(m)
         tier = (m.get("tier") or "").lower()
         if not m.get("name") and tier in ("cheap", "standard", "reasoning"):
-            names = {
-                "cheap": config.settings.model_cheap,
-                "standard": config.settings.model_standard,
-                "reasoning": config.settings.model_reasoning,
-            }
-            m["name"] = names[tier]
+            m["name"] = tier_model_name(tier)
             m["_tier_resolved"] = True
         return m
 
@@ -61,6 +57,19 @@ class Role:
 
 _lock = threading.Lock()
 _cache: dict[str, Role] = {}
+
+
+def tier_model_name(tier: str) -> str:
+    """M111：档位→模型名的唯一回落链（引擎 cascade 与角色加载共用——
+    cheap 缺省回落 ui_agent_model，standard 回落 llm_model，reasoning 回落
+    standard 再回落 llm_model）。档位解析永不产出空模型名：空名曾让 span
+    的 gen_ai.request.model 记空串（test_runtime 先红抓获）。"""
+    if tier == "cheap":
+        return config.settings.model_cheap or config.settings.ui_agent_model
+    if tier == "reasoning":
+        return (config.settings.model_reasoning or config.settings.model_standard
+                or config.settings.llm_model)
+    return config.settings.model_standard or config.settings.llm_model
 
 
 def load_roles() -> dict[str, Role]:

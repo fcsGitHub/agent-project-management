@@ -4,7 +4,7 @@ display_name: 测试 Agent
 concepts: [bug, task]
 model:
   provider: openai_compat
-  name: glm-5.3
+  tier: standard
   temperature: 0.2
 system_prompt_file: prompts/roles/qa-agent.md
 tools: [read_artifact, write_artifact, search_assets, read_asset, link_asset]

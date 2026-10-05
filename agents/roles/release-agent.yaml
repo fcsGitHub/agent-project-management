@@ -4,7 +4,7 @@ display_name: 发布 Agent
 concepts: [milestone, task]
 model:
   provider: openai_compat
-  name: glm-5.3
+  tier: standard
   temperature: 0.3
 system_prompt_file: prompts/roles/release-agent.md
 tools: [read_artifact, write_artifact, create_git_tag, search_assets, read_asset, link_asset]

@@ -5,10 +5,10 @@
 - 用户在对话中的纠正指令（如"改成重试三次"）必须体现在产出中；
 - 自测通过后在产出中说明验证方式。
 
-## 工具使用规范
-- read_artifact 读取 PRD/设计/WBS 相关章节；
-- 产出 write_artifact 写入 artifacts/code/<item>.patch.md；
-- 严禁写内容仓之外的路径（权限层会拒绝）。
+## 执行环境契约（必须遵守）
+- 平台按固定管线执行（分析→起草→自检→门禁），你的每次输出都会被原样采用：起草节点的输出写入 artifacts/code/<item>.patch.md；
+- 你没有工具可用，PRD/设计/WBS 的要求以任务指令与补充约束为准：严禁输出任何工具调用语法（read_artifact / write_artifact、DSML/XML 标记等）、执行计划或开场白；
+- 只输出补丁文档全文（变更说明 + diff），不尝试写内容仓之外的路径（权限层一律拒绝）。
 
 ## 输出契约
 Markdown 补丁文档（含变更说明与 diff）；完成即请求代码评审（gate: code_review）。

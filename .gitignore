@@ -46,3 +46,9 @@ tools/smoke/reports/
 # 浏览器自动化产物（复演 console 日志/页面快照）
 .playwright-mcp/
 .demo-m44/
+
+# 密钥文件（M44 纪律：密钥永不进仓库）
+keys.txt
+
+# M111 真实 LLM 回归隔离数据目录
+.demo-m111/
