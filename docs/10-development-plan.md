@@ -3254,6 +3254,35 @@ agent-project-management/
 - 任务：release_drill EXIT=0（RTO 入档）→ 全量回归（非 smoke 490+冒烟 98+vitest 47+build）→ 机械防腐七件 → 看板闭环+附录 C M109 登记+HANDOFF 修剪 → `git tag -a v0.20.0`（第十一次 DoD 执行）。
 - DoD：全量 EXIT=0；冒烟 GREEN；七件 ✓；演练 EXIT=0；git describe=v0.20.0。
 - 演示路径：git describe=v0.20.0。
+
+### M110 · 验收考官第二轮·v0.20.0 接缝抽查（I330-I332，约 1.5 人日）
+
+> v3.0 新增（2026-10-05，docs/01 §DC 前置调研）。**候选考官 Round 2 转正**（用户目标轮机制常设化——docs/13 优先级=最新发布版块）：v0.20.0 新接缝三件在库[追溯域发布态未经考官轮+/trace axe 基线留观未清偿+lucide 1.52.0 车后消费面零对账]。防重查：LLM key 第十九轮实测仍缺；依赖 M109 刚扫两轮内免测；三路检索 429 降级 WebFetch/registry 走通[Plane v1.4.2 静默互证+lucide 1.52.0 registry 顶格+Fowler《IntegrationTest》方法论外部互证——「连接处缺陷恰是单测盲区」=考官章程第三方背书]。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I330 | 追溯域旧接缝复扫（docs/13 §1 契约镜像[§DA 设计要求+docstring 逐句 vs 代码]+§3 清单全量[读面口径/门禁矩阵 network 复验/coverage 切片语义/事件 rebuild 边界]·发现即修+回归锁） | docs/01 §DC.1 | M108-I326/docs/13 Round 1 | 0.5d |
+| I331 | 发布面接缝（lucide 1.52.0 图标消费面对账+CHANGELOG/docs 声明契约镜像）+/trace 双主题 axe 扫描进 docs/06 §7 基线[Round 1 留观清偿] | docs/01 §DC.1 | M90 扫描法/M102-I308 惯例 | 0.5d |
+| I332 | 收口：全量回归+机械防腐七件+考官 Round 2 报告入 docs/13 §4+看板闭环+附录 C+HANDOFF 修剪（攒批 v0.21.0 不 tag[M111 收口 DoD 第十二次]） | docs/01 §DC.1 | M102-I310 惯例 | 0.5d |
+
+#### I330 · 追溯域旧接缝复扫（0.5d）
+
+- 任务：docs/13 §1 契约镜像（§DA 承诺句+trace.py docstring 逐字 vs 代码）→ docs/13 §3 清单十项全量过（归属一致性/读面口径/前端缓存/UI 入口/计数基线/时间戳比较/反例三连等）→ 发现即修+回归用例进套件（先红后绿）。
+- DoD：清单十项逐条有结论（✓ 或 缺陷+修复+回归锁）；三件套入 docs/13 §4 Round 2。
+- 演示路径：复现 RED→修复 GREEN 记录。
+
+#### I331 · 发布面接缝+/trace axe 基线转正（0.5d）
+
+- 任务：lucide 1.52.0 车后图标消费面对账（AppShell rail/页面 import grep 对账零断裂）→ CHANGELOG [0.20.0] 段逐条 vs 代码契约镜像 → /trace 双主题 axe 扫描（docs/06 §7 方法·隔离环境注入 axe-core）→ 违规修复+基线条目随版。
+- DoD：消费面零断裂；镜像逐条对账；/trace 扫描 0 违规或修至 0 并入基线章。
+- 演示路径：axe 复扫输出+docs/06 §7 基线 diff。
+
+#### I332 · 收口（0.5d）
+
+- 任务：全量回归（非 smoke 490+冒烟 98+vitest 47+build）→ 机械防腐七件 → 考官 Round 2 报告定稿 docs/13 §4 → 看板闭环+附录 C M110 登记+HANDOFF 修剪（攒批 v0.21.0 不 tag——M111 收口 bump+tag+DoD 两项第十二次）。
+- DoD：全量 EXIT=0；七件 ✓；docs/13 §4 Round 2 在案；看板 M110 闭环。
+- 演示路径：回归日志+docs/13 §4。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
 
 > v3.0 新增（2026-10-02，docs/01 §CK 前置调研）。防重查：留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db[--seed-light]）；真实 LLM 轮仍挂起待 key；依赖漂移复核仅 patch/minor 级不构成主题。**候选①转正——阈值已到达**（M91-I277 收口实测累计 3 次/3 轮[M89:1/M90:0/M91:2]）：**证据当场收集（全库 5 个后台线程循环体逐一审读）**——mailer/pusher/scheduler/assets 四处均为「try/except Exception 包住循环体+logger.exception」习语，**唯独 webhooks `_worker_loop` 外层 try 只有 finally 没有 except**——teardown/换代间隙 SELECT 抛 sqlite3.OperationalError（no such table 族）→ 异常穿透 while True → **线程死亡且无人拉起**[测试态=输出噪声；生产态=db 短暂不可用一次即出站 webhook 永久静默的假健康]。**防重查：Python 3.13 Queue.shutdown 不做（本机 3.11.5+零依赖纪律）、sentinel/stop-event 机制位不做（daemon+lifespan 下一行 except 已达「任务死 worker 活」）、非 daemon 改造不做（退出语义变化面大）。**
@@ -3588,6 +3617,7 @@ agent-project-management/
 | I328 lucide 一车+四锚 bump 0.20.0+CHANGELOG+docs/11 解冻 | 已完成 | 2026-10-05 | 2026-10-05 | pnpm update lucide-react 1.51.0→1.52.0[minor 在 range 内 update 即抬 ^range·M93 惯例+lockfile 同车·M97 openai/M103 lucide 先例小车随发布轮] + 五点一次改齐 0.19.0→0.20.0 零 RED[version.py/web/package.json/README/test_version 第三钉+冒烟 88 钉·发布钉清单第五次兑现] + CHANGELOG [0.20.0] 段[M108 助手+考官 R1+lucide 车精选·Unreleased 回空指向 v0.21.0] + 冒烟 86 代标记 M107-I324→M109-I328 + docs/11 解冻 v0.20.0[演练计数十一+部署链声明追加 M109-I327 lucide 车后重建对账+写门 145 语义须知随版] + 五测 9 项全绿 |
 | I329 **v0.20.0 攒批发布**+M109 收口审阅 | 已完成 | 2026-10-05 | 2026-10-05 | release_drill **EXIT=0**[reconciled True·**RTO 10.7s**=wipe→reconciled·趋势 10.9→10.1→10.0→9.3→9.2→10.7 本机高负载 seed 99.2s 如实入档·四项对账一致·DoD 第 1 项第十一次执行] + 全量回归[非 smoke **490 EXIT=0**+冒烟 runner **98 GREEN** EXIT=0+vitest **47** EXIT=0+build EXIT=0[precache 43=TracePage 随版新基线]] + 机械防腐七件 ✓[三件直测 env/写门 145/日期台账+四件随冒烟] + 看板闭环[I327/I328/I329]+附录 C M109 登记+HANDOFF 修剪 + `git tag -a v0.20.0`（annotated·攒批第九版·**DoD 第 2 项第十一次执行**） |
 | **M109 发布工程第十轮·lucide minor 一车与 v0.20.0 攒批发布（I327-I329）** | 已完成 | 2026-10-05 | 2026-10-05 | 3 迭代 / 约 2 人日（docs/01 §DB + docs/10 §M109）：I327 发布面验证[双镜像 EXIT=0+镜像内 pip 对账 13/13 与开发机一致+frozen-lockfile+四锚预检 0.19.0]/I328 lucide 1.52.0 一车[小车随发布轮先例第三次]+五点 bump 0.20.0 一次改齐零 RED[发布钉清单第五次兑现]+CHANGELOG [0.20.0]+docs/11 解冻[演练 DoD 十一次计数+部署链 lucide 车后重建对账]/I329 release_drill RTO 10.7s+全量回归[490/98/47/build]+`git tag -a v0.20.0`[**DoD 两项第十一次执行**]。后端运行时连续第六轮零漂移；前端 lucide minor 小车。基线：pytest **490** 全绿+冒烟 **98 GREEN**+vitest **47**+build 绿+机械防腐七件 ✓+**tag v0.20.0**（攒批第九版：M108+M109 两轮一版） |
+| **M110 验收考官第二轮·v0.20.0 接缝抽查（I330-I332）** | 进行中 | 2026-10-05 |  | 3 迭代 / 约 1.5 人日（docs/01 §DC + docs/10 §M110）：I330 追溯域旧接缝复扫[docs/13 §1 契约镜像+§3 清单十项全量·发现即修+回归锁]/I331 发布面接缝[lucide 1.52.0 消费面对账+CHANGELOG 契约镜像]+/trace 双主题 axe 扫描进基线[Round 1 留观清偿]/I332 收口[全量回归+防腐七件+docs/13 §4 Round 2 报告·攒批 v0.21.0 不 tag[M111 收口 DoD 第十二次]]。防重查：LLM key 十九轮缺；依赖 M109 刚扫两轮内免测；429 降级三路走通[Plane v1.4.2 静默+lucide 1.52.0 顶格+Fowler IntegrationTest 方法论互证] |
 | 2026-10-03 M97 调研定义（§CP） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第七轮实测仍缺[.env 不存在]维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空[M93 车后零漂移]+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题·但 v0.14.0 攒批义务落在本轮[M96 已不 tag]：发布轮起点一车跟随+全量冻结=配对轮实体[M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试全 MockTransport+单测]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M93 §CL 完全同源·六源已引用在案·openai 3.24 变更面核实降级为装后全量回归·无新规则族]。定案 M97=发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293 一车/I294 双镜像验证/I295 **v0.14.0 攒批发布**[DoD 两项第五次执行]） |
 | 2026-10-03 M96 调研定义（§CO） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第六轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面继承 M94 全清。**候选账号安全补课转正——grep 实证三向印证**：①hash_password 全库仅创建[users.py:135·409 不可重入]+boot 重放[:87·仅引导管理员]两处——**网络多用户部署下普通用户永远无法改密**[忘密码=删库重建级]/②auth_api 3 端点+users 域零 password 路由+前端 api.ts 仅 login+SettingsPage 零密码面/③会话为无状态 HMAC TTL 24h[security.py user_id.expiry.signature]——凭据变更→会话失效语义缺失[OWASP Session Management Cheat Sheet：凭据变更须作废全部会话·ASVS 3.3.x——本轮与改密面**同轮建齐**避免先留缺口]。同族先例=M82 登录防爆破[API2 面·哑哈希计时均衡/滑窗在库]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[M90/M91/M95 路径·OWASP 条文+仓库内先例·无新规则族]。定案 M96=账号安全补课轮·密码自助修改与会话失效（I290 pw_epoch+令牌 v2 兼容 legacy+双端点+失效语义/I291 前端 Modal+IAB 走查+docs/11 补节/I292 收口[攒批 v0.14.0 不 tag]） |
 | 2026-10-02 M95 调研定义（§CN） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：LLM 轮 key 第五轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面复核继承 M94 全清[四面刚扫]。**候选=journey UX 三发现转正——代码现状逐条复核**：①网络匿名 401[auth_api.py:150-158]→AppShell 回落 LocalSwitcher 误导[832-854]+401 重定向仅反应式[api.ts:345 写失败才触发]/②登录成功无条件 navigate("/") 无 returnTo[LoginPage.tsx:55-58]+新建弹窗组件 state 卸载丢失/③Dashboard 裸 listEvents 直显 actor_id[Dashboard.tsx:20] vs ActivityPage 走 _activity_list actor_names 批量富化[reports.py:245-263]——同产品两信息流语义分叉。三路 WebSearch **配额再 429[2026-10-07 16:06 重置]如实降级**[M90/M91 路径·规则族有仓库内先例+通识条文替代：React Router auth 范式 returnTo+相对路径防 open-redirect/表单草稿 sessionStorage+恢复确认/Stream 式 feed actor 内嵌+批量 IN 防 N+1——无新规则族]。定案 M95=旅程 UX 反馈轮·登录语义与信息流富化（I287 登录引导+returnTo+草稿/I288 actor_name 富化/I289 **v0.13.0 攒批发布**[DoD 第四次执行]） |

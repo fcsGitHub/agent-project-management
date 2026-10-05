@@ -2786,3 +2786,13 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - I327 发布面验证（compose 双镜像 EXIT=0+app 镜像内 pip freeze 对账 13/13 与开发机一致+web frozen-lockfile EXIT=0+四锚预检 0.19.0 全一致）——M105-I318/M107-I323 惯例，M108 追溯域随版基线上重建。
 - I328 lucide 一车+四锚 bump 0.20.0 五点一次改齐+CHANGELOG [0.20.0]+冒烟 86 代标记 M107-I324→M109-I328+docs/11 解冻（演练计数十→十一次+部署链声明追加 M109-I327 lucide 小车后重建对账）。
 - I329 release_drill（DoD 第 1 项第十一次执行·RTO 入档）+全量回归+机械防腐七件+看板闭环+附录 C+HANDOFF 修剪+`git tag -a v0.20.0`（DoD 第 2 项第十一次执行）。
+
+## DC. M110 前置调研：验收考官第二轮·v0.20.0 接缝抽查（2026-10-05）
+
+> 目标协议触发：M109 完成后开启。防重查：真实 LLM 回归轮 key 第十九轮实测仍缺维持挂起；留观候选维持（graph 入边/工件恢复/init_db/--seed-light/事件表体积复测/追溯 artifact 存在性缓存）；依赖漂移 M109 刚扫（后端零+lucide 1.52.0 刚车）——两轮内免测。**候选考官 Round 2 转正——证据当场收集**：①v0.20.0 新接缝在库——追溯域为全新域，Round 1 只做了交付前审查（发布前未提交态），**发布态接缝**（四锚一致性/CHANGELOG 声明 vs 代码/镜像内对账）未经考官轮；②Round 1 留观「/trace 进 axe 扫描基线」v0.20.0 发布仍未见扫（M108+M109 两轮皆非基线保鲜轮）——**清偿到期**；③lucide 1.51.0→1.52.0 minor 车后图标消费面零对账（考官 D 类：依赖小车后的渲染接缝）。三路检索 **WebSearch 配额 429[2026-10-07 16:06 重置]按预案降级 WebFetch/registry 走通**：[Plane v1.4.2 仍最新](https://github.com/makeplane/plane/releases)[8 月 23 日后零新发版——同类静默互证]+[lucide-react registry latest=1.52.0](https://registry.npmjs.org/lucide-react)=本仓当前车（M109 顶格互证）+方法论外部互证[Martin Fowler《IntegrationTest》：单独开发、各自通过测试的模块**在连接处的缺陷恰是单测测不到的类别**·narrow integration test 主张与考官「接缝清单」外部同构——docs/13 分类学七类的第三方背书]。定案 **M110 = 验收考官第二轮·v0.20.0 接缝抽查**。
+
+**DC.1 取舍**
+
+- I330 追溯域旧接缝复扫（docs/13 §1 契约镜像：docs/01 §DA 设计要求+trace.py docstring 逐句 vs 代码；docs/13 §3 清单全量过：读面口径[missing/archived/跨项目读]、门禁矩阵 network 模式复验、coverage 里程碑切片与全局口径、事件/rebuild 边界）——发现即修+回归锁，Round 1 三缺陷模式（A/B/C 类）为基准再走一遍。
+- I331 发布面接缝+/trace axe 基线转正（lucide 1.52.0 图标消费面对账[AppShell rail+27 页 icon import 零断裂]+CHANGELOG/docs 声明契约镜像[0.20.0 段每条 vs 代码]+/trace 双主题 axe 扫描进 docs/06 §7 基线——Round 1 留观清偿·原生色板 chip 的对比度风险届时暴露）。
+- I332 收口（全量回归+机械防腐七件+考官 Round 2 报告入 docs/13 §4+看板闭环+附录 C+HANDOFF 修剪+攒批 v0.21.0 不 tag[M111 收口 bump+tag+DoD 两项第十二次]）。
