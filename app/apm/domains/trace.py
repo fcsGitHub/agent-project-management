@@ -122,10 +122,12 @@ def resolve_node(project_id: str, node_type: str, ref: str) -> dict:
 
 
 def require_node(project_id: str, node_type: str, ref: str) -> dict:
-    """Write-path validation: endpoint must exist AND belong to this project.
-    asset 是例外——资产库本就是 org 级共享（docs/10 M80-I240 分门语义），
-    不做项目归属校验。验收考官 Round 1：conversation/feature 同为项目级表，
-    归属门此前只对 item 生效（跨项目节点可挂进本项目图+标题经 resolve 泄露）。"""
+    """Endpoint validation (write path + impact read root): endpoint must exist
+    AND belong to this project. asset 是例外——资产库本就是 org 级共享
+    （docs/10 M80-I240 分门语义），不做项目归属校验。验收考官 Round 1：
+    conversation/feature 同为项目级表，归属门此前只对 item 生效（跨项目节点
+    可挂进本项目图+标题经 resolve 泄露）；Round 2：impact 读侧根节点同门——
+    否则 A 项目成员拿 B 项目节点 id 当根，resolve_node 按全局 id 泄露标题/状态。"""
     if node_type == "item":
         from apm.domains.items import require_item
 
@@ -303,15 +305,15 @@ def trace_impact(project_id: str, node_type: str = "item", node_ref: str = "",
                  depth: int = 2) -> dict:
     """影响分析：从任一节点出发的无向 BFS（默认 2 跳）——改一条需求，直接看
     到受波及的设计决定/实现/测试/交付物/文档；从任务侧进入则反查波及的需求。
-    证据登记晚于需求最后变更的边标 needs_review（需求改了、证据未复核）。"""
+    证据登记早于根节点（需求/工作项）末次变更的边标 needs_review（根后来改了、
+    证据未复核——coverage 的变更未复核缺口同口径）。根节点过 require_node 归属门
+    （考官 Round 2：读侧与写侧同门，跨项目根 422，标题不经 resolve 泄露）。"""
     if node_type not in NODE_TYPES:
         raise HTTPException(status_code=422, detail=f"node types must be one of {list(NODE_TYPES)}")
     if not node_ref:
         raise HTTPException(status_code=422, detail="node_ref is required")
     depth = max(1, min(depth, 3))
-    node = resolve_node(project_id, node_type, node_ref)
-    if node["missing"]:
-        raise HTTPException(status_code=404, detail=f"unknown {node_type} '{node_ref}'")
+    node = require_node(project_id, node_type, node_ref)
     node["requirement_like"] = False
     if node_type == "item" and node.get("concept_id") in requirement_concepts(project_id):
         node["requirement_like"] = True
@@ -374,8 +376,9 @@ def trace_impact(project_id: str, node_type: str = "item", node_ref: str = "",
 def trace_coverage(project_id: str, milestone_id: str | None = None,
                    cycle_id: str | None = None) -> dict:
     """每轮缺口报告：需求侧（缺测试/缺实现/零证据/变更未复核）+ 任务侧
-    （未挂到任何需求的孤儿项）+ 图健康（失效链接）。支持按里程碑/迭代切片，
-    对应「每轮收口前跑一遍」。closed = 有实现且有测试（决策/交付物为加分项）。"""
+    （未挂进任何追溯链接的孤儿项——挂了任意一条边即不算）+ 图健康（失效链接）。
+    支持按里程碑/迭代切片，对应「每轮收口前跑一遍」。closed = 有实现且有测试
+    （决策/交付物为加分项）。"""
     conn = db.get_conn()
     req_concepts = requirement_concepts(project_id)
     where, params = "project_id = ?", [project_id]

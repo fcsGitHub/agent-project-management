@@ -117,6 +117,32 @@ def test_asset_write_gates(client, _net):
         "library": "test", "kind": "test-suite", "title": "成员沉淀"}).status_code == 200
 
 
+def test_trace_write_gates(client, _net):
+    """M110-I330 考官门禁矩阵 network 复验：trace 域写路径与四域同门——
+    POST /projects/* 走中间件成员门，DELETE /trace/links/{id} 走域内台账门
+    （M108-I326 登记）。非成员 403 / 成员 200。"""
+    pid, _ = _mk_fixture_as_admin(client)
+    req = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "requirement", "title": "门禁需求"}).json()
+    task = client.post(f"/api/projects/{pid}/items",
+                       json={"concept_id": "task", "title": "门禁实现"}).json()
+    body = {"source_type": "item", "source_ref": task["id"], "relation": "implements",
+            "target_type": "item", "target_ref": req["id"]}
+    link_id = client.post(f"/api/projects/{pid}/trace/links", json=body).json()["id"]
+
+    client.post("/api/users", json={"id": "qa-wang", "name": "QA 王", "password": "qa-pass"})
+    client.post("/api/users", json={"id": "dev-zhang", "name": "Dev 张", "password": "dev-pass"})
+    _login(client, "qa-wang", "qa-pass")
+    assert client.post(f"/api/projects/{pid}/trace/links", json=body).status_code == 403
+    assert client.delete(f"/api/trace/links/{link_id}").status_code == 403
+
+    _login(client, "u_admin", "admin-pass")
+    client.post(f"/api/projects/{pid}/members", json={"user_id": "dev-zhang", "role": "contributor"})
+    _login(client, "dev-zhang", "dev-pass")
+    member_body = {**body, "relation": "documents"}  # 不同边——409 与门禁无关
+    assert client.post(f"/api/projects/{pid}/trace/links", json=member_body).status_code == 200
+
+
 def test_reconcile_script_covers_all():
     """路由×门禁对账：141 条写路由必须全部命中中间件/台账（I240 防腐本体）。"""
     import subprocess

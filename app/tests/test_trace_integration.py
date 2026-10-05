@@ -92,3 +92,34 @@ def test_trace_same_project_conversation_feature_roundtrip(client, pid):
     cov = client.get(f"/api/projects/{pid}/trace/coverage").json()
     assert cov["summary"]["closed"] == 0  # 有实现无测试——闭环判定不受对话边干扰
     assert cov["gaps"]["stale_links"] == []
+
+
+def test_trace_impact_root_cross_project_refused(client, pid):
+    """R2-F1（docs/13 Round 2·A 类·读面）：impact 根节点此前只查存在性不查归属
+    ——项目 A 成员拿项目 B 的 conversation/feature/item id 当 impact 根，
+    resolve_node 按全局 id 回 B 的 title/status（写侧 R1-F1 已堵，读侧漏网）。
+    回归锁：跨项目根 422（404=不存在/422=属别家，与写路径语义一致）+ 未知根 404
+    + 同项目根正向控制 + asset 保持 org 级（docs/10 M80-I240 分门语义·不测）。"""
+    req_a = client.post(f"/api/projects/{pid}/items",
+                        json={"concept_id": "requirement", "title": "A 的需求"}).json()
+    pid2, conv_b, feat_b = _other_project_conv_and_feature(client)
+    item_b = client.post(f"/api/projects/{pid2}/items",
+                         json={"concept_id": "task", "title": "B 的任务"}).json()
+
+    # 修复前：三连 200，且 node 字段携带别家 title/status（读侧信息泄露）
+    for ntype, nref in (("conversation", conv_b), ("feature", feat_b), ("item", item_b["id"])):
+        r = client.get(f"/api/projects/{pid}/trace/impact",
+                       params={"node_type": ntype, "node_ref": nref})
+        assert r.status_code == 422, f"跨项目 {ntype} 根被接受：{r.status_code} {r.text}"
+
+    # 未知根仍 404（404=不存在 / 422=存在但属别家）
+    r = client.get(f"/api/projects/{pid}/trace/impact",
+                   params={"node_type": "item", "node_ref": "i_ghost"})
+    assert r.status_code == 404
+
+    # 正向控制：同项目根照常解析（不误伤合法读面）
+    ok = client.get(f"/api/projects/{pid}/trace/impact",
+                    params={"node_type": "item", "node_ref": req_a["id"]})
+    assert ok.status_code == 200
+    assert ok.json()["node"]["requirement_like"] is True
+    assert ok.json()["node"]["title"] == "A 的需求"

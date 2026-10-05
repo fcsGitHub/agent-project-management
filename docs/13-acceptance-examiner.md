@@ -69,6 +69,37 @@
 **基线变化**：pytest 488→**490**（+test_trace_integration 2 项）、vitest 45→**47**（+TracePage.test 2 项）、冒烟 98 不变。
 **验证**：trace 三文件 8 项绿 + vitest 47 绿 + `pnpm build` 绿 + 机械防腐（write_gates/env_doc/test_dates）✓。
 
+### Round 2（2026-10-05）——v0.20.0 接缝抽查（M110 I330-I331）
+
+审查对象：**发布态**的 v0.20.0——Round 1 审的是交付前工作树，本轮对已发布版块做接缝抽查：追溯域旧接缝复扫（§1 契约镜像+§3 清单十项全量）+ lucide 1.52.0 车后消费面 + CHANGELOG [0.20.0] 声明镜像 + R1 留观清偿。
+
+**F1（A 类·读面）impact 根节点归属缝隙 —— 已修**
+- **复现**：`tests/test_trace_integration.py::test_trace_impact_root_cross_project_refused` 首跑 RED——项目 A 成员 `GET /api/projects/A/trace/impact?node_type=conversation&node_ref=<B 项目对话 id>` 返回 **200** 且 node 字段携带 B 的 title/status。R1-F1 修的是写路径（require_node 建链门），impact 读侧根节点仍走 `resolve_node` 全局查——只查存在性不查归属（R1 影响分析第②条「标题经 resolve 泄露」在读侧的残留面）。
+- **影响**：跨项目节点 id 可作读根——别家成员可探测工作项/对话/功能的标题与状态（id 不可枚举，但多项目成员/日志泄露 id 即可读）；读写两侧归属语义分叉（E 类同族：同一概念两侧口径不一）。
+- **回归用例**：跨项目 conversation/feature/item 根 422 + 未知根 404 + 同项目根正向控制（requirement_like/title 断言）+ asset org 级不误伤（M80-I240 分门·不测即声明）。
+- **修复**：`trace_impact` 根节点改走 `require_node`（读写同门·404=不存在/422=属别家）；`require_node` docstring 扩为「write path + impact read root」。
+
+**F2（契约镜像·语义措辞）trace_impact docstring needs_review 方向写反 —— 已修**
+- **复现**：docstring 写「证据登记**晚于**需求最后变更的边标 needs_review」；代码 `ln["created_at"] < root_row["updated_at"]`、docs/01 §DA「证据登记**早于**需求末次变更」、test_trace_coverage_gaps 钉的行为（先登记→后改→needs_review=1）三方一致均为**早于**——docstring 是唯一 outlier。
+- **修复**：docstring 改「早于」并补「根节点过 require_node 归属门」契约句。
+
+**F3（契约镜像·口径措辞）coverage 孤儿定义 docstring vs 代码 —— 已修（措辞侧）**
+- **复现**：docstring「未挂到**任何需求**的孤儿项」vs 代码「未挂进**任何追溯链接**」（任意一条边即非孤儿——test_trace_coverage_gaps 断言 task 挂 verifies 边后即出孤儿清单）。
+- **裁决**：代码行为保持——任务挂到工件/资产仍是证据链节点，按「必须挂到需求」收紧会让报告噪声化且改变已发布语义；docstring 措辞对齐代码（「未挂进任何追溯链接——挂了任意一条边即不算」）。**教训：镜像差不一定改代码——先判哪侧承载意图，改失真侧。**
+
+**门禁矩阵 network 复验（§3 写门禁）**：`test_write_gates.py::test_trace_write_gates` 新增——M108 的 trace 写门只有 check_write_gates 对账脚本背书，本轮补矩阵行：POST（/projects/* 中间件成员门）与 DELETE（域内台账门）非成员 403 / 成员 200。
+
+**§3 清单十项全过（有证据）**：①写门禁 ✓（145=78+67 EXIT=0+矩阵行）；②归属一致性 ✓（写 R1-F1+读 R2-F1 双闭合）；③事件溯源 ✓（trace_links 在 drop_projections+rebuild 复现入测+payload 键集=消费清单 7/7）；④读面口径 ✓（missing 404/archived 出需求与孤儿清单且不算 stale/跨项目读写同门）；⑤前端缓存 ✓（add/unlink 均失效 links/coverage/impact 三 query）；⑥UI 入口 ✓（/trace 路由+导航+三卡）；⑦计数基线 ✓（pytest 490→492 随轮同步）；⑧时间戳比较 ✓（双侧 events.ts ISO 毫秒）；⑨反例三连 ✓（未知 404/别家 422/自环 422 在套件）；⑩新路由 a11y ✓（/trace 进基线——R1 留观①清偿）。
+
+**发布面接缝（I331）**：lucide 1.52.0 消费面对账——全仓 **25 唯一图标** import + AppShell rail 22 引用 vs 1.52.0 导出表**零缺失**（build EXIT=0 双背书）；CHANGELOG [0.20.0] 契约镜像——Added×2/Changed×2 逐条 vs 代码全对（六关系词表×五类节点/rebuild/三卡/六缺口/里程碑切片/闭环传递/`^1.52.0` 钉/docs/11 时效戳）；/trace axe 亮暗双主题全 clean（亮 3 扫+暗 1 扫·内容落地确认后扫）→ **基线 24→25 路由**；**瞬态伪影第三类入档**：主题 toast（1.5s）进出动画中途采样→color-contrast 4.35 一闪→重扫消失（M89 过渡采样同族）——docs/06 §7 法补「切主题后等 ≥2s」。
+
+**留观**：R1 留观①清偿；R1 留观②（list_trace_links 过滤参数只传其一时静默忽略）维持待真实使用证据；本轮零新增留观。
+
+**考官自纠（误报入档）**：门禁矩阵新测试两轮 RED 均为测试自身身份时序错误（非 admin 身份建用户/加成员；成员重复提交同边撞 409）——非产品缺陷。**教训：矩阵测试每一步操作前核「当前会话身份是谁」。**
+
+**基线变化**：pytest 490→**492**（+2：R2-F1 回归锁+门禁矩阵行）；冒烟 98 / vitest 47 / precache 43 不变；/trace 进 axe 基线（24→25 路由）。
+**验证**：全量回归（非 smoke 492+冒烟 98+vitest 47+build）+ 机械防腐（env_doc/write_gates/test_dates 直测+四件随冒烟）✓。
+
 ## 5. 与既有纪律的关系
 
 - 考官轮遵守「每轮只做改动相关的验证」——不替代每 5 轮的全局回归。

@@ -6,11 +6,14 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：自 M111 起攒批 v0.21.0——v0.20.0 已发布（M108~M109 成版），M110~M112 成版 v0.21.0（M112 收口 tag）。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）已入批——v0.21.0 由 M112 收口 bump+tag。
 
 ### Changed
 - **真实 LLM 默认示例切换到 DeepSeek 官方**（M111-I333）：`.env.example`/README 以 `https://api.deepseek.com` + `deepseek-flash` 为默认示例（智谱 coding-plan 降为备选）；角色 YAML 七件 `model.name: glm-5.3` 硬编码改为 `tier: standard` 三档路由（M48-I144）——厂商模型名不再进仓库，由 `APM_MODEL_*` 环境键解析，未配置时按回落链落到 `APM_LLM_MODEL`（回落链收拢 `roles.tier_model_name` 单一真源，档位解析永不出空模型名）。
 - **角色提示词执行环境契约**（M111-I334）：六份角色提示词移除「工具使用规范」——旧文案承诺了固定图引擎不存在的模型侧工具回路，真实模型会把工具调用语法原样写进工件（DeepSeek flash 实测抓获）；改为「执行环境契约」：单轮、无工具、输出即工件、严禁工具调用标记与开场白。
+
+### Fixed
+- **追溯影响分析读侧归属校验**（M110-I330·验收考官 Round 2 R2-F1）：`/trace/impact` 根节点此前只查存在性不查归属——其他项目的节点 id 可作为读根返回其标题/状态（Round 1 已堵写路径，读侧为残留面）。现读写同门：404=不存在 / 422=属别家；回归锁 `test_trace_impact_root_cross_project_refused` + 写门矩阵 trace 行（pytest 490→492）。
 
 ## [0.20.0] — 2026-10-05
 
