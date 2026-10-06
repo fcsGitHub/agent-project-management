@@ -175,9 +175,36 @@ def start_run(
     conv = get_conversation(conversation_id)
     if not conv:
         raise KeyError(f"conversation {conversation_id} not found")
-    budget_warning = _cost_budget_gate(conv["project_id"])  # M66-I200
+    budget_warning = _agent_governance_gate(agent_role)  # M116-I354
+    if not budget_warning:
+        budget_warning = _cost_budget_gate(conv["project_id"])  # M66-I200
     run_id = run_id or new_id("r")  # M65-I195: fork mints its own id first (lineage emit precedes requested)
     instruction = instruction or conv.get("instruction") or ""
+    # M116-I352: item pre-flight BEFORE any emit — the cross-project check
+    # (M114-I339) used to sit after run.requested/run.started/conversation.
+    # status_changed, so a 422 left a ghost run forever "running" (and, once
+    # the checkout lock below exists, would hold it forever). The lock is the
+    # Paperclip "atomic task checkout" translation: an active run (pending/
+    # running/interrupted — a gate-held run still owns its item until it
+    # reaches a terminal state) refuses any second binding with 409.
+    if item_id:
+        from fastapi import HTTPException
+
+        from apm.domains.items import get_item
+
+        _bound = get_item(item_id)
+        if _bound and _bound["project_id"] != conv["project_id"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"item '{item_id}' belongs to another project")
+        holder = db.get_conn().execute(
+            "SELECT id FROM runs WHERE item_id = ?"
+            " AND status IN ('pending', 'running', 'interrupted')"
+            " ORDER BY id DESC LIMIT 1", (item_id,)).fetchone()
+        if holder:
+            raise HTTPException(
+                status_code=409,
+                detail=f"工作项已被运行 {holder['id']} 检出（原子检出锁——运行到终态后释放）")
     events.emit(
         event_type="run.requested",
         agg_type="run",
@@ -213,17 +240,6 @@ def start_run(
         payload={"status": "running", "run_id": run_id},
     )
     if item_id:
-        # M114-I339: item_id 是全局 id——绑定别家项目的工作项会把状态迁移
-        # 事件以本方 project_id 落账、投影器按 agg_id 改到别家 items 行。
-        from fastapi import HTTPException
-
-        from apm.domains.items import get_item
-
-        _bound = get_item(item_id)
-        if _bound and _bound["project_id"] != conv["project_id"]:
-            raise HTTPException(
-                status_code=422,
-                detail=f"item '{item_id}' belongs to another project")
         _move_item(item_id, conv["project_id"], _item_status_for_start(agent_role))
 
     engine = RunEngine(run_id=run_id)
@@ -268,6 +284,44 @@ def _cost_budget_gate(project_id: str) -> dict | None:
         )
     if spend >= budget * 0.8:
         return {"month_spend_usd": round(spend, 4), "cost_budget_usd": budget}
+    return None
+
+
+def _agent_governance_gate(agent_role: str) -> dict | None:
+    """M116-I354 (docs/01 §DG): agent-level governance pre-flight — a paused
+    agent refuses new work (409; the automation dispatch path degrades to
+    ok:false via its HTTPException catch), and an agent-level monthly budget
+    mirrors the project gate exactly (LiteLLM semantics: 402 at 100%, soft
+    warning at 80%). Both live in the agents projection overlay (org-level
+    governance events), so the guard is a pure read-side comparison."""
+    from fastapi import HTTPException
+
+    row = db.get_conn().execute(
+        "SELECT status, budget_usd FROM agents WHERE role_id = ?", (agent_role,)
+    ).fetchone()
+    if not row:
+        return None
+    if row["status"] == "paused":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Agent {agent_role} 已暂停（治理暂停中）——恢复后再派活")
+    budget = row["budget_usd"]
+    if not budget or budget <= 0:
+        return None
+    spend = db.get_conn().execute(
+        "SELECT COALESCE(SUM(estimated_cost_usd), 0) AS s FROM runs"
+        " WHERE agent_role = ?"
+        " AND strftime('%Y-%m', COALESCE(started_at, '')) = strftime('%Y-%m', 'now')",
+        (agent_role,),
+    ).fetchone()["s"]
+    if spend >= budget:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Agent {agent_role} 本月 LLM 成本 ${spend:.2f} 已达预算 ${budget:.2f}，新 run 被拦截——调高该 Agent 预算后可继续",
+        )
+    if spend >= budget * 0.8:
+        return {"agent": agent_role, "month_spend_usd": round(spend, 4),
+                "budget_usd": budget}
     return None
 
 

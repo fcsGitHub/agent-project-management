@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-06 更新 · M112 收口完成·v0.21.0 已发布 tag[M110+M111+M113+M114+M115 五轮成版·DoD 两项第十二次执行]，下一步=候选池选轮或等新用户指令）
+# HANDOFF —— 写给下一个新会话（2026-10-06 更新 · M116 Paperclip 吸纳轮完成[多 Agent 团队编排：执行锁/团队总览/治理+预算·v0.22.0 攒批第一轮]，下一步=候选池选轮或等新用户指令）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -54,6 +54,7 @@
 - **M114 质量轮·性能优化与漏洞/显示修复（I339-I342，2026-10-06 完成，用户指令轮，docs/01 §DE + docs/10 §M114）**：三路盘点逐项核实。**I339 读面门禁对齐**：M110 R2-F1 同类残留面成批清账——全局 id 单资源读八处补门（runs 四面/milestones/cycles/features/time_entries/attachments/conversations detail 族）+聚合列表 `_visible` 接入四处（events/runs/conversations/approvals·org 级行登录者可见）+NDJSON export admin 门+GET /users 401+views make-default writer 门+bulk-decision/ui confirm 逐审批门+run item 同项目 422+三处 FK 同项目 422；新助手 members.require_project_read（403 对齐 M76）+visible_project_ids；**新门暴露存量缺陷两例**：import 端点 rebuild 后 admin 标静默丢失（M41 已知副作用·补 ensure_default_user）/写门计数 139=72+67 系 M113 去重后未重测陈值（145 的 webhook 6 条重复计入已消失·stash 对账实证）。**I340 性能七件**：item_relations 三索引（EXPLAIN 全命中·此前零索引挂最热读路径）/assignee IN 批量/概念可见性闭包 hoist/WIP GROUP BY/my_work·my_attention·activity 逐行权限 hoist/健康趋势单遍重放/会话页轮询 5s。**I341 显示十二处**：暗色主题五处真实破损（ui danger 反色 text-danbg/MyTime 批准 text-okbg/Risks 热力矩阵语义格/GraphView chip/TracePage 五处）+DepGraph SVG+图例 var(--color-*) 同源+Roadmap 标签截断+TracePage 三态与 break-all+两处亮色对比度漏网（sky-500/indigo-400→语义 token）。**I342 收口**：全量回归[非 smoke **496 EXIT=0**（+test_read_gates 2）+冒烟 **98 GREEN**（smoke 14/87 审计读移登录后+smoke 19 rebuild 改走端点 M61 惯例——匿名审计读前提随新门失效·I78 纪律适配）+vitest 47+build 绿 precache 43]+机械防腐三件 ✓+axe 隔离 8015/4183 亮暗 7 路零 serious/critical+截图目验+排除五候选入附录 C（项目域 GET 惯性/SSE 过滤/reports 时间下界/全局 staleTime/_gate admin 旁路）。
 - **M115 Linear 吸纳轮（I343-I347，2026-10-06 完成，用户指令轮，docs/01 §DF + docs/10 §M115）**：「调研 Linear 差距→吸纳开发管理功能→功能开发优化迭代」。I343 差距调研定案[Linear 官方六页直抓互证→20 行映射矩阵 ✅11/🟡6/❌3→缺口逐项代码核实→吸纳四件+排除八项登记附录 C] + I343 工作项描述域[items.description 列（建表+存量库 ALTER 迁移）+create/PATCH/投影/读面+FTS 索引纳入——**新测试照亮 /search 三面裸传 bigram 的 M71 同族残留（连字符词=NOT 语法崩溃）→_match_expr 同族即修**] + I344 工作项活动流[item.updated 补 `_old` 旧值+item.assigned 补 from（投影白名单键安全·rebuild 原样重放·既有 payload 断言先核实零破坏）+新组件 ItemActivity（agg_type=item 审计流→人话时间线：状态 from→to/优先级旧→新/转派/标签 旧→新……）挂快捷编辑弹窗——事件溯源红利读面·后端零新端点] + I345 标签域[labels 表（UNIQUE 同名）+CRUD 四端点全住 /projects/{pid}/labels（写中间件管辖·台账零新增）+items.labels JSON 多值（同项目外键 422/[] 清空/label.deleted 投影侧摘除防 `_` 通配假阳性）+**drop_projections 清单漏登记 rebuild 首跑 UNIQUE 炸（当场抓获——新投影表三件套：建表+投影器+drop 清单）**+board group_by=labels 扇出+卡片色点 chip+快捷编辑勾选建签] + I346 创建防重提示[items/similar FTS **OR 语义**——E2E 走查抓获隐式 AND 对「登录页重构」类连续输入零命中（标题中段空格打断 CJK 串）+直达缺 project_id 表单残缺两缺陷当场修+新建弹窗去抖 400ms 提示点击直达] + I347 收口[全量回归 非 smoke **512 EXIT=0**（+16）+冒烟 98+vitest **50**+build 绿 precache 43+写门 **142=75+67** ✓+浏览器 E2E 全链路走查（隔离 8016/4184·SW update 清缓存纪律再证·截图 docs/m115-*.png ×2）+排除八项（Initiative/Triage 队列/点数制/urgent 档/列内排序/自动归档/reactions/issue 模板）]。
 - **M112 发布工程第十一轮·v0.21.0 攒批发布（I348-I350，2026-10-06 完成，docs/10 §M112）**：五轮一版攒批（M110+M111+M113+M114+M115）。I348 依赖漂移当轮实测+一车[pip index 实测后端顶格零漂移唯 langgraph patch 1.2.12→1.2.13+前端 axe-core/marked 两项——requirements 下限=装机+manifest/lockfile 同车·三关绿]/I349 发布面验证[compose 双镜像 EXIT=0+镜像内 pip 对账 **13/13 逐版一致**（行尾 CRLF 假差异 tr 剥离——Windows docker 输出坑入档）]/I350 收口[五点 bump 0.21.0 零 RED+CHANGELOG [0.21.0] 成版（Added×4/Changed×7/Fixed×6/Removed×2·Unreleased 回空指向 v0.22.0）+smoke 86 代标记 M112-I350+docs/11 解冻（§2.4 计数 **143→142=75+67** 对账修正·演练十二次）+release_drill EXIT=0 **RTO 9.3s**+全量回归 512/98/50/build 绿+防腐七件 ✓+`git tag -a v0.21.0`（**DoD 两项第十二次执行**·tag v0.5.0~v0.21.0 十六枚在案）]。
+- **M116 Paperclip 吸纳轮·多 Agent 团队编排（I351-I355，2026-10-06 完成，用户指令轮，docs/01 §DG + docs/10 §M116）**：「查开源 paperclip、融合吸收、改造成用户统筹支配多 agent 的团队」——paperclipai/paperclip（97.8k★·MIT·Agent 团队编排）专项调研 23 行映射矩阵（✅12/🟡4/❌7）→吸纳四件全先红后绿：I352 工作项原子检出执行锁+F1 幽灵 run 发现即修（跨项目 422 晚于三事件发射→前移；同 item 活跃 run 409 带持锁 id·挂 Gate 亦持锁·终态释放·idx_runs_item）/I353 Agent 团队总览面（GET /api/agents org 登录门三源合并=YAML 声明×agents 治理覆盖层×runs 聚合——红利第十七例零新表；TeamPage /team rail「团队」）/I354 Agent 治理（agent.paused/resumed/updated 事件+agents 投影三件套[INSERT OR IGNORE→UPDATE 保兄弟列]；pause/resume/PATCH 预算 admin 门·台账 142→145=75+70；start_run 增查暂停 409+agent 月窗预算 402/80% 双阈[M66 同构·自动化派发 HTTPException 兜底降级 ok:false]）；排除七项登记（BYOA 外部适配器[run_command 剪枝同向·须独立安全评审]/Org chart/Goal ancestry[Initiative 维持]/Skills·evals/多组织/Scoped secrets/团队模板）；test_automation_run_agent 日上限前提按锁语义改造（I78 纪律）。基线 pytest 512→**522**（+test_agents 10）/冒烟 98/vitest 50→**53**（+TeamPage 3）/build 绿 precache 44/写门 **145=75+70** ✓；v0.22.0 攒批第一轮（不 tag）。
 
 ## 3. 现在卡在哪
 
@@ -192,18 +193,21 @@
 - **只在特定分支走到的 import 缺失，local 模式测试全绿也漏**（M114-I340）：`_concept_visible_filter` 漏 import config——local 快路径提前 return，network 非 owner 才走到 NameError——新分支的每个名字都要过一遍来源；全量回归抓获。
 - **新装的门会照亮屋里原有黑暗**（M114-I339 两例）：给 export 装 admin 门→暴露 import 端点 rebuild 后 admin 标静默丢失（M41 已知副作用在 import 路径漏补救）；冒烟 19 的 export 404 断言被门拦→暴露其直调 `projections.rebuild()` 抹 admin 标（M61 惯例「测试重建走端点」早写明）——加门后同路径既有测试 RED，先查被门照亮的老坑再怀疑新门。
 - **收量类直测要抄打印输出而非凭上轮记忆**（M114-I342）：M113 双注册去重后写门计数 145→139=72+67（6 条 webhook 写路由的重复计入消失），M113 收口记录沿用了陈值 145——docs/11 §2.4 冻结计数随 M112 解冻修正。
+- **拦截类校验必须在任何 events.emit 之前**（M116-I352 F1）：M114 跨项目 422 校验排在 run.requested/started/conversation.status_changed 之后——422 时幽灵 run 已落库且永久 running；M66 预算门才是正确先例（发射前拦截）。新增 start_run 前置门一律进发射前校验区，且测试断言「无幽灵行」而不止断言状态码。
+- **多列覆盖层投影的 upsert 用两段式**（M116-I354）：INSERT OR REPLACE 会把未提及的兄弟列抹回默认（pause 事件抹 budget_usd）——INSERT OR IGNORE 先落行再 UPDATE 本事件管的列。
+- **想在自动化派发前造状态的测试用 item.updated 触发**（M116-I355）：item.created 在创建瞬间同步派发，不给占用/暂停态留准备窗口；PATCH 触发才有「先造状态再触发」的时序。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 512 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
+cd app && python -m pytest            # 522 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
 python tools/smoke/run_smoke.py       # 冒烟基线 98 例（89 文件·smoke 87/88/89/09 双用例），应 GREEN（repo 根目录跑）
 python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 已锁）
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
 python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 python tools/release_drill.py         # 一键发布演练（发布轮收口 DoD·M88 起——备份→毁库→恢复→对账→RTO，EXIT=0 即过）
 git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.21.0 十六枚在案·版本四锚由冒烟 86+88 锁定）
-cd web && pnpm vitest run             # 前端单测 50 项（含 axe a11y 机械锁+ItemActivity 3 枚）；pnpm build 须绿（precache 43——M115 实测·页面已按路由懒加载）
+cd web && pnpm vitest run             # 前端单测 53 项（含 axe a11y 机械锁+TeamPage 3 枚）；pnpm build 须绿（precache 44——M116 实测·页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）

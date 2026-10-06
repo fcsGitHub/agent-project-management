@@ -93,15 +93,21 @@ def test_run_agent_dispatch_starts_real_run(client, project):
 
 def test_run_agent_daily_cap(client, project):
     _mk_rule(client, project)
-    it = client.post(f"/api/projects/{project}/items",
-                     json={"concept_id": "task", "title": "限流项"}).json()
-    for i in range(3):
+    # M116-I352：工作项原子检出锁后，同一 item 不再允许并行多 run——
+    # 日上限测试前提改为三个不同 item 各触发一次（断言强度不变，
+    # I78 纪律：功能提升使旧前提失效属正常演进）。
+    items = [client.post(f"/api/projects/{project}/items",
+                         json={"concept_id": "task", "title": f"限流项{i}"}).json()
+             for i in range(3)]
+    for it in items:
         client.patch(f"/api/items/{it['id']}", json={"priority": "high"})
     # 前三次各起一个 run（automation.agent_dispatched 计 3）
     assert client.get("/api/events", params={
         "event_type": "automation.agent_dispatched"}).json()["total"] == 3
     # 第 4 次：日上限拒绝——不再起 run，rule_fired 结果诚实记录
-    client.patch(f"/api/items/{it['id']}", json={"priority": "high"})
+    it4 = client.post(f"/api/projects/{project}/items",
+                      json={"concept_id": "task", "title": "限流项4"}).json()
+    client.patch(f"/api/items/{it4['id']}", json={"priority": "high"})
     assert client.get("/api/events", params={
         "event_type": "automation.agent_dispatched"}).json()["total"] == 3
     # /api/events 为 id 降序（最新在前）——第 4 次尝试的 rule_fired 在最前

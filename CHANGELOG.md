@@ -8,11 +8,17 @@
 
 未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.22.0。
 
+### Added
+- **Agent 团队总览面**（M116-I353，Paperclip 吸纳）：`GET /api/agents`（org 级登录门）+ 新页面 `/team`「团队」（rail 常驻导航）——roles YAML 声明（display_name/档位/概念/工具）× agents 治理覆盖层（暂停态/预算）× runs 聚合统计（运行数/成功率/累计 tokens 与成本/最近运行）三源一屏合并；事件溯源红利：统计零新表零埋点，纯读侧 GROUP BY。
+- **Agent 治理：暂停/恢复 + Agent 级月度预算**（M116-I354）：`agent.paused/resumed/updated` 事件链 + `agents` 投影覆盖层（建表+投影器+drop_projections 三件套）；`POST /api/agents/{role}/pause|resume` 与 `PATCH /api/agents/{role}`（预算，0=关闭）admin 门 + check_write_gates 台账登记（写路由 142→145=75+70）；start_run 前置校验区增查——暂停 409、预算月窗 ≥100% 402 硬顶/≥80% 软阈（M66-I200 项目预算同构）；自动化 run_agent 派发路径经既有 HTTPException 兜底自然降级 ok:false；TeamPage 卡片暂停/恢复+预算行内编辑（非管理员只读）。
+- **工作项原子检出执行锁**（M116-I352）：`start_run(item_id)` 前置校验——同工作项存在活跃 run（pending/running/interrupted，挂 Gate 等人亦持锁）即 409 带持锁 run_id，终态（succeeded/failed）释放；`runs` 补 `idx_runs_item` 索引（Paperclip atomic task checkout 的翻译——batch_start 会话复用守卫之外的第三层防线，automations 派活同受管辖）。
+
+### Fixed
+- **跨项目 run 绑定 422 留幽灵 run**（M116-I352，调研发现即修）：M114-I339 的跨项目校验位于 `run.requested`/`run.started`/`conversation.status_changed` 三事件发射**之后**——422 时幽灵 run 已落库且永远停在 running、会话永远 running（且引入执行锁后会永久锁死该工作项）；校验前移到任何事件发射之前（`test_f1_cross_project_422_leaves_no_ghost_run` 回归锁）。
+
 ## [0.21.0] — 2026-10-06
 
 M110~M115 五轮成版（M112 收口）：验收考官 Round 2 + 真实 LLM 回归轮（DeepSeek flash 全链复演）+ 功能瘦身轮 + 质量轮（性能与漏洞/显示修复）+ Linear 吸纳轮（差距调研与四件吸纳）。攒批节奏第十五版：五轮一版。基线：pytest 492→512 / 冒烟 98 / vitest 47→50 / 机械防腐七件 ✓ / axe 基线 25 路。
-
-### Added
 
 ### Added
 - **工作项描述域**（M115-I343）：items 补 `description` 列（建表+存量库轻量迁移），create/PATCH/事件流/读面全链路，空串=清空；描述纳入 FTS 全文索引（标题关键词照旧优先）——对齐 Linear issue 正文的最高频缺口。

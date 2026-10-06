@@ -2901,3 +2901,59 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - **评论 reactions/issue 模板**——低价值或模板中心已覆盖大部分场景。
 
 定案 **M115 = Linear 吸纳轮（I343-I347）**；v0.21.0 攒批调整为 M110+M111+M113+M114+M115 五轮，M112 收口 bump+tag 顺延其后。
+
+## DG. M116 前置调研：Paperclip 专项差距调研——吸纳多 Agent 团队编排能力（2026-10-06）
+
+> 目标协议触发：用户指令（2026-10-06）——「查开源项目 paper-clip，融合项目吸收优点，把项目改造成用户可以统筹管理支配多 agent 完成项目管理和开发的团队，持续优化迭代、修复漏洞、合并简化、裁剪不必要」。调研对象锁定 **paperclipai/paperclip**（github.com/paperclipai/paperclip，MIT，≈97.8k★，TypeScript/Node+React——「The open-source app everyone uses to manage agents at work」：把现有 Agent 当"员工"编成组织，派活/心跳唤醒/预算治理/审计归因。GitHub 仓搜页直抓 2026-10-06，同名混淆项已排除：thoughtbot/paperclip=Ruby 附件 gem[archived]、paperclip-rs=Rust OpenAPI 工具、ipaperclipfans=内容档案站）。方法同 §DF：权威源直抓 → 对照 AgentPM 代码逐项核实 → 有缺口即吸纳（先红后绿）/属产品级或安全面决策如实排除。方向与长期目标 1（持续调研同类开源项目优势融合）一致，本轮聚焦「用户统筹支配多 Agent 团队」。
+
+**Paperclip 功能全景 → AgentPM 现状映射（✅=已覆盖 · 🟡=浅覆盖 · ❌=缺口）**：
+
+| Paperclip 功能 | AgentPM 现状 | 判定 |
+| --- | --- | --- |
+| Activity/event 审计与归因（谁在何时做了什么） | 事件溯源全量在库（append-only+actor 归因+审计 CSV）——比 Paperclip 的 activity log 更根本 | ✅（更深） |
+| 审批门/Review gates+回滚 | HITL Gate（批准/拒绝/改后恢复）+投影 rebuild 即回滚 | ✅ |
+| 预算（阈值告警+硬停 auto-pause） | 项目级 cost_budget_usd：≥80% 软阈+100% 402 硬顶（M66-I200）——**仅项目一级，无 agent 级** | 🟡 |
+| 定时例行（cron/webhook/API 触发） | sweep 定时器+自动化规则+外部 intake/webhook 触发（M9/M32/M63） | ✅ |
+| 心跳唤醒（指派/消息/日程唤醒 agent） | 自动化 run_agent（事件→run，M63）+batch_start 指派驱动（Board「▶ 让 Agent 做」）+watch 规则 | ✅ |
+| 工件与产物（预览/评论/沉淀） | git 工件域+运行产物自动沉淀+回流工作项+全文搜索（M66-M72） | ✅ |
+| 成本归集（按 provider/model/goal/issue） | run.tokens_recorded 台账+成本报表+Agent 用量聚合（M44/M58） | ✅ |
+| 多人+RBAC+SSO | 三角色写门+OIDC SSO+PAT（M8/M17/M66） | ✅ |
+| 出站集成（connectors/通知） | webhook/ntfy/SMTP/Atom/Prometheus（M10-M59） | ✅ |
+| 组织可迁移（export/import+密钥清洗） | NDJSON 导入导出（M14，rebuild 原样重放） | ✅ |
+| 移动端可用 | PWA 响应式 375px（M15/M31） | ✅ |
+| 治理（pause/resume/terminate） | run 级 interrupt/resume（Gate 挂起）——**无 agent 级暂停**（暂停某角色接新活） | ❌ |
+| Agent 目录/团队总览（谁在忙/成本/成功率/派活） | roles YAML 静态声明在（角色选择器可见），**无运行态聚合面**：活跃 run 数/累计成本/成功率/最近运行无处一屏可见 | ❌ |
+| 原子任务检出+执行锁（防两 agent 抢同一任务） | 仅会话级互斥（M48 per-conversation lock）——**同 item 可被两个 run 同时绑定**（_move_item 双写竞争+状态互踩） | ❌ |
+| BYOA 适配器（Claude Code/Codex/Gemini CLI/HTTP bot） | Agent=内部角色 YAML（固定图引擎+自有 provider）——无外部 agent 接入面 | ❌（本轮排除，见下） |
+| Org chart/汇报线/委派 | 角色即分工：pm→planner→dev→qa→release 七阶段管线 M94 实证自主运转——汇报线是人组织概念 | 🟡（语义薄，排除） |
+| Skill Studio（技能版本化/evals/绩效评审） | 指令模板库（.prompt.md）+prompt_layers L1.5+资产库（可复用能力注入已覆盖大半）；evals=新评估域 | 🟡（排除） |
+| Goal ancestry（任务带目标血统「为什么做」） | M115 已裁：Initiative 目标层=同概念（组合/路线图/健康趋势三层聚合在） | ❌（维持排除） |
+| 多组织（一部署多公司） | 单实例+项目隔离（M76 起门禁语义全建其上）——产品级 IA | ❌（排除） |
+| Scoped secrets/短时 run JWT | PAT display-once+Bearer+OIDC 已有；密钥管理独立安全面 | ❌（排除） |
+| Connection permissions（Allowed/Ask first/Off） | Gate 审批+工具 deny-by-default（M113 后只暴露真实能力）语义等价 | ✅ |
+| 团队模板（roles+skills+projects+rotinues 预制） | 模板包（本体+custom_fields）已覆盖项目侧；角色=实例级全局 YAML | 🟡（排除） |
+| OTel/Sentry 观测 | Prometheus 出站（M59）+run.failed 事件流+端点延迟观测（M62） | ✅ |
+
+**缺口逐项代码核实（坐实）**：
+1. **无 agents 目录/运行态聚合**：全库无 `/api/agents` 端点（grep main.py 无 agents 路由）；roles.py 只有 YAML 加载器；run 统计散在 runs 表（agent_role 列在）无处按角色一屏聚合——「用户统筹支配团队」缺总览面。
+2. **无 agent 级治理**：无 agent.paused 语义；start_run（engine.py:160）不查角色状态——暂停某角色接新活无机制；automations run_agent 同样直通。
+3. **无工作项执行锁**：start_run(item_id) 只做跨项目归属校验（M114-I339），不查同 item 是否已有活跃 run（pending/running/interrupted）；batch_start 与手动 POST /runs 可同时绑同一 item，_move_item 双发状态迁移事件互踩。
+4. **F1（调研中发现即修的存量缺陷）**：M114-I339 的跨项目 422 校验位于 run.requested/run.started/conversation.status_changed **三事件发射之后**（engine.py:215-227）——422 抛出时幽灵 run 已落库且状态永远停在 running（RunEngine 从未构造），conversation 也永远 running；该幽灵还会（引入执行锁后）永久锁死别家工作项。校验必须前移到发射前。
+5. **预算仅项目一级**：_cost_budget_gate 只查 projects.cost_budget_usd；runs 表 agent_role+estimated_cost_usd 列俱在，agent 级预算=同构 GROUP BY 查询。
+
+**吸纳定案（M116 = Paperclip 吸纳轮，I351-I355）**：
+- **I352 工作项执行锁（原子检出）+F1 幽灵 run 修复**：start_run 前置校验区（发射前）——同 item 活跃 run（pending/running/interrupted）存在即 409（detail 带持锁 run_id）；跨项目 422 校验前移；automations 派发路径 HTTPException 自动降级 ok:false（既有习语）；runs 加 idx_runs_item 索引。
+- **I353 Agent 团队总览面**：GET /api/agents（org 级登录门·对齐 assets 读惯例）——roles YAML 声明（display_name/tier/concepts/tools）×agents 投影状态×runs 聚合统计（total/succeeded/failed/active/最近运行/累计 tokens 与成本）一屏合并；前端 TeamPage（/team，org 级页面·对齐 /activity 形态）+AppShell rail「团队」。
+- **I354 Agent 治理（暂停/恢复+Agent 级预算）**：agent.paused/agent.resumed/agent.updated 事件+agents 投影表（三件套：schema 建表+投影器+drop_projections 清单）；pause/resume/PATCH budget 三端点 admin 门（org 治理动作·对齐 reload-ontologies 惯例）+check_write_gates 台账登记；start_run 增查：paused→409、agent 预算月窗≥100%→402/≥80%→budget_warning（M66 同构）；TeamPage 卡片暂停/恢复+预算编辑。
+- **I355 收口**：全量回归+机械防腐+文档+浏览器走查。
+
+**如实排除（Paperclip 有而本轮不做，登记附录 C）**：
+- **BYOA 外部 Agent 适配器**（Claude Code/Codex/HTTP bot 接入）——Paperclip 最特色的能力，但与 M113-I336 剪枝决策同向：run_command 伪执行已出表、「外呼执行面=V2 沙箱承诺」留 docs/07；webhook 外呼执行引入 SSRF/签名验证/供应链三重安全面，牵涉大，等真实需求独立成轮；
+- **Org chart/汇报线/委派**——角色即分工、管线自主运转已实证（M94），汇报线是人组织概念对本系统语义薄；委派在 Board batch_start+自动化 run_agent 已可表达；
+- **Goal ancestry**——M115 Initiative 同概念刚排除（组合/路线图/健康趋势三层聚合在），维持；
+- **Skill Studio/evals/绩效评审**——指令模板库+prompt_layers+资产库覆盖「可复用能力注入」大半，evals=新评估域牵涉大；
+- **多组织**——单实例+项目隔离已定 20+ 轮，产品级 IA 决策；
+- **Scoped secrets/短时 run JWT**——PAT+OIDC 已有，密钥管理独立安全面；
+- **团队模板**——模板包覆盖项目侧；角色为实例级全局 YAML，模板化价值低。
+
+定案 **M116 = Paperclip 吸纳轮（I351-I355）**；v0.22.0 攒批第一轮。

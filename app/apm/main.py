@@ -149,6 +149,7 @@ def create_app() -> FastAPI:
     )
 
     from apm.content.artifacts import router as artifacts_router
+    from apm.domains.agents import router as agents_router
     from apm.domains.approvals import router as approvals_router
     from apm.domains.assets import router as assets_router
     from apm.domains.automations import router as automations_router
@@ -231,6 +232,7 @@ def create_app() -> FastAPI:
     app.include_router(approvals_router, prefix="/api")
     app.include_router(assets_router, prefix="/api")
     app.include_router(runs_router, prefix="/api")
+    app.include_router(agents_router, prefix="/api")
     app.include_router(orchestrator_router, prefix="/api")
     app.include_router(comments_router, prefix="/api")
     app.include_router(timelog_router, prefix="/api")

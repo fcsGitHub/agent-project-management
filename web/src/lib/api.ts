@@ -119,6 +119,18 @@ export type Run = {
   total_input_tokens?: number; total_output_tokens?: number;
   output?: { artifact_path?: string; outcome?: string } | null;
 };
+// M116-I353/I354: agent team directory entry — YAML declaration × governance
+// overlay (pause/budget) × runs aggregation, merged server-side by GET /agents.
+export type AgentTeamMember = {
+  id: string; display_name: string; tier?: string | null; model?: string | null;
+  concepts: string[]; tools: string[];
+  status: "active" | "paused"; budget_usd: number | null;
+  stats: {
+    total_runs: number; succeeded: number; failed: number; active_runs: number;
+    last_started_at: string | null; total_tokens: number;
+    estimated_cost_usd: number; month_cost_usd: number;
+  };
+};
 export type Span = {
   id: string; run_id: string; parent_id?: string; span_kind: string; name: string;
   ts_start?: string; ts_end?: string; status?: string;
@@ -772,6 +784,16 @@ export const api = {
   forkRun: (runId: string, instruction?: string | null) =>
     req<{ forked_from: string; new_run: Run }>(`/runs/${runId}/fork`,
       { method: "POST", body: JSON.stringify({ instruction: instruction ?? null }) }),
+  // M116-I353/I354: agent team face — org-level directory + governance
+  listAgents: () =>
+    req<{ agents: AgentTeamMember[] }>("/agents"),
+  pauseAgent: (roleId: string) =>
+    req<{ role_id: string; status: string }>(`/agents/${encodeURIComponent(roleId)}/pause`, { method: "POST" }),
+  resumeAgent: (roleId: string) =>
+    req<{ role_id: string; status: string }>(`/agents/${encodeURIComponent(roleId)}/resume`, { method: "POST" }),
+  patchAgentBudget: (roleId: string, budgetUsd: number) =>
+    req<{ role_id: string; status: string; budget_usd: number | null }>(
+      `/agents/${encodeURIComponent(roleId)}`, { method: "PATCH", body: JSON.stringify({ budget_usd: budgetUsd }) }),
   getHealthHistory: (pid: string, days = 30) =>
     req<{ project_id: string; days: number;
           series: { date: string; score: number | null; active: number; overdue: number; gates: number }[] }>(

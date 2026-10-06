@@ -91,6 +91,10 @@ REVIEWED: dict[str, str] = {
     "/api/notifications/read": "自面（user_id 限定）",
     "/api/ui_commands/{cmd_id}/confirm": "只读动作面（navigate/set_filter 白名单·I136）",
     "/api/template-packs/{name}/instantiate": "建项目面（creator=owner·与 POST /projects 同语义）",
+    # —— M116-I354 agent 治理（org 级·id-path 不含 project_id）——
+    "/api/agents/{role_id}/pause": "is_instance_admin（M116-I354·org 级治理动作）",
+    "/api/agents/{role_id}/resume": "is_instance_admin（M116-I354）",
+    "/api/agents/{role_id}": "is_instance_admin（M116-I354·预算 PATCH）",
     # —— M108-I326 追溯域内门（id-path 不含 project_id）——
     "/api/trace/links/{link_id}": "require_project_write（M108-I326）",
 }

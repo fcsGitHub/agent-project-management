@@ -55,10 +55,15 @@ def test_smoke_68_m63_run_agent_notify_level_checklist(client, tmp_data,
                 payload={"priority": "low"})
     assert client.get("/api/events", params={
         "event_type": "automation.rule_fired"}).json()["total"] == n_before
-    # 同日内补满 3 次真实触发 → 第 4 次诚实拒绝
-    for _ in range(2):
-        client.patch(f"/api/items/{it['id']}", json={"priority": "high"})
-    client.patch(f"/api/items/{it['id']}", json={"priority": "high"})
+    # 同日内补满 3 次真实触发 → 第 4 次诚实拒绝（M116-I352：工作项原子检出锁后
+    # 重复触发改用不同工作项——同 item 连打会先撞执行锁 409 而非日上限）
+    for i in range(2):
+        it_n = client.post(f"/api/projects/{pid}/items",
+                           json={"concept_id": "task", "title": f"编排项补{i}"}).json()
+        client.patch(f"/api/items/{it_n['id']}", json={"priority": "high"})
+    it4 = client.post(f"/api/projects/{pid}/items",
+                      json={"concept_id": "task", "title": "编排项4"}).json()
+    client.patch(f"/api/items/{it4['id']}", json={"priority": "high"})
     fired = client.get("/api/events", params={
         "event_type": "automation.rule_fired"}).json()["events"]
     assert fired[0]["payload"]["result"]["ok"] is False

@@ -217,6 +217,20 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id);
 CREATE INDEX IF NOT EXISTS idx_runs_conv ON runs(conversation_id);
+-- M116-I352: item execution lock pre-flight probes (item_id, status) — the
+-- checkout guard runs on every item-bound start_run.
+CREATE INDEX IF NOT EXISTS idx_runs_item ON runs(item_id, status);
+
+-- M116-I354 (docs/01 §DG): agent governance state — roles stay YAML-declared
+-- (static capability face); this table only carries the dynamic overlay
+-- (pause status + per-agent budget). Projection-rebuilt from agent.paused/
+-- agent.resumed/agent.updated events (org-level: project_id='').
+CREATE TABLE IF NOT EXISTS agents (
+  role_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'active',
+  budget_usd REAL,
+  updated_at TEXT
+);
 
 CREATE TABLE IF NOT EXISTS spans (
   id TEXT PRIMARY KEY,
@@ -690,6 +704,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
     """Used by rebuild-projections: wipe caches, replay events through projectors."""
     for table in (
         "notifications",
+        "agents",
         "webhooks",
         "automation_rules",
         "milestones",
