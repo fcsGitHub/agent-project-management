@@ -23,14 +23,16 @@ def test_smoke_14_auth_foundation(client, tmp_data):
         # Wrong password → 401 + audited failure.
         assert client.post("/api/auth/login",
                            json={"user_id": "u_admin", "password": "wrong"}).status_code == 401
-        fails = client.get("/api/events",
-                           params={"event_type": "session.login_failed"}).json()["events"]
-        assert any(e["payload"]["user_id"] == "u_admin" for e in fails)
 
         # Correct login → session cookie → writes pass.
         r = client.post("/api/auth/login",
                         json={"user_id": "u_admin", "password": "smoke-admin-pass"})
         assert r.status_code == 200
+        # M114-I339: the raw event stream demands a session — the audit read
+        # for the failed attempt happens after the successful login.
+        fails = client.get("/api/events",
+                           params={"event_type": "session.login_failed"}).json()["events"]
+        assert any(e["payload"]["user_id"] == "u_admin" for e in fails)
         p = client.post("/api/projects",
                         json={"name": "冒烟14项目", "ontology": "software-dev",
                               "requirement": "auth"}).json()

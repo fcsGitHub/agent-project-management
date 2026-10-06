@@ -54,7 +54,10 @@ def _store_path(project_id: str, attachment_id: str, filename: str):
 # ---------------------------------------------------------------- endpoints
 @router.get("/items/{item_id}/attachments")
 def list_attachments(item_id: str) -> dict:
-    require_item(item_id)
+    item = require_item(item_id)
+    from apm.domains.members import require_project_read
+
+    require_project_read(item["project_id"])  # M114-I339: 读面文件元数据也是项目数据
     rows = db.get_conn().execute(
         "SELECT id, filename, size, mime, uploader, created_at FROM attachments"
         " WHERE item_id = ? AND removed_at IS NULL ORDER BY id", (item_id,)).fetchall()
@@ -98,7 +101,10 @@ async def add_attachment(item_id: str, file: UploadFile = File(...)) -> dict:
 
 @router.get("/items/{item_id}/attachments/{attachment_id}")
 def download_attachment(item_id: str, attachment_id: str):
-    require_item(item_id)
+    item = require_item(item_id)
+    from apm.domains.members import require_project_read
+
+    require_project_read(item["project_id"])  # M114-I339: 文件本体不得跨项目下载
     row = db.get_conn().execute(
         "SELECT filename, stored_path FROM attachments"
         " WHERE id = ? AND item_id = ? AND removed_at IS NULL",

@@ -257,9 +257,12 @@ def delete_view(view_id: str) -> dict:
 
 @router.post("/views/{view_id}/make-default")
 def make_default_view(view_id: str) -> dict:
-    """Project-wide default: boards without an explicit view land here (I52)."""
+    """Project-wide default: boards without an explicit view land here (I52).
+    M114-I339: this POST changes project state, so it takes the same writer
+    gate as its PATCH/DELETE siblings — the read gate let any viewer flip the
+    whole project's default view."""
     v = require_view(view_id)
-    _actor_can_read(v, events.effective_actor())
+    _require_view_writer(v, events.effective_actor())
     events.emit(
         event_type="view.made_default",
         agg_type="view",

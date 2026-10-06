@@ -174,6 +174,15 @@ CREATE TABLE IF NOT EXISTS item_relations (
   created_at TEXT NOT NULL
 );
 
+-- M114-I340: the relations table had no index at all while sitting on the
+-- hottest read paths (board/items blocked-flag scans filter on
+-- (to_item|from_item, relation_type); item detail and propagate_reschedule
+-- probe both directions).
+CREATE INDEX IF NOT EXISTS idx_item_relations_to ON item_relations(to_item, relation_type);
+CREATE INDEX IF NOT EXISTS idx_item_relations_from ON item_relations(from_item, relation_type);
+CREATE INDEX IF NOT EXISTS idx_item_relations_project ON item_relations(project_id);
+
+
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   project_id TEXT,

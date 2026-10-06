@@ -47,7 +47,9 @@ export function ConversationView() {
     queryKey: ["conversation", cid],
     queryFn: () => api.getConversation(cid!),
     enabled: !!cid,
-    refetchInterval: 2_000,
+    // M114-I340: 5s idle heartbeat（外部状态迁移兜底）；运行中由下方 800ms
+    // invalidate 定时器主导增量，此前 2s 全量轮询与它叠加双重打整段 transcript。
+    refetchInterval: 5_000,
   });
   const ctx = useQuery({
     queryKey: ["context", cid],

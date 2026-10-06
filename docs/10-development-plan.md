@@ -3339,7 +3339,46 @@ agent-project-management/
 - DoD：全量 EXIT=0；防腐 ✓；文档四处随轮。
 - 演示路径：回归日志+看板行。
 
+### M114 · 质量轮·性能优化与漏洞/显示修复（I339-I342，约 1.5 人日）
+
+> v3.0 新增（2026-10-06，用户指令轮）。用户指令：「将项目进行必要的瘦身和功能合并，优化功能性能，修复漏洞和前端显示」——M113 已清偿瘦身/合并两支，本轮清偿剩余三支（docs/01 §DE 三路盘点：后端门禁面/性能面/前端显示面→逐项亲自核实→有证据即修先红后绿/无证据如实排除）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I339 | 读面门禁对齐+跨项目写收口：members.require_project_read/visible_project_ids 两助手+全局 id 单资源读八处+聚合列表 `_visible` 接入四处+users org 门+views make-default writer 门+bulk-decision/ui confirm 逐审批门+run item 同项目 422+三处 FK 同项目 422+import rebuild 后 ensure_default_user 补课+回归矩阵 test_read_gates 扩两枚（先红后绿） | docs/01 §DE | M76-I228/M80-I240/M110 R2-F1 | 0.5d |
+| I340 | 性能收口：item_relations 三索引（EXPLAIN 全命中）+assignee 批量+概念可见性谓词 hoist+WIP 单条 GROUP BY+my_work/my_attention/activity 逐行权限 hoist+健康趋势单遍重放（_health_replay/_flow_from_replay 拆分）+ConversationView 空闲轮询 2s→5s | docs/01 §DE | I288 批量富化先例 | 0.5d |
+| I341 | 前端显示修复：ui danger 反色（text-danbg）+Badge 边框 token 化+MyTime 批准按钮+Risks 热力矩阵语义格+GraphView chip+TracePage 一揽子（token/死类/三态/break-all/徽章文案）+DependencyGraph SVG+图例 var(--color-*)+Roadmap 标签截断+Workload/AppShell chip 对比度+axe 双主题 7 路复扫 | docs/06 §7 | M89/M90 色板纪律 | 0.5d |
+| I342 | 收口：全量回归（非 smoke+冒烟+vitest+build）+防腐三件直测+axe 证据+docs 五处+提交（不 tag——M112 收口 v0.21.0 攒批四轮） | — | M102-I310 惯例 | 0.5d |
+
+#### I339 · 读面门禁对齐+跨项目写收口（0.5d）
+
+- 任务：A 组八处读门+`GET /users` 401+`/events`·`/runs`·`/conversations`·`/approvals` 可见性过滤（query_events 增 project_ids 参数·org 级行对登录者 carve-out）+NDJSON export admin 门；B 组 bulk-decision/confirm 逐审批 require_decide_gate+engine 绑定 item 同项目 422+expense/risks/conversations FK 422；D 组 views writer 门。
+- DoD：test_read_gates 两枚新矩阵先红后绿（network 模式 outsider 403/404/空列表+owner 200 全对+跨项目写全拒）；受影响域定向回归绿。
+- 演示路径：outsider GET /api/runs/{id} → 403；bulk-decision 他人审批 → results[0].error。
+- 发现即修：test_import RED 抓获 **import 端点 rebuild 后 admin 标静默丢失**（M41 已知副作用·rebuild-projections 端点有 ensure_default_user 补救而 import 漏了——存量潜在缺陷被新 export admin 门首次暴露，audit.csv 同病从未被测到）→ import 端点补 ensure_default_user（M66-I199 惯例）。
+
+#### I340 · 性能收口（0.5d）
+
+- 任务：索引三枚（to/from+relation_type 复合+project）→ EXPLAIN 对账三查询全命中；items 域 N+1 三处（assignee IN 批量/概念可见性闭包/WIP GROUP BY——生成器两迭陷阱 `list()` 物化当场抓获）；reports 三处逐行权限 hoist+健康趋势 `_health_replay` 单遍（flow 指标搭同一趟车）；前端会话页 5s 心跳。
+- DoD：行为等价——test_health_history/test_portfolio_health_trend/test_workload/test_activity/test_reports 全绿；EXPLAIN 打印入档。
+- 演示路径：EXPLAIN QUERY PLAN blocked 扫描 → SEARCH … USING INDEX idx_item_relations_to。
+
+#### I341 · 前端显示修复（0.5d）
+
+- 任务：暗色主题五处真实破损+DependencyGraph SVG/图例语义化+Roadmap 溢出+TracePage 三态/死类/break-all+两处亮色对比度漏网（sky-500/indigo-400 → 语义 token）。
+- DoD：tsc+vitest 47 绿+build 绿（precache 43 持平）；axe 隔离环境（8015/4183+seed+trace 造数）亮暗双主题 7 路复扫 serious/critical 全零（moderate 结构性规则为全站存量非本轮引入）；Risks 热力矩阵与依赖图暗色截图目验（docs/m114-scan-*.png）。
+- 演示路径：暗色主题 risks 矩阵全语义格无花斑；deps 图节点随主题翻转。
+
+#### I342 · 收口（0.5d）
+
+- 任务：全量回归（非 smoke+冒烟 98+vitest 47+build）+防腐三件直测（env_doc/写门 **139=72+67**/日期台账）→ docs/01 §DE+docs/10 §M114+看板+附录 C M114+CHANGELOG Unreleased+HANDOFF 修剪。
+- DoD：全量 EXIT=0；防腐 ✓；文档五处随轮。
+- 演示路径：回归日志+看板行。
+- 记录修正：写门对账实测 **139=72+67**——M113 收口直测记的「145=78+67」为双注册去重（-6 条 webhook 写路由的重复计入）后未重测的陈值（stash 对账实证 M113 HEAD 即 139；本轮零计数变化）；docs/11 §2.4 冻结计数随 M112 收口解冻一并修正。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
+
+
 
 > v3.0 新增（2026-10-02，docs/01 §CK 前置调研）。防重查：留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db[--seed-light]）；真实 LLM 轮仍挂起待 key；依赖漂移复核仅 patch/minor 级不构成主题。**候选①转正——阈值已到达**（M91-I277 收口实测累计 3 次/3 轮[M89:1/M90:0/M91:2]）：**证据当场收集（全库 5 个后台线程循环体逐一审读）**——mailer/pusher/scheduler/assets 四处均为「try/except Exception 包住循环体+logger.exception」习语，**唯独 webhooks `_worker_loop` 外层 try 只有 finally 没有 except**——teardown/换代间隙 SELECT 抛 sqlite3.OperationalError（no such table 族）→ 异常穿透 while True → **线程死亡且无人拉起**[测试态=输出噪声；生产态=db 短暂不可用一次即出站 webhook 永久静默的假健康]。**防重查：Python 3.13 Queue.shutdown 不做（本机 3.11.5+零依赖纪律）、sentinel/stop-event 机制位不做（daemon+lifespan 下一行 except 已达「任务死 worker 活」）、非 daemon 改造不做（退出语义变化面大）。**
 
@@ -3685,6 +3724,11 @@ agent-project-management/
 | I336 研究定案+剪枝① stub 工具三件 | 已完成 | 2026-10-05 | 2026-10-05 | docs/01 §DD 六路盘点 + PERMISSIONS/_HANDLERS 删 search_web/publish_external/run_command+注册表注记（deny-by-default 名副其实——M45 收窄同向）+ pm/dev/architect 三角色 YAML tools 清单去 search_web + test_tool_surface.py 回归锁两枚[pruned stubs 全部 ToolDenied("not registered")+权限面恰等七真实能力集] + grep 全仓零残留 |
 | I337 剪枝②+合并③+去重④ | 已完成 | 2026-10-05 | 2026-10-05 | review.html git rm（206KB·2026-08-22 MVP 评审生成物·可再生·零文档引用）+/gitignore[build_review_html.py 工具保留] + nl.py parse_llm 回落链改三级（model_cheap→ui_agent_model→llm_model·与 _tier_model_name cheap 链同源——「两旋钮一语义」）+post_ui_command L2 溯源文案改用实际返回的 llm_model（原为配置猜测）+ main.py include_router(webhooks_router) 双注册去重（首匹配 wins 行为不可见·纯注册表冗余）+ .env.example UI_AGENT_MODEL 注记降级语义 + 受影响 5 文件 31 项绿 |
 | I338 收口 | 已完成 | 2026-10-05 | 2026-10-05 | 全量回归[非 smoke 494 EXIT=0（+test_tool_surface 2）+冒烟 runner 98 GREEN] + 机械防腐[env_doc/写门/日期台账直测 EXIT=0] + CHANGELOG Unreleased 新增 Removed 段+Changed 合并条 + 看板 M113 闭环+附录 C M113 登记+HANDOFF 修剪（v0.21.0 攒批=M110+M111+M113·M112 收口顺延其后） |
+| **M114 质量轮·性能优化与漏洞/显示修复（I339-I342）** | 已完成 | 2026-10-06 | 2026-10-06 | 4 迭代 / 约 1.5 人日（用户指令轮 + docs/01 §DE + docs/10 §M114）：三路盘点（后端门禁面/性能面/前端显示面）→逐项核实→有证据即修先红后绿/无证据如实排除——M110 R2-F1「同类门还有几道口」的读侧残留面成批清账：全局 id 单资源读八处（runs 四面/milestones 两面/cycles 两面/features/time_entries 单条/attachments 下载/conversations detail·messages·context）+聚合列表 `_visible` 接入四处（events/runs/conversations/approvals·org 级行登录者 carve-out）+NDJSON export admin 门+GET /users 401+views make-default writer 门；跨项目写收口三件（bulk-decision/ui confirm 逐审批门·run item 同项目 422·expense/risks/conversations FK 422）；性能七件（item_relations 三索引 EXPLAIN 全命中/assignee 批量/概念可见性谓词 hoist/WIP GROUP BY/my_work·my_attention·activity 逐行权限 hoist/健康趋势单遍重放/会话页轮询 5s）；前端显示十二处（暗色主题五处真实破损+DepGraph SVG 语义化+Roadmap 溢出+TracePage 三态/死类/break-all+两处亮色对比度漏网）。**新门暴露存量潜在缺陷两例**（import rebuild 后 admin 标丢失补 ensure_default_user/写门计数 139=72+67 系 M113 去重后陈值如实修正）；排除五候选入附录 C（项目域 GET 惯性/SSE 过滤/reports 时间下界/全局 staleTime/_gate admin 旁路）。基线 pytest 494→**496**（+test_read_gates 2）/冒烟 98（+3 处审计读前提随 I78 适配）/vitest 47/build 绿 precache 43/机械防腐 ✓/axe 双主题 7 路零 serious/critical；v0.21.0 攒批=M110+M111+M113+M114（M112 收口顺延其后） |
+| I339 读面门禁对齐+跨项目写收口 | 已完成 | 2026-10-06 | 2026-10-06 | members.require_project_read（403 对齐 M76 项目级读门惯例+admin 旁路 docstring）+visible_project_ids 两助手；A 组八处读门（conversations 沿同文件 export `_visible` 404 先例）+query_events 增 project_ids（org 级行 `IFNULL(project_id,'')=''` carve-out）+export_events admin 门（对齐 audit.csv）+GET /users require_instance_user+bulk-decision 逐审批 require_decide_gate（org 级 project_id="" 登录即可——与中间件 project_id_for_path falsy 跳过同语义）+nl confirm 同门+engine start_run item 同项目 422+expense/risks（含 PATCH）FK 422+views make-default `_require_view_writer`+**发现即修**：test_import RED 抓获 import 端点 rebuild 后 admin 标静默丢失（M41 已知副作用·rebuild-projections 端点有补救而 import 漏了·audit.csv 同病从未被测到）→补 ensure_default_user；先红后绿 test_read_gates +2（outsider 403/404/空列表矩阵+owner 200 全对+跨项目写全拒） |
+| I340 性能收口 | 已完成 | 2026-10-06 | 2026-10-06 | item_relations 三索引（idx_item_relations_to/from 复合+project——此前零索引挂 board/items 最热读路径）EXPLAIN 三查询全命中；list_items assignee IN 批量（**生成器两迭陷阱当场抓获：`_with_assignee_names` 入口 `list()` 物化**——test_read_gates fixture IndexError 先红定位）；`_concept_visible_filter` 闭包 hoist（**首跑漏 import config NameError——network 非 owner 分支才走到·全量回归抓获**）；WIP 计数单条 GROUP BY（注意含 archived_at IS NULL 对齐 list_items 语义）；my_work/my_attention/activity 逐行 member_role+is_instance_admin·`_visible` hoist 为每请求一次（15s/30s 轮询面）；健康趋势 `_health_replay` 单遍拆分（flow 指标搭同一趟车·每项目两次全事件扫描→一次）+`_flow_from_replay`；ConversationView 空闲轮询 2s→5s（运行中 800ms invalidate 主导不变）；行为等价由 test_health_history/test_portfolio_health_trend/test_workload/test_activity/test_reports 全绿背书 |
+| I341 前端显示修复 | 已完成 | 2026-10-06 | 2026-10-06 | ui.tsx danger `bg-dan text-danbg hover:bg-dan/90`（暗色白字压浅红底≈2.5:1 修复·hover 方向反常一并）+Badge indigo/violet 边框 token 化（border-acc/ag /30）；MyTime 批准按钮 text-okbg；RisksPage 热力矩阵 CELL_TONE 语义格（3/4 warnbg·6 warnbg+warnln 描边·9 danbg）+矩阵 chip bg-surface/90 text-ink；GraphView 状态 chip bg-bg；TracePage 一揽子（amber-700 警示字→text-warn/四处硬编码浅色 chip→warnbg/danbg/text-fg 死类→text-ink/闭环徽章长文案拆 hint 行/ReqChip·NodeChip·ImpactRow break-all/覆盖卡 isLoading·isError 三态/impact 错误态与「无关联证据」区分/links 卡错误态）；DependencyGraphPage SVG fill/stroke/text 全改 var(--color-*)（图例 bg-okbg ring-okln 等同源——亮色拼图+图例失配双修）+items.isError 分支；RoadmapPage 里程碑行 overflow-hidden+标签 max-w truncate（title 兜底）；WorkloadPage 休假 chip sky-500（亮色 2.8:1）→accbg/acc；AppShell 渠道徽标 indigo-400→acc/10+acc；tsc+vitest 47 绿+build 绿（precache 43 持平） |
+| I342 收口 | 已完成 | 2026-10-06 | 2026-10-06 | 全量回归[非 smoke **496 EXIT=0**（+test_read_gates 2）+冒烟 runner **98 GREEN**（smoke 14/87 审计读移登录后+smoke 19 rebuild 改走端点·M61-I199 惯例）+vitest 47+build EXIT=0（precache 43 持平）] + 机械防腐三件直测[env_doc ✓/写门 **139=72+67 ✓**（M113 陈值 145 实证修正·stash 对账）/日期台账 ✓] + axe 隔离环境（8015/4183+seed+trace 造数）亮暗双主题 7 路复扫 serious/critical 全零（moderate 结构性规则全站存量非本轮引入）+暗色 Risks 矩阵/DepGraph 截图目验（docs/m114-scan-*.png） + docs 五处（§DE/§M114/看板五行/附录 C/CHANGELOG）+HANDOFF 修剪（v0.21.0 攒批=M110+M111+M113+M114·M112 收口顺延其后） |
 | 2026-10-03 M97 调研定义（§CP） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第七轮实测仍缺[.env 不存在]维持挂起；留观候选维持。**依赖漂移发布轮惯例当轮实测：前端 pnpm outdated 空[M93 车后零漂移]+后端仅 openai 3.23.0→3.24.0（minor）**——与 M91/M93 同判不构成独立主题·但 v0.14.0 攒批义务落在本轮[M96 已不 tag]：发布轮起点一车跟随+全量冻结=配对轮实体[M93 §CL 裁决沿用·openai 验证面=套件内 provider 测试全 MockTransport+单测]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[规则族与 M93 §CL 完全同源·六源已引用在案·openai 3.24 变更面核实降级为装后全量回归·无新规则族]。定案 M97=发布工程第四轮·openai 跟随与 v0.14.0 攒批发布（I293 一车/I294 双镜像验证/I295 **v0.14.0 攒批发布**[DoD 两项第五次执行]） |
 | 2026-10-03 M96 调研定义（§CO） | 已完成 | 2026-10-03 | 2026-10-03 | 防重查：LLM 轮 key 第六轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面继承 M94 全清。**候选账号安全补课转正——grep 实证三向印证**：①hash_password 全库仅创建[users.py:135·409 不可重入]+boot 重放[:87·仅引导管理员]两处——**网络多用户部署下普通用户永远无法改密**[忘密码=删库重建级]/②auth_api 3 端点+users 域零 password 路由+前端 api.ts 仅 login+SettingsPage 零密码面/③会话为无状态 HMAC TTL 24h[security.py user_id.expiry.signature]——凭据变更→会话失效语义缺失[OWASP Session Management Cheat Sheet：凭据变更须作废全部会话·ASVS 3.3.x——本轮与改密面**同轮建齐**避免先留缺口]。同族先例=M82 登录防爆破[API2 面·哑哈希计时均衡/滑窗在库]。三路 WebSearch **配额仍 429[2026-10-07 16:06 重置]如实降级**[M90/M91/M95 路径·OWASP 条文+仓库内先例·无新规则族]。定案 M96=账号安全补课轮·密码自助修改与会话失效（I290 pw_epoch+令牌 v2 兼容 legacy+双端点+失效语义/I291 前端 Modal+IAB 走查+docs/11 补节/I292 收口[攒批 v0.14.0 不 tag]） |
 | 2026-10-02 M95 调研定义（§CN） | 已完成 | 2026-10-02 | 2026-10-02 | 防重查：LLM 轮 key 第五轮实测仍缺[.env 不存在]维持挂起；留观候选维持；依赖面复核继承 M94 全清[四面刚扫]。**候选=journey UX 三发现转正——代码现状逐条复核**：①网络匿名 401[auth_api.py:150-158]→AppShell 回落 LocalSwitcher 误导[832-854]+401 重定向仅反应式[api.ts:345 写失败才触发]/②登录成功无条件 navigate("/") 无 returnTo[LoginPage.tsx:55-58]+新建弹窗组件 state 卸载丢失/③Dashboard 裸 listEvents 直显 actor_id[Dashboard.tsx:20] vs ActivityPage 走 _activity_list actor_names 批量富化[reports.py:245-263]——同产品两信息流语义分叉。三路 WebSearch **配额再 429[2026-10-07 16:06 重置]如实降级**[M90/M91 路径·规则族有仓库内先例+通识条文替代：React Router auth 范式 returnTo+相对路径防 open-redirect/表单草稿 sessionStorage+恢复确认/Stream 式 feed actor 内嵌+批量 IN 防 N+1——无新规则族]。定案 M95=旅程 UX 反馈轮·登录语义与信息流富化（I287 登录引导+returnTo+草稿/I288 actor_name 富化/I289 **v0.13.0 攒批发布**[DoD 第四次执行]） |
@@ -4294,6 +4338,8 @@ M111 登记（2026-10-05）：①**先红两连——真实回归轮的价值实
 M110 登记（2026-10-05）：①**「镜像差先判意图侧」裁决入档**（F2 needs_review 方向 docstring 是唯一 outlier→改 docstring；F3 孤儿口径代码承载意图→改措辞——契约镜像的修复方向不总是代码，改失真侧）；②**R2-F1 读面残留面教训**（R1-F1 修写路径时，其影响分析点名的「标题经 resolve 泄露」在**读侧根节点**仍有残留面——修缝要问「同类门还有几道口」而不是「这一处堵了没」；impact 根改 require_node 读写同门收口）；③**瞬态伪影第三类入档**（主题 toast 进出动画中途采样→color-contrast 一闪重扫消失——M89 过渡采样/M90 数据闪现同族·docs/06 §7 法补「切主题后等 ≥2s」）；④矩阵测试身份时序自纠两例入档（每步操作前核当前会话身份——RED 两轮均为测试自身错误非产品缺陷）；⑤R1 留观①清偿[/trace 进 axe 基线 24→25 路]/R1 留观②维持[过滤参数半传静默忽略待真实使用证据]；⑥pytest 490→**492**（+R2-F1 回归锁+门禁矩阵行）；⑦v0.21.0 攒批=M110~M112 三轮成版（M112 收口 bump+tag+DoD 两项第十二次执行）。
 
 M113 登记（2026-10-05）：①**「宣称有能力但无实现」是独立于死代码的剪枝对象类**（search_web 在权限表+角色 YAML 双处宣称、实现返回空——功能面诚实性剪枝，M45 安全收窄同向；deny-by-default 注册表必须只含真实能力）；②**生成物不进仓库**（review.html=build_review_html.py 输出·2026-08-22 冻结——工具留输出 gitignore·「可再生工件不入版本库」纪律补齐）；③**旋钮合并的兼容式做法**（统一语义时旧键降为回落而非删除——APM_MODEL_CHEAP 首选/APM_UI_AGENT_MODEL 兼容回落·既有 .env 零破坏·.env.example 注记语义）；④弱剪枝轮的如实排除同样入档（demo.html/双 IdP/前端零死组件/events 无重复——证据不足不剪防「为剪而剪」）；⑤pytest 492→**494**（+test_tool_surface 2）；⑥v0.21.0 攒批=M110+M111+M113（M112 收口 bump+tag+DoD 两项第十二次执行·顺延其后）。
+
+M114 登记（2026-10-06）：①**「同类门还有几道口」的读侧残留面是成批的而非孤例**（M110 R2-F1 修 trace 读根后，本轮三路盘点又抓出 8 处全局 id 单资源读+4 处聚合列表+2 处写面同类缺口——每次修缝都应把同域/同款端点全部拉出来对一遍而非只修点名那一个）；②**`require_project_read` 的 403 语义对齐 M76 惯例**（项目级读门=403 与 expense/automations `_gate` 家族一致；conversations 单资源沿用同文件 export 的 `_visible` 404 先例——同文件一致性优先于全局统一；admin 旁路明确入新门 docstring，存量 `_gate` 三域无旁路的不对称登记下方候选）；③**org 级行的可见性 carve-out**（approvals/事件流里 project_id 为空的行——资产审批、session 审计——对任何登录者可见：资产库是共享库、session 事件多为调用者自身审计；匿名仍 401/空）；④**行为等价的性能重构先跑 EXPLAIN/复用既有测试**（item_relations 三索引 EXPLAIN 全命中、健康趋势单遍合并复用 test_health_history/test_portfolio_health_trend 全绿——行为保持类改动不需新测试但需全量对账）；⑤**排除候选登记**：项目域列表 GET 成员制收口（`/projects`、project-scoped 列表——M76 明示惯性+M67 概念可见性建在其上，产品级 IA 决策）/`/stream` SSE 成员过滤（同上·AppShell 全局通知依赖）/reports 全量重放加时间下界（报表口径改动·留待物化汇总表）/queryClient 全局 staleTime（vitest 即时 refetch 依赖先盘点）/`_gate` 三域 admin 旁路不对称（存量改动牵涉面大）；⑥**新门暴露存量潜在缺陷两例**（import 端点 rebuild 后 admin 标丢失[M41 已知副作用·补 ensure_default_user]/写门计数 139=72+67 系 M113 去重后未重测陈值[145 的重复计入已随双注册去重消失]——「门装上才发现屋里早没灯」）；⑦v0.21.0 攒批=M110+M111+M113+M114 四轮（M112 收口 bump+tag+DoD 两项第十二次执行·顺延其后）。
 
 
 

@@ -6,15 +6,21 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）已入批——v0.21.0 由 M112 收口 bump+tag。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）+M114（质量轮·性能与漏洞/显示修复）已入批——v0.21.0 由 M112 收口 bump+tag。
 
 ### Changed
 - **真实 LLM 默认示例切换到 DeepSeek 官方**（M111-I333）：`.env.example`/README 以 `https://api.deepseek.com` + `deepseek-flash` 为默认示例（智谱 coding-plan 降为备选）；角色 YAML 七件 `model.name: glm-5.3` 硬编码改为 `tier: standard` 三档路由（M48-I144）——厂商模型名不再进仓库，由 `APM_MODEL_*` 环境键解析，未配置时按回落链落到 `APM_LLM_MODEL`（回落链收拢 `roles.tier_model_name` 单一真源，档位解析永不出空模型名）。
 - **角色提示词执行环境契约**（M111-I334）：六份角色提示词移除「工具使用规范」——旧文案承诺了固定图引擎不存在的模型侧工具回路，真实模型会把工具调用语法原样写进工件（DeepSeek flash 实测抓获）；改为「执行环境契约」：单轮、无工具、输出即工件、严禁工具调用标记与开场白。
 - **廉价模型旋钮统一**（M113-I337）：L2 命令解析的模型选择改为 `APM_MODEL_CHEAP` 首选、`APM_UI_AGENT_MODEL` 降为兼容回落（两旋钮一语义，既有 .env 零破坏）；L2 溯源文案改用实际调用的模型名。
+- **读面门禁对齐与跨项目写收口**（M114-I339）：M76 读面审计的续篇——全局 id 单资源读（runs 四面/milestones/cycles/features/time_entries 单条/attachments 下载/conversations detail·messages·context）补齐与同域写侧对等的成员门；`/events`·`/runs`·`/conversations`·`/approvals` 聚合列表接 `_visible` 家族可见性过滤（org 级行对登录者保持可见）；`GET /users` 补 org 登录门；NDJSON 事件导出补 admin 门（对齐 audit.csv）。行为影响：network 模式非成员/匿名者读这些面从 200 变 403/404/401，成员与本地模式零变化。
+- **热读路径性能收口**（M114-I340）：`item_relations` 补三索引（此前零索引挂在 board/items 最热读路径，EXPLAIN 全表扫→索引命中）；board/items 的 assignee 名富化与概念可见性判定批量化（逐项 SQL→每请求一次）；WIP 计数单条 GROUP BY 取代二次全量 `list_items`；`/portfolio/health-trend` 每项目单遍重放（原为健康序列+flow 指标两次全事件扫描，Dashboard 60s 轮询放大）；`/my/work`·`/my/attention`·`/portfolio/activity` 逐行权限判定 hoist 为每请求一次；会话页空闲轮询 2s→5s（运行中仍 800ms 增量失效主导）。
 
 ### Fixed
 - **追溯影响分析读侧归属校验**（M110-I330·验收考官 Round 2 R2-F1）：`/trace/impact` 根节点此前只查存在性不查归属——其他项目的节点 id 可作为读根返回其标题/状态（Round 1 已堵写路径，读侧为残留面）。现读写同门：404=不存在 / 422=属别家；回归锁 `test_trace_impact_root_cross_project_refused` + 写门矩阵 trace 行（pytest 490→492）。
+- **批量审批跨项目越权**（M114-I339）：`POST /approvals/bulk-decision` 的路径段 "bulk-decision" 不匹配中间件的 approval id 查表→门被跳过，任意登录用户可对任意项目的审批批准/驳回并恢复引擎；`POST /ui_commands/{id}/confirm` 的批量批准同病。现逐审批过与单条决策同款的成员门（org 级资产审批保持登录即可）。
+- **run 绑定与外键的跨项目引用**（M114-I339）：`POST /runs` 的 item_id 可指向别家项目（状态迁移事件以本方 project_id 落账、投影改到别家 items 行）→422；费用行/风险关联/会话 feature·item 引用跨项目→422（对齐 `_validate_milestone` 既有惯例）。
+- **暗色主题显示破损一批**（M114-I341）：danger 按钮白字压浅红底、工时批准按钮、风险热力矩阵 3/4/6/9 分格硬编码亮色块、图内状态 chip 白底、追溯页琥珀警示字与四处浅色 chip、依赖图整张 SVG 硬编码亮色+图例 token 失配——全部改语义 token 双主题翻转；受影响 7 路由亮暗双主题 axe 复扫 serious/critical 全零。
+- **追溯页三态与溢出**（M114-I341）：覆盖概览卡加载/失败静默空白→补三态；影响分析请求失败伪装成「没有任何关联证据」→区分错误态；`text-fg` 死类改 `text-ink`；长工件路径 chip 补 break-all；路线图里程碑长标签 375px 撑出横向滚动→行内截断（title 兜底全名）；徽章近白边框（indigo/violet-100）改 token 透明度。
 
 ### Removed
 - **工具注册表三个非功能性 stub**（M113-I336）：`search_web`（返回空结果的伪搜索）、`publish_external`（无实现的伪发布）、`run_command`（恒拒绝的占位）——权限面对外只暴露真实能力，deny-by-default 名副其实（M45 收窄同向）；pm/dev/architect 角色声明同步清除，危险档语义由 `create_git_tag` 真实审批流承载，V2 沙箱承诺保留在 roadmap。

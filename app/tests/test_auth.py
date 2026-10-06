@@ -35,17 +35,19 @@ def test_network_mode_requires_login_for_writes(client, tmp_data):
         assert client.get("/api/projects").status_code == 200
         assert client.post("/api/projects", json={"name": "x"}).status_code == 401
 
-        # Failed logins are audited.
+        # Failed logins are audited (M114-I339: the raw event stream demands a
+        # session, so the audit read happens after the successful login — the
+        # login_failed row itself predates it and is still on the stream).
         assert client.post("/api/auth/login",
                            json={"user_id": "u_admin", "password": "nope"}).status_code == 401
-        evs = client.get("/api/events",
-                         params={"event_type": "session.login_failed"}).json()["events"]
-        assert any(e["payload"]["user_id"] == "u_admin" for e in evs)
 
         # Successful login → cookie → writes pass → me reports session identity.
         r = client.post("/api/auth/login",
                         json={"user_id": "u_admin", "password": "admin-pass"})
         assert r.status_code == 200 and "apm_session" in r.cookies
+        evs = client.get("/api/events",
+                         params={"event_type": "session.login_failed"}).json()["events"]
+        assert any(e["payload"]["user_id"] == "u_admin" for e in evs)
         assert client.post("/api/projects",
                            json={"name": "网络项目", "ontology": "software-dev"}).status_code == 200
         me = client.get("/api/auth/me").json()
@@ -105,15 +107,16 @@ def test_login_lockout_window(client, tmp_data):
                         json={"user_id": "u_admin", "password": "admin-pass"})
         assert r.status_code == 429
         assert 0 < int(r.headers["Retry-After"]) <= auth_api.LOCKOUT_WINDOW_SECONDS
-        # 锁定转折点只发一次 session.login_locked（防攻击者逐次 429 灌水审计流）。
-        evs = client.get("/api/events",
-                         params={"event_type": "session.login_locked"}).json()["events"]
-        assert len(evs) == 1 and evs[0]["payload"]["user_id"] == "u_admin"
 
         # 窗口滑出 → 自动解除，正确密码恢复登录。
         auth_api._login_failures["u_admin"] = [time.monotonic() - auth_api.LOCKOUT_WINDOW_SECONDS - 1]
         assert client.post("/api/auth/login",
                            json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
+        # 锁定转折点只发一次 session.login_locked（防攻击者逐次 429 灌水审计流）。
+        # M114-I339: 审计读在恢复登录之后（事件流不再对匿名开放），断言强度不变。
+        evs = client.get("/api/events",
+                         params={"event_type": "session.login_locked"}).json()["events"]
+        assert len(evs) == 1 and evs[0]["payload"]["user_id"] == "u_admin"
     finally:
         _clear_login_guard()
         _disable_network()

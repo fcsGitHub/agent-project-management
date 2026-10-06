@@ -121,6 +121,39 @@ def require_project_write(project_id: str) -> None:
             detail=f"project write requires a member role (you are {role or 'not a member'} of {project_id})")
 
 
+def require_project_read(project_id: str) -> None:
+    """M114-I339 (docs/01 §DE.1): read-side twin of require_project_write for
+    global-id single resources whose write siblings have carried the M80-I240
+    gate since the last audit (runs/milestones/cycles/features detail and
+    friends) — M76-I228 covered the org/project list faces but left these
+    same-class reads open (the "one more gap of the same gate" lesson from
+    M110 R2-F1). Local mode trusted; network mode passes for the instance
+    admin or any project member (viewer included, matching the `_gate`
+    family's any-role read semantics); outsiders get 403 like
+    expenses/automations. Unlike require_project_write this grants the admin
+    explicitly: admins already read audit.csv, so a read gate must not lock
+    them out of project data."""
+    if config.settings.auth_mode == "local":
+        return
+    actor = events.effective_actor()
+    if is_instance_admin(actor) or member_role(project_id, actor) is not None:
+        return
+    raise HTTPException(status_code=403, detail="not a project member")
+
+
+def visible_project_ids(actor: str) -> set[str] | None:
+    """M114-I339: aggregate list faces (runs/conversations/approvals/events)
+    filter cross-project rows with the same membership semantics as the
+    feed/search `_visible` family. Returns None = unrestricted (local mode or
+    instance admin); a (possibly empty) set of visible project ids otherwise —
+    anonymous network callers get the empty set, mirroring
+    reports._activity_list's `user is None` skip."""
+    if config.settings.auth_mode == "local" or is_instance_admin(actor):
+        return None
+    rows = db.get_conn().execute("SELECT id FROM projects").fetchall()
+    return {r["id"] for r in rows if member_role(r["id"], actor) is not None}
+
+
 def project_id_for_path(path: str) -> str | None:
     """Best-effort project context for a /api path (M8-I27 write gating)."""
     m = re.match(r"^/api/projects/([^/]+)", path)

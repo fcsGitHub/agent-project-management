@@ -175,6 +175,14 @@ export function DependencyGraphPage() {
   }, [onlyBlocked, blockedIds, allNodes]);
   const visible = new Set(onlyBlocked ? visibleIds : allNodes.keys());
 
+  if (items.isError) {
+    return (
+      <div className="mx-auto max-w-4xl p-4 md:p-6">
+        <h1 className="text-lg font-semibold">🔗 依赖图</h1>
+        <Empty title="工作项加载失败" hint="请刷新重试" />
+      </div>
+    );
+  }
   if (items.data && byId.size === 0) {
     return (
       <div className="mx-auto max-w-4xl p-4 md:p-6">
@@ -208,7 +216,7 @@ export function DependencyGraphPage() {
             const onChain = critical.has(e.from) && critical.has(e.to) && e.kind === "depends_on";
             return (
               <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={onChain ? "#f59e0b" : e.kind === "blocks" ? "#f97316" : "#94a3b8"}
+                stroke={onChain || e.kind === "blocks" ? "var(--color-warn)" : "var(--color-mut)"}
                 strokeWidth={onChain ? 2.5 : 1.5}
                 strokeDasharray={e.kind === "blocks" ? undefined : "5 4"}
                 markerEnd="" />
@@ -220,19 +228,24 @@ export function DependencyGraphPage() {
             const done = it.status_group === "done";
             const blocked = blockedIds.has(id);
             const foreign = it.foreignReadable !== undefined;
-            const fill = foreign ? "#f1f5f9" : done ? "#e2e8f0" : blocked ? "#fee2e2" : "#dcfce7";
-            const stroke = foreign ? "#94a3b8" : done ? "#cbd5e1" : blocked ? "#ef4444" : "#22c55e";
+            // M114-I341: SVG 与图例同走 --color-* 语义 token（亮暗双主题翻转，
+            // ReportsPage 折线同款做法）——硬编码 slate/red/green 色在暗色主题
+            // 下是贴在暗卡上的亮色拼图，图例 bg-okln/warnln 也随之失配。
+            const fill = foreign ? "var(--color-bg)" : done ? "var(--color-bg)"
+              : blocked ? "var(--color-danbg)" : "var(--color-okbg)";
+            const stroke = foreign ? "var(--color-mut)" : done ? "var(--color-line)"
+              : blocked ? "var(--color-dan)" : "var(--color-ok)";
             return (
               <g key={id} data-dep-node={id}>
                 <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={10}
-                  fill={fill} stroke={critical.has(id) ? "#f59e0b" : stroke}
+                  fill={fill} stroke={critical.has(id) ? "var(--color-warn)" : stroke}
                   strokeWidth={critical.has(id) ? 3 : 1.5}
                   strokeDasharray={foreign ? "4 3" : undefined} />
                 <text x={p.x + 10} y={p.y + 18} fontSize={12} fontWeight={600}
-                  className="select-none" fill="#0f172a">
+                  className="select-none" fill="var(--color-ink)">
                   {it.title.length > 16 ? `${it.title.slice(0, 15)}…` : it.title}
                 </text>
-                <text x={p.x + 10} y={p.y + 34} fontSize={10} fill="#64748b" className="select-none">
+                <text x={p.x + 10} y={p.y + 34} fontSize={10} fill="var(--color-mut)" className="select-none">
                   {it.status}{blocked ? " · 被阻塞" : ""}{critical.has(id) ? " · 关键链" : ""}
                 </text>
               </g>
@@ -244,11 +257,11 @@ export function DependencyGraphPage() {
         </svg>
       </Card>
       <div className="flex gap-3 text-[10px] text-mut">
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-slate-200" />已完成</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-okln" />进行中</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-red-200" />被阻塞</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-warnln" />关键链</span>
-        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm border border-dashed border-slate-400 bg-slate-100" />外部依赖（可读显名/不可读 🔒）</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm border border-line bg-bg" />已完成</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-okbg ring-1 ring-okln" />进行中</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-danbg ring-1 ring-dan" />被阻塞</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-warn" />关键链</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-sm border border-dashed border-mut bg-bg" />外部依赖（可读显名/不可读 🔒）</span>
         <span className={cx(critical.size ? "" : "hidden")}>链长 {critical.size}</span>
       </div>
     </div>

@@ -269,7 +269,7 @@ function TimesheetPanel() {
               {can ? (
                 <span className="ml-auto flex gap-1.5">
                   <button onClick={() => decide(row.id, true)}
-                    className="rounded-lg bg-ok px-2 py-1 text-[10px] font-medium text-white">✓ 批准</button>
+                    className="rounded-lg bg-ok px-2 py-1 text-[10px] font-medium text-okbg">✓ 批准</button>
                   <button onClick={() => decide(row.id, false)}
                     className="rounded-lg border border-line px-2 py-1 text-[10px] hover:border-dan hover:text-dan">✕ 驳回</button>
                 </span>

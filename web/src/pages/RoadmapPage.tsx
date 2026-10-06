@@ -68,12 +68,12 @@ export function RoadmapPage() {
               const left = view.pct(t) - 2;
               const ratio = m.progress.done_ratio ?? 0;
               return (
-                <div key={m.id} className="relative h-6" title={`${m.title} · ${m.due_date} · 完成 ${m.progress.items_done}/${m.progress.items_total}`}>
+                <div key={m.id} className="relative h-6 overflow-hidden" title={`${m.title} · ${m.due_date} · 完成 ${m.progress.items_done}/${m.progress.items_total}`}>
                   <div className="absolute top-1 h-4 min-w-[10px] overflow-hidden rounded-full border border-line bg-bg"
                     style={{ left: `${Math.max(left, 0)}%` }}>
                     <div className="h-full bg-accbg" style={{ width: `${ratio}%` }} />
                   </div>
-                  <span className={`absolute top-1 ml-2 whitespace-nowrap text-[10px] leading-4 ${m.overdue ? "font-medium text-dan" : "text-mut"}`}
+                  <span className={`absolute top-1 ml-2 max-w-[calc(100%-1rem)] truncate whitespace-nowrap text-[10px] leading-4 ${m.overdue ? "font-medium text-dan" : "text-mut"}`}
                     style={{ left: `${Math.max(left, 0)}%` }}>
                     ◆ {m.title} {m.overdue ? "· 超期" : ""} {m.progress.done_ratio != null ? `· ${Math.round(m.progress.done_ratio * 100)}%` : ""}
                   </span>

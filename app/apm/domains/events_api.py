@@ -25,9 +25,27 @@ def list_events(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ) -> dict:
+    """M114-I339: the raw stream carries every project's payloads, so it reads
+    through the member-visibility lens — network-anonymous callers get 401
+    (M76 org-read convention), project-scoped queries gate on membership, and
+    unscoped queries restrict to the caller's visible projects (the
+    feed/_visible family semantics; local mode stays trusted)."""
     projections.ensure_handlers_registered()
+    from apm.domains.members import (
+        require_instance_user,
+        require_project_read,
+        visible_project_ids,
+    )
+
+    require_instance_user()
+    project_ids = None
+    if project_id:
+        require_project_read(project_id)
+    else:
+        project_ids = visible_project_ids(events.effective_actor())
     evts, total = events.query_events(
         project_id=project_id,
+        project_ids=project_ids,
         agg_type=agg_type,
         agg_id=agg_id,
         event_type=event_type,
@@ -116,11 +134,16 @@ def export_events(project_id: str) -> StreamingResponse:
     """Supplementary data exit (docs/01 §L.3 — GitLab lesson: exports are a
     supplement, not a backup). Streams the project's event log as NDJSON in
     append order, each line carrying its prev_event_id so the receiver can
-    verify chain continuity; a final checksum line covers the whole stream."""
+    verify chain continuity; a final checksum line covers the whole stream.
+    M114-I339: admin-only, same payload class and rationale as audit.csv
+    (the event stream IS the audit log) — this endpoint shipped without any
+    gate while its CSV sibling was admin-only since M41."""
+    from apm.domains.members import is_instance_admin
+
+    if not is_instance_admin(events.effective_actor()):
+        raise HTTPException(status_code=403, detail="admin role required for event export")
     conn = db.get_conn()
     if not conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone():
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail=f"unknown project '{project_id}'")
 
     def gen():
@@ -245,4 +268,11 @@ def import_events(project_id: str, body: ImportIn) -> dict:
 
     projections.ensure_handlers_registered()
     rebuilt = projections.rebuild()
+    # M114-I339 发现即修：rebuild 的 is_admin 永不事件化副作用（M41 附录 C）会
+    # 把引导管理员标清掉——/system/rebuild-projections 端点自 M66-I199 起
+    # rebuild 后恢复 ensure_default_user，import 端点此前漏了同款补救（存量
+    # 潜在缺陷：导入后 admin 门全 403，被本轮新加的 export admin 门首次暴露）。
+    from apm.domains.users import ensure_default_user
+
+    ensure_default_user()
     return {"imported": len(parsed), "rebuilt": rebuilt}

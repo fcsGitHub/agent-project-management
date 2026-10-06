@@ -421,7 +421,7 @@ function WatchRulesSection() {
             )}
             {/* M62-I187: rule-level routing badge */}
             {r.channels?.length ? (
-              <span className="ml-1 rounded bg-indigo-500/10 px-1 text-[10px] text-indigo-400">
+              <span className="ml-1 rounded bg-acc/10 px-1 text-[10px] text-acc">
                 {r.channels.includes("inapp") ? "🔔" : ""}{r.channels.includes("email") ? "✉" : ""}
               </span>
             ) : (

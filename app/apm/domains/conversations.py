@@ -533,9 +533,25 @@ class PromptLayerIn(BaseModel):
 
 @router.post("/conversations")
 def post_conversation(body: ConversationIn) -> dict:
+    from apm.domains.items import get_item
     from apm.domains.members import require_project_write
 
     require_project_write(body.project_id)  # M80-I240: 存在性→成员制（require_project 仅查 404）
+    # M114-I339: feature/item 引用与 parent 同一口径——跨项目外键 422
+    # （parent_conversation_id 同款校验，_validate_milestone 同惯例）。
+    from apm.domains.features import get_feature
+
+    for ref_id, resolver, label in (
+        (body.feature_id, lambda: get_feature(body.feature_id), "feature"),
+        (body.item_id, lambda: get_item(body.item_id), "item"),
+    ):
+        if not ref_id:
+            continue
+        ref = resolver()
+        if ref is not None and ref["project_id"] != body.project_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{label} '{ref_id}' belongs to another project")
     conv = create_conversation(
         project_id=body.project_id,
         feature_id=body.feature_id,
@@ -555,11 +571,22 @@ def get_conversations(
     feature_id: str | None = None,
     include_archived: bool = False,
 ) -> dict:
-    return {
-        "conversations": list_conversations(
+    """M114-I339: conversation titles/instructions read through member
+    visibility — scoped queries gate on the project, unscoped queries filter
+    to visible projects (feed/_visible family semantics)."""
+    from apm.domains.members import require_project_read, visible_project_ids
+
+    if project_id:
+        require_project_read(project_id)
+        rows = list_conversations(
             project_id=project_id, feature_id=feature_id, include_archived=include_archived
         )
-    }
+    else:
+        visible = visible_project_ids(events.effective_actor())
+        rows = list_conversations(feature_id=feature_id, include_archived=include_archived)
+        if visible is not None:  # None = local/admin — unrestricted
+            rows = [c for c in rows if (c["project_id"] or "") in visible]
+    return {"conversations": rows}
 
 
 @router.get("/projects/{project_id}/conversations/tree")
@@ -602,16 +629,31 @@ def get_conversation_tree(project_id: str, include_archived: bool = False) -> di
     return {"project_id": project_id, "roots": roots, "total": len(convs)}
 
 
+def _visible_conversation_or_404(conv: dict) -> None:
+    """M114-I339: shared read gate for the conversation single-resource faces
+    (detail/messages/context) — same `_visible` scoping as the export sibling
+    (M61-I184) and /search: 404 without revealing existence to outsiders."""
+    from apm.domains.feed import _visible
+
+    me = events.effective_actor()
+    user = db.get_conn().execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"unknown user '{me}'")
+    if not _visible(conv["project_id"], user):
+        raise HTTPException(status_code=404, detail=f"conversation {conv['id']} not found")
+
+
 @router.get("/conversations/{conversation_id}")
 def get_conversation_detail(conversation_id: str) -> dict:
     conv = require_conversation(conversation_id)
+    _visible_conversation_or_404(conv)  # M114-I339: detail reads like export
     conv["messages"] = get_messages(conversation_id)
     return conv
 
 
 @router.get("/conversations/{conversation_id}/messages")
 def get_conversation_messages(conversation_id: str) -> dict:
-    require_conversation(conversation_id)
+    _visible_conversation_or_404(require_conversation(conversation_id))
     return {"messages": get_messages(conversation_id)}
 
 
@@ -621,16 +663,8 @@ def export_conversation(conversation_id: str) -> dict:
     archive/export answer to the forgotten-conversation problem. The NDJSON
     event export stays the machine channel (§K.3: DB 留存 + 外送语义).
     Visibility matches /search `_visible` scoping."""
-    from apm.domains.feed import _visible
-
     conv = require_conversation(conversation_id)
-    me = events.effective_actor()
-    user = db.get_conn().execute("SELECT * FROM users WHERE id = ?", (me,)).fetchone()
-    if user is None:
-        raise HTTPException(status_code=404, detail=f"unknown user '{me}'")
-    if not _visible(conv["project_id"], user):
-        raise HTTPException(status_code=404, detail=f"conversation {conversation_id} not found")
-
+    _visible_conversation_or_404(conv)
     msgs = get_messages(conversation_id)
     proj = db.get_conn().execute(
         "SELECT name FROM projects WHERE id = ?", (conv["project_id"],)).fetchone()
@@ -730,6 +764,7 @@ def post_archive(conversation_id: str) -> dict:
 @router.get("/conversations/{conversation_id}/context")
 def get_context(conversation_id: str) -> dict:
     conv = require_conversation(conversation_id)
+    _visible_conversation_or_404(conv)  # M114-I339: context carries L1/L3 text
     return build_context(conv)
 
 

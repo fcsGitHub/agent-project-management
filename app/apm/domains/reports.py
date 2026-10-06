@@ -248,9 +248,19 @@ def _activity_list(conn, user, project_id: str | None, kind: str | None,
         actor_names = {r["id"]: r["name"] for r in conn.execute(
             f"SELECT id, name FROM users WHERE id IN ({marks})", tuple(actor_ids)).fetchall()}
 
+    # M114-I340: visibility hoisted out of the row loop — the over-fetched
+    # rows repeat a handful of projects, and _visible was 1-2 queries per row
+    # (up to ~600 per poll on the Activity page's 30s timer for non-admins).
+    # user None (anonymous viewer) keeps the original skip-everything semantic.
+    visible: set[str] | None = set() if user is None else None
+    if user is not None:
+        from apm.domains.members import visible_project_ids
+
+        visible = visible_project_ids(user["id"])
+
     out = []
     for r in rows:
-        if user is None or not _visible(r["project_id"], user):
+        if visible is not None and (r["project_id"] or "") not in visible:
             continue
         icon, k = ACTIVITY_EVENTS[r["event_type"]]
         if kind and k != kind:
@@ -635,6 +645,15 @@ def health_history(project_id: str, days: int = 30) -> dict:
     from apm.domains.projects import require_project
 
     require_project(project_id)
+    resp, _created, _done = _health_replay(project_id, days)
+    return resp
+
+
+def _health_replay(project_id: str, days: int = 30) -> tuple[dict, dict[str, str], dict[str, str]]:
+    """M114-I340: the replay core shared by the history endpoint and the
+    portfolio trend — one ordered pass yields the health series AND the
+    created / first-done-arrival maps that the flow trio consumes (the
+    portfolio loop used to scan the same events twice per project)."""
     days = max(7, min(days, 90))
     conn = db.get_conn()
     today = _now().date()
@@ -654,6 +673,7 @@ def health_history(project_id: str, days: int = 30) -> dict:
 
     items: dict[str, dict] = {}
     done_arrival: dict[str, str] = {}
+    created: dict[str, str] = {}  # M114-I340: flow metrics ride the same pass
     pending_gates = 0
 
     def apply(e) -> None:
@@ -664,6 +684,7 @@ def health_history(project_id: str, days: int = 30) -> dict:
             items[e["agg_id"]] = {"due": p.get("due_date"),
                                   "group": p.get("status_group", ""),
                                   "touch": e["ts"][:10]}
+            created.setdefault(e["agg_id"], e["ts"][:10])
         elif et == "item.updated" and e["agg_id"] in items:
             if "due_date" in p:
                 items[e["agg_id"]]["due"] = p["due_date"]
@@ -696,7 +717,7 @@ def health_history(project_id: str, days: int = 30) -> dict:
         series.append({"date": point_s, "score": _health_score(f),
                        "active": active, "overdue": overdue, "gates": pending_gates})
     return {"project_id": project_id, "days": days, "series": series,
-            "generated_at": _now().isoformat()}
+            "generated_at": _now().isoformat()}, created, done_arrival
 
 
 @router.get("/portfolio/health-trend")
@@ -716,7 +737,10 @@ def portfolio_health_trend(days: int = 30) -> dict:
             "SELECT id, name FROM projects ORDER BY created_at, id").fetchall():
         if not _visible(p["id"], {"id": me}):
             continue
-        series = health_history(p["id"], days)["series"]
+        # M114-I340: one replay per project instead of two full scans
+        # (health series + flow metrics rode separate event passes).
+        resp, created, done_arrival = _health_replay(p["id"], days)
+        series = resp["series"]
         scores = [pt["score"] for pt in series if pt["score"] is not None]
         direction = None
         if len(scores) >= 2:
@@ -726,7 +750,7 @@ def portfolio_health_trend(days: int = 30) -> dict:
                     "first": scores[0] if scores else None,
                     "last": scores[-1] if scores else None,
                     "direction": direction,
-                    **_flow_metrics(conn, p["id"])})
+                    **_flow_from_replay(conn, p["id"], created, done_arrival)})
     lasts = sorted(x["last"] for x in out if x["last"] is not None)
     if lasts:
         n = len(lasts)
@@ -736,26 +760,15 @@ def portfolio_health_trend(days: int = 30) -> dict:
     return {"days": days, "portfolio_median": portfolio_median, "projects": out}
 
 
-def _flow_metrics(conn, project_id: str) -> dict:
-    """Flow-framework trio as pure event-pair projections (zero
-    instrumentation): median cycle time over completed items (created→first
-    done arrival), done-per-week over the last 4 weeks, and current WIP
-    (in-progress, not archived)."""
-    created: dict[str, str] = {}
-    done: dict[str, str] = {}
-    for r in conn.execute(
-            "SELECT agg_id, event_type, payload, ts FROM events"
-            " WHERE project_id = ? AND event_type IN ('item.created','item.status_changed')"
-            " ORDER BY id", (project_id,)):
-        p = json.loads(r["payload"])
-        if r["event_type"] == "item.created":
-            created.setdefault(r["agg_id"], r["ts"][:10])
-        elif r["agg_id"] in created and p.get("status_group") == "done" \
-                and r["agg_id"] not in done:
-            done[r["agg_id"]] = r["ts"][:10]
+def _flow_from_replay(conn, project_id: str,
+                      created: dict[str, str], done: dict[str, str]) -> dict:
+    """M114-I340: flow trio computed from the maps _health_replay already
+    produced (median cycle time over created→first-done, done-per-week over
+    the last 4 weeks, WIP from the items projection). Replaces the standalone
+    second event scan; same math, same keys."""
     from datetime import date as _date
     cycles = sorted(max(0, (_date.fromisoformat(d) - _date.fromisoformat(created[i])).days)
-                    for i, d in done.items())
+                    for i, d in done.items() if i in created)
     n = len(cycles)
     median_cycle = (cycles[n // 2] if n % 2
                     else (cycles[n // 2 - 1] + cycles[n // 2]) / 2) if n else None
@@ -1272,6 +1285,12 @@ def my_work() -> dict:
         " ORDER BY i.updated_at DESC LIMIT 50",
         (me,),
     ).fetchall()]
+    # M114-I340: the decision-right check hoists out of the per-approval row —
+    # admin flag and the owner-set are per-request facts, MyWorkPage polls this
+    # endpoint every 15s and the loop used to re-query both per row.
+    _admin = is_instance_admin(me)
+    _owner_pids = {r["project_id"] for r in conn.execute(
+        "SELECT project_id FROM project_members WHERE user_id = ? AND role = 'owner'", (me,))}
     approvals = []
     for r in conn.execute(
         "SELECT a.id, a.project_id, a.kind, a.run_id, a.item_id, a.requested_at,"
@@ -1279,7 +1298,7 @@ def my_work() -> dict:
         " JOIN projects p ON p.id = a.project_id"
         " WHERE a.status = 'pending' ORDER BY a.requested_at",
     ).fetchall():
-        if member_role(r["project_id"], me) == "owner" or is_instance_admin(me):
+        if _admin or r["project_id"] in _owner_pids:
             approvals.append(dict(r))
     pids = sorted({it["project_id"] for it in items} | {a["project_id"] for a in approvals})
     projects = []
@@ -1310,6 +1329,11 @@ def my_attention() -> dict:
     the native pages."""
     me = events.effective_actor()
     conn = db.get_conn()
+    # M114-I340: per-request facts (admin flag / membership map) hoisted out of
+    # the two per-row loops — MyWorkPage polls this every 15s alongside /my/work.
+    _admin = is_instance_admin(me)
+    _roles: dict[str, str] = {r["project_id"]: r["role"] for r in conn.execute(
+        "SELECT project_id, role FROM project_members WHERE user_id = ?", (me,))}
     approvals = []
     for r in conn.execute(
         "SELECT a.id, a.project_id, a.kind, a.run_id, a.requested_at,"
@@ -1317,7 +1341,7 @@ def my_attention() -> dict:
         " JOIN projects p ON p.id = a.project_id"
         " WHERE a.status = 'pending' ORDER BY a.requested_at",
     ).fetchall():
-        if member_role(r["project_id"], me) == "owner" or is_instance_admin(me):
+        if _admin or _roles.get(r["project_id"]) == "owner":
             approvals.append(dict(r))
     runs = []
     for r in conn.execute(
@@ -1326,7 +1350,7 @@ def my_attention() -> dict:
         " JOIN projects p ON p.id = r.project_id"
         " WHERE r.status = 'interrupted' ORDER BY r.started_at",
     ).fetchall():
-        if member_role(r["project_id"], me) or is_instance_admin(me):
+        if _admin or r["project_id"] in _roles:
             runs.append(dict(r))
     horizon = (_now().date() + timedelta(days=3)).isoformat()
     due = [dict(r) for r in conn.execute(

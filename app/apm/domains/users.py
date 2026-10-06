@@ -17,6 +17,7 @@ from apm.core import db, events
 from apm.core.ids import new_id
 from apm.core.projections import on
 from apm.core import security
+from apm.domains.members import require_instance_user
 
 router = APIRouter(tags=["users"])
 
@@ -92,6 +93,11 @@ def ensure_default_user() -> None:
 # ------------------------------------------------------------ API
 @router.get("/users")
 def list_users() -> dict:
+    """M114-I339: the user directory (id/name/email) is an org-level read —
+    M76-I228 gated the assets/template-pack faces but left this one open to
+    anonymous callers in network mode. require_instance_user: 401 for
+    network-anonymous, local mode trusted (every picker depends on it)."""
+    require_instance_user()
     rows = db.get_conn().execute(
         "SELECT * FROM users ORDER BY created_at, id").fetchall()
     current = config.settings.user_id

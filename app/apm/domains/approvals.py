@@ -251,6 +251,22 @@ def _resume_engine_for_approval(approval: dict, decision: dict) -> None:
     engine.resume(decision)
 
 
+def require_decide_gate(approval: dict) -> None:
+    """M114-I339: who may decide this approval — the handler-level gate for
+    routes the auth middleware can't scope (bulk-decision, ui_command
+    confirm). Project approvals need a write role (same call the middleware
+    makes for the single-decision path); org-level rows (asset_review,
+    project_id empty) need login only, mirroring `project_id_for_path`'s
+    falsy-project skip. Automation callers must not route through here —
+    decide() itself stays gate-free for the sweep/escalation chain."""
+    from apm.domains.members import require_instance_user, require_project_write
+
+    if approval.get("project_id"):
+        require_project_write(approval["project_id"])
+    else:
+        require_instance_user()
+
+
 def decide(approval_id: str, body: DecisionIn) -> dict:
     approval = require_approval(approval_id)
     if approval["status"] != "pending":
@@ -328,6 +344,13 @@ def list_approvals(
     decided_by: str | None = None,
     limit: int = 100,
 ) -> dict:
+    """M114-I339: payload_snapshot carries tool-call args and gate snapshots —
+    project rows read through member visibility (feed/_visible family);
+    org-level rows (asset_review, project_id empty) stay login-visible since
+    they belong to the shared asset library, and anonymous callers get an
+    empty list (reports._activity_list precedent)."""
+    from apm.domains.members import visible_project_ids
+
     where, params = ["1=1"], []
     if status:
         where.append("status = ?")
@@ -341,6 +364,11 @@ def list_approvals(
     if decided_by:  # M5-I19: 审批按决策人过滤
         where.append("reviewer_id = ?")
         params.append(decided_by)
+    visible = visible_project_ids(events.effective_actor())
+    if visible is not None:
+        marks = ",".join("?" for _ in visible) or "NULL"
+        where.append(f"(project_id IS NULL OR project_id = '' OR project_id IN ({marks}))")
+        params.extend(visible)
     rows = db.get_conn().execute(
         f"SELECT * FROM approvals WHERE {' AND '.join(where)} ORDER BY requested_at DESC LIMIT ?",
         params + [limit],
@@ -360,9 +388,18 @@ def post_decision(approval_id: str, body: DecisionIn) -> dict:
 
 @router.post("/approvals/bulk-decision")
 def post_bulk_decision(body: BulkIn) -> dict:
+    """M114-I339: the single-decision sibling is gated by the auth middleware
+    via its /approvals/{id} path segment — this batch route never matched that
+    lookup ("bulk-decision" is not an approval id), so any logged-in user
+    could decide any project's gates. Each id now passes the same gate here:
+    project approvals need a write role; org-level rows (asset_review,
+    project_id="") need login only — exactly what the middleware would do."""
     results = []
     for aid in body.ids:
         try:
+            approval = get_approval(aid)
+            if approval is not None:
+                require_decide_gate(approval)
             results.append(decide(aid, DecisionIn(decision=body.decision, comment=body.comment)))
         except HTTPException as e:
             results.append({"id": aid, "error": e.detail})

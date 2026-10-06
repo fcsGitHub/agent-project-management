@@ -96,16 +96,20 @@ export function TracePage() {
       <Card className="p-4">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">覆盖概览</span>
+          {coverage.isError && (
+            <span className="text-xs text-dan">覆盖数据加载失败，请刷新重试</span>
+          )}
+          {coverage.isLoading && <span className="text-xs text-mut">加载中…</span>}
           {sum && (
-            <span className="flex flex-wrap gap-1.5 text-[11px]">
+            <span className="flex flex-wrap items-center gap-1.5 text-[11px]">
               <Badge tone="indigo">需求 {sum.requirements}</Badge>
               <Badge tone={sum.closed === sum.requirements && sum.requirements > 0 ? "green" : "amber"}>
-                已闭环 {sum.closed}（{sum.closed_rate != null ? `${Math.round(sum.closed_rate * 100)}%` : "—"}
-                ，闭环=有实现+有测试）
+                已闭环 {sum.closed}（{sum.closed_rate != null ? `${Math.round(sum.closed_rate * 100)}%` : "—"}）
               </Badge>
               <Badge tone={sum.orphan_items ? "amber" : "green"}>孤儿工作项 {sum.orphan_items}</Badge>
               <Badge tone={sum.stale_links ? "red" : "green"}>失效链接 {sum.stale_links}</Badge>
               <Badge tone={sum.needs_review ? "amber" : "green"}>变更待复核 {sum.needs_review}</Badge>
+              <span className="text-[10px] text-mut">闭环=有实现+有测试</span>
             </span>
           )}
         </div>
@@ -143,7 +147,7 @@ export function TracePage() {
               hint="指向已删除的工件/工作项——清理或重挂"
               rows={gaps.stale_links.map((s) => ({ id: s.link_id, title: s.missing.join("、") }))}
               render={(s) => (
-                <span key={s.id} className="flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-red-700">
+                <span key={s.id} className="flex items-center gap-1 rounded bg-danbg px-1.5 py-0.5 text-dan">
                   {s.title}
                   <button className="text-[10px] underline" onClick={() => unlink(s.id)}>删除链接</button>
                 </span>
@@ -154,7 +158,7 @@ export function TracePage() {
               hint="需求在证据登记之后又被修改——证据可能已过期"
               rows={gaps.changed_after_evidence.map((r) => ({ id: r.id, title: r.title }))}
               render={(r) => (
-                <button key={r.id} className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 hover:underline"
+                <button key={r.id} className="rounded bg-warnbg px-1.5 py-0.5 text-warn hover:underline"
                   onClick={() => { setImpactType("item"); setImpactRef(r.id); }}>
                   {r.title} ↗
                 </button>
@@ -193,10 +197,13 @@ export function TracePage() {
           </select>
         </div>
         {impact.isFetching && <div className="mt-3 text-xs text-mut">分析中…</div>}
+        {impact.isError && (
+          <div className="mt-3 text-xs text-dan">影响分析加载失败，请重试</div>
+        )}
         {impact.data && (
           <div className="mt-3 space-y-2">
             <div className="text-xs text-mut">
-              根节点：<span className="font-medium text-fg">{impact.data.node.title ?? impact.data.node.ref}</span>
+              根节点：<span className="font-medium text-ink">{impact.data.node.title ?? impact.data.node.ref}</span>
               {impact.data.node.requirement_like && <Badge tone="indigo">需求</Badge>}
             </div>
             {Object.entries(impact.data.groups).map(([group, entries]) =>
@@ -212,13 +219,13 @@ export function TracePage() {
               ) : null,
             )}
             {impact.data.summary.needs_review > 0 && (
-              <div className="text-[11px] text-amber-700">
+              <div className="text-[11px] text-warn">
                 ⚠ {impact.data.summary.needs_review} 条证据登记于需求最近一次变更之前——变更后未复核
               </div>
             )}
           </div>
         )}
-        {!impact.isFetching && !impact.data && impactRef && (
+        {!impact.isFetching && !impact.isError && !impact.data && impactRef && (
           <div className="mt-3 text-xs text-mut">该节点没有任何关联证据</div>
         )}
       </Card>
@@ -241,6 +248,9 @@ export function TracePage() {
             </div>
           ))}
         </Card>
+      )}
+      {links.isError && (
+        <Empty title="链接列表加载失败" hint="请刷新重试" />
       )}
       {links.data && !links.data.links.length && (
         <Empty title="还没有任何追溯链接" hint="在上方把设计决定、任务、测试或交付物挂到需求上" />
@@ -270,7 +280,7 @@ function ReqChip({ r, onJump }: {
   pid: string; r: { id: string; title: string; needs_review?: boolean }; onJump: () => void;
 }) {
   return (
-    <button className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 hover:underline"
+    <button className="max-w-full break-all rounded bg-warnbg px-1.5 py-0.5 text-warn hover:underline"
       title={r.id}
       onClick={onJump}>
       {r.title}{r.needs_review ? " ⚠" : ""}
@@ -280,7 +290,8 @@ function ReqChip({ r, onJump }: {
 
 function NodeChip({ node }: { node: { type: string; ref: string; title?: string; missing: boolean } }) {
   return (
-    <span className={cx("rounded px-1.5 py-0.5", node.missing ? "bg-red-50 text-red-700" : "bg-bg")}>
+    <span className={cx("max-w-full break-all rounded px-1.5 py-0.5",
+      node.missing ? "bg-danbg text-dan" : "bg-bg")}>
       {node.title ?? node.ref}
       {node.missing && "（已失效）"}
     </span>
@@ -291,7 +302,7 @@ function ImpactRow({ e, onJump }: { e: TraceImpactEntry; onJump: (ref: string) =
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
       {e.depth > 1 && <Badge tone="neutral">+{e.depth - 1}跳</Badge>}
-      <span className="font-medium">{e.title ?? e.ref}</span>
+      <span className="break-all font-medium">{e.title ?? e.ref}</span>
       {e.status && <Badge tone="neutral">{e.status}</Badge>}
       {e.missing && <Badge tone="red">已失效</Badge>}
       {e.needs_review && <Badge tone="amber">变更后未复核</Badge>}

@@ -52,6 +52,7 @@ keys.txt
 
 # M111 真实 LLM 回归隔离数据目录
 .demo-m111/
+.demo-m114/
 
 # M110 axe 扫描隔离环境与证据
 .demo-m110-axe/

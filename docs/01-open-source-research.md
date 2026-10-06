@@ -2818,3 +2818,32 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - docs/01-09 历史行（M3 工具层描述等）——「设计时点快照不回填」既有纪律，不改写历史。
 
 定案 **M113 = 功能瘦身轮·剪枝与合并（I336-I338）**；v0.21.0 攒批= M110+M111+M113，M112 收口 bump+tag 顺延其后。
+
+
+## DE. M114 前置调研：质量轮·性能优化与漏洞/显示修复（2026-10-06）
+
+> 目标协议触发：用户指令（2026-10-06）——「将项目进行必要的瘦身和功能合并，优化功能性能，修复漏洞和前端显示」。M113 已清偿瘦身与合并两支，本轮清偿剩余三支：**性能优化、漏洞修复、前端显示修复**。方法与 §DD 同：三路并行盘点（后端门禁面/性能面/前端显示面）→ 逐项亲自核实 → 有证据即修（先红后绿）/无证据如实排除。
+
+**漏洞候选（核实坐实，转正）**——M110 R2-F1「修缝要问同类门还有几道口」的同类残留面清账：
+1. **全局 id 单资源读缺归属门（A 组八处）**：`GET /time_entries/{id}`（同域 list/edit/delete 全有 `_gate` 唯独单条读没有）、`GET /conversations/{id}`+`/messages`+`/context`（同域 export 有 `_visible` 404，三个读面裸奔消息正文）、`GET /features/{id}`、`GET /milestones/{id}`+`/burndown`、`GET /cycles/{id}/burndown`+`/retrospective`、`GET /runs/{id}`+`/spans`+`/timeline`+`/retry-lineage`（四域写侧全有 M80-I240 `require_project_write`、读侧全无——agent 轨迹/token/成本/关联 items 全跨项目可读）、`GET /items/{id}/attachments`+下载（文件本体，对照 comments 域同款嵌套资源有 `_gate`）。
+2. **聚合读面漏接 `_visible` 家族（C 组四处）**：`GET /events`（不带参数=全实例全项目事件分页倾泻+匿名可读——对照 audit.csv admin 门/feed_key/_visible 全家）、`GET /projects/{id}/events/export`（NDJSON 全量导出仅查存在性，同文件 audit.csv 是 admin 门）、`GET /runs`、`GET /conversations`、`GET /approvals`（均无可见性过滤；portfolio/search/feed 家族全是 `_visible` 口径）。
+3. **跨项目写（B 组）**：`POST /approvals/bulk-decision`——中间件 `project_id_for_path` 把 "bulk-decision" 当 approval id 查表落空→跳过校验，`decide()` 无内建门→任意登录用户可批准任意项目审批；`POST /ui_commands/{id}/confirm` 不在白名单且批量批准无门；`start_run` 的 `item_id` 全局解析无同项目校验→跨项目改状态；`POST /conversations` 的 feature_id/item_id、`POST expenses/risks` 的 item_id/related_item_id 跨项目外键无 422（对照同函数 parent_conversation_id 与 `_validate_milestone` 既有惯例）。
+4. **org 面**：`GET /users` 匿名可读用户目录（M76 给 assets/template_packs 加了 `require_instance_user` 唯独漏了它）；`POST /views/{id}/make-default` 用读门管写动作（viewer 可改全项目默认视图，同域 PATCH/DELETE 是 writer 门）。
+
+**性能候选（核实坐实，转正）**：
+1. **`item_relations` 零索引**挂在最高频读路径（board/items blocked 判定、item detail 双向、propagate_reschedule）——EXPLAIN 全表扫。
+2. **board/items N+1**：`_with_assignee_name` 每项 1 条 SQL（对全量行而非页大小）；`can_see_concept` 每项 1-3 条（get_project 恒定.project 每次重查）；WIP 配置时 `get_board` 二次全量 `list_items`。
+3. **`/portfolio/health-trend` 每项目两次全事件重放**（health_history 全史+`_flow_metrics` 再扫一遍重叠事件类型）且 Dashboard 60s 轮询放大。
+4. **逐行权限判定**：`/my/work`+`/my/attention` 对每 pending 行重复 `member_role`+`is_instance_admin`（15s 轮询）；`_activity_list` 逐行 `_visible`（30s 轮询 limit=100 最多 ~600 条小 SQL）。
+5. **ConversationView 2s 全量 transcript 轮询**与运行中 800ms invalidate 双轨叠加。
+
+**前端显示候选（核实坐实，转正）**：暗色主题五处真实破损（ui.tsx danger 按钮白字压浅红、MyTime 批准按钮同型、RisksPage 热力矩阵 3/4/6/9 分格硬编码亮色块+白 chip、GraphView 状态 chip `bg-white/60`、TracePage `text-amber-700` 警示字与四处硬编码浅色 chip）；DependencyGraphPage 整张 SVG 硬编码亮色+图例 token 失配；RoadmapPage 里程碑标签 nowrap 无宽度上限（375px 撑出横向滚动）；TracePage 覆盖卡无三态/请求失败伪装成「无关联证据」/`text-fg` 死类/闭环徽章长文案 nowrap 溢出风险；WorkloadPage 休假 chip sky-500 亮色对比 2.8:1。
+
+**如实排除（证据不足或需产品决策，不修）**：
+- 项目域列表 GET 惯性（`/projects`、`GET /projects/{id}`、board/items 列表读不校验成员制）——M76 审计明示「GET 保持开放是 M8 起的惯性而非决定」+M67 概念级可见性建在其上，收口属产品级 IA 决策，登记附录 C 候选；
+- `/stream` SSE 无成员过滤——与上同属 IA 决策（AppShell 全局通知依赖全量流），登记候选；
+- reports 家族全量重放加 `ts >=` 下界——窗口语义改动涉及报表口径（S 曲线/燃尽本就需要全史），留待物化汇总表方案；
+- queryClient 全局 staleTime——行为面-wide 变更，vitest 依赖即时 refetch 的用例需先盘点，登记候选；
+- `_gate` 家族（comments/timelog/expense）无 admin 旁路 vs `check_project_write` 有——既有不对称，本轮新门 `require_project_read` 明确带 admin 旁路并对齐写侧，存量三域改动牵涉面大登记候选。
+
+定案 **M114 = 质量轮·性能优化与漏洞/显示修复（I339-I342）**；v0.21.0 攒批调整为 M110+M111+M113+M114 四轮，M112 收口 bump+tag 顺延其后。

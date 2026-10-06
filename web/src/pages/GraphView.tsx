@@ -56,7 +56,7 @@ function TaskNode({ data }: NodeProps) {
         <span className="truncate">{d.label}</span>
       </div>
       <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mut">
-        <span className={cx("rounded px-1", `bg-white/60`)}>{d.status}</span>
+        <span className="rounded bg-bg px-1">{d.status}</span>
         {d.conv && <span className="text-acc">▶</span>}
       </div>
       <Handle type="source" position={Position.Right} style={{ visibility: "hidden" }} />

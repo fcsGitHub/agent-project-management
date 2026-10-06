@@ -64,11 +64,6 @@ def test_smoke_87_login_lockout_roundtrip(client, tmp_data, isolated_ontologies)
         retry_after = int(r.headers["Retry-After"])
         assert 0 < retry_after <= auth_api.LOCKOUT_WINDOW_SECONDS
 
-        # 转折点语义：锁定审计事件恰好一条。
-        evs = client.get("/api/events",
-                         params={"event_type": "session.login_locked"}).json()["events"]
-        assert len(evs) == 1 and evs[0]["payload"]["user_id"] == "u_admin"
-
         # 窗口滑出 → 自动解除 → 登录恢复且会话可写（回归既有链路）。
         auth_api._login_failures["u_admin"] = [
             time.monotonic() - auth_api.LOCKOUT_WINDOW_SECONDS - 1]
@@ -76,6 +71,11 @@ def test_smoke_87_login_lockout_roundtrip(client, tmp_data, isolated_ontologies)
                            json={"user_id": "u_admin", "password": "admin-pass"}).status_code == 200
         assert client.post("/api/projects",
                            json={"name": "冒烟87", "ontology": "software-dev"}).status_code == 200
+        # 转折点语义：锁定审计事件恰好一条。
+        # M114-I339: 事件流不再对匿名开放——审计读在恢复登录之后，断言强度不变。
+        evs = client.get("/api/events",
+                         params={"event_type": "session.login_locked"}).json()["events"]
+        assert len(evs) == 1 and evs[0]["payload"]["user_id"] == "u_admin"
     finally:
         auth_api._login_failures.clear()
         config.settings.auth_mode = "local"

@@ -113,7 +113,12 @@ def list_risks(project_id: str) -> dict:
 def create_risk(project_id: str, body: RiskIn) -> dict:
     _validate_levels(body.probability, body.impact)
     if body.related_item_id:
-        _require_item(body.related_item_id)
+        item = _require_item(body.related_item_id)
+        # M114-I339: 关联工作项必须同项目（_validate_milestone 同惯例）
+        if item["project_id"] != project_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"item '{body.related_item_id}' belongs to another project")
     rid = new_id("rk")
     events.emit(
         event_type="risk.created", agg_type="risk", agg_id=rid,
@@ -148,7 +153,12 @@ def patch_risk(risk_id: str, body: RiskPatch) -> dict:
         _validate_levels(changes.get("probability", r["probability"]),
                          changes.get("impact", r["impact"]))
     if "related_item_id" in changes and changes["related_item_id"]:
-        _require_item(changes["related_item_id"])
+        item = _require_item(changes["related_item_id"])
+        # M114-I339: 关联工作项必须同项目（create 同款）
+        if item["project_id"] != r["project_id"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"item '{changes['related_item_id']}' belongs to another project")
     events.emit(
         event_type="risk.updated", agg_type="risk", agg_id=risk_id,
         project_id=r["project_id"], actor_type="human", actor_id=events.effective_actor(),

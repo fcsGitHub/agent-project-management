@@ -79,7 +79,7 @@ function MemberRow({ m, maxActive }: { m: MemberWorkload; maxActive: number }) {
           <span className="rounded bg-danbg px-1.5 py-0.5 text-[10px] font-medium text-dan" title={`活跃任务超过阈值 ${m.active} 项——建议人工重新均衡`}>⚠ 超载</span>
         )}
         {m.on_leave && (
-          <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-500" title="今天在登记的休假日期段内">🏖 休假中</span>
+          <span className="rounded bg-accbg px-1.5 py-0.5 text-[10px] font-medium text-acc" title="今天在登记的休假日期段内">🏖 休假中</span>
         )}
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
           <div className={cx("h-full rounded-full", m.overdue ? "bg-dan" : "bg-acc")}

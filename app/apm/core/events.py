@@ -173,6 +173,7 @@ def emit(
 def query_events(
     *,
     project_id: str | None = None,
+    project_ids: list[str] | None = None,
     agg_type: str | None = None,
     agg_id: str | None = None,
     event_type: str | None = None,
@@ -186,6 +187,14 @@ def query_events(
     if project_id:
         where.append("project_id = ?")
         params.append(project_id)
+    elif project_ids is not None:
+        # M114-I339: aggregate-list visibility — restrict to the caller's
+        # visible projects; an empty set yields no project rows, never "all".
+        # Org-level rows (project_id empty, e.g. session.* audit) stay visible
+        # to any logged-in caller — same carve-out as the approvals list.
+        marks = ",".join("?" for _ in project_ids) or "NULL"
+        where.append(f"(project_id IN ({marks}) OR IFNULL(project_id, '') = '')")
+        params.extend(project_ids)
     if agg_type:
         where.append("agg_type = ?")
         params.append(agg_type)

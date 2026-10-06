@@ -123,6 +123,9 @@ def list_features(project_id: str) -> dict:
 @router.get("/features/{feature_id}")
 def get_feature_detail(feature_id: str, include: str = "items,conversations,artifacts") -> dict:
     feature = require_feature(feature_id)
+    from apm.domains.members import require_project_read
+
+    require_project_read(feature["project_id"])  # M114-I339: 读门对齐写侧 M80-I240
     includes = {s.strip() for s in include.split(",") if s.strip()}
     if "items" in includes:
         from apm.domains.items import list_items

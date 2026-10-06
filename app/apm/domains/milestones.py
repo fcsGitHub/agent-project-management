@@ -158,6 +158,9 @@ def list_milestones(project_id: str) -> dict:
 @router.get("/milestones/{milestone_id}")
 def get_milestone_detail(milestone_id: str) -> dict:
     m = require_milestone(milestone_id)
+    from apm.domains.members import require_project_read
+
+    require_project_read(m["project_id"])  # M114-I339: 读门对齐写侧 M80-I240
     m["progress"] = milestone_progress(m)
     items = db.get_conn().execute(
         "SELECT id, title, concept_id, status, status_group, assignee_id"
@@ -216,6 +219,9 @@ def milestone_burndown(milestone_id: str) -> dict:
     the anchor and the series is a pure replay of item.status_changed events
     (append-only ⇒ replay equals live, zero new tables)."""
     m = require_milestone(milestone_id)
+    from apm.domains.members import require_project_read
+
+    require_project_read(m["project_id"])  # M114-I339: 读门对齐写侧 M80-I240
     project_id = m["project_id"]
     conn = db.get_conn()
     items = conn.execute(

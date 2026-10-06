@@ -213,6 +213,17 @@ def start_run(
         payload={"status": "running", "run_id": run_id},
     )
     if item_id:
+        # M114-I339: item_id 是全局 id——绑定别家项目的工作项会把状态迁移
+        # 事件以本方 project_id 落账、投影器按 agg_id 改到别家 items 行。
+        from fastapi import HTTPException
+
+        from apm.domains.items import get_item
+
+        _bound = get_item(item_id)
+        if _bound and _bound["project_id"] != conv["project_id"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"item '{item_id}' belongs to another project")
         _move_item(item_id, conv["project_id"], _item_status_for_start(agent_role))
 
     engine = RunEngine(run_id=run_id)

@@ -54,7 +54,7 @@ def _proj_expense_deleted(conn, e):
 
 
 # ---------------------------------------------------------------- helpers
-def _validate(body: "ExpenseIn") -> None:
+def _validate(body: "ExpenseIn", project_id: str) -> None:
     if body.qty <= 0:
         raise HTTPException(status_code=422, detail="qty must be positive")
     if body.unit_price < 0:
@@ -66,7 +66,12 @@ def _validate(body: "ExpenseIn") -> None:
     if body.item_id:
         from apm.domains.items import require_item
 
-        require_item(body.item_id)
+        item = require_item(body.item_id)
+        # M114-I339: A 项目费用不许挂 B 项目的工作项（_validate_milestone 同惯例）
+        if item["project_id"] != project_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"item '{body.item_id}' belongs to another project")
 
 
 class ExpenseIn(BaseModel):
@@ -85,7 +90,7 @@ def record_expense(project_id: str, body: ExpenseIn) -> dict:
     from apm.domains.projects import require_project
 
     require_project(project_id)
-    _validate(body)
+    _validate(body, project_id)
     eid = new_id("exp")
     events.emit(
         event_type="expense.recorded", agg_type="expense", agg_id=eid,

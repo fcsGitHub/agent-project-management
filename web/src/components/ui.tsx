@@ -19,7 +19,7 @@ export function Button({
         variant === "default" && "bg-surface border border-line hover:bg-bg text-ink",
         variant === "primary" && "bg-acc text-accbg hover:bg-acc-hover shadow-sm",
         variant === "ghost" && "hover:bg-bg text-mut hover:text-ink",
-        variant === "danger" && "bg-dan text-white hover:bg-red-600",
+        variant === "danger" && "bg-dan text-danbg hover:bg-dan/90",
         variant === "outline" && "border border-line text-ink hover:border-acc hover:text-acc",
         className,
       )}
@@ -39,8 +39,8 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 
 const TONES: Record<string, string> = {
   neutral: "bg-bg text-mut border-line",
-  indigo: "bg-accbg text-acc border-indigo-100",
-  violet: "bg-agbg text-ag border-violet-100",
+  indigo: "bg-accbg text-acc border-acc/30",
+  violet: "bg-agbg text-ag border-ag/30",
   green: "bg-okbg text-ok border-okln",
   amber: "bg-warnbg text-warn border-warnln",
   red: "bg-danbg text-dan border-dan/30",

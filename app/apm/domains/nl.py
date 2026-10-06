@@ -290,13 +290,16 @@ def confirm_ui_command(cmd_id: str) -> dict:
     results = []
     for a in actions:
         if a["action"] == "bulk_approve":
-            from apm.domains.approvals import decide, DecisionIn
+            from apm.domains.approvals import decide, require_decide_gate, DecisionIn
             from apm.orchestrator.gates import pending_approvals
 
             pid = a["params"].get("project_id") or page_state.get("project_id")
             approved = 0
             for apr in pending_approvals(pid or None):
                 try:
+                    # M114-I339: confirm 不在写路由白名单——逐审批过与 bulk
+                    # 批量端点同款门（项目审批要写角色，org 级要登录）。
+                    require_decide_gate(apr)
                     decide(apr["id"], DecisionIn(decision="approved", comment="ui_command 批量批准"))
                     approved += 1
                 except HTTPException:

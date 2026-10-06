@@ -6,8 +6,6 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from apm.core import projections
-
 
 @pytest.mark.smoke
 def test_smoke_19_milestones_and_export(client, tmp_data, isolated_ontologies):
@@ -59,7 +57,11 @@ def test_smoke_19_milestones_and_export(client, tmp_data, isolated_ontologies):
     assert {"milestone.created", "item.created", "item.status_changed"} <= types
 
     # rebuild stability: progress and report unchanged
-    projections.rebuild()
+    # M114-I339: rebuild walks the endpoint so ensure_default_user restores the
+    # bootstrap admin (M61-I199 discipline) — the direct projections.rebuild()
+    # call silently drops the is_admin runtime flag (M41 appendix C) and the
+    # now-gated events/export would 403 before reaching its 404.
+    assert client.post("/api/system/rebuild-projections").status_code == 200
     assert client.get(f"/api/milestones/{ms['id']}").json()["progress"] == detail["progress"]
     rep2 = client.get(f"/api/projects/{pid}/report").json()
     assert {o["title"] for o in rep2["overdue"]} == {"乙"}

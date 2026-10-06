@@ -164,7 +164,10 @@ def cycle_burndown(cycle_id: str) -> dict:
 
     from datetime import date as _date, timedelta as _timedelta
 
+    from apm.domains.members import require_project_read
+
     c = require_cycle(cycle_id)
+    require_project_read(c["project_id"])  # M114-I339: 读门对齐写侧 M80-I240
     conn = db.get_conn()
     today = events.utcnow()[:10]
 
@@ -238,7 +241,10 @@ def cycle_retrospective(cycle_id: str) -> dict:
 
     from datetime import date as _date
 
+    from apm.domains.members import require_project_read
+
     c = require_cycle(cycle_id)
+    require_project_read(c["project_id"])  # M114-I339: 读门对齐写侧 M80-I240
     conn = db.get_conn()
     start, end = c["start_date"], c["end_date"]
 

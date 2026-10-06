@@ -243,10 +243,31 @@ def list_runs(
     status: str | None = None,
     limit: int = Query(100, ge=1, le=500),
 ) -> dict:
+    """M114-I339: run rows carry agent transcripts/token/cost — the list reads
+    through member visibility (feed/_visible family). Scoped queries gate on
+    the scope's project; unscoped queries filter to visible projects (rows are
+    per-project, so org-level empties don't exist here)."""
+    from apm.domains.conversations import get_conversation
+    from apm.domains.members import require_project_read, visible_project_ids
+
+    project_ids = None
+    if project_id:
+        require_project_read(project_id)
+    elif conversation_id:
+        conv = get_conversation(conversation_id)
+        if not conv:
+            raise HTTPException(status_code=404,
+                                detail=f"conversation {conversation_id} not found")
+        require_project_read(conv["project_id"])
+    else:
+        project_ids = visible_project_ids(events.effective_actor())
     where, params = ["1=1"], []
     if project_id:
         where.append("project_id = ?")
         params.append(project_id)
+    elif project_ids is not None:
+        where.append(f"project_id IN ({','.join('?' for _ in project_ids) or 'NULL'})")
+        params.extend(project_ids)
     if conversation_id:
         where.append("conversation_id = ?")
         params.append(conversation_id)
@@ -265,27 +286,34 @@ def list_runs(
 
 @router.get("/runs/{run_id}")
 def get_run_detail(run_id: str) -> dict:
+    from apm.domains.members import require_project_read
     from apm.runtime.engine import require_run
 
-    return _run_detail(require_run(run_id))
+    run = require_run(run_id)
+    require_project_read(run["project_id"] or "")
+    return _run_detail(run)
 
 
 @router.get("/runs/{run_id}/spans")
 def get_run_spans(run_id: str) -> dict:
+    from apm.domains.members import require_project_read
     from apm.runtime.engine import require_run
     from apm.runtime.spans import list_spans
 
-    require_run(run_id)
+    run = require_run(run_id)
+    require_project_read(run["project_id"] or "")
     return {"spans": list_spans(run_id)}
 
 
 @router.get("/runs/{run_id}/timeline")
 def get_run_timeline(run_id: str) -> dict:
     """Human-machine interleaved timeline (docs/05 §3.3)."""
+    from apm.domains.members import require_project_read
     from apm.runtime.engine import require_run
     from apm.runtime.spans import list_spans
 
     run = require_run(run_id)
+    require_project_read(run["project_id"] or "")
     conv_id = run["conversation_id"]
     entries = []
     for s in list_spans(run_id):
@@ -409,6 +437,10 @@ def retry_lineage(run_id: str, tree: int = 0) -> dict:
     run.retried_from_checkpoint.original links and returns per-link scalars
     (event-sourcing dividend #15: the chain facts are already in the stream).
     Read-only projection; the frontend diffs adjacent links."""
+    from apm.domains.members import require_project_read
+    from apm.runtime.engine import require_run
+
+    require_project_read(require_run(run_id)["project_id"] or "")
     conn = db.get_conn()
     chain_ids: list[str] = [run_id]
     seen = {run_id}

@@ -330,7 +330,7 @@ def list_items(
     rows = db.get_conn().execute(
         f"SELECT * FROM items WHERE {' AND '.join(where)} ORDER BY created_at", params
     ).fetchall()
-    items = [_parse_cf(_with_assignee_name(dict(r))) for r in rows]
+    items = [_parse_cf(it) for it in _with_assignee_names(dict(r) for r in rows)]
 
     # I128 (docs/01 §AO.1, Businessmap blocked-flag semantics): an item is
     # blocked when an unfinished blocks-blocker or an unfinished depends_on
@@ -426,8 +426,9 @@ def get_board(
     if "cf" in view_def:
         items = [it for it in items if _cf_hit(it, view_def["cf"])]
     # M67-I201: hidden concepts never reach the board of a non-entitled viewer
-    _viewer = events.effective_actor()
-    items = [it for it in items if can_see_concept(project_id, it["concept_id"], _viewer)]
+    # (M114-I340: per-request invariants hoisted out of the per-item loop)
+    _visible = _concept_visible_filter(project_id, events.effective_actor())
+    items = [it for it in items if _visible(it["concept_id"])]
     _attach_spent(items)
     buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_NAMES}
     for item in items:
@@ -483,12 +484,14 @@ def get_board(
     # M26-I80: WIP limits (Kanboard task-limit semantics) — soft signals only.
     # The count is deliberately project-wide (ignoring board filters) and the
     # limit rides along from board_defaults; the board never blocks transitions.
+    # M114-I340: one GROUP BY instead of a second full list_items pass (which
+    # repeated the assignee N+1 on every board request with WIP limits set).
     wip_limits = onto.board_defaults.get("wip_limits") or {}
     if isinstance(wip_limits, dict) and wip_limits:
-        all_items = list_items(project_id=project_id)
-        counts: dict[str, int] = {}
-        for it in all_items:
-            counts[it["status_group"]] = counts.get(it["status_group"], 0) + 1
+        counts = {r["status_group"]: r["c"] for r in db.get_conn().execute(
+            "SELECT status_group, COUNT(*) c FROM items"
+            " WHERE project_id = ? AND archived_at IS NULL"
+            " GROUP BY status_group", (project_id,)).fetchall()}
         resp["wip"] = {g: counts.get(g, 0) for g in wip_limits}
         resp["wip_limits"] = {g: int(v) for g, v in wip_limits.items()}
     if effective == "lifecycle":
@@ -694,6 +697,46 @@ def _with_assignee_name(item: dict) -> dict:
     return item
 
 
+def _with_assignee_names(items: "list[dict]") -> "list[dict]":
+    """M114-I340: batch variant of _with_assignee_name — one IN query instead
+    of one query per row (list_items runs on every board/list request, so the
+    per-row lookup was an N+1 that scaled with the whole project, not the
+    page). Deleted users fall back to the raw id, same as the single form."""
+    items = list(items)  # callers may hand a generator — iterate twice below
+    ids = {it["assignee_id"] for it in items
+           if it.get("assignee_type") == "human" and it.get("assignee_id")}
+    names: dict[str, str] = {}
+    if ids:
+        marks = ",".join("?" for _ in ids)
+        names = {r["id"]: r["name"] for r in db.get_conn().execute(
+            f"SELECT id, name FROM users WHERE id IN ({marks})", tuple(ids)).fetchall()}
+    for it in items:
+        if it.get("assignee_type") == "human" and it.get("assignee_id"):
+            it["assignee_name"] = names.get(it["assignee_id"], it["assignee_id"])
+    return items
+
+
+def _concept_visible_filter(project_id: str, viewer: str):
+    """M114-I340: batch flavor of can_see_concept — hoists the per-request
+    invariants (project row, admin flag, role, local-user check) out of the
+    per-item loop that get_items/get_board run on every list read; identical
+    semantics, one row of work per request instead of one get_project() per
+    item. Fast path: no concept is restricted → constant-True predicate."""
+    from apm import config
+    from apm.domains.members import is_instance_admin, member_role
+    from apm.domains.projects import get_project
+
+    p = get_project(project_id)
+    restricted = (p.get("concept_visibility") or {}) if p else {}
+    if not restricted:
+        return lambda concept_id: True
+    if is_instance_admin(viewer) or member_role(project_id, viewer) == "owner":
+        return lambda concept_id: True
+    if config.settings.auth_mode == "local" and viewer == config.settings.user_id:
+        return lambda concept_id: True
+    return lambda concept_id: concept_id not in restricted
+
+
 def _validate_custom_fields(onto, concept_id: str, cf: dict, project_id: str | None = None) -> None:
     """Custom field values must match the concept's declared fields (M6-I20);
     project-deactivated fields are refused on write (M7-I25)."""
@@ -861,9 +904,9 @@ def get_items(
     # drive "load more" against it.
     # M67-I201: concept-level visibility — hidden concepts drop from the list
     # for non-entitled viewers (total reflects the filtered set).
-    viewer = events.effective_actor()
-    items = [it for it in items
-             if can_see_concept(project_id, it["concept_id"], viewer)]
+    # M114-I340: invariants hoisted out of the per-item loop.
+    _visible = _concept_visible_filter(project_id, events.effective_actor())
+    items = [it for it in items if _visible(it["concept_id"])]
     total = len(items)
     if limit is not None:
         offset = max(0, offset or 0)
@@ -932,9 +975,8 @@ def trash_items(project_id: str) -> dict:
         " WHERE project_id = ? AND archived_at IS NOT NULL ORDER BY archived_at DESC",
         (project_id,)).fetchall()
     # M67-I201: the trash is a read face too — hidden concepts stay hidden
-    viewer = events.effective_actor()
-    return {"items": [dict(r) for r in rows
-                      if can_see_concept(project_id, r["concept_id"], viewer)]}
+    _visible = _concept_visible_filter(project_id, events.effective_actor())
+    return {"items": [dict(r) for r in rows if _visible(r["concept_id"])]}
 
 
 @router.patch("/items/{item_id}")

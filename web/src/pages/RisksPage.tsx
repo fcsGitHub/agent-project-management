@@ -10,13 +10,15 @@ import { api } from "../lib/api";
 import { Badge, Button, Card, Empty, Input, cx } from "../components/ui";
 
 const LEVEL_LABEL: Record<number, string> = { 1: "低", 2: "中", 3: "高" };
+// M114-I341: 语义 token 双主题翻转——硬编码 amber/orange/red-100 亮色块在暗色
+// 主题下保持刺眼亮格，且其 -700 前景在暗底不可读；6 分格以 warnln 描边与 3/4 分档。
 const CELL_TONE: Record<number, string> = {
   1: "bg-okbg text-ok",
   2: "bg-okbg text-ok",
-  3: "bg-amber-100 text-amber-700",
-  4: "bg-amber-100 text-amber-700",
-  6: "bg-orange-100 text-orange-700",
-  9: "bg-red-100 text-red-700",
+  3: "bg-warnbg text-warn",
+  4: "bg-warnbg text-warn",
+  6: "bg-warnbg text-warn border border-warnln",
+  9: "bg-danbg text-dan",
 };
 
 export function RisksPage() {
@@ -77,7 +79,7 @@ export function RisksPage() {
                     className={cx("min-h-14 rounded-lg p-1.5", CELL_TONE[p * i] ?? "bg-bg")}>
                     <span className="text-[10px]">{p * i}分</span>
                     {cellRows.map((r) => (
-                      <div key={r.id} className="mt-0.5 truncate rounded bg-white/70 px-1 text-[10px]"
+                      <div key={r.id} className="mt-0.5 truncate rounded bg-surface/90 px-1 text-[10px] text-ink"
                         title={r.title}>{r.title}</div>
                     ))}
                   </div>

@@ -183,6 +183,8 @@ def get_time_entry(entry_id: str) -> dict:
 
 @router.get("/time_entries/{entry_id}")
 def read_time_entry(entry_id: str) -> dict:
+    entry = _entry(entry_id)
+    _gate(entry["project_id"])  # M114-I339: 单条读对齐同域 list/edit/delete
     return get_time_entry(entry_id)
 
 
