@@ -15,6 +15,7 @@ from apm.domains import (  # noqa: F401
     imap_in,
     intake,
     items,
+    labels,
     mailer,
     members,
     milestones,

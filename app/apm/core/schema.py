@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS items (
   updated_at TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
   checklist TEXT,
+  description TEXT,
+  labels TEXT,
   archived_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_items_project ON items(project_id);
@@ -163,6 +165,17 @@ CREATE INDEX IF NOT EXISTS idx_items_assignee ON items(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_items_due ON items(due_date);
 CREATE INDEX IF NOT EXISTS idx_items_milestone ON items(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_items_cycle ON items(cycle_id);
+
+-- M115-I345: project-scoped lightweight labels (Linear labels semantics).
+CREATE TABLE IF NOT EXISTS labels (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE (project_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_labels_project ON labels(project_id);
 
 CREATE TABLE IF NOT EXISTS item_relations (
   id TEXT PRIMARY KEY,
@@ -711,6 +724,7 @@ def drop_projections(conn: sqlite3.Connection) -> None:
         "runs",
         "item_relations",
         "items",
+        "labels",
         "prompt_layers",
         "messages",
         "conversations",

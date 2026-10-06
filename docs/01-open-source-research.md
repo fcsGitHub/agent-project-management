@@ -2847,3 +2847,57 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - `_gate` 家族（comments/timelog/expense）无 admin 旁路 vs `check_project_write` 有——既有不对称，本轮新门 `require_project_read` 明确带 admin 旁路并对齐写侧，存量三域改动牵涉面大登记候选。
 
 定案 **M114 = 质量轮·性能优化与漏洞/显示修复（I339-I342）**；v0.21.0 攒批调整为 M110+M111+M113+M114 四轮，M112 收口 bump+tag 顺延其后。
+
+## DF. M115 前置调研：Linear 专项差距调研——吸纳 Linear 开发管理功能（2026-10-06）
+
+> 目标协议触发：用户指令（2026-10-06）——「调研 Linear 与本项目间的差距，吸纳 Linear 的开发管理功能并对项目进行功能开发，优化迭代」。docs/01 §B 当初对标的是 Plane/Huly/Taiga/OpenProject（Linear 仅在 demo.html 视觉对标处提及），本轮做一次 Linear 专项差距调研。方法：官方权威源直抓（linear.app/features、/docs、/docs/triage、/docs/projects、/docs/labels、/docs/estimates，2026-10-06 抓取，WebSearch 聚合源质量不足降级为线索）→ 对照 AgentPM 代码逐项核实 → 有缺口即吸纳（先红后绿）/属产品级决策如实排除。
+
+**Linear 功能全景 → AgentPM 现状映射（✅=已覆盖 · 🟡=浅覆盖 · ❌=缺口）**：
+
+| Linear 功能 | AgentPM 现状 | 判定 |
+| --- | --- | --- |
+| Issues（自定义 workflow 状态、五桶分组） | 本体驱动状态系统（D5/D14，状态五桶+组内自定义） | ✅ |
+| Issue 描述（富文本正文） | items 无 description 列——仅标题+清单+custom_fields | ❌ |
+| Issue 活动/历史（每张 issue 完整变更史） | 事件溯源全量在库，`/events?agg_type=item&agg_id=` M114-I339 已有成员门读面，但 patch 类事件 payload 只带新值无旧值、前端无逐项活动面板 | ❌（数据在、读面缺） |
+| Labels（工作区/团队两级+颜色+一级分组+单选组语义） | 无标签域；custom_fields 需本体编辑（重武器），日常分拣无轻量标签 | ❌ |
+| Triage 队列（accept/decline/duplicate/snooze+责任轮换+triage rules） | 外部 intake（M32）直落默认状态，无分诊中间态与队列视图 | 🟡 |
+| 优先级四档+无优先级（Urgent/High/Medium/Low） | high/medium/low 三档（automations/intake 枚举） | 🟡 |
+| Estimates 点数制（四标尺×团队配置×rollup） | estimate_hours+工时跟踪域（M19）——方法论刻意为小时制 | 🟡（方法论分歧，非缺口） |
+| Sub-issues（父子+进度上卷） | parent_id 层级+子任务进度汇总（M24/M33） | ✅ |
+| Relations（blocks/blocked/related/duplicate/similar） | depends_on/blocks/includes/duplicates+闭锁+图（M25/M40/M49） | ✅ |
+| Projects（lead/milestones/更新+健康/进度图） | 项目+里程碑（M13）+健康分（M30）+周报（M50-M53） | ✅ |
+| Initiatives（目标级分组项目+initiative updates+rollup 进度） | 组合总览（M23）+跨项目路线图（M27）+组合健康趋势（M59）——无目标实体层 | 🟡 |
+| Cycles（时间盒+自动化+scope 变更图） | Cycles（M38-M41：结转/燃尽/burnup/回顾/行动项/速率） | ✅ |
+| Views（自定义筛选+保存+默认） | 自定义视图（M16/M70/M75） | ✅ |
+| Inbox/通知/My Issues | 通知中心+watch 规则域+my_work/my_attention（M10-M55） | ✅（更强） |
+| 自动化（triage rules/自动指派） | 三段式自动化+sweep+run_agent（M9/M32/M63） | ✅（更强） |
+| Insights/analytics | 报表域+速率/流指标/响应力/成本（M12-M59） | ✅ |
+| Templates（issue/project 模板） | 项目模板包+指令模板库；无「新工作项预填模板」 | 🟡 |
+| Agents（2025 起 agent 委派 issue） | 本项目立身之本（角色 Agent+固定图引擎+审批门） | ✅（更深） |
+| Asks/Customer Requests（Slack/支持渠道转 issue） | 外部 intake token+IMAP 邮件转任务（M32/M35） | 🟡 |
+| 创建时相似 issue 提示（防重，Triage Intelligence 同源） | 无——FTS5 全局搜索已在（M22），创建面未接 | ❌ |
+| GitHub PR 联动/SLA/移动原生 App | N/A（自管工件仓、非支持场景、PWA 已有） | — |
+
+**缺口逐项代码核实（坐实）**：
+1. **items 表无 description 列**（core/schema.py items 建表+items.py ItemIn 均无 description）；CSV 导入字段清单亦无——Linear issue 的正文是最高频缺口。
+2. **item.updated payload 只带新值**（items.py patch_item `changes` 仅新值；status_changed 单独事件带 `from`）——逐项活动流「从 A 改为 B」的显示无数据；`/events?agg_type=item&agg_id=` 读面已在（M114-I339 `_visible` 门）但前端 QuickEditModal（Board.tsx 内嵌）无活动区。
+3. **无标签域**（全库 grep 无 label 域；board 分组仅 lifecycle/field: 两种，items 表无 labels 列）。
+4. **创建无防重提示**（create_item 直落；items_search FTS5 索引 title+custom_fields 在库未接入创建面）。
+
+**吸纳定案（M115 = Linear 吸纳轮，I343-I347）**：
+- **I343 工作项描述域**：items.description 列（建表+轻量迁移）+create/patch/投影/读面+FTS 索引纳入 description+QuickEditModal 编辑。
+- **I344 工作项活动流**：item.updated payload 补 `_old` 旧值溯源（投影忽略未知键，向后兼容）+新组件 ItemActivity（agg 事件→人话时间线：状态 from→to/优先级/改期/指派/描述/清单/关系）挂 QuickEditModal。
+- **I345 标签域**：labels 表（项目级+颜色）+CRUD 端点（成员读/writer 写门+check_write_gates 登记）+items.labels JSON 多值+看板 group_by=labels 扇出+卡片/列表 chip+创建/编辑选择器+label.deleted 投影侧从 items 摘除（重放确定性）。
+- **I346 创建防重提示**：`GET /projects/{id}/items/similar?title=`（items_search FTS 复用，成员读门）+创建弹窗输入标题去抖提示相似项。
+- **I347 收口**：全量回归+机械防腐+文档。
+
+**如实排除（Linear 有而本轮不做，登记候选）**：
+- **Initiative 目标层**——AgentPM 已有组合总览/路线图/健康趋势三层聚合，目标实体属产品级 IA 决策（新建实体域+更新流），独立成轮评估；
+- **Triage 分诊队列**——最有 Linear 特色但牵涉 intake 语义（落 triage 中间态）+本体状态联动+队列视图+accept/decline 动作，值得独立成轮（本轮 4 个吸纳件已是完整交付面）；
+- **Estimates 点数制**——estimate_hours+工时跟踪是既定方法论（负载/成本/排期全建在其上），平行引入点数制属双轨冗余；
+- **优先级 urgent 档**——三档枚举牵扯 automations/intake/前端三处，单独价值低；
+- **列内手动排序**——M100 拖拽换列已建 pointer 通道，列内序需 rank 列与重排序语义，留观真实使用证据；
+- **done 自动归档策略**——与回收站/respawn 语义交叉，自动化规则（M9 三段式）已可表达「done 后归档」，不另造第二套；
+- **评论 reactions/issue 模板**——低价值或模板中心已覆盖大部分场景。
+
+定案 **M115 = Linear 吸纳轮（I343-I347）**；v0.21.0 攒批调整为 M110+M111+M113+M114+M115 五轮，M112 收口 bump+tag 顺延其后。

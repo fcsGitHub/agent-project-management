@@ -81,6 +81,12 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 items.auto_scheduled（M14-I44）。
         if "auto_scheduled" not in cols:
             conn.execute("ALTER TABLE items ADD COLUMN auto_scheduled INTEGER NOT NULL DEFAULT 0")
+        # Lightweight migration: 存量库补 items.description（M115-I343，Linear 吸纳轮 docs/01 §DF）。
+        if "description" not in cols:
+            conn.execute("ALTER TABLE items ADD COLUMN description TEXT")
+        # Lightweight migration: 存量库补 items.labels（M115-I345，JSON 多值标签 id）。
+        if "labels" not in cols:
+            conn.execute("ALTER TABLE items ADD COLUMN labels TEXT")
         # Lightweight migration: 存量库补 projects.field_overrides（M7-I25）。
         pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "field_overrides" not in pcols:

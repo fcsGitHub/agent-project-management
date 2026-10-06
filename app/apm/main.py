@@ -172,6 +172,7 @@ def create_app() -> FastAPI:
     from apm.domains.search import router as search_router
     from apm.domains.baselines import router as baselines_router
     from apm.domains.items import router as items_router
+    from apm.domains.labels import router as labels_router
     from apm.domains.members import router as members_router
     from apm.domains.milestones import router as milestones_router
     from apm.domains.nl import router as nl_router
@@ -224,6 +225,7 @@ def create_app() -> FastAPI:
     app.include_router(automations_router, prefix="/api")
     app.include_router(features_router, prefix="/api")
     app.include_router(items_router, prefix="/api")
+    app.include_router(labels_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")
     app.include_router(artifacts_router, prefix="/api")
     app.include_router(approvals_router, prefix="/api")

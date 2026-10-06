@@ -26,8 +26,8 @@ def _proj_item_created(conn, e):
     conn.execute(
         "INSERT INTO items (id, project_id, feature_id, parent_id, concept_id, title, status,"
         " status_group, priority, assignee_type, assignee_id, estimate_hours, start_date, due_date,"
-        " milestone_id, custom_fields, created_at, updated_at, version)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+        " milestone_id, custom_fields, description, labels, created_at, updated_at, version)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
         (
             e.agg_id,
             e.project_id,
@@ -45,6 +45,8 @@ def _proj_item_created(conn, e):
             p.get("due_date"),
             p.get("milestone_id"),
             json.dumps(p["custom_fields"], ensure_ascii=False) if p.get("custom_fields") else None,
+            p.get("description"),
+            json.dumps(p["labels"]) if p.get("labels") else None,
             e.ts,
             e.ts,
         ),
@@ -57,7 +59,7 @@ def _proj_item_updated(conn, e):
     sets, params = [], []
     for key in ("title", "priority", "estimate_hours", "milestone_id", "feature_id",
                 "start_date", "due_date", "auto_scheduled", "parent_id", "cycle_id",
-                "recurrence_days"):
+                "recurrence_days", "description"):
         if key in p:
             sets.append(f"{key} = ?")
             params.append(p[key])
@@ -65,6 +67,9 @@ def _proj_item_updated(conn, e):
         sets.append("custom_fields = ?")
         params.append(
             json.dumps(p["custom_fields"], ensure_ascii=False) if p["custom_fields"] else None)
+    if "labels" in p:  # M115-I345: whole-list overwrite, same as custom_fields
+        sets.append("labels = ?")
+        params.append(json.dumps(p["labels"]) if p["labels"] else None)
     if sets:
         sets.append("updated_at = ?")
         sets.append("version = version + 1")
@@ -205,6 +210,8 @@ def create_item(
     due_date: str | None = None,
     milestone_id: str | None = None,
     custom_fields: dict | None = None,
+    description: str | None = None,
+    labels: list[str] | None = None,
     actor_type: str = "human",
     actor_id: str | None = None,
     extra_payload: dict | None = None,
@@ -235,6 +242,8 @@ def create_item(
         "start_date": start_date,
         "due_date": due_date,
         "milestone_id": milestone_id,
+        "description": description,
+        "labels": labels,
     }
     if extra_payload:
         payload.update(extra_payload)  # M49-I147: 审计链等调用方附加键
@@ -297,6 +306,7 @@ def list_items(
     assignee_id: str | None = None,
     priority: str | None = None,
     cycle_id: str | None = None,
+    label: str | None = None,
     include_archived: bool = False,
 ) -> list[dict]:
     where, params = ["1=1"], []
@@ -327,6 +337,9 @@ def list_items(
     if priority:
         where.append("priority = ?")
         params.append(priority)
+    if label:  # M115-I345: label member filter (JSON list containment)
+        where.append("labels LIKE ?")
+        params.append(f'%"{label}"%')
     rows = db.get_conn().execute(
         f"SELECT * FROM items WHERE {' AND '.join(where)} ORDER BY created_at", params
     ).fetchall()
@@ -496,8 +509,34 @@ def get_board(
         resp["wip_limits"] = {g: int(v) for g, v in wip_limits.items()}
     if effective == "lifecycle":
         return resp
+    if effective == "labels":  # M115-I345: label-board fan-out (multiselect
+        # semantics — an item appears once per label; untagged go to 未标签).
+        from apm.domains.labels import require_label as _require_label_row
+        label_rows = db.get_conn().execute(
+            "SELECT * FROM labels WHERE project_id = ? ORDER BY created_at, id",
+            (project_id,)).fetchall()
+        grouped, none_items = {}, []
+        for it in items:
+            lids = it.get("labels") or []
+            if not lids:
+                none_items.append(it)
+            for lid in lids:
+                grouped.setdefault(lid, []).append(it)
+        groups = []
+        for row in label_rows:
+            if row["id"] in grouped:
+                groups.append({"id": row["id"], "name": row["name"], "color": row["color"],
+                               "items": grouped.pop(row["id"])})
+        groups.extend(  # labels referenced but deleted from the registry (staleness guard)
+            {"id": lid, "name": lid, "color": None, "items": its}
+            for lid, its in sorted(grouped.items()))
+        if none_items:
+            groups.append({"id": "_none", "name": "未标签", "color": None, "items": none_items})
+        resp["field"] = None
+        resp["groups"] = groups
+        return resp
     if not effective.startswith("field:"):
-        raise HTTPException(status_code=422, detail=f"unknown group_by '{effective}' (lifecycle | field:<id>)")
+        raise HTTPException(status_code=422, detail=f"unknown group_by '{effective}' (lifecycle | field:<id> | labels)")
     fid = effective[len("field:") :]
     field = _find_field(onto, fid)
     if not field:
@@ -548,6 +587,8 @@ class ItemIn(BaseModel):
     due_date: str | None = None
     milestone_id: str | None = None
     custom_fields: dict | None = None
+    description: str | None = None
+    labels: list[str] | None = None
 
 
 def _ensure_human_assignee(assignee_type: str | None, assignee_id: str | None) -> None:
@@ -686,6 +727,13 @@ def _parse_cf(item: dict) -> dict:
             item["custom_fields"] = json.loads(item["custom_fields"])
         except json.JSONDecodeError:
             item["custom_fields"] = {}
+    if isinstance(item.get("labels"), str):  # M115-I345: JSON id list → list
+        try:
+            item["labels"] = json.loads(item["labels"])
+        except json.JSONDecodeError:
+            item["labels"] = []
+    if item.get("labels") is None:  # NULL column reads back as [] (stable shape)
+        item["labels"] = []
     return item
 
 
@@ -784,6 +832,8 @@ class ItemPatch(BaseModel):
     parent_id: str | None = None  # re-parent (M24-I74); clearing not supported
     cycle_id: str | None = None  # I119: iteration mount (mount/retarget only)
     recurrence_days: int | None = None  # I133: respawn N days after completion
+    description: str | None = None  # I343: Linear-style issue body ("" clears)
+    labels: list[str] | None = None  # I345: whole-list overwrite; [] clears, omitted keeps
 
 
 class RelationIn(BaseModel):
@@ -801,6 +851,9 @@ def post_item(project_id: str, body: ItemIn) -> dict:
     _ensure_human_assignee(body.assignee_type, body.assignee_id)
     _validate_item_dates(body.start_date, body.due_date)
     _validate_milestone(project_id, body.milestone_id)
+    if body.labels:  # M115-I345: same-project FK discipline
+        from apm.domains.labels import validate_item_labels
+        validate_item_labels(project_id, body.labels)
     return create_item(
         project_id=project_id,
         concept_id=body.concept_id,
@@ -816,6 +869,8 @@ def post_item(project_id: str, body: ItemIn) -> dict:
         due_date=body.due_date,
         milestone_id=body.milestone_id,
         custom_fields=body.custom_fields,
+        description=body.description,
+        labels=body.labels,
     )
 
 
@@ -855,6 +910,7 @@ def get_items(
     view_id: str | None = None,
     parent: str | None = None,
     descendants: str | None = None,
+    label: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
 ) -> dict:
@@ -881,6 +937,7 @@ def get_items(
         assignee_id=merged.get("assignee_id"),
         priority=merged.get("priority"),
         cycle_id=cycle,
+        label=label,
     )
     if merged.get("cf"):
         items = [it for it in items if _cf_hit(it, merged["cf"])]
@@ -913,6 +970,45 @@ def get_items(
         items = items[offset:offset + max(1, min(200, limit))]
     _attach_spent(items)
     return {"items": items, "total": total}
+
+
+@router.get("/projects/{project_id}/items/similar")
+def similar_items(project_id: str, title: str, exclude_id: str | None = None,
+                  limit: int = 5) -> dict:
+    """M115-I346 duplicate-guard typeahead (docs/01 §DF, Linear similar-issues
+    semantics): FTS5 over titles/descriptions (items_search, _match_expr
+    quoting discipline). <2 chars → empty (typeahead, not an error). Archived
+    items never surface; hidden concepts stay hidden per M67 visibility."""
+    from apm.domains.assets import _bigrams
+
+    query = (title or "").strip()
+    if len(query) < 2:
+        return {"suggestions": []}
+    # Typeahead semantics: OR the quoted bigrams (implicit AND would zero out
+    # natural partial titles like「登录页重构」when the indexed title inserts
+    # a space mid-run); FTS5 rank orders the hits so dense matches surface first.
+    expr = " OR ".join('"%s"' % t.replace('"', '""') for t in _bigrams(query).split())
+    conn = db.get_conn()
+    me = events.effective_actor()
+    out: list[dict] = []
+    for r in conn.execute(
+        "SELECT s.item_id FROM items_search s JOIN items i ON i.id = s.item_id"
+        " WHERE items_search MATCH ? AND i.project_id = ? AND i.archived_at IS NULL"
+        " ORDER BY rank LIMIT ?",
+        (expr, project_id, max(1, min(20, limit)) * 4),
+    ).fetchall():
+        iid = r["item_id"]
+        if exclude_id and iid == exclude_id:
+            continue
+        row = conn.execute(
+            "SELECT id, project_id, title, status, status_group, concept_id, priority,"
+            " description, labels FROM items WHERE id = ?",
+            (iid,)).fetchone()
+        if row and can_see_concept(project_id, row["concept_id"], me):
+            out.append(dict(row))
+        if len(out) >= max(1, min(10, limit)):
+            break
+    return {"suggestions": out}
 
 
 @router.get("/items/{item_id}")
@@ -983,6 +1079,9 @@ def trash_items(project_id: str) -> dict:
 def patch_item(item_id: str, body: ItemPatch) -> dict:
     item = require_visible_item(item_id)
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "labels" in changes and changes["labels"]:  # M115-I345: [] clears (passes)
+        from apm.domains.labels import validate_item_labels
+        validate_item_labels(item["project_id"], changes["labels"])
     if "custom_fields" in changes:
         onto = project_ontology(item["project_id"])
         _validate_custom_fields(onto, item["concept_id"], changes["custom_fields"],
@@ -1019,15 +1118,22 @@ def patch_item(item_id: str, body: ItemPatch) -> dict:
             payload={
                 "assignee_type": changes.pop("assignee_type", item["assignee_type"]),
                 "assignee_id": changes.pop("assignee_id", item["assignee_id"]),
+                # M115-I344: 活动流转派显示需要前值（投影只读白名单键，额外键安全）
+                "from_assignee_type": item["assignee_type"],
+                "from_assignee_id": item["assignee_id"],
             },
         )
     if changes:
+        # M115-I344: `_old` carries previous values for the per-item activity
+        # feed — projections read a whitelist of keys, so the extra key rides
+        # along in the stream and replays verbatim on rebuild.
+        payload = {**changes, "_old": {k: item.get(k) for k in changes}}
         events.emit(
             event_type="item.updated",
             agg_type="item",
             agg_id=item_id,
             project_id=item["project_id"],
-            payload=changes,
+            payload=payload,
         )
     # auto-scheduling: a moved due date shifts opt-in dependents (M14-I44)
     if "due_date" in changes:

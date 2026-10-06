@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）+M114（质量轮·性能与漏洞/显示修复）已入批——v0.21.0 由 M112 收口 bump+tag。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）+M114（质量轮·性能与漏洞/显示修复）+M115（Linear 吸纳轮）已入批——v0.21.0 由 M112 收口 bump+tag。
+
+### Added
+- **工作项描述域**（M115-I343）：items 补 `description` 列（建表+存量库轻量迁移），create/PATCH/事件流/读面全链路，空串=清空；描述纳入 FTS 全文索引（标题关键词照旧优先）——对齐 Linear issue 正文的最高频缺口。
+- **工作项活动流**（M115-I344）：`item.updated` payload 补 `_old` 旧值溯源（投影白名单键不受影响，rebuild 原样重放）、`item.assigned` 补 from 侧；新组件 ItemActivity 把 `agg_type=item` 审计事件流渲染为 Linear 风格变更时间线（状态 from→to/优先级/改期/指派/关系/清单），挂快捷编辑弹窗——事件溯源红利：数据全在库，本轮只做读面。
+- **项目级标签域**（M115-I345）：`labels` 表+CRUD 端点（重名 409/改名去重/删除 404，颜色+usage 计数），items 挂 `labels` JSON 多值（同项目外键 422、[] 清空、label.deleted 投影侧从所有 items 摘除——重放确定）；看板 `group_by=labels` 多标签一物多列扇出（未标签末列）、卡片/列头色点 chip、快捷编辑内勾选+行内建签。写入全走 `/projects/{pid}/labels` 由网络写中间件管辖。
+- **创建防重提示**（M115-I346）：`GET /projects/{id}/items/similar`（FTS5 `_match_expr`）+ 新建弹窗标题去抖 400ms 提示相似项、点击直达已有项——Linear similar-issues 防重语义；归档项与隐匿概念不出提示（M67 存在性不泄露）。
 
 ### Changed
 - **真实 LLM 默认示例切换到 DeepSeek 官方**（M111-I333）：`.env.example`/README 以 `https://api.deepseek.com` + `deepseek-flash` 为默认示例（智谱 coding-plan 降为备选）；角色 YAML 七件 `model.name: glm-5.3` 硬编码改为 `tier: standard` 三档路由（M48-I144）——厂商模型名不再进仓库，由 `APM_MODEL_*` 环境键解析，未配置时按回落链落到 `APM_LLM_MODEL`（回落链收拢 `roles.tier_model_name` 单一真源，档位解析永不出空模型名）。
@@ -16,6 +22,7 @@
 - **热读路径性能收口**（M114-I340）：`item_relations` 补三索引（此前零索引挂在 board/items 最热读路径，EXPLAIN 全表扫→索引命中）；board/items 的 assignee 名富化与概念可见性判定批量化（逐项 SQL→每请求一次）；WIP 计数单条 GROUP BY 取代二次全量 `list_items`；`/portfolio/health-trend` 每项目单遍重放（原为健康序列+flow 指标两次全事件扫描，Dashboard 60s 轮询放大）；`/my/work`·`/my/attention`·`/portfolio/activity` 逐行权限判定 hoist 为每请求一次；会话页空闲轮询 2s→5s（运行中仍 800ms 增量失效主导）。
 
 ### Fixed
+- **全局搜索连字符查询崩溃**（M115-I343 同族即修）：`/search` 的 items/comments/messages 三面把 bigram 串裸传 FTS5 MATCH——连字符词（如 `feature-auth`）被解析为 NOT 语法报 "no such column"（M71-I213 只修了 artifacts 一处）；现三面统一走 `_match_expr` 逐 token 加引号。
 - **追溯影响分析读侧归属校验**（M110-I330·验收考官 Round 2 R2-F1）：`/trace/impact` 根节点此前只查存在性不查归属——其他项目的节点 id 可作为读根返回其标题/状态（Round 1 已堵写路径，读侧为残留面）。现读写同门：404=不存在 / 422=属别家；回归锁 `test_trace_impact_root_cross_project_refused` + 写门矩阵 trace 行（pytest 490→492）。
 - **批量审批跨项目越权**（M114-I339）：`POST /approvals/bulk-decision` 的路径段 "bulk-decision" 不匹配中间件的 approval id 查表→门被跳过，任意登录用户可对任意项目的审批批准/驳回并恢复引擎；`POST /ui_commands/{id}/confirm` 的批量批准同病。现逐审批过与单条决策同款的成员门（org 级资产审批保持登录即可）。
 - **run 绑定与外键的跨项目引用**（M114-I339）：`POST /runs` 的 item_id 可指向别家项目（状态迁移事件以本方 project_id 落账、投影改到别家 items 行）→422；费用行/风险关联/会话 feature·item 引用跨项目→422（对齐 `_validate_milestone` 既有惯例）。

@@ -41,6 +41,8 @@ export type Item = {
   blocked?: boolean;
   custom_fields?: Record<string, unknown> | null;
   checklist?: string | null;
+  description?: string | null;
+  labels?: string[] | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[];
@@ -188,12 +190,16 @@ export type Timesheet = {
   decided_by?: string | null; decided_at?: string | null; reason?: string | null;
   created_at: string; updated_at: string;
 };
+export type Label = {
+  id: string; project_id: string; name: string; color?: string | null;
+  created_at: string; usage?: number;
+};
 export type BoardData = {
   project_id: string; feature_id?: string; applied_view_id?: string; group_by: string;
   buckets: { id: string; name: string; items: Item[] }[];
   columns: { id: string; concept_id: string; concept_name: string; status: string; name: string; group: string }[];
   field?: { id: string; name: string; type: string } | null;
-  groups?: { id: string; name: string; items: Item[] }[] | null;
+  groups?: { id: string; name: string; color?: string | null; items: Item[] }[] | null;
   disabled_fields?: string[];
   wip?: Record<string, number>;
   wip_limits?: Record<string, number>;
@@ -577,6 +583,13 @@ export const api = {
     return req<{ items: Item[]; total: number }>(`/projects/${pid}/items${qs ? `?${qs}` : ""}`);
   },
   getItem: (iid: string) => req<Item>(`/items/${iid}`),
+  // M115-I346: duplicate-guard typeahead (Linear similar-issues semantics)
+  listSimilar: (pid: string, title: string, excludeId?: string) => {
+    const q = new URLSearchParams({ title });
+    if (excludeId) q.set("exclude_id", excludeId);
+    return req<{ suggestions: { id: string; title: string; status: string; status_group: string; concept_id: string }[] }>(
+      `/projects/${pid}/items/similar?${q.toString()}`);
+  },
   patchItem: (iid: string, body: Record<string, unknown>) =>
     req<Item>(`/items/${iid}`, { method: "PATCH", body: JSON.stringify(body) }),
   addRelation: (iid: string, body: { to_item: string; relation_type: string; lag_days?: number }) =>
@@ -641,6 +654,15 @@ export const api = {
     req<{ cancelled: string }>(`/me/time-off/${id}`, { method: "DELETE" }),
   clearBaseline: (pid: string) =>
     req<{ project_id: string; baseline: null }>(`/projects/${pid}/baseline`, { method: "DELETE" }),
+  // M115-I345: project-scoped lightweight labels (Linear labels semantics)
+  listLabels: (pid: string) =>
+    req<{ labels: Label[] }>(`/projects/${pid}/labels`),
+  createLabel: (pid: string, body: { name: string; color?: string | null }) =>
+    req<Label>(`/projects/${pid}/labels`, { method: "POST", body: JSON.stringify(body) }),
+  patchLabel: (pid: string, id: string, body: { name?: string; color?: string | null }) =>
+    req<Label>(`/projects/${pid}/labels/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteLabel: (pid: string, id: string) =>
+    req<{ ok: boolean }>(`/projects/${pid}/labels/${id}`, { method: "DELETE" }),
   getBoard: (pid: string, featureId?: string, groupBy?: string, cycleId?: string,
              swimlaneBy?: string) => {
     const q = new URLSearchParams();

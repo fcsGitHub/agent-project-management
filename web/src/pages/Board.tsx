@@ -14,6 +14,7 @@ import { onStreamEvent } from "../lib/sse";
 import { applyRunEvent, liveBadgeFor, pruneLiveRuns, type LiveRunState } from "../lib/runlive";
 import { CommentsModal } from "../components/CommentsModal";
 import { TimeLogModal, fmtMinutes } from "../components/TimeLogModal";
+import { ItemActivity } from "../components/ItemActivity";
 import { Badge, Button, Card, Drawer, GROUP_NAME, GROUP_TONE, Modal, PrintButton, cx } from "../components/ui";
 
 /** 看板写操作后的定向失效：覆盖条目投影的读方（board/feature/project/
@@ -110,6 +111,17 @@ export function Board() {
     queryFn: () => api.getOntology(pid!, true),
     enabled: !!pid,
   });
+  // M115-I345: labels lookup for card chips + quick-edit selector
+  const labelsQ = useQuery({
+    queryKey: ["labels", pid],
+    queryFn: () => api.listLabels(pid!),
+    enabled: !!pid,
+  });
+  const labelMap = useMemo(() => {
+    const m = new Map<string, { name: string; color: string | null }>();
+    for (const l of labelsQ.data?.labels ?? []) m.set(l.id, { name: l.name, color: l.color ?? null });
+    return m;
+  }, [labelsQ.data]);
   // chip 优先显示 URL 选中的视图，其次后端落的默认视图（I52）
   const currentView =
     viewsQ.data?.views.find((v) => v.id === viewId) ??
@@ -667,6 +679,8 @@ export function Board() {
           className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs"
           aria-label="按字段分组">
           <option value="">分组：生命周期</option>
+          {/* M115-I345: 标签分组（Linear label-board 同款扇出语义） */}
+          <option value="labels">分组：标签</option>
           {fieldOptions.map(([fid, fname]) => (
             <option key={fid} value={`field:${fid}`}>分组：{fname}</option>
           ))}
@@ -885,12 +899,14 @@ export function Board() {
               id: g.id,
               label: board.data.field?.name ? `${board.data.field.name}: ${g.name}` : g.name,
               tone: "neutral" as const,
+              color: g.color ?? null,
               items: g.items,
             }))
           : (board.data?.buckets ?? []).map((b) => ({
               id: b.id,
               label: GROUP_NAME[b.id],
               tone: GROUP_TONE[b.id],
+              color: null as string | null,
               items: b.items,
             }))
         ).map((col) => {
@@ -911,7 +927,14 @@ export function Board() {
               className={cx("flex w-64 shrink-0 flex-col rounded-[12px] border border-line bg-surface/50",
                 dragItem && hoverGroup === col.id && "ring-2 ring-acc")}>
               <div className="flex items-center justify-between px-3 py-2">
-                <Badge tone={overWip ? "red" : col.tone}>{col.label}</Badge>
+                <Badge tone={overWip ? "red" : col.tone}>
+                  {/* M115-I345: 标签列头带色点（用户自选色只上圆点，文字走 token 保证对比度） */}
+                  {col.color && (
+                    <span aria-hidden className="mr-1 inline-block size-2 rounded-full"
+                      style={{ backgroundColor: col.color }} />
+                  )}
+                  {col.label}
+                </Badge>
                 {overWip ? (
                   <span className="text-xs font-medium text-dan"
                     title={`超出在制品上限（${wipCount}/${wipLimit}）——建议先完成再取新任务`}>
@@ -1037,6 +1060,19 @@ export function Board() {
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge tone={GROUP_TONE[item.status_group]}>{item.status}</Badge>
                             {liveRunBadge(item.id)}
+                            {(item.labels ?? []).map((lid) => {
+                              const lb = labelMap.get(lid);
+                              if (!lb) return null; // 已删除标签的残留渲染不出（服务端已摘除）
+                              return (
+                                <span key={lid}
+                                  className="inline-flex items-center gap-1 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink"
+                                  title={`标签：${lb.name}`}>
+                                  <span aria-hidden className="inline-block size-2 rounded-full"
+                                    style={{ backgroundColor: lb.color ?? "var(--color-mut)" }} />
+                                  {lb.name}
+                                </span>
+                              );
+                            })}
                             {item.blocked && (
                               <Badge tone="red" title="存在未完成的阻塞上游（blocks/depends_on）">🚧 被阻塞</Badge>
                             )}
@@ -1170,7 +1206,8 @@ export function Board() {
       {createOpen && pid && (
         <CreateTaskModal pid={pid}
           onClose={() => setCreateOpen(false)}
-          onCreated={() => { setCreateOpen(false); invalidateItemData(qc); }} />
+          onCreated={() => { setCreateOpen(false); invalidateItemData(qc); }}
+          onPickExisting={(it) => { setCreateOpen(false); setQuickEditFor(it); }} />
       )}
       {trashOpen && pid && (
         <TrashDrawer pid={pid} onClose={() => setTrashOpen(false)} onRestored={() => qc.invalidateQueries()} />
@@ -1303,16 +1340,31 @@ function TrashDrawer({ pid, onClose, onRestored }: {
 
 /** I95: C-key quick create (docs/01 §AD.1). Board-context sibling of the
  *  SchedulePage range create — concept defaults to task, auto-assigns you. */
-function CreateTaskModal({ pid, onClose, onCreated }: {
+function CreateTaskModal({ pid, onClose, onCreated, onPickExisting }: {
   pid: string; onClose: () => void; onCreated: () => void;
+  onPickExisting: (item: import("../lib/api").Item) => void;
 }) {
   const [conceptId, setConceptId] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [similar, setSimilar] = useState<{ id: string; title: string; status: string }[]>([]);
   const onto = useQuery({ queryKey: ["ontology", pid], queryFn: () => api.getOntology(pid, true) });
   const users = useQuery({ queryKey: ["users"], queryFn: api.listUsers });
   const concepts = (onto.data?.concepts ?? []).filter((c) => c.id !== "milestone");
   const concept = concepts.find((c) => c.id === conceptId) ?? concepts.find((c) => c.id === "task") ?? concepts[0];
+
+  // M115-I346: 相似项去抖提示（≥2 字符查一次；400ms 静默后请求）
+  useEffect(() => {
+    const q = title.trim();
+    if (q.length < 2) { setSimilar([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.listSimilar(pid, q);
+        setSimilar(r.suggestions);
+      } catch { setSimilar([]); } // typeahead 失败静默——不挡创建主流程
+    }, 400);
+    return () => clearTimeout(t);
+  }, [title, pid]);
 
   const submit = async () => {
     if (!concept || !title.trim()) { toast.error("填写任务标题"); return; }
@@ -1342,6 +1394,21 @@ function CreateTaskModal({ pid, onClose, onCreated }: {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="任务标题"
           className="w-full rounded-lg border border-line bg-bg px-2 py-1.5" />
+        {/* M115-I346: 相似项提示——Linear 防重 typeahead 同款 */}
+        {similar.length > 0 && (
+          <div className="rounded-lg border border-line bg-surface p-1.5">
+            <div className="px-0.5 pb-1 text-[10px] text-mut">已有相似工作项——先看看再建：</div>
+            {similar.map((s) => (
+              <button key={s.id} type="button"
+                onClick={() => onPickExisting(s as unknown as import("../lib/api").Item)}
+                className="flex w-full items-center justify-between gap-2 rounded px-1 py-1 text-left hover:bg-bg"
+                title="打开已有工作项">
+                <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                <span className="shrink-0 text-[10px] text-mut">{s.status}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-mut">创建后自动指派给你 · Esc 关闭</span>
           <Button size="sm" variant="primary" disabled={busy || !title.trim()} onClick={submit}>创建</Button>
@@ -1368,6 +1435,12 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
   );
   const [due, setDue] = useState(item.due_date ?? "");
   const [cycle, setCycle] = useState(item.cycle_id ?? "");
+  // M115-I343: description drafts locally; empty string clears (PATCH "" ≠ null)
+  const [desc, setDesc] = useState(item.description ?? "");
+  // M115-I345: labels — checkbox toggles over project labels; whole-list PATCH
+  const labelsQ = useQuery({ queryKey: ["labels", item.project_id], queryFn: () => api.listLabels(item.project_id) });
+  const [labels, setLabels] = useState<string[]>(item.labels ?? []);
+  const [newLabel, setNewLabel] = useState("");
   const [busy, setBusy] = useState(false);
   // M63-I191: in-item checklist (docs/01 §BH.3) — lightweight, advisory only
   const [checklist, setChecklist] = useState<{ text: string; done: boolean; extracted?: string }[]>(() => {
@@ -1462,6 +1535,8 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
     }
     if (due !== (item.due_date ?? "")) patch.due_date = due || null;
     if (cycle !== (item.cycle_id ?? "")) patch.cycle_id = cycle; // "" clears the mount
+    if (desc !== (item.description ?? "")) patch.description = desc;
+    if (JSON.stringify(labels) !== JSON.stringify(item.labels ?? [])) patch.labels = labels;
     if (!Object.keys(patch).length) { onClose(); return; }
     setBusy(true);
     try {
@@ -1520,6 +1595,57 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
             ))}
           </select>
         </label>
+        {/* M115-I343: 描述（docs/01 §DF，Linear issue 正文同款；空串=清空） */}
+        <label className="block text-[10px] text-mut">
+          描述
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={4}
+            placeholder="背景、验收口径、链接……（支持留空）"
+            className={`mt-0.5 ${selectCls} min-h-16 resize-y leading-5`} />
+        </label>
+        {/* M115-I345: 标签（docs/01 §DF，Linear 轻量标签同款；整体覆盖 PATCH） */}
+        <div className="rounded-lg border border-line bg-bg p-2">
+          <div className="mb-1 text-[10px] text-mut">🏷 标签</div>
+          <div className="flex flex-wrap gap-1">
+            {(labelsQ.data?.labels ?? []).map((l) => {
+              const on = labels.includes(l.id);
+              return (
+                <button key={l.id} type="button"
+                  aria-pressed={on}
+                  title={on ? `移除标签 ${l.name}` : `添加标签 ${l.name}`}
+                  onClick={() => setLabels(on ? labels.filter((x) => x !== l.id) : [...labels, l.id])}
+                  className={cx("inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px]",
+                    on ? "border-acc bg-acc/10 text-ink" : "border-line text-mut hover:border-acc")}>
+                  <span aria-hidden className="inline-block size-2 rounded-full"
+                    style={{ backgroundColor: l.color ?? "var(--color-mut)" }} />
+                  {l.name}
+                </button>
+              );
+            })}
+            {!labelsQ.data?.labels.length && (
+              <span className="text-[10px] text-mut">项目还没有标签——用下方输入框创建</span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-1">
+            <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="新标签名…" aria-label="新标签名"
+              className="w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-[10px]" />
+            <button type="button" disabled={!newLabel.trim()}
+              title="创建标签（项目级，创建后自动挂到本项）"
+              onClick={async () => {
+                try {
+                  const l = await api.createLabel(item.project_id, { name: newLabel.trim() });
+                  setLabels((prev) => [...prev, l.id]);
+                  setNewLabel("");
+                  await qc.invalidateQueries({ queryKey: ["labels", item.project_id] });
+                } catch (e) {
+                  toast.error(`建标签失败：${e instanceof Error ? e.message : e}`);
+                }
+              }}
+              className="rounded border border-line px-1.5 py-0.5 text-[10px] text-mut hover:border-acc hover:text-acc disabled:opacity-40">
+              ＋创建
+            </button>
+          </div>
+        </div>
         {/* M63-I191: checklist — 同屏轻量勾选，不做实体转换 */}
         <div className="rounded-lg border border-line bg-bg p-2">
           <div className="mb-1 flex items-center justify-between">
@@ -1628,6 +1754,15 @@ function QuickEditModal({ item, concepts, onClose, onSaved }: {
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-mut">变更走既有 PATCH——流转白名单/闭锁/WIP 全部生效</span>
           <Button size="sm" variant="primary" disabled={busy} onClick={submit}>保存</Button>
+        </div>
+        {/* M115-I344: 活动流（docs/01 §DF）——事件溯源以工作项为中心的读面 */}
+        <div className="rounded-lg border border-line bg-bg p-2">
+          <div className="mb-0.5 text-[10px] text-mut">活动</div>
+          <ItemActivity itemId={item.id} resolvers={{
+            statusName: (sid) => states.find((s) => s.id === sid)?.name ?? sid,
+            titleOf,
+            userName: (uid) => users.data?.users.find((u) => u.id === uid)?.name ?? uid,
+          }} />
         </div>
       </div>
     </Modal>

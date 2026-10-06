@@ -20,13 +20,17 @@ router = APIRouter(tags=["search"])
 
 
 def _reindex_item(conn, item_id: str) -> None:
-    row = conn.execute("SELECT title, custom_fields FROM items WHERE id = ?", (item_id,)).fetchone()
+    row = conn.execute("SELECT title, custom_fields, description FROM items WHERE id = ?",
+                       (item_id,)).fetchone()
     conn.execute("DELETE FROM items_search WHERE item_id = ?", (item_id,))
     if row is None:
         return
     cf_text = " ".join(str(v) for v in _cf_values(row["custom_fields"]))
+    # M115-I343: description joins the indexed text (Linear issue bodies are
+    # searchable; title keywords stay dominant by appearing first).
+    body = row["description"] or ""
     conn.execute("INSERT INTO items_search (item_id, text) VALUES (?, ?)",
-                 (item_id, _bigrams(f"{row['title']} {cf_text}")))
+                 (item_id, _bigrams(f"{row['title']} {body} {cf_text}")))
 
 
 def _cf_values(custom_fields) -> list[str]:
@@ -130,13 +134,14 @@ def search(q: str, types: str = "items,comments") -> dict:
     from apm.domains.feed import _visible
     from apm.domains.projects import can_see_concept
 
-    match = _bigrams(query)
     conn = db.get_conn()
     out: dict[str, list] = {"items": [], "comments": [], "conversations": [], "artifacts": []}
     if "items" in wanted:
         for r in conn.execute(
             "SELECT item_id FROM items_search WHERE items_search MATCH ? ORDER BY rank LIMIT 50",
-            (match,),
+            # M115-I343: _match_expr same family as artifacts (M71-I213) —
+            # the raw bigram string parses '-' as NOT syntax ("no such column").
+            (_match_expr(query),),
         ).fetchall():
             row = conn.execute(
                 "SELECT i.id, i.title, i.status, i.status_group, i.concept_id,"
@@ -151,7 +156,7 @@ def search(q: str, types: str = "items,comments") -> dict:
         for r in conn.execute(
             "SELECT comment_id FROM comments_search WHERE comments_search MATCH ?"
             " ORDER BY rank LIMIT 50",
-            (match,),
+            (_match_expr(query),),  # M115-I343: 同族即修（同 items 行注）
         ).fetchall():
             row = conn.execute(
                 "SELECT c.id, c.body, c.item_id, c.project_id, i.title AS item_title,"
@@ -170,7 +175,7 @@ def search(q: str, types: str = "items,comments") -> dict:
         for r in conn.execute(
             "SELECT message_id FROM messages_search WHERE messages_search MATCH ?"
             " ORDER BY rank LIMIT 50",
-            (match,),
+            (_match_expr(query),),  # M115-I343: 同族即修（同 items 行注）
         ).fetchall():
             row = conn.execute(
                 "SELECT m.id AS message_id, m.conversation_id, c.title AS conversation_title,"

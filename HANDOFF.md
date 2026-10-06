@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-06 更新 · M114 质量轮完成[读面门禁对齐+跨项目写收口+性能七件+前端显示十二处]，下一步 M112 收口·v0.21.0 攒批发布[M110+M111+M113+M114 四轮成版]）
+# HANDOFF —— 写给下一个新会话（2026-10-06 更新 · M115 Linear 吸纳轮完成[差距调研 docs/01 §DF+描述域/活动流/标签域/防重提示四件吸纳·全先红后绿+E2E 走查两缺陷当场修]，下一步 M112 收口·v0.21.0 攒批发布[M110+M111+M113+M114+M115 五轮成版]）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -52,6 +52,7 @@
 - **M110 验收考官第二轮·v0.20.0 接缝抽查（I330-I332，2026-10-05 完成，docs/01 §DC + docs/10 §M110 + docs/13 §4 Round 2）**：发布态接缝抽查——I330 契约镜像+§3 清单十项全量[**R2-F1（A 类·读面）：impact 根节点 resolve_node 全局查无归属门——跨项目节点 id 作读根 200 泄露 title/status（R1-F1 只堵写路径的读侧残留面）→ trace_impact 根改 require_node 读写同门·先红后绿回归锁**+2 处 docstring 镜像修正[needs_review 方向写反→改 docstring/孤儿口径→改措辞·「镜像差先判意图侧」裁决]+门禁矩阵 network 行 test_trace_write_gates]；I331 发布面接缝[lucide 1.52.0 消费面 25 唯一图标零断裂+CHANGELOG [0.20.0] 镜像逐条全对+/trace 双主题 axe 全 clean 进基线 **24→25 路**[R1 留观①清偿]·toast 瞬态伪影第三类入档[docs/06 §7 法补「切主题后等 ≥2s」]]；I332 收口[全量回归+防腐七件+docs/13 §4 Round 2 报告+看板/附录 C/HANDOFF/CHANGELOG]。基线 pytest 490→**492**（+R2-F1 回归锁+门禁矩阵行）/ 冒烟 98 / vitest 47 / build 绿 / 机械防腐 ✓；R1 留观②维持。
 - **M113 功能瘦身轮·剪枝与合并（I336-I338，2026-10-05 完成，用户指令轮，docs/01 §DD + docs/10 §M113）**：证据驱动三分类——剪枝① 工具注册表三 stub（search_web 伪搜索/publish_external 伪发布/run_command 恒拒绝——权限面只暴露真实能力+3 角色 YAML 声明清除+回归锁 test_tool_surface 两枚·危险档由 create_git_tag 承载·V2 承诺留 docs/07）；剪枝② review.html 生成物出仓（206KB·可再生零引用·工具保留输出 gitignore）；合并③ 廉价模型旋钮统一（parse_llm 读 APM_MODEL_CHEAP 首选·ui_agent_model 降兼容回落·L2 溯源文案改实际模型）；去重④ main.py webhooks_router 双注册。**如实排除**：demo.html（三处引用验收参照）/oidc_stub+keycloak（文档明确双演示+冒烟 23）/前端零死组件/events 无重复读面（404 实证）。基线 pytest 492→**494**（+test_tool_surface 2）/ 冒烟 98 / 机械防腐 ✓。
 - **M114 质量轮·性能优化与漏洞/显示修复（I339-I342，2026-10-06 完成，用户指令轮，docs/01 §DE + docs/10 §M114）**：三路盘点逐项核实。**I339 读面门禁对齐**：M110 R2-F1 同类残留面成批清账——全局 id 单资源读八处补门（runs 四面/milestones/cycles/features/time_entries/attachments/conversations detail 族）+聚合列表 `_visible` 接入四处（events/runs/conversations/approvals·org 级行登录者可见）+NDJSON export admin 门+GET /users 401+views make-default writer 门+bulk-decision/ui confirm 逐审批门+run item 同项目 422+三处 FK 同项目 422；新助手 members.require_project_read（403 对齐 M76）+visible_project_ids；**新门暴露存量缺陷两例**：import 端点 rebuild 后 admin 标静默丢失（M41 已知副作用·补 ensure_default_user）/写门计数 139=72+67 系 M113 去重后未重测陈值（145 的 webhook 6 条重复计入已消失·stash 对账实证）。**I340 性能七件**：item_relations 三索引（EXPLAIN 全命中·此前零索引挂最热读路径）/assignee IN 批量/概念可见性闭包 hoist/WIP GROUP BY/my_work·my_attention·activity 逐行权限 hoist/健康趋势单遍重放/会话页轮询 5s。**I341 显示十二处**：暗色主题五处真实破损（ui danger 反色 text-danbg/MyTime 批准 text-okbg/Risks 热力矩阵语义格/GraphView chip/TracePage 五处）+DepGraph SVG+图例 var(--color-*) 同源+Roadmap 标签截断+TracePage 三态与 break-all+两处亮色对比度漏网（sky-500/indigo-400→语义 token）。**I342 收口**：全量回归[非 smoke **496 EXIT=0**（+test_read_gates 2）+冒烟 **98 GREEN**（smoke 14/87 审计读移登录后+smoke 19 rebuild 改走端点 M61 惯例——匿名审计读前提随新门失效·I78 纪律适配）+vitest 47+build 绿 precache 43]+机械防腐三件 ✓+axe 隔离 8015/4183 亮暗 7 路零 serious/critical+截图目验+排除五候选入附录 C（项目域 GET 惯性/SSE 过滤/reports 时间下界/全局 staleTime/_gate admin 旁路）。
+- **M115 Linear 吸纳轮（I343-I347，2026-10-06 完成，用户指令轮，docs/01 §DF + docs/10 §M115）**：「调研 Linear 差距→吸纳开发管理功能→功能开发优化迭代」。I343 差距调研定案[Linear 官方六页直抓互证→20 行映射矩阵 ✅11/🟡6/❌3→缺口逐项代码核实→吸纳四件+排除八项登记附录 C] + I343 工作项描述域[items.description 列（建表+存量库 ALTER 迁移）+create/PATCH/投影/读面+FTS 索引纳入——**新测试照亮 /search 三面裸传 bigram 的 M71 同族残留（连字符词=NOT 语法崩溃）→_match_expr 同族即修**] + I344 工作项活动流[item.updated 补 `_old` 旧值+item.assigned 补 from（投影白名单键安全·rebuild 原样重放·既有 payload 断言先核实零破坏）+新组件 ItemActivity（agg_type=item 审计流→人话时间线：状态 from→to/优先级旧→新/转派/标签 旧→新……）挂快捷编辑弹窗——事件溯源红利读面·后端零新端点] + I345 标签域[labels 表（UNIQUE 同名）+CRUD 四端点全住 /projects/{pid}/labels（写中间件管辖·台账零新增）+items.labels JSON 多值（同项目外键 422/[] 清空/label.deleted 投影侧摘除防 `_` 通配假阳性）+**drop_projections 清单漏登记 rebuild 首跑 UNIQUE 炸（当场抓获——新投影表三件套：建表+投影器+drop 清单）**+board group_by=labels 扇出+卡片色点 chip+快捷编辑勾选建签] + I346 创建防重提示[items/similar FTS **OR 语义**——E2E 走查抓获隐式 AND 对「登录页重构」类连续输入零命中（标题中段空格打断 CJK 串）+直达缺 project_id 表单残缺两缺陷当场修+新建弹窗去抖 400ms 提示点击直达] + I347 收口[全量回归 非 smoke **512 EXIT=0**（+16）+冒烟 98+vitest **50**+build 绿 precache 43+写门 **142=75+67** ✓+浏览器 E2E 全链路走查（隔离 8016/4184·SW update 清缓存纪律再证·截图 docs/m115-*.png ×2）+排除八项（Initiative/Triage 队列/点数制/urgent 档/列内排序/自动归档/reactions/issue 模板）]。
 
 ## 3. 现在卡在哪
 
@@ -60,11 +61,16 @@
 ## 4. 下一步是什么（按序）
 
 1. ~~M24~M65 全闭环~~ ✅（审阅提交号索引=docs/10 附录 B；单迭代详情真源=docs/10 §7 看板行与附录 A/B）。
-2. **M112 收口（下一步）**：v0.21.0 攒批发布（M110 考官 Round 2+M111 真实 LLM 回归+M113 功能瘦身+M114 质量轮四轮内容成版）——四锚 bump 0.20.0→0.21.0 五点一次改齐[version.py/web/package.json/README 版本行/test_version 第三钉+冒烟 88 发布钉]→ CHANGELOG [0.21.0] 段（Unreleased 现有 Changed×5+Fixed×5+Removed×2 精选+M112 增量）+smoke 86 代标记 → docs/11 解冻 v0.21.0（**§2.4 写路由计数随解冻修正 143→139=72+67**——M113 去重与本轮实测对齐）→ release_drill EXIT=0（**DoD 两项第十二次执行**）→ 全量回归+机械防腐七件 → 看板 M112 闭环+附录 C+HANDOFF 修剪 → `git tag -a v0.21.0`。**候选池（均勿凭印象放行）**：①依赖漂移复核（M112 收口当轮实测——M111/M113/M114 无依赖车/M109 刚扫后端零）；②graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；③删除工件恢复 UI（等证据）；④init_db 幂等化（真实事故再触发）；⑤演练 --seed-light（留观）；⑥事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑦追溯 artifact 存在性查询缓存（留观——量大后再做）；⑧M114 排除候选（项目域 GET 惯性收口/SSE 成员过滤/reports 全量重放时间下界/queryClient 全局 staleTime/_gate 三域 admin 旁路——均为产品级或牵涉面大·附录 C M114 在案）。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记]
+2. **M112 收口（下一步）**：v0.21.0 攒批发布（M110 考官 Round 2+M111 真实 LLM 回归+M113 功能瘦身+M114 质量轮+M115 Linear 吸纳五轮内容成版）——四锚 bump 0.20.0→0.21.0 五点一次改齐[version.py/web/package.json/README 版本行/test_version 第三钉+冒烟 88 发布钉]→ CHANGELOG [0.21.0] 段（Unreleased 现有 Added×4+Changed×5+Fixed×6+Removed×2 精选+M112 增量）+smoke 86 代标记 → docs/11 解冻 v0.21.0（**§2.4 写路由计数随解冻修正 143→142=75+67**——M113 去重-6 与 M115 labels 三写路由+3 的净差·check_write_gates 实测为准）→ release_drill EXIT=0（**DoD 两项第十二次执行**）→ 全量回归+机械防腐七件 → 看板 M112 闭环+附录 C+HANDOFF 修剪 → `git tag -a v0.21.0`。**候选池（均勿凭印象放行）**：①依赖漂移复核（M112 收口当轮实测——M111/M113/M114/M115 无依赖车/M109 刚扫后端零）；②graph 端点入边补显（留观·修复设计预研在案[from 侧记账根因已澄清]）；③删除工件恢复 UI（等证据）；④init_db 幂等化（真实事故再触发）；⑤演练 --seed-light（留观）；⑥事件表体积复测（留观至真实规模库·SQLite 增长策略预研在案）；⑦追溯 artifact 存在性查询缓存（留观——量大后再做）；⑧M114 排除候选（项目域 GET 惯性收口/SSE 成员过滤/reports 全量重放时间下界/queryClient 全局 staleTime/_gate 三域 admin 旁路——均为产品级或牵涉面大·附录 C M114 在案）；⑨M115 排除候选（Linear 吸纳剩余面：Initiative 目标层/Triage 分诊队列[最有 Linear 特色·牵涉 intake 语义+本体状态联动·值得独立成轮]/Estimates 点数制/优先级 urgent 档/列内手动排序/done 自动归档/评论 reactions/issue 模板——附录 C M115 在案）。[键盘拖拽模式=精确留观待真实辅助技术反馈][@vite-pwa/assets-generator=防重查登记]
 3. 每轮纪律不变：演示/审阅隔离 data+ontologies 且 netstat 确认单监听（**preview 必须显式从 web/ 起**；**8000 常被本机其他项目占用——vite 代理 target 临时改走查端口，走查完 `git checkout` 还原，绝不带补丁提交**）；**复演造数脚本失败后必须清理半成品数据再重跑**；**复演假阴性先核对输入（ID/造数/SW 旧缓存）再怀疑系统**；中文文档/源码/测试一律 Edit/Write 工具（**heredoc 彻底禁止**——M56 再证：python 脚本改 db.py 整文件 CRLF→LF 造 353 行假 diff）；**commit message 反引号用单引号包裹**；python 写文本 newline="\n"；**每段式提交前 `git status` 核对源码文件齐全**；**HANDOFF 每轮收口时修剪**；**复演造数含中文 JSON 用 python urllib 不用 curl**；**切身份后必须恢复 settings.user_id**（M58 冒烟再证：run.failed 规则误在 u_admin 身份下添加→通知落 admin·关注者轮询空列表超时）；**docs/10 追加表格行的 Edit：old_string 用行首片段锚定、new_string 必须以原文行开头再接新行**；**本地模式 _visible 第三分支使配置用户天然全可见——可见性测试须显式切 network 模式**（M60 再证）；**追加看板行后 grep 行标题计数核对**（M78 发现 M77 收口造出过全同重复行）。
 
 ## 5. 有哪些坑不要再踩
 
+- **FTS5 MATCH 的调用点要用 `_match_expr`（引号纪律）且 typeahead 类用 OR 语义**（M115-I343/I346 三连）：裸传 `_bigrams` 串=连字符词被解析为 NOT 语法（M71-I213 只修了 artifacts 一处——`/search` 的 items/comments/messages 三面同族残留到 I343 才被新测试照亮，「修缝要问同类还有几道口」要含 FTS MATCH 调用点全量对账）；而 similar 类 typeahead 反过来要 OR 各 bigram——隐式 AND 对「登录页重构」类自然连续输入零命中（索引标题中段空格打断 CJK 连续串）。
+- **新投影表三件套缺一不可**（M115-I345）：schema 建表+投影器+**drop_projections 清单**——labels 表漏登记时 rebuild 首跑 UNIQUE 炸（rebuild 只清清单内的表，重放 label.created 撞存量行）。
+- **事件 payload 加键先核对三类消费方**（M115-I344）：投影白名单键（额外键安全忽略）/严格断言 payload 等值的测试（先 grep）/NDJSON 导入导出往返（payload 原样随之）——`item.updated` 加 `_old`、`item.assigned` 加 from 侧均按此流程零破坏。
+- **E2E 走查时页面执行的是 SW precache 旧 chunk**（M115-I347 三证）：改前端后必须 `serviceWorker.getRegistrations→update + caches.keys→delete + reload` 再验证，否则新代码看似失效（本轮相似提示「不工作」实为旧 chunk——M76/M79 同族第三证）。
+- **typeahead 直达的表单初始值必须随行**（M115-I346）：similar 端点 SELECT 只回 5 列时，onPickExisting 塞给 QuickEditModal 的对象缺 project_id/description/labels——标签区误显「无标签」、描述空白；列表类端点的 SELECT 列集要按下游消费面倒推。
 - **投影器 INSERT 的列序与参数元组必须逐列目视核对**（I20）。**单用例可能过、套跑才炸，别信单绿**。
 - **起服务做演示/审阅必须同时隔离 data 与 ontologies**：env `APM_DATA_DIR` + `APM_ONTOLOGY_DIR_OVERRIDE`（还要 `cp -r ontologies/. <override目录>/`）；**只设 APM_DATA_DIR 不够**（M4 审阅污染源文件事故）。
 - **replay_templates.py 模板函数必须定义在 `_TEMPLATES` 字典之前**（import 时求值）。
@@ -187,14 +193,14 @@
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 496 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
+cd app && python -m pytest            # 512 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
 python tools/smoke/run_smoke.py       # 冒烟基线 98 例（89 文件·smoke 87/88/89/09 双用例），应 GREEN（repo 根目录跑）
 python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 已锁）
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
 python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 python tools/release_drill.py         # 一键发布演练（发布轮收口 DoD·M88 起——备份→毁库→恢复→对账→RTO，EXIT=0 即过）
 git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.20.0 十六枚在案·版本四锚由冒烟 86+88 锁定）
-cd web && pnpm vitest run             # 前端单测 47 项（含 axe a11y 机械锁）；pnpm build 须绿（主 bundle 374.36KB·36 chunks——v0.17.0 实测[M104-I314 对账]·页面已按路由懒加载）
+cd web && pnpm vitest run             # 前端单测 50 项（含 axe a11y 机械锁+ItemActivity 3 枚）；pnpm build 须绿（precache 43——M115 实测·页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
