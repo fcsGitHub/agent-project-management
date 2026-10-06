@@ -3,11 +3,15 @@
  *  topological levels run top-down, nodes are colored by state (done gray,
  *  blocked red: unfinished with an unfinished upstream, else green) and the
  *  CPM critical chain gets an amber ring (critical-path API). Pure frontend:
- *  everything is read from existing list/relations/critical-path endpoints. */
+ *  relations come from the project-level bulk endpoint (M119-I366, one fetch
+ *  instead of one getItem per item) and layout/blocked semantics live in
+ *  lib/depgraph (M119-I367: depends_on 是 from=依赖方、to=前置——前置在上，
+ *  被阻塞旗标落在依赖方头上；blocks 反之). */
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { computeBlocked, computeLevels, type DepEdge } from "../lib/depgraph";
 import { Badge, Card, Empty, cx } from "../components/ui";
 
 const NODE_W = 168;
@@ -15,42 +19,24 @@ const NODE_H = 44;
 const GAP_X = 22;
 const GAP_Y = 46;
 
-type Edge = { from: string; to: string; kind: "depends_on" | "blocks" };
-
 export function DependencyGraphPage() {
   const { pid } = useParams();
   const items = useQuery({ queryKey: ["deps-items", pid], queryFn: () => api.listItems(pid!) });
   const cp = useQuery({ queryKey: ["critical-path", pid], queryFn: () => api.getCriticalPath(pid!) });
+  const relations = useQuery({ queryKey: ["dep-relations", pid], queryFn: () => api.listRelations(pid!) });
   const [onlyBlocked, setOnlyBlocked] = useState(false);
 
-  // relations only ship on the item detail payload (established timeline
-  // pattern): one detail fetch per item, fine at single-project scale
-  const itemIds = (items.data?.items ?? []).map((i) => i.id).join(",");
-  const details = useQuery({
-    queryKey: ["dep-details", pid, itemIds],
-    queryFn: async () => {
-      const out: Record<string, import("../lib/api").Item> = {};
-      await Promise.all((items.data?.items ?? []).map(async (i) => { out[i.id] = await api.getItem(i.id); }));
-      return out;
-    },
-    enabled: !!pid && (items.data?.items.length ?? 0) > 0,
-  });
-
-  // edges from per-item relations; dedupe bidirectional bookkeeping
-  const edges = useMemo<Edge[]>(() => {
-    const seen = new Set<string>();
-    const out: Edge[] = [];
-    for (const it of Object.values(details.data ?? {})) {
-      for (const r of it.relations ?? []) {
-        if (r.relation_type !== "depends_on" && r.relation_type !== "blocks") continue;
-        const key = `${r.from_item}>${r.to_item}:${r.relation_type}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push({ from: r.from_item, to: r.to_item, kind: r.relation_type as Edge["kind"] });
-      }
+  // M119-I366: relations ride the project-level bulk endpoint — the old
+  // per-item getItem fan-out (one detail fetch per item to reach the
+  // relations payload) was an N+1 across the whole project on every open.
+  const edges = useMemo<DepEdge[]>(() => {
+    const out: DepEdge[] = [];
+    for (const r of relations.data?.relations ?? []) {
+      if (r.relation_type === "depends_on" || r.relation_type === "blocks")
+        out.push({ from: r.from_item, to: r.to_item, kind: r.relation_type });
     }
     return out;
-  }, [details.data]);
+  }, [relations.data]);
 
   const byId = useMemo(() => {
     const m = new Map<string, { id: string; title: string; status: string; status_group: string }>();
@@ -113,38 +99,18 @@ export function DependencyGraphPage() {
     return m;
   }, [byId, foreignQ.data, projectsQ.data]);
 
-  // blocked = unfinished item with an unfinished upstream (depends_on source
-  // or an unfinished blocks blocker) — I237: foreign upstream counts too when
-  // its status is readable (board I128 SQL has no project filter; unknown-
-  // status 🔒 placeholders are honestly NOT counted)
-  const blockedIds = useMemo(() => {
-    const bad = new Set<string>();
-    for (const e of edges) {
-      const upstream = allNodes.get(e.from);
-      if (!upstream || upstream.status_group === "done" || upstream.status_group === "cancelled"
-        || upstream.status_group === "external-unknown") continue;
-      const down = allNodes.get(e.to);
-      if (down && down.status_group !== "done" && down.status_group !== "cancelled") bad.add(e.to);
-    }
-    return bad;
-  }, [edges, allNodes]);
+  // blocked = unfinished item with an unfinished upstream (depends_on 前置
+  // 或 blocks 阻塞者——M119-I367 方向修正后与看板 I128 SQL 同向)；I237:
+  // foreign upstream counts too when its status is readable (board I128 SQL
+  // has no project filter; unknown-status 🔒 placeholders are honestly NOT
+  // counted)
+  const blockedIds = useMemo(
+    () => computeBlocked(allNodes, edges), [edges, allNodes]);
 
   // topological levels: level(x) = 0 without upstream edges, else max(up)+1
+  // （M119-I367: 方向语义收口进 lib/depgraph——前置在上、依赖方在下）
   const levels = useMemo(() => {
-    const up = new Map<string, string[]>();
-    for (const e of edges) up.set(e.to, [...(up.get(e.to) ?? []), e.from]);
-    const level = new Map<string, number>();
-    const depth = new Map<string, number>();
-    const calc = (id: string, d: number): number => {
-      if (depth.has(id) && depth.get(id)! >= d) return level.get(id) ?? 0;
-      depth.set(id, d);
-      if (d > 50) return 0; // cycle guard
-      const parents = up.get(id) ?? [];
-      const lv = parents.length ? Math.max(...parents.map((p) => calc(p, d + 1))) + 1 : 0;
-      level.set(id, Math.max(level.get(id) ?? 0, lv));
-      return level.get(id) ?? 0;
-    };
-    for (const id of allNodes.keys()) calc(id, 0);
+    const level = computeLevels(allNodes.keys(), edges);
     const rows = new Map<number, string[]>();
     for (const id of allNodes.keys()) {
       const lv = level.get(id) ?? 0;
@@ -211,15 +177,17 @@ export function DependencyGraphPage() {
             const a = layout.pos.get(e.from);
             const b = layout.pos.get(e.to);
             if (!a || !b) return null;
-            const x1 = a.x + NODE_W / 2, y1 = a.y + NODE_H;
-            const x2 = b.x + NODE_W / 2, y2 = b.y;
+            // 边从上层节点的底边画到下层节点的顶边——M119-I367 方向修正后
+            // depends_on 的 from 在下、to 在上，按 y 归一避免反向画线
+            const [p, q] = a.y <= b.y ? [a, b] : [b, a];
+            const x1 = p.x + NODE_W / 2, y1 = p.y + NODE_H;
+            const x2 = q.x + NODE_W / 2, y2 = q.y;
             const onChain = critical.has(e.from) && critical.has(e.to) && e.kind === "depends_on";
             return (
               <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
                 stroke={onChain || e.kind === "blocks" ? "var(--color-warn)" : "var(--color-mut)"}
                 strokeWidth={onChain ? 2.5 : 1.5}
-                strokeDasharray={e.kind === "blocks" ? undefined : "5 4"}
-                markerEnd="" />
+                strokeDasharray={e.kind === "blocks" ? undefined : "5 4"} />
             );
           })}
           {[...allNodes.entries()].filter(([id]) => visible.has(id)).map(([id, it]) => {
@@ -252,7 +220,7 @@ export function DependencyGraphPage() {
             );
           })}
           {allNodes.size > 0 && visible.size === 0 && (
-            <text x={20} y={40} fontSize={12} fill="#64748b">当前过滤下没有节点</text>
+            <text x={20} y={40} fontSize={12} fill="var(--color-mut)">当前过滤下没有节点</text>
           )}
         </svg>
       </Card>

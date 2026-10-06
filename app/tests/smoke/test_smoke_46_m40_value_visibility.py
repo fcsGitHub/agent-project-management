@@ -62,24 +62,24 @@ def test_smoke_46_m40_value_visibility(client, tmp_data, isolated_ontologies, mo
     client.patch(f"/api/items/{it['id']}",
                  json={"start_date": today.isoformat(),
                        "due_date": (today + timedelta(days=1)).isoformat()})
+    # 真实方向语义（M119-I366）：POST /items/{x}/relations to=p 读作「x 依赖 p」
+    # ——a 依赖 it、b 依赖 a：it 最早动工，b 是收尾交付物，全链零浮动。
     a = client.post(f"/api/projects/{pid}/items",
-                    json={"concept_id": "task", "title": "上游",
-                          "start_date": (today + timedelta(days=1)).isoformat(),
-                          "due_date": (today + timedelta(days=2)).isoformat()}).json()
+                    json={"concept_id": "task", "title": "中游",
+                          "start_date": (today + timedelta(days=2)).isoformat(),
+                          "due_date": (today + timedelta(days=3)).isoformat()}).json()
     b = client.post(f"/api/projects/{pid}/items",
                     json={"concept_id": "task", "title": "下游",
-                          "start_date": (today + timedelta(days=2)).isoformat(),
-                          "due_date": (today + timedelta(days=5)).isoformat()}).json()
-    # relation direction: from_item is the prerequisite (I78/I101 convention) —
-    # it feeds a, a feeds b
-    assert client.post(f"/api/items/{it['id']}/relations",
-                       json={"to_item": a["id"], "relation_type": "depends_on"}).status_code == 200
+                          "start_date": (today + timedelta(days=4)).isoformat(),
+                          "due_date": (today + timedelta(days=7)).isoformat()}).json()
     assert client.post(f"/api/items/{a['id']}/relations",
-                       json={"to_item": b["id"], "relation_type": "depends_on"}).status_code == 200
+                       json={"to_item": it["id"], "relation_type": "depends_on"}).status_code == 200
+    assert client.post(f"/api/items/{b['id']}/relations",
+                       json={"to_item": a["id"], "relation_type": "depends_on"}).status_code == 200
     cp = client.get(f"/api/projects/{pid}/critical-path").json()
     assert cp["cycle"] is False and set(cp["chain"]) >= {it["id"], a["id"], b["id"]}
     det = client.get(f"/api/items/{b['id']}").json()
-    assert any(r["from_item"] == a["id"] and r["relation_type"] == "depends_on"
+    assert any(r["to_item"] == a["id"] and r["relation_type"] == "depends_on"
                for r in det["relations"])
 
     # --- rebuild: cost hours, attachment metadata, edges all replay ------------
@@ -92,4 +92,4 @@ def test_smoke_46_m40_value_visibility(client, tmp_data, isolated_ontologies, mo
     assert [x["id"] for x in client.get(f"/api/items/{it['id']}/attachments")
             .json()["attachments"]] == [aid]
     det2 = client.get(f"/api/items/{b['id']}").json()
-    assert any(r["from_item"] == a["id"] for r in det2["relations"])
+    assert any(r["to_item"] == a["id"] for r in det2["relations"])

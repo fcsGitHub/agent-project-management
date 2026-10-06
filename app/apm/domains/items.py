@@ -988,6 +988,47 @@ def get_items(
     return {"items": items, "total": total}
 
 
+@router.get("/projects/{project_id}/relations")
+def list_project_relations(project_id: str) -> dict:
+    """M119-I366: 依赖图批量关系读面——一次返回项目内全部工作项关系，
+    DependencyGraphPage 不再为拼关系面对每个工作项各打一次 GET /items/{id}
+    （M114-I340 批量家族同款 N+1 收口，百项项目依赖图页每次打开省 ~百查）。
+    口径与图面同源：回收站项的关系不还魂（M118-I361 族）；隐藏概念项不借
+    关系边泄露存在性（M67-I201——任一本地端点对当前读者不可见即整条边隐去）；
+    跨项目对端只出 id 不出标题（M47-I143：可读性与真名由前端 getItem
+    404→🔒 兜住，与 /graph 占位语义一致）。"""
+    from apm.domains.members import require_project_read
+
+    require_project_read(project_id)
+    conn = db.get_conn()
+    live = {
+        r["id"]: r
+        for r in conn.execute(
+            "SELECT id, concept_id, archived_at FROM items WHERE project_id = ?",
+            (project_id,)).fetchall()
+    }
+    _visible = _concept_visible_filter(project_id, events.effective_actor())
+
+    def _shown(item_id: str) -> bool:
+        it = live.get(item_id)
+        if it is None or it["archived_at"]:
+            return False  # 回收站项不借关系边还魂
+        return _visible(it["concept_id"])
+
+    out = []
+    for r in conn.execute(
+        "SELECT from_item, to_item, relation_type, lag_days FROM item_relations"
+        " WHERE project_id = ? ORDER BY created_at", (project_id,)).fetchall():
+        # 只对本地端点负责可见性；跨项目对端不在 live 集内，仅放行 id
+        if r["from_item"] in live and not _shown(r["from_item"]):
+            continue
+        if r["to_item"] in live and not _shown(r["to_item"]):
+            continue
+        out.append({"from_item": r["from_item"], "to_item": r["to_item"],
+                    "relation_type": r["relation_type"], "lag_days": r["lag_days"]})
+    return {"project_id": project_id, "relations": out}
+
+
 @router.get("/projects/{project_id}/items/similar")
 def similar_items(project_id: str, title: str, exclude_id: str | None = None,
                   limit: int = 5) -> dict:

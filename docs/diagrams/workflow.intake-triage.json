@@ -1,0 +1,254 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "AgentPM 入流·分诊·执行工作流",
+    "locale": "zh-CN",
+    "output": "intake-triage-workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "triage-main",
+        "label": "分诊主链",
+        "focus": [
+          "request",
+          "intake",
+          "queue",
+          "accept"
+        ],
+        "note": "外部请求如何经入流解析进入分诊队列并被接受。"
+      },
+      {
+        "id": "triage-bypass",
+        "label": "分诊旁路",
+        "focus": [
+          "queue",
+          "decline",
+          "snooze"
+        ],
+        "note": "拒绝与暂缓两条旁路，以及 sweep 到期复浮的回环。"
+      },
+      {
+        "id": "run-governance",
+        "label": "执行与治理",
+        "focus": [
+          "accept",
+          "run",
+          "gate",
+          "approve",
+          "done"
+        ],
+        "note": "看板到 Agent run、阶段门 fail-closed 授权到完成。"
+      }
+    ],
+    "viewBox": [
+      1060,
+      660
+    ]
+  },
+  "lanes": [
+    {
+      "id": "intake",
+      "label": "外部入流"
+    },
+    {
+      "id": "triage",
+      "label": "分诊队列（M117）"
+    },
+    {
+      "id": "board",
+      "label": "看板执行"
+    },
+    {
+      "id": "govern",
+      "label": "治理与旁路",
+      "variant": "exception"
+    }
+  ],
+  "mainPath": [
+    "request",
+    "intake",
+    "queue",
+    "accept",
+    "run",
+    "gate",
+    "done"
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "intake",
+      "col": 0,
+      "type": "external",
+      "label": "外部请求",
+      "sublabel": "邮件 / 通用入流"
+    },
+    {
+      "id": "intake",
+      "lane": "intake",
+      "col": 1,
+      "type": "backend",
+      "label": "入流解析",
+      "sublabel": "概念声明才落分诊",
+      "tag": "intake.received"
+    },
+    {
+      "id": "snooze",
+      "lane": "triage",
+      "col": 1,
+      "type": "messagebus",
+      "label": "💤 暂缓",
+      "sublabel": "1-30 天"
+    },
+    {
+      "id": "queue",
+      "lane": "triage",
+      "col": 2,
+      "type": "backend",
+      "label": "分诊队列",
+      "sublabel": "triage 态 · 报告人"
+    },
+    {
+      "id": "accept",
+      "lane": "triage",
+      "col": 3,
+      "type": "backend",
+      "label": "✅ 接受",
+      "sublabel": "初始态 · 可指派"
+    },
+    {
+      "id": "decline",
+      "lane": "govern",
+      "col": 3,
+      "type": "external",
+      "label": "✕ 拒绝",
+      "sublabel": "入本体 cancelled 组"
+    },
+    {
+      "id": "run",
+      "lane": "board",
+      "col": 4,
+      "type": "backend",
+      "label": "Agent run",
+      "sublabel": "同 item 原子检出锁"
+    },
+    {
+      "id": "gate",
+      "lane": "govern",
+      "col": 4,
+      "type": "security",
+      "label": "阶段门",
+      "sublabel": "fail-closed 挂起"
+    },
+    {
+      "id": "approve",
+      "lane": "govern",
+      "col": 5,
+      "type": "external",
+      "label": "批准",
+      "sublabel": "单次授权"
+    },
+    {
+      "id": "done",
+      "lane": "board",
+      "col": 5,
+      "type": "backend",
+      "label": "完成",
+      "sublabel": "关闭门禁 I78"
+    }
+  ],
+  "edges": [
+    {
+      "from": "request",
+      "to": "intake",
+      "label": "到达",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "from": "intake",
+      "to": "queue",
+      "label": "落分诊队列",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "from": "queue",
+      "to": "accept",
+      "label": "接受并指派",
+      "role": "main",
+      "variant": "emphasis"
+    },
+    {
+      "from": "accept",
+      "to": "run",
+      "label": "上卡 · 让 Agent 做",
+      "role": "main"
+    },
+    {
+      "from": "run",
+      "to": "gate",
+      "label": "到达门位",
+      "role": "main",
+      "variant": "security"
+    },
+    {
+      "from": "gate",
+      "to": "done",
+      "label": "通过后执行至终态",
+      "role": "main"
+    },
+    {
+      "from": "gate",
+      "to": "approve",
+      "label": "挂起等授权",
+      "role": "branch",
+      "variant": "security"
+    },
+    {
+      "from": "approve",
+      "to": "run",
+      "label": "批准后恢复",
+      "role": "return",
+      "variant": "emphasis"
+    },
+    {
+      "from": "queue",
+      "to": "decline",
+      "label": "✕ 拒绝",
+      "role": "branch",
+      "variant": "security"
+    },
+    {
+      "from": "queue",
+      "to": "snooze",
+      "label": "💤 暂缓",
+      "role": "branch"
+    },
+    {
+      "from": "snooze",
+      "to": "queue",
+      "label": "sweep 到期复浮",
+      "role": "return",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分诊语义（M117）",
+      "items": [
+        "只有概念声明的外部入流才落 triage；手工创建落初始态",
+        "拒绝入本体 cancelled 组；暂缓 1-30 天由 sweep 复浮"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "执行与门禁",
+      "items": [
+        "同 item 活跃 run 持原子锁；阶段门 fail-closed 挂起",
+        "完成过关闭门禁 I78：blocks 阻塞者未完拒绝关闭"
+      ]
+    }
+  ]
+}

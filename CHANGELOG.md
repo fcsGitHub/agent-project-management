@@ -9,6 +9,8 @@
 未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.22.0。
 
 ### Added
+- **交互式流程图工件三枚**（M119-I368，archify 技能首次引入）：[系统架构](docs/diagrams/agentpm-architecture.html)（事件账本居中辐辏+单体与密钥边界）、[入流·分诊·执行工作流](docs/diagrams/intake-triage-workflow.html)（分诊主链+拒绝/暂缓旁路+阶段门授权回环）、[工作项生命周期](docs/diagrams/item-lifecycle.html)（task 主链+暂缓复浮+终态回收）——standalone HTML（内嵌 SVG，亮暗双主题/pan-zoom/引导视图/PNG-SVG 导出），事实全部取自仓库实现，showcase 档校验（构图 9 检查零错误）+四视口容纳性+亮暗人工目检；规范 JSON 同目录在案可再生产。
+- **项目级批量关系读面**（M119-I366）：`GET /api/projects/{id}/relations` 一次返回项目内全部工作项关系（项目成员门；隐藏概念项的关系边整体隐去不泄露存在性；回收站项不还魂；跨项目对端只出 id 由前端 getItem 404→🔒 兜住）。
 - **分诊队列报告人与深链**（M118-I363）：items 补 `reporter_id` 列（报告人=item.created 事件的 actor——建表+存量库轻量迁移·rebuild 稳定），分诊队列行显示报告人真源（intake 入流显「外部」、IMAP 已知发件人与手工创建显用户名）；队列标题可点——深链看板抽屉（`?item=` 惯例），决定前先检查描述/附件/评论。
 - **Triage 分诊队列**（M117-I356/I357/I358，候选池①转正·Linear intake 语义）：软件研发本体 task/bug 概念声明 `triage` 分诊中间态（bug 补白名单流转 triage→open/wont_fix 与 open→triage；task 无白名单语义不变）——外部入流（intake token/IMAP 邮件）落分诊等人决定，手工创建仍落概念初始态（行为零变化·未声明 triage 的本体如 generic 零影响）；`POST /api/items/{id}/triage` 三决定：accept（→initial_status+可选指派走 item.assigned 既有链）/decline（→概念 cancelled 组状态按本体解析）/snooze（1-30 天·items.snoozed_until 列+事件投影）；**sweep 第八员到期复浮**（暂缓不是丢弃——automation.swept 计数新增 resurfaced）；队列页 `/p/:pid/triage`「分诊」（行式队列+接受并指派/拒绝/暂缓+「显示已暂缓」开关——读面全走既有 list_items(status=) 零新读端点）；分诊中直接派 Agent 自动出队进 in_progress（引擎可信路径·「派活即接受」如实入档）。
 - **Agent 团队总览面**（M116-I353，Paperclip 吸纳）：`GET /api/agents`（org 级登录门）+ 新页面 `/team`「团队」（rail 常驻导航）——roles YAML 声明（display_name/档位/概念/工具）× agents 治理覆盖层（暂停态/预算）× runs 聚合统计（运行数/成功率/累计 tokens 与成本/最近运行）三源一屏合并；事件溯源红利：统计零新表零埋点，纯读侧 GROUP BY。
@@ -16,6 +18,11 @@
 - **工作项原子检出执行锁**（M116-I352）：`start_run(item_id)` 前置校验——同工作项存在活跃 run（pending/running/interrupted，挂 Gate 等人亦持锁）即 409 带持锁 run_id，终态（succeeded/failed）释放；`runs` 补 `idx_runs_item` 索引（Paperclip atomic task checkout 的翻译——batch_start 会话复用守卫之外的第三层防线，automations 派活同受管辖）。
 
 ### Fixed
+- **关键路径（CPM）方向反转——M33 起关键链与浮动整体标错**（M119-I366）：depends_on 的库内语义是 from=依赖方、to=前置（自动排程/blocked 旗标/重排程传导三个消费方均如此定向），而 critical-path 独自把边建成「依赖方→前置」——截止期从最上游前置向最下游交付物反向传导，零浮动关键链标记错误集合（依赖图琥珀环同错）；**既有测试按同一误读编写（绿而错），本轮一并重写到真实语义**。
+- **依赖图层级倒挂与被阻塞旗标标错对象**（M119-I367）：依赖图页把所有关系的 from 一律当上游——depends_on（from=依赖方）家族拓扑层级倒挂（前置被排到依赖方下方）、「被阻塞」红标落在**前置**头上（前置未完反而绿着）；布局与阻塞判定抽为 `lib/depgraph` 纯函数并以方向契约测试锁定（先移植旧逻辑跑红再修正）。
+- **依赖图页每项一次详情请求的 N+1**（M119-I366/I367）：页面为拼关系面对每个工作项各打一次 `GET /items/{id}`（百项项目每次打开 ≈100 查、任一项变更即全量重打）；现走项目级批量端点一查代之。
+- **阶段图暗色背景与依赖图空态硬编码色**（M119-I367，M114-I341 同族残留）：阶段图背景点阵 `#e7e7ea`、依赖图空态文字 `#64748b` 在暗色主题下是贴在暗底上的亮色拼图——改走 `--color-*` 语义 token 亮暗翻转。
+- **阶段图节点与抽屉显示指派 raw id**（M119-I366/I367）：`/projects/{id}/graph` 任务节点此前不带显示名，图上与详情抽屉显示 `🤖 u_admin` 式 raw id；现随图携带 users.name（一次 IN 批量），图标按 assignee_type 判定不再按 id 前缀嗅探。
 - **归档（回收站）语义对齐族·九处活视图与派生量仍把死项当活项**（M118-I361）：M33 引入软删除后旧查询面未回头核对（M65-I197 预言的清账轮）——项目与组合报表漏斗/逾期清单、健康分三因子、健康趋势事件重放（重放事件流此前根本不含 item.archived/restored，归档前的分被永久拉进后续全部采样点）、阶段图（回收站项永久显示为节点）、CSV 导出（死项照常导出，导回即幽灵复制）、项目克隆（连回收站一起复制）、个人日程（死项还挂日历且可拖拽改期）、标签用量计数——全部与看板/列表/回收站同语义排除。
 - **阶段图隐藏概念项信息泄露**（M118-I361）：`/projects/{id}/graph` 把概念级可见性声明为仅 Owner 可见的工作项标题/指派/状态原样发给无权查看者（list/board/CSV/trash/detail/search 均已过滤，唯独图漏了——M67 读面家族收口）；同修跨项目依赖占位节点借已归档外部项「还魂」。
 - **分诊动作绕过概念可见性**（M118-I361）：`POST /items/{id}/triage` 裸查工作项，项目贡献者可对仅 Owner 可见概念的项做接受/拒绝/暂缓；现与兄弟写面（PATCH/归档/清单/关系）一致返回 404（存在性不泄露）。

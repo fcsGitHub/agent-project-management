@@ -3032,3 +3032,24 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - **I362 性能收口**：`_run_details` 批量版（两个 IN 查询，形状与单条版逐键一致）+notifications 引用事件批量回查；
 - **I363 分诊队列体验**：`items.reporter_id` 列（建表+存量 ALTER+投影 INSERT 逐列核对+list_items/detail 批量与单条富化——M117 snoozed_until 同款三件套）+TriagePage 报告人真源显示（intake→外部）+标题深链看板抽屉+vitest 补枚；
 - **I364 收口**：全量回归+机械防腐+E2E 走查+文档。
+
+## DJ. M119 前置调研：质量轮·流程图显示优化与漏洞修复+archify 流程图工件（2026-10-07）
+
+> v3.0 新增（2026-10-07，用户指令轮「优化流程显示，使用archify技能，优化流程图显示，并进行漏洞修复」）。两条线：**应用内流程图显示面**（GraphView 阶段图 / DependencyGraphPage 依赖图 / TracePage 运行轨迹——TracePage M114 已 token 化本轮复查无残留）盘点+修复；**archify 技能**（standalone 交互式 HTML 图，typed-JSON+validator+showcase 档）首次引入，为项目产出三枚可交付流程图工件。
+
+**盘点一：CPM 关键路径方向反转坐实（本轮最重——连同测试一起从 M33 带病入档）**：`critical_path`（reports.py）建图 `succ[from]=[to]`，而 depends_on 的本库语义是 **from=依赖方（后继）、to=前置**。同库三个消费方全是正确定向：①`add_relation` lag realign（「successor start = predecessor due + 1 + lag」，from=succ）②`list_items` blocked 旗标（I128：`depends_on AND from_item IN (unfinished)`=from 被阻塞）③`propagate_reschedule`（「shift dependents when a predecessor moves」，`WHERE r.to_item = ?`=to 是前置）。CPM 独自反向=截止期从**前置**向**依赖方**传导：最上游前置拿 max_due、最下游交付物被压缩，关键链与浮动整体标错（/deps 琥珀环标记错误集合）。**旧测试口径同样写反**（`_link(a,b)` 被注释读成「b 在 a 后」）——测试绿只证明实现自洽，不证明方向对。
+
+**盘点二：DependencyGraphPage 前端方向反转同族**：页面旧实现把 `e.from` 一律当上游（`up.set(e.to, from)` + blocked 标 `e.to`）——depends_on 家族层级倒挂（前置被排到依赖方下方）、被阻塞旗标标到**前置**头上（前置完成后依赖方仍可能标红、前置未完反而绿着）。blocks 语义（from=阻塞者）恰好蒙对，故单看 blocks 用例不可见。
+
+**盘点三：deps 页 N+1×整项目规模**：relations 只住在 item detail payload（timeline 惯例），页面为拼关系面对**每个工作项各打一次 `GET /items/{id}`**——百项项目每次打开 ≈100 查，queryKey 含 itemIds 故任意项变更即全量重打。M114-I340 批量家族同款（RunsPage/notifications M118 已收口，这是第三个）。
+
+**盘点四：图面硬编码色残留+raw id 显示**：GraphView `Background color="#e7e7ea"`（暗色主题=贴在暗底上的亮色点阵，M114-I341 同族）；DependencyGraphPage 空态文字 `fill="#64748b"`；GraphView 节点抽屉指派徽章显示 raw id（`🤖 u_admin`），图 payload 无显示名——M118-I363 报告人真源同族。
+
+**盘点五：archify 选型**：技能提供 typed-JSON→standalone HTML（内含 SVG+主题切换+pan/zoom+导出），validate/deliver 双命令+visual-check 四视口容纳性检查；schema v2 workflow 为新图首选。定案产出三枚：**architecture**（系统架构：事件账本居中辐辏）、**workflow v2**（入流→分诊→执行主链+旁路）、**lifecycle**（task 状态机：主链+暂缓+终态回收）——事实全部取自仓库（ontology 状态表/M116 原子锁/M117 分诊语义/M118 归档对齐/I78 关闭门禁），不发明。
+
+**定案（M119 = 质量轮·流程图显示优化与漏洞修复+archify 工件，I365-I369）**：
+- **I365 盘点定案**（本节）；
+- **I366 后端**：CPM 方向修正（`succ[to]=[from]` 前置的后继是依赖方——test_critical_path 六枚按真实语义重写先红后绿）+`GET /projects/{pid}/relations` 批量关系读面（M76 读门+M67 概念可见性（本地端点不可见即整边隐去）+回收站不还魂+跨项目只出 id）+graph 端点补 `assignee_name`（users IN 批量，M114 同款）；
+- **I367 前端**：`lib/depgraph.ts` 纯函数抽取（upstreamMap/computeBlocked/computeLevels 方向契约单元可测——**先移植旧反向逻辑跑红 4 枚再修正 9 枚全绿**）+DependencyGraphPage 接 relations 批量端点+N+1 收口+边按 y 归一画线+空态文字 token 化+GraphView 背景 token 化+指派显示名与 assignee_type 图标；
+- **I368 archify 工件**：三枚候选逐次 validate（showcase 档 9 检查+0 error 0 warning）→deliver→visual-check（1440/1600/1920/2048 容纳性+亮暗截图）→人工目检；布局教训：同侧双边必共走廊（events 辐辏重排解）、lifecycle 非主链泳道只有 0..2 列且对齐主链 N+2、**读宽自适应按图形纵横比推**（viewBox 加宽到 ≈1.6 后 readerWidth 1376→960 与通过示例对齐——溢出 366px→1px→0）；
+- **I369 收口**：全量回归+冒烟+vitest+build+机械防腐三件+浏览器 E2E 走查（依赖图方向+graph 显示名实证）+docs 五处+CHANGELOG+HANDOFF。

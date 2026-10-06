@@ -17,7 +17,8 @@ def test_smoke_39_m33_depth(client, tmp_data, isolated_ontologies):
     d = date.today()
     iso = lambda offset: (d + timedelta(days=offset)).isoformat()  # noqa: E731
 
-    # A → B → C chain plus side branch A → D (D finishes early, carries float)
+    # 施工次序 A→B→C（真实方向语义 M119-I366：POST /items/{x}/relations to=p
+    # 读作「x 依赖 p」——B 依赖 A、C 依赖 B），侧支 D 依赖 A 且早早完成带浮动
     a = client.post(f"/api/projects/{pid}/items",
                     json={"concept_id": "task", "title": "A", "start_date": iso(0), "due_date": iso(1)}).json()
     b = client.post(f"/api/projects/{pid}/items",
@@ -25,10 +26,10 @@ def test_smoke_39_m33_depth(client, tmp_data, isolated_ontologies):
     c = client.post(f"/api/projects/{pid}/items",
                     json={"concept_id": "task", "title": "C", "start_date": iso(4), "due_date": iso(5)}).json()
     dd = client.post(f"/api/projects/{pid}/items",
-                     json={"concept_id": "task", "title": "D", "start_date": iso(2), "due_date": iso(3)}).json()
-    for src, dst in ((a, b), (b, c), (a, dd)):
-        assert client.post(f"/api/items/{src['id']}/relations",
-                           json={"to_item": dst["id"], "relation_type": "depends_on"}).status_code == 200
+                     json={"concept_id": "task", "title": "D", "start_date": iso(-4), "due_date": iso(-3)}).json()
+    for dep, pre in ((b, a), (c, b), (dd, a)):
+        assert client.post(f"/api/items/{dep['id']}/relations",
+                           json={"to_item": pre["id"], "relation_type": "depends_on"}).status_code == 200
 
     cp = client.get(f"/api/projects/{pid}/critical-path").json()
     assert set(cp["chain"]) == {a["id"], b["id"], c["id"]}

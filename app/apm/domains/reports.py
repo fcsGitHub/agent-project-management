@@ -925,7 +925,12 @@ def critical_path(project_id: str) -> dict:
     dependency DAG computes each item's latest finish; zero-float items form
     the critical chain. Done/cancelled items and their edges are out of scope
     (the chain is about future risk); a dependency cycle yields an honest
-    cycle flag instead of a partial chain. Pure projection computation."""
+    cycle flag instead of a partial chain. Pure projection computation.
+    M119-I366 方向修正：depends_on 的本库语义是 from=依赖方（后继）、to=前置
+    （与自动排程 lag realign、list_items blocked 旗标、propagate_reschedule
+    三个消费方同向）——后继表挂在前置上，截止期沿「依赖方 → 前置」逆向传导；
+    此前 succ[from]=[to] 把方向建反，deadline 从前置流向依赖方，关键链与浮动
+    整体标错（测试口径同样写反，M119 一并重写到真实语义）。"""
     from apm.domains.projects import require_project
 
     require_project(project_id)
@@ -946,8 +951,9 @@ def critical_path(project_id: str) -> dict:
     indeg: dict[str, int] = {i: 0 for i in ids}
     for r in rels:
         if r["from_item"] in ids and r["to_item"] in ids:
-            succ.setdefault(r["from_item"], []).append((r["to_item"], int(r["lag"])))
-            indeg[r["to_item"]] = indeg.get(r["to_item"], 0) + 1
+            # 前置(to) 的后继是依赖方(from)：后继的工期+lag 吃掉前置的最晚完成
+            succ.setdefault(r["to_item"], []).append((r["from_item"], int(r["lag"])))
+            indeg[r["from_item"]] = indeg.get(r["from_item"], 0) + 1
 
     # Kahn topo order; items trapped in a cycle never surface
     queue = deque(sorted(i for i, d in indeg.items() if d == 0))

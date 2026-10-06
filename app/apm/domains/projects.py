@@ -537,9 +537,19 @@ def get_project_graph(project_id: str) -> dict:
 
     me = _actor()
     _visible = _concept_visible_filter(project_id, me)
-    for item in db.get_conn().execute(
+    rows = db.get_conn().execute(
         "SELECT * FROM items WHERE project_id = ? AND archived_at IS NULL", (project_id,)
-    ).fetchall():
+    ).fetchall()
+    # M119-I366: 指派人显示名随图走——一次 users IN 批量（M114-I340 同款），
+    # 图上节点与抽屉此前显示 raw id（🤖 u_admin），真源是 users.name。
+    human_ids = {r["assignee_id"] for r in rows
+                 if r["assignee_type"] == "human" and r["assignee_id"]}
+    names: dict[str, str] = {}
+    if human_ids:
+        marks = ",".join("?" for _ in human_ids)
+        names = {u["id"]: u["name"] for u in db.get_conn().execute(
+            f"SELECT id, name FROM users WHERE id IN ({marks})", tuple(human_ids)).fetchall()}
+    for item in rows:
         if not _visible(item["concept_id"]):
             continue
         concept = onto.concepts.get(item["concept_id"])
@@ -554,6 +564,9 @@ def get_project_graph(project_id: str) -> dict:
                 "status_group": item["status_group"],
                 "assignee_type": item["assignee_type"],
                 "assignee_id": item["assignee_id"],
+                "assignee_name": (names.get(item["assignee_id"], item["assignee_id"])
+                                  if item["assignee_type"] == "human" and item["assignee_id"]
+                                  else None),
                 "phase": phase,
             }
         )

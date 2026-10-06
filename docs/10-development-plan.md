@@ -3523,9 +3523,39 @@ agent-project-management/
 - DoD：全量 EXIT=0；防腐 ✓；E2E 走查（隔离 8019/4187：队列报告人外部+标题深链直达看板抽屉+看板与阶段图无归档项+CSV/报表对账·截图 docs/m118-*.png ×2）。
 - **满载回归当场抓获 M117 测试自带日期炸弹**（本地午夜引信到点）：test_triage 合成回溯事件用 `date.today()`（本地）造 until 而 sweep 用 `events.utcnow()`（UTC）判窗——本地跨日后 until==UTC today 不再命中 `< today`，白天全绿午夜必红；修=造数锚改服务端时钟（M63-I191/M83-I251 同族第三例入坑列表）。
 
+### M119 · 质量轮·流程图显示优化与漏洞修复+archify 流程图工件（I365-I369，约 1 人日）
+
+> v3.0 新增（2026-10-07，用户指令轮「优化流程显示，使用archify技能，优化流程图显示，并进行漏洞修复」+ docs/01 §DJ）。两条线：应用内流程图显示面盘点修复（GraphView/DependencyGraphPage——TracePage M114 已治理无残留）+ archify 技能首次引入产出三枚 standalone HTML 流程图工件（docs/diagrams/）。核心坐实：**CPM 关键路径方向反转**（M33-I101 起带病入档，与同库自动排程/blocked 旗标/重排程传导三个消费方矛盾，旧测试口径同反——测试绿只证自洽不证方向）+ 依赖图前端同族反向 + deps 页第三个 N+1 + 图面硬编码色残留两处 + graph 指派 raw id。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I365 | 盘点定案：CPM 方向反转（三消费方对照坐实）+依赖图前端反向+deps N+1+硬编码色/raw id+archify 选型与三枚图定案 | docs/01 §DJ | M114 §DE 盘点方法论 | 0.2d |
+| I366 | 后端：CPM 方向修正（succ[to]=[from]·test_critical_path 六枚按真实语义重写先红后绿——修的是测试+实现一对）+`GET /projects/{pid}/relations` 批量关系读面（require_project_read+M67 概念可见性整边隐去+回收站不还魂+跨项目只出 id）+graph 端点补 assignee_name（users IN 批量） | docs/01 §DJ | M33-I101·M76 读门·M67-I201·M114-I340 | 0.3d |
+| I367 | 前端：`lib/depgraph.ts` 纯函数抽取（upstreamMap/computeBlocked/computeLevels——先移植旧反向逻辑跑红 4 枚再修正 9 枚全绿）+DependencyGraphPage 接批量端点收 N+1+边按 y 归一画线+空态 token 化+GraphView 背景 token 化+指派显示名/assignee_type 图标 | docs/01 §DJ | M114-I341 token 化·M118-I363 真源显示 | 0.3d |
+| I368 | archify 三枚工件（docs/diagrams/）：architecture（事件账本辐辏）+workflow v2（入流→分诊→执行）+lifecycle（task 状态机）——逐枚 validate showcase（9 检查 0 error 0 warning）→deliver→visual-check 四视口亮暗→人工目检 | docs/01 §DJ | archify 技能（首次引入） | 0.4d |
+| I369 | 收口：全量回归+冒烟+vitest+build+防腐三件直测+浏览器 E2E 走查+docs 五处+CHANGELOG+HANDOFF 修剪 | — | M118-I364 惯例 | 0.3d |
+
+#### I366 · 后端方向修正+批量读面（0.3d）
+
+- 任务：critical_path 修 succ/indeg 边方向（后继=依赖方挂在前置上，截止期沿「依赖方→前置」逆向传导；公式形状不变——「successor 的工期+lag 吃掉前置的最晚完成」语义本就对）；test_critical_path 重写：_link(x,p) 恒读「x 依赖 p」，四枚语义测试按真实 CPM 重推导（侧支浮动 2 天/lag 参与最晚完成/负浮动也关键/零浮动链）+环与空两枚保留。
+- DoD：先红（旧实现对真实语义 4 枚红）后绿 6/6；relations 端点门禁矩阵（外人 403/匿名 403=项目级读门惯例）+隐藏概念整边隐去（贡献者只见公开边/owner 全见）+rebuild 稳定；graph 节点 assignee_name==users.name。
+- 坑两次自伤：network 模式造用户/入会必须先于切模式（smoke 77 教训）；默认管理员 id 是 `u_admin` 不是 "admin"（登录 401 未断言导致假绿一层）。
+
+#### I367 · 前端方向契约+收口（0.3d）
+
+- DoD：depgraph.test.ts 9 枚（depends_on 方向×5+blocks×2+菱形层级+成环不炸）；tsc 零错；vitest 57→66；DependencyGraphPage 单文件 getItem 扇出删除（details query 整块移除，relations 一查代之）。
+
+#### I368 · archify 工件（0.4d）
+
+- DoD：三枚 validate showcase 全绿（label 重叠/走廊共线/proper-crossing/micro-segment 全零）；deliver SHA-256 回执；visual-check 四视口 containment pass；人工目检亮 1440+暗 2048（workflow 阶段门回边/依赖箭头/暂缓标签完整可读）。
+- 布局教训入档：①同侧双边必共走廊——events 辐辏重排（engine 与 api 同排、proj 居 events 正下、sweep 挪 intake 正下）让三对相邻边变短直边；②lifecycle 非主链泳道列域只有 0..2 且对齐主链 N+2（等待/终态带不放主链 col0 正下方）；③**读宽自适应按图形纵横比推**——viewBox 从 924×660 加宽到 1060×660（≈1.6 与通过示例一致）后 readerWidth 1376→960、溢出 366px→1px→卡片精简后 0；④showcase 校验器抓的全是真实可读性问题（标签压组件/微段/走廊共线）。
+
+#### I369 · 收口（0.3d）
+
+- 任务：全量回归（非 smoke+冒烟+vitest+build）+防腐三件直测（env_doc/写门 **146=76+70** 持平——relations 是读端点不入台账/日期台账）→ docs/01 §DJ+docs/10 §M119+看板行+CHANGELOG+HANDOFF 修剪。
+- DoD：全量 EXIT=0；E2E 走查（隔离环境：依赖图前置在上依赖方在下+被阻塞旗标落在依赖方+阶段图指派显示名·截图 docs/m119-*.png）。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
-
-
 
 > v3.0 新增（2026-10-02，docs/01 §CK 前置调研）。防重查：留观候选维持（graph 入边/dnd 触屏/工件恢复/init_db[--seed-light]）；真实 LLM 轮仍挂起待 key；依赖漂移复核仅 patch/minor 级不构成主题。**候选①转正——阈值已到达**（M91-I277 收口实测累计 3 次/3 轮[M89:1/M90:0/M91:2]）：**证据当场收集（全库 5 个后台线程循环体逐一审读）**——mailer/pusher/scheduler/assets 四处均为「try/except Exception 包住循环体+logger.exception」习语，**唯独 webhooks `_worker_loop` 外层 try 只有 finally 没有 except**——teardown/换代间隙 SELECT 抛 sqlite3.OperationalError（no such table 族）→ 异常穿透 while True → **线程死亡且无人拉起**[测试态=输出噪声；生产态=db 短暂不可用一次即出站 webhook 永久静默的假健康]。**防重查：Python 3.13 Queue.shutdown 不做（本机 3.11.5+零依赖纪律）、sentinel/stop-event 机制位不做（daemon+lifespan 下一行 except 已达「任务死 worker 活」）、非 daemon 改造不做（退出语义变化面大）。**
 
@@ -3898,6 +3928,12 @@ agent-project-management/
 | I362 性能收口 | 已完成 | 2026-10-06 | 2026-10-06 | runs.py `_run_details` 批量版（conversations IN+items IN 两查询收口 list_runs 逐行 2 查询——RunsPage 3s 无条件轮询×默认 100 行≈每 3 秒 200 查·形状与单条 _run_detail 逐键一致）；notifications.py 引用事件批量回查（ref_event_id 集合 1 IN 查询·此前逐行最多 30 查/次×铃铛 10s 轮询）；**全量回归首跑 EXIT=1 抓获两真伤**：①convs dict 存 sqlite3.Row 无 .get（AttributeError×6——单文件绿全量红的兜底价值再证·dict() 收口）②test_triage 合成回溯事件 date.today() 本地锚 vs sweep utcnow 窗——本地午夜引信（M63-I191 同族第三例·修=造数改 events.utcnow 锚） |
 | I363 分诊队列体验 | 已完成 | 2026-10-06 | 2026-10-06 | items.reporter_id 列（schema 建表+db.py 存量 ALTER+投影 INSERT 22 列/21 占位逐列核对——报告人=item.created 的 e.actor_id·rebuild 稳定）+_with_assignee_names 批量与 _with_assignee_name 单条扩 reporter_name（同一 users IN 查询收口·intake 保持 raw id）；TriagePage 报告人真源显示（intake→外部/用户→显示名/旧数据→—）+标题改 Link 深链 `/p/:pid/board?item=`（M18 惯例·title 提示「打开看板抽屉」）；api.ts Item 类型补 reporter 双键；test_queue_surfaces_reporter 先红后绿+TriagePage vitest 第四枚（报告人外部/用户名+深链 href 断言） |
 | I364 收口 | 已完成 | 2026-10-06 | 2026-10-06 | 全量回归[非 smoke **541 EXIT=0**（+test_archive_semantics 8+test_triage 2·convs 修复+日期炸弹拆弹后重跑——改动跑全量纪律）+冒烟 runner **98 GREEN**+vitest **57**+build EXIT=0（precache 45 持平）] + 机械防腐三件直测[env_doc ✓/写门 **146=76+70** 持平 ✓/日期台账 **7 文件** ✓（test_archive_semantics 被 health/history 引用点名——②静态实体锚登记：due=2026-01-01 恒为过去·断言对象是归档排除非窗口成员资格）] + 浏览器 E2E 走查（隔离 8019/4187·urllib 造数：队列报告人外部+标题深链 href→直达 URL 开看板抽屉实证[IAB 合成点击对 hash 路由链接拦截族·已知坑非缺陷]+看板无归档项+阶段图三活项节点归档项消失+CSV 0 命中死项+报表漏斗只数活项·截图 docs/m118-triage-reporter.png+m118-graph-no-archived.png·走查完 vite 代理 git checkout 还原+4187 node 残留按端口 PID taskkill） + docs 五处（§DI/§M118/看板六行/CHANGELOG Added×1+Fixed×4+Changed×1/HANDOFF 修剪）；v0.22.0 攒批第三轮 |
+| **M119 质量轮·流程图显示优化与漏洞修复+archify 流程图工件（I365-I369）** | 已完成 | 2026-10-07 | 2026-10-07 | 5 迭代 / 约 1 人日（用户指令轮「优化流程显示，使用archify技能，优化流程图显示，并进行漏洞修复」+ docs/01 §DJ + docs/10 §M119）：五路盘点→①**CPM 关键路径方向反转坐实**（M33-I101 起带病入档：succ[from]=[to] 而库语义 from=依赖方/to=前置——同库自动排程 lag realign/blocked 旗标/重排程传导三消费方全对唯独 CPM 反向·**旧测试按同一误读编写绿而错**：测试绿只证自洽不证方向）/②依赖图前端同族反向（e.from 一律当上游：depends_on 层级倒挂+被阻塞旗标标到前置头上·blocks 恰好蒙对故单看不可见）/③deps 页第三个 N+1（relations 只住 detail payload→每项一次 getItem·百项≈100 查）/④图面硬编码色残留两处（GraphView Background #e7e7ea+deps 空态 #64748b·M114-I341 同族）+graph 指派 raw id/⑤archify 选型定案三枚图。→ I366 后端方向修正+批量关系读面+assignee_name/I367 lib/depgraph 方向契约（先移植旧反向逻辑跑红 4 枚再修正 9 枚全绿）+N+1 收口+token 化/I368 archify 三枚工件 showcase 验收/I369 收口[隔离走查实证：依赖图前置在上依赖方在下+被阻塞旗标落依赖方+关键链环在主体工程·抽屉「👤 小王」——**首屏截图曾拿旧构建当证据**（preview 服 dist 未重建·重建+清 SW 后翻转实证）]。基线 pytest 541→**544**（+test_project_relations_read 3）/冒烟 98/vitest 57→**66**（+depgraph 9）/build 绿 precache 45 持平/写门 **146=76+70** 持平 ✓（relations 是读端点不入台账）/日期台账 **7 文件** ✓；v0.22.0 攒批第四轮（不 tag——攒批已四轮·发布收口轮临近） |
+| I365 盘点定案 | 已完成 | 2026-10-07 | 2026-10-07 | docs/01 §DJ 五路盘点（CPM 方向三消费方对照/deps 前端反向/N+1/硬编码色+raw id/archify 选型）+定案 I365-I369；TracePage M114 已治理复查无残留 |
+| I366 后端方向修正+批量读面 | 已完成 | 2026-10-07 | 2026-10-07 | critical_path 建图方向修正（succ[to]=[from]·公式形状不变「successor 工期+lag 吃掉前置的最晚完成」）+test_critical_path 六枚按真实语义重写（_link(x,p) 恒读「x 依赖 p」·侧支浮动 2 天/lag 参与最晚完成/负浮动也关键/零浮动链+环与空——**先红后绿：旧实现对真实语义红**）+`GET /projects/{pid}/relations`（require_project_read+隐藏概念整边隐去+回收站不还魂+跨项目只出 id·test_project_relations_read 三枚：门禁矩阵/隐藏与归档/rebuild 稳定）+graph 端点 assignee_name（users IN 批量）；坑两记：network 模式造用户/入会先于切模式（smoke 77）+默认管理员 id=`u_admin` 非 "admin"（登录未 assert=假绿一层） |
+| I367 前端方向契约+收口 | 已完成 | 2026-10-07 | 2026-10-07 | lib/depgraph.ts 抽取（upstreamMap/computeBlocked/computeLevels——**红绿法：先按页面旧反向逻辑实现跑 vitest，4 枚方向用例红**·修正后 9 枚全绿）+DependencyGraphPage 接 relations 批量端点（details N+1 query 整块删除）+边按 y 归一画线（方向修正后 from 在下按 y 翻转起止）+空态 fill token 化+GraphView Background token 化+TaskNode 按 assignee_type 定图标+抽屉显示名；tsc 零错 vitest 66 |
+| I368 archify 三枚工件 | 已完成 | 2026-10-07 | 2026-10-07 | docs/diagrams/ 三枚 standalone HTML+规范 JSON：**architecture**（事件账本居中辐辏·单体 region+密钥边界 security-group·10 组件 10 连接 3 卡）/ **workflow v2**（入流→分诊→执行主链+拒绝/暂缓旁路+阶段门授权回环·4 泳道 10 节点）/ **lifecycle**（task 主链 5 态+暂缓带+终态回收带·9 迁移）；逐枚 validate showcase（9 检查 0 error 0 warning·label 重叠/走廊共线/proper-crossing/micro-segment 全零——诊断驱动修复：events 辐辏重排解同侧双边走廊+bottom-channel 分层通道）→deliver（SHA-256 回执）→visual-check 四视口 containment+亮暗截图→人工目检 6 张；**读宽自适应按图形纵横比推**：workflow viewBox 924×660→1060×660（≈1.6 对齐通过示例）后 readerWidth 1376→960 溢出 366px→1px→卡片精简归零；lifecycle「暂缓」标签骑 viewBox 左缘被裁→labelAt 移入画布 |
+| I369 收口 | 已完成 | 2026-10-07 | 2026-10-07 | 全量回归[非 smoke **544 EXIT=0**（collect-only 544 对账=541+3）+冒烟 runner **98 GREEN**（**首跑 RED 96/98——smoke_39/46 两枚钉的是 CPM 旧反向口径**[smoke 46 注释自书「from_item is the prerequisite」与 I78 blocked SQL 自相矛盾]：夹具按真实语义重写保叙事[施工次序 A→B→C+侧支 D 早完成带浮动/smoke 46 链 it→a→b 全零浮动·边断言从入边改出边]·**I78 前提演进纪律+M83「迁移面含 tests/smoke」再证·重跑全绿**）+vitest **66**+build EXIT=0 precache 45 持平] + 机械防腐三件直测[env_doc ✓/写门 **146=76+70** 持平 ✓（relations 读端点不入台账）/日期台账 **7 文件** ✓] + 浏览器 E2E 走查（隔离 8020/4188·urllib 造数：depends_on 地基←主体+blocks 阻塞者→被阻塞+CPM 关键链+graph 指派小王——API 实证 chain=[主体] float 地基+2/blocked 旗标落依赖方与被阻塞者/依赖图**前置在上依赖方在下+被阻塞·关键链琥珀环落主体**[首屏旧构建假证→重建+清 SW 后翻转实证]/抽屉「👤 小王」·截图 docs/m119-deps-direction.png+m119-graph-assignee-name.png·vite 代理 git checkout 还原+8020/4188 按 PID taskkill） + docs 五处（§DJ/§M119/看板六行/CHANGELOG Added×2+Fixed×5/HANDOFF 修剪+坑+4）；v0.22.0 攒批第四轮 |
 | **M117 Triage 分诊队列轮（I356-I359）** | 已完成 | 2026-10-06 | 2026-10-06 | 4 迭代 / 约 1 人日（用户指令轮「继续实现，优化迭代」+ docs/01 §DH + docs/10 §M117）：HANDOFF 候选池①转正——Linear Triage 语义八行表定案（分诊态属本体·外部入流才入队·decline 按本体 cancelled 组解析·snooze=sweep 复浮）→ I356 本体声明[task/bug 增 triage 态·**bug 补白名单三对而 task 只加状态**（task 无白名单=undeclared=open·加 transitions 反锁死）]/I357 后端分诊域[snoozed_until 列+事件投影+triage 决定端点（中间件 id-path 管辖·台账零新增·写门 145→146=76+70）+intake/IMAP 落点解析（概念声明才落·generic 零变化）+**sweep 第八员到期复浮**]/I358 TriagePage 队列页（行式队列+接受并指派/拒绝/暂缓+显示已暂缓开关——读面零新端点）；排除三项登记（duplicate=既有组合面/责任轮换=语义薄留观/triage rules=自动化已表达）。基线 pytest 522→**531**（+test_triage 9）/冒烟 98 持平/vitest 53→**56**（+TriagePage 3）/build 绿 precache 44→45/写门 **146=76+70** ✓/防腐三件 ✓；v0.22.0 攒批第二轮（不 tag） |
 | I356 调研定案+本体 | 已完成 | 2026-10-06 | 2026-10-06 | docs/01 §DH：语义源=Linear Triage（§DF 调研在案）+Paperclip intake→派活互证（外部请求进组织先过人审再派 Agent）→八行翻译表+四处接线点核实（intake:147/imap:138,148 落点·change_status:262 校验链·_move_item 引擎旁路·sweep 678 计数链）；本体：task 增 `{id: triage, name: 分诊中, group: backlog}`（无 transitions 声明——语义复核后只加状态）+bug 增同态并补白名单 triage→open/triage→wont_fix/open→triage |
 | I357 后端分诊域 | 已完成 | 2026-10-06 | 2026-10-06 | triage.py：item.triage_snoozed 投影（snoozed_until 唯一写者）+intake_landing_status 落点解析+`POST /items/{id}/triage`（accept=change_status→initial_status+可选 item.assigned 指派/decline=本体 cancelled 组状态/snooze=1-30 天·409 非分诊态·422 守卫·决定清暂缓）；schema items.snoozed_until+db.py 存量 ALTER；intake.py/imap_in.py 两路三处落点接线；automations `_resurface_triage` 第八员（automation.swept 计数+resurfaced·幂等=清后 WHERE 不再命中）；**E2E 走查抓获 `GET /items?status=` 半传静默忽略**（get_items 端点签名从未接 status 显式参——只有保存视图路径能带·R1 留观②同族·先红[测试加非分诊项照亮]后绿补接线）；test_triage 九枚+smoke_38 桶对账前提按组演进（triage 与 open 同 backlog 组·I78 纪律） |

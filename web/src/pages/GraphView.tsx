@@ -42,7 +42,7 @@ function GateNode({ data }: NodeProps) {
 }
 
 function TaskNode({ data }: NodeProps) {
-  const d = data as { label: string; status_group: string; status: string; assignee?: string; conv?: string };
+  const d = data as { label: string; status_group: string; status: string; assignee_type?: string; assignee_name?: string; conv?: string };
   return (
     <div className={cx(
       "min-w-36 rounded-lg border px-2.5 py-1.5 text-left text-[11px] shadow-sm",
@@ -52,7 +52,7 @@ function TaskNode({ data }: NodeProps) {
     )}>
       <Handle type="target" position={Position.Left} style={{ visibility: "hidden" }} />
       <div className="flex items-center gap-1 font-medium">
-        <span>{d.assignee?.startsWith("agent") || !d.assignee ? "🤖" : "👤"}</span>
+        <span>{d.assignee_type === "agent" ? "🤖" : "👤"}</span>
         <span className="truncate">{d.label}</span>
       </div>
       <div className="mt-0.5 flex items-center gap-1 text-[10px] text-mut">
@@ -124,7 +124,8 @@ export function GraphView() {
           position: { x: 80 + (phaseIdx - 1) * 210, y: 210 + (idx % 6) * 64 },
           data: {
             label: String(n.label), status: String(n.status), status_group: String(n.status_group),
-            assignee: n.assignee_id ? String(n.assignee_id) : undefined,
+            assignee_type: n.assignee_type ? String(n.assignee_type) : undefined,
+            assignee_name: n.assignee_name ? String(n.assignee_name) : undefined,
             conv: itemRun.get(n.id)?.conversation_id,
           },
         });
@@ -159,7 +160,9 @@ export function GraphView() {
           fitView
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={20} color="#e7e7ea" />
+          {/* M119-I366: 背景点走语义 token——硬编码 #e7e7ea 在暗色主题下是
+              贴在暗底上的亮色拼图（M114-I341 同族收口） */}
+          <Background gap={20} color="var(--color-line, #e7e7ea)" />
           <Controls showInteractive={false} />
         </ReactFlow>
       ) : (
@@ -187,7 +190,12 @@ function NodeDrawer({ node, onClose, pid, runs }: {
           <>
             <div className="flex gap-2">
               <Badge tone={GROUP_TONE[String(node.status_group)]}>{String(node.status ?? "")}</Badge>
-              {node.assignee_id ? <Badge tone="violet">🤖 {String(node.assignee_id)}</Badge> : null}
+              {node.assignee_id ? (
+                <Badge tone="violet">
+                  {node.assignee_type === "agent" ? "🤖" : "👤"}{" "}
+                  {String(node.assignee_name ?? node.assignee_id)}
+                </Badge>
+              ) : null}
             </div>
             <div className="text-xs font-semibold text-mut">绑定对话与运行（{related.length}）</div>
             {related.slice(0, 6).map((r) => (

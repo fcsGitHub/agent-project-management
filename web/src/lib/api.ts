@@ -564,6 +564,9 @@ export const api = {
     req<{ phases: { id: string; name: string; gate?: string; gate_label?: string; status: string }[] }>(`/projects/${id}/phases`),
   getGraph: (id: string) =>
     req<{ nodes: { id: string; kind: string; label: string; [k: string]: unknown }[]; edges: { source: string; target: string; kind: string }[] }>(`/projects/${id}/graph`),
+  // M119-I366: 依赖图批量关系读面（页面对每项各打一次 getItem 的 N+1 收口）
+  listRelations: (pid: string) =>
+    req<{ project_id: string; relations: { from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[] }>(`/projects/${pid}/relations`),
   deliver: (id: string) => req<{ conversation_id: string; run_id: string }>(`/projects/${id}/deliver`, { method: "POST" }),
 
   listFeatures: (pid: string) => req<{ features: Feature[] }>(`/projects/${pid}/features`),

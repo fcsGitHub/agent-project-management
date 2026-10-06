@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AgentPM 系统架构",
+    "locale": "zh-CN",
+    "output": "agentpm-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "event-spine", "label": "事件主线", "focus": ["spa", "api", "events", "proj"], "note": "从界面操作到 append-only 账本、再到投影读模型的写读闭环。" },
+      { "id": "agent-loop", "label": "Agent 执行环", "focus": ["api", "engine", "llm", "events"], "note": "run 请求如何进入 LangGraph 运行时并触达 LLM，run.* 事件再落账本。" },
+      { "id": "intake-path", "label": "外部入流", "focus": ["imap", "intake", "events", "sweep"], "note": "邮件入流变成事件进入分诊队列读面；定时清扫负责到期复浮。" }
+    ]
+  },
+  "components": [
+    { "id": "user", "type": "external", "label": "用户", "sublabel": "浏览器 / 邮件", "pos": [40, 150], "size": [120, 60] },
+    { "id": "spa", "type": "frontend", "label": "Web SPA", "sublabel": "React + TS · 轮询", "pos": [250, 150], "size": [140, 60], "tag": "web/" },
+    { "id": "api", "type": "backend", "label": "FastAPI 域路由", "sublabel": "读门 / 写门台账", "pos": [520, 150], "size": [150, 64], "tag": "app/apm/domains" },
+    { "id": "engine", "type": "backend", "label": "Agent 运行时", "sublabel": "LangGraph · 阶段门挂起", "pos": [790, 150], "size": [140, 64] },
+    { "id": "llm", "type": "external", "label": "LLM 提供方", "sublabel": "密钥运行时注入", "pos": [990, 150], "size": [130, 60] },
+    { "id": "imap", "type": "external", "label": "邮箱", "sublabel": "IMAP 拉信", "pos": [40, 320], "size": [120, 60] },
+    { "id": "intake", "type": "backend", "label": "外部入流", "sublabel": "概念声明才落分诊", "pos": [250, 320], "size": [140, 60] },
+    { "id": "events", "type": "database", "label": "事件账本", "sublabel": "append-only · 可 rebuild", "pos": [520, 320], "size": [150, 64] },
+    { "id": "sweep", "type": "messagebus", "label": "定时清扫", "sublabel": "八员 · 到期复浮", "pos": [250, 470], "size": [140, 60] },
+    { "id": "proj", "type": "backend", "label": "投影器", "sublabel": "@on 订阅 → 读模型", "pos": [520, 470], "size": [150, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "AgentPM 单体 · FastAPI + SQLite", "wraps": ["api", "engine", "intake", "events", "sweep", "proj"] },
+    { "kind": "security-group", "label": "密钥边界 · APM_LLM_API_KEY 永不进仓库", "wraps": ["engine", "llm"] }
+  ],
+  "connections": [
+    { "id": "user-spa", "from": "user", "to": "spa", "label": "HTTPS" },
+    { "id": "spa-api", "from": "spa", "to": "api", "label": "REST /api 轮询", "variant": "emphasis" },
+    { "id": "imap-intake", "from": "imap", "to": "intake", "label": "IMAP 拉信", "variant": "dashed" },
+    { "id": "intake-events", "from": "intake", "to": "events", "label": "intake.received 事件", "labelDy": -14 },
+    { "id": "api-events", "from": "api", "to": "events", "label": "写事件 append-only", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelDy": 24 },
+    { "id": "events-proj", "from": "events", "to": "proj", "label": "@on 订阅投影", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelDy": 24 },
+    { "id": "api-engine", "from": "api", "to": "engine", "label": "start_run · 同项原子锁" },
+    { "id": "engine-llm", "from": "engine", "to": "llm", "label": "工具调用", "variant": "security" },
+    { "id": "engine-events", "from": "engine", "to": "events", "label": "run.* 事件" },
+    { "id": "sweep-intake", "from": "sweep", "to": "intake", "label": "到期复浮回队列", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "事件溯源", "items": ["一切状态变化 = 事件；投影可整库 rebuild", "读面零埋点：list/board/report 全部走投影与事件重放", "归档 / 复浮语义同样进入重放（M118）"] },
+    { "dot": "emerald", "title": "门禁与治理", "items": ["写门台账 146 = 76+70 机械对账", "M67 概念可见性：隐藏概念 404 不泄露存在性", "项目级读门按成员制，匿名与外人同判 403"] },
+    { "dot": "amber", "title": "执行与密钥", "items": ["run 挂阶段门 fail-closed · 单次授权", "同 item 活跃 run 原子检出锁（M116）", "工件落 commit 制内容仓；LLM 密钥运行时注入，永不进仓库"] }
+  ]
+}
