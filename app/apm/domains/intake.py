@@ -20,6 +20,7 @@ from apm.core.projections import on
 from apm.domains.items import create_item
 from apm.domains.members import is_instance_admin, member_role
 from apm.domains.projects import require_project
+from apm.domains.triage import intake_landing_status
 
 router = APIRouter(tags=["intake"])
 
@@ -144,11 +145,15 @@ def submit_intake(token: str, body: IntakeIn) -> dict:
     project_id = row["project_id"]
     require_project(project_id)  # 404 for unknown project; archived → 409 via guard
 
+    concept_id = row["concept_id"] or "task"
     item = create_item(
         project_id=project_id,
-        concept_id=row["concept_id"] or "task",
+        concept_id=concept_id,
         title=title,
         priority=priority,
+        # M117-I357: 概念声明 triage 态则外部入流落分诊等人决定（generic
+        # 等未声明本体缺省 initial_status，行为零变化）。
+        status=intake_landing_status(project_id, concept_id),
         actor_type="intake",
         actor_id="intake",
     )

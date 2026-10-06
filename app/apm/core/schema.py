@@ -157,7 +157,8 @@ CREATE TABLE IF NOT EXISTS items (
   checklist TEXT,
   description TEXT,
   labels TEXT,
-  archived_at TEXT
+  archived_at TEXT,
+  snoozed_until TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_items_project ON items(project_id);
 CREATE INDEX IF NOT EXISTS idx_items_feature ON items(feature_id);

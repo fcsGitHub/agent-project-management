@@ -44,15 +44,16 @@ def test_smoke_38_m32_engine_intake(client, tmp_data, isolated_ontologies):
     assert client.post("/api/intake/itk_forged", json={"title": "伪造"}).status_code == 401
 
     # --- 3) grouping data source: status counts & spent totals reconcile ------
-    # group the list by status in memory the way the UI does, then compare each
-    # non-empty board bucket's count with the same-status list group
+    # group the list by status GROUP in memory the way the UI does, then compare
+    # each non-empty board bucket's count with the same-group list group.
+    # M117-I356: triage 与 open 同属 backlog 组（分诊中间态不另开桶）——对账
+    # 维度从「首项状态」改为组（桶本就是 status_group 语义，I78 纪律前提演进）。
     resp = client.get(f"/api/projects/{pid}/board").json()
     listed = client.get(f"/api/projects/{pid}/items").json()["items"]
     for b in resp["buckets"]:
         if not b["items"]:
             continue
-        group_status = b["items"][0]["status"]
-        assert len([i for i in listed if i["status"] == group_status]) == len(b["items"])
+        assert len([i for i in listed if i["status_group"] == b["id"]]) == len(b["items"])
     spent_total = sum(i.get("spent_minutes") or 0 for i in listed)
     assert spent_total >= 0  # the group-header ⏱ aggregate source is present
 

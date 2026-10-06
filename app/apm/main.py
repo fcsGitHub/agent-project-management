@@ -191,6 +191,7 @@ def create_app() -> FastAPI:
     from apm.domains.stream import router as stream_router
     from apm.domains.system import router as system_router
     from apm.domains.template_packs import router as template_packs_router
+    from apm.domains.triage import router as triage_router
     from apm.domains.users import router as users_router
     from apm.domains.webhooks import router as webhooks_router
 
@@ -233,6 +234,7 @@ def create_app() -> FastAPI:
     app.include_router(assets_router, prefix="/api")
     app.include_router(runs_router, prefix="/api")
     app.include_router(agents_router, prefix="/api")
+    app.include_router(triage_router, prefix="/api")
     app.include_router(orchestrator_router, prefix="/api")
     app.include_router(comments_router, prefix="/api")
     app.include_router(timelog_router, prefix="/api")

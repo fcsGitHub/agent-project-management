@@ -903,6 +903,7 @@ def get_items(
     feature_id: str | None = None,
     concept_id: str | None = None,
     status_group: str | None = None,
+    status: str | None = None,
     assignee_id: str | None = None,
     priority: str | None = None,
     cycle: str | None = None,
@@ -925,8 +926,10 @@ def get_items(
         base = {k: v["definition"][k] for k in
                 ("feature_id", "concept_id", "status_group", "status", "assignee_id", "priority", "cf")
                 if k in v["definition"]}
+    # M117-I357: status 显式参数补接线——E2E 走查抓获半传静默忽略（此前只有
+    # 保存视图路径能带 status，?status= 被 FastAPI 直接丢弃——R1 留观②同族）。
     explicit = {"feature_id": feature_id, "concept_id": concept_id, "status_group": status_group,
-                "assignee_id": assignee_id, "priority": priority, "cf": cf}
+                "status": status, "assignee_id": assignee_id, "priority": priority, "cf": cf}
     merged = {**base, **{k: v for k, v in explicit.items() if v is not None}}
     items = list_items(
         project_id=project_id,

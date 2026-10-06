@@ -22,6 +22,7 @@ from apm.core.ids import new_id
 from apm.core.projections import on
 from apm.domains.items import create_item
 from apm.domains.members import is_instance_admin
+from apm.domains.triage import intake_landing_status
 
 router = APIRouter(tags=["imap"])
 
@@ -137,6 +138,8 @@ def _route_message(conn, msg: dict) -> dict:
             return {"routed": "skipped", "reason": "no visible project", "user_id": user_id}
         item = create_item(
             project_id=project_id, concept_id="task", title=title[:200],
+            # M117-I357: 邮件入流同走分诊落点（概念声明时）。
+            status=intake_landing_status(project_id, "task"),
             actor_type="human", actor_id=user_id,
         )
         _attach_body(item["id"], project_id, user_id, author_name, msg.get("body"))
@@ -147,6 +150,7 @@ def _route_message(conn, msg: dict) -> dict:
     if fallback:  # unknown sender but a drop-box project is configured
         item = create_item(
             project_id=fallback, concept_id="task", title=title[:200],
+            status=intake_landing_status(fallback, "task"),
             actor_type="intake", actor_id="intake",
         )
         _attach_body(item["id"], fallback, "intake", "intake", msg.get("body"))

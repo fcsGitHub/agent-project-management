@@ -2957,3 +2957,37 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 - **团队模板**——模板包覆盖项目侧；角色为实例级全局 YAML，模板化价值低。
 
 定案 **M116 = Paperclip 吸纳轮（I351-I355）**；v0.22.0 攒批第一轮。
+
+## DH. M117 前置调研：Triage 分诊队列——候选池①转正（2026-10-06）
+
+> 目标协议触发：用户指令（2026-10-06）「继续实现，优化迭代」——HANDOFF §4 候选池首位转正（M115 排除登记原话：「最有 Linear 特色但牵涉 intake 语义+本体状态联动+队列视图+accept/decline 动作，值得独立成轮」）。语义源=Linear Triage（M115 §DF 调研在案：Triage 队列 accept/decline/duplicate/snooze+责任轮换+triage rules）；外部视角互证=Paperclip intake→派活链（§DG：外部请求进组织先过人审再派 Agent——分诊正是「人指挥」的第一道闸）。方法：语义定案 → 本体声明 → 代码核实接线点四处（intake 落点/IMAP 落点/change_status 校验链/sweep 节拍）→ 先红后绿。
+
+**语义定案（Linear Triage → AgentPM 翻译）**：
+
+| Linear 语义 | AgentPM 翻译 | 裁决 |
+| --- | --- | --- |
+| Triage 是 issue 的中间态（入队→决定→出队） | 本体状态 `triage`（task/bug 概念声明，group=backlog）——**状态属本体而非独立域**（小本体主义：状态机是本体的职责） | 吸纳 |
+| accept（进正常流转） | `POST /items/{id}/triage {action:accept}` → change_status 走概念 initial_status（task→open/bug→open）+可选指派 | 吸纳 |
+| decline（不要了） | action:decline → 概念 cancelled 组状态（task→cancelled/bug→wont_fix） | 吸纳 |
+| snooze（N 天后再见） | action:snooze → `items.snoozed_until` 列+`item.triage_snoozed` 事件；**sweep 复浮**（到期自动清暂缓重新入队——「暂缓」不是「丢弃」） | 吸纳 |
+| duplicate（合并重复） | M115-I346 相似提示+`duplicates` 关系内核已有（M49）——组合既有面可达 | 排除（不重复建） |
+| 责任轮换（triage rotate） | 单用户实例语义薄——等真实多成员使用证据 | 排除（留观） |
+| triage rules（自动分诊规则） | 三段式自动化已可表达（item.created+condition→assign/set_field）——不造第二套 | 排除（M113 同构裁决） |
+| 外部请求全部入队 | intake（M32）与 IMAP（M35）落点改 `triage`（概念声明时）；**手工创建不入队**（states[0] 语义不变——initial_status=states[0]，triage 不放首位） | 吸纳（落点收窄到外部入流） |
+
+**代码核实（接线点四处坐实）**：
+1. **intake.py:147 / imap_in.py:138,148** 三处 create_item 均不传 status（落 initial_status）——需加「概念声明 triage 则落 triage」的落点解析（generic.yaml 无 triage 声明 → 行为不变，零破坏）。
+2. **change_status（items.py:262）** 走 validate_item_status+transition 白名单——accept/decline 声明 `triage→open/cancelled|wont_fix` 与 `open→triage`（再入队）即全链合法。
+3. **引擎旁路既存**：_move_item 直发 item.status_changed 不过白名单（引擎移动是可信路径）——**从 triage 直接派 Agent 会自动出队进 in_progress**，与「派活即接受」的直觉一致，如实入档不另设门。
+4. **sweep（automations.py run_daily_sweep）** 第八员挂点在 678-685 计数链——复浮=查 `snoozed_until < today AND status='triage'` 清暂缓（幂等：清后再清无 diff）。
+5. **（走查后补记·如实修正）队列读面的调研只核到 list_items 函数层**（status 过滤在函数签名里有）——HTTP 端点 get_items 的 status 显式查询参数从未接线（只有保存视图路径能带），`?status=` 半传被静默忽略；浏览器 E2E 走查（已接受项仍留队列）照亮后先红后绿补接线（R1 留观②同族——「过滤参数半传」是横切缺陷族，端点级核对应进调研清单）。
+
+**吸纳定案（M117 = Triage 分诊队列轮，I356-I359）**：
+- **I356 调研定案+本体声明**：software-dev task/bug 增 `triage` 状态（group=backlog）+流转三对（triage→open/triage→cancelled|wont_fix/open→triage）。
+- **I357 后端分诊域**：items.snoozed_until 列（建表+存量 ALTER）+item.triage_snoozed 事件投影+`POST /api/items/{id}/triage`（accept/decline/snooze·409 非分诊态·中间件 id-path 白名单天然管辖）+intake/IMAP 落点解析+sweep 第八员复浮。
+- **I358 前端队列视图**：TriagePage（/p/:pid/triage·rail「分诊」）行式队列（标题/概念/优先级/报告人/暂缓徽标）+接受/拒绝/暂缓动作+「显示已暂缓」开关——读面全走既有 list_items(status=)（红利：零新读端点）。
+- **I359 收口**：全量回归+机械防腐+文档+HANDOFF。
+
+**如实排除**：duplicate（既有组合面）/责任轮换（语义薄留观）/triage rules（自动化已表达）——登记附录 C。
+
+定案 **M117 = Triage 分诊队列轮（I356-I359）**；v0.22.0 攒批第二轮。

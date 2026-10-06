@@ -35,6 +35,11 @@ concepts:
       - {id: awaiting_review, name: 待评审, group: in_progress}
       - {id: done, name: 完成, group: done}
       - {id: cancelled, name: 取消, group: cancelled}
+      # M117-I356: Triage 分诊中间态（Linear intake 语义）——外部入流
+      # （intake/IMAP）落此态等人决定；accept→open / decline→cancelled。
+      # task 无 transitions 声明=白名单未启用（M26-I82 undeclared=open），
+      # 全流转本就放行，triage 出入无需声明。
+      - {id: triage, name: 分诊中, group: backlog}
     fields:
       - {id: estimate_hours, name: 预估工时, type: number}
       - {id: tags, name: 标签, type: multiselect, values: [frontend, backend, infra]}
@@ -55,6 +60,9 @@ concepts:
       - {id: fixed, name: 已修复, group: in_progress}
       - {id: verified, name: 已验证, group: done}
       - {id: wont_fix, name: 不予修复, group: cancelled}
+      # M117-I356: Triage 分诊中间态——bug 有 M26 白名单，出入须声明：
+      # 接受→open / 拒绝→wont_fix / open→triage 再入队。
+      - {id: triage, name: 分诊中, group: backlog}
     # M26-I82: a bug must be fixed (and normally verified) before closing —
     # no direct open→verified skip. Undeclared pairs stay illegal (whitelist).
     transitions:
@@ -65,6 +73,9 @@ concepts:
       - {from: fixed, to: verified}
       - {from: fixed, to: fixing}
       - {from: fixed, to: wont_fix}
+      - {from: triage, to: open}
+      - {from: triage, to: wont_fix}
+      - {from: open, to: triage}
     fields:
       - {id: severity, name: 严重度, type: enum, values: [P0, P1, P2, P3]}
       - {id: regression, name: 回归风险, type: boolean}

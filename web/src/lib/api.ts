@@ -43,6 +43,7 @@ export type Item = {
   checklist?: string | null;
   description?: string | null;
   labels?: string[] | null;
+  snoozed_until?: string | null;  // M117: triage 暂缓（到期 sweep 复浮）
   spent_minutes?: number;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[];
@@ -586,14 +587,20 @@ export const api = {
   putContext: (cid: string, level: "L1" | "L3", content: string) =>
     req<Context>(`/conversations/${cid}/context/${level}`, { method: "PUT", body: JSON.stringify({ content }) }),
 
-  listItems: (pid: string, params?: { feature_id?: string; limit?: number; offset?: number }) => {
+  listItems: (pid: string, params?: { feature_id?: string; status?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams();
     if (params?.feature_id) q.set("feature_id", params.feature_id);
+    if (params?.status) q.set("status", params.status);
     if (params?.limit != null) q.set("limit", String(params.limit));
     if (params?.offset != null) q.set("offset", String(params.offset));
     const qs = q.toString();
     return req<{ items: Item[]; total: number }>(`/projects/${pid}/items${qs ? `?${qs}` : ""}`);
   },
+  // M117-I357: triage decisions (Linear intake semantics)
+  triageItem: (iid: string, action: "accept" | "decline" | "snooze", opts?: { days?: number; assignee_id?: string }) =>
+    req<{ item_id: string; action: string; status?: string; snoozed_until?: string | null }>(
+      `/items/${encodeURIComponent(iid)}/triage`,
+      { method: "POST", body: JSON.stringify({ action, ...opts }) }),
   getItem: (iid: string) => req<Item>(`/items/${iid}`),
   // M115-I346: duplicate-guard typeahead (Linear similar-issues semantics)
   listSimilar: (pid: string, title: string, excludeId?: string) => {

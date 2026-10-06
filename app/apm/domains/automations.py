@@ -637,7 +637,7 @@ def run_daily_sweep(force: bool = False) -> dict:
         if seen:
             return {"swept": False, "date": today, "fired": 0, "created": 0,
                     "notified": 0, "delegated": 0, "carried": 0, "reminded": 0,
-                    "respawned": 0, "reported": 0}
+                    "respawned": 0, "reported": 0, "resurfaced": 0}
 
     fired = created = notified = delegated = carried = reminded = 0
     rules = conn.execute(
@@ -677,16 +677,39 @@ def run_daily_sweep(force: bool = False) -> dict:
     reminded += _remind_pending_approvals(conn, today)
     respawned = _respawn_recurring(conn, today)
     reported = _report_status_weekly(conn, today)
+    resurfaced = _resurface_triage(conn, today)
     events.emit(
         event_type="automation.swept", agg_type="automation", agg_id="sweep",
         project_id="", actor_type="automation", actor_id="scheduler",
         payload={"date": today, "fired": fired, "created": created,
                  "notified": notified, "delegated": delegated, "carried": carried,
-                 "reminded": reminded, "respawned": respawned, "reported": reported},
+                 "reminded": reminded, "respawned": respawned, "reported": reported,
+                 "resurfaced": resurfaced},
     )
     return {"swept": True, "date": today, "fired": fired, "created": created,
             "notified": notified, "delegated": delegated, "carried": carried,
-            "reminded": reminded, "respawned": respawned, "reported": reported}
+            "reminded": reminded, "respawned": respawned, "reported": reported,
+            "resurfaced": resurfaced}
+
+
+def _resurface_triage(conn, today: str) -> int:
+    """M117-I357 (docs/01 §DH, Linear snooze semantics): the sweep's eighth
+    built-in pass — a snoozed triage item whose `snoozed_until` has passed
+    re-enters the queue (snooze defers the decision, it never drops it).
+    Idempotent by construction: clearing an already-null column is a no-op
+    the next day because the WHERE clause stops matching."""
+    n = 0
+    rows = conn.execute(
+        "SELECT id, project_id FROM items WHERE status = 'triage'"
+        " AND snoozed_until IS NOT NULL AND snoozed_until < ?",
+        (today,)).fetchall()
+    for row in rows:
+        events.emit(event_type="item.triage_snoozed", agg_type="item",
+                    agg_id=row["id"], project_id=row["project_id"],
+                    actor_type="automation", actor_id="scheduler",
+                    payload={"until": None})
+        n += 1
+    return n
 
 
 def _report_status_weekly(conn, today: str) -> int:

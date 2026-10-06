@@ -9,11 +9,13 @@
 未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.22.0。
 
 ### Added
+- **Triage 分诊队列**（M117-I356/I357/I358，候选池①转正·Linear intake 语义）：软件研发本体 task/bug 概念声明 `triage` 分诊中间态（bug 补白名单流转 triage→open/wont_fix 与 open→triage；task 无白名单语义不变）——外部入流（intake token/IMAP 邮件）落分诊等人决定，手工创建仍落概念初始态（行为零变化·未声明 triage 的本体如 generic 零影响）；`POST /api/items/{id}/triage` 三决定：accept（→initial_status+可选指派走 item.assigned 既有链）/decline（→概念 cancelled 组状态按本体解析）/snooze（1-30 天·items.snoozed_until 列+事件投影）；**sweep 第八员到期复浮**（暂缓不是丢弃——automation.swept 计数新增 resurfaced）；队列页 `/p/:pid/triage`「分诊」（行式队列+接受并指派/拒绝/暂缓+「显示已暂缓」开关——读面全走既有 list_items(status=) 零新读端点）；分诊中直接派 Agent 自动出队进 in_progress（引擎可信路径·「派活即接受」如实入档）。
 - **Agent 团队总览面**（M116-I353，Paperclip 吸纳）：`GET /api/agents`（org 级登录门）+ 新页面 `/team`「团队」（rail 常驻导航）——roles YAML 声明（display_name/档位/概念/工具）× agents 治理覆盖层（暂停态/预算）× runs 聚合统计（运行数/成功率/累计 tokens 与成本/最近运行）三源一屏合并；事件溯源红利：统计零新表零埋点，纯读侧 GROUP BY。
 - **Agent 治理：暂停/恢复 + Agent 级月度预算**（M116-I354）：`agent.paused/resumed/updated` 事件链 + `agents` 投影覆盖层（建表+投影器+drop_projections 三件套）；`POST /api/agents/{role}/pause|resume` 与 `PATCH /api/agents/{role}`（预算，0=关闭）admin 门 + check_write_gates 台账登记（写路由 142→145=75+70）；start_run 前置校验区增查——暂停 409、预算月窗 ≥100% 402 硬顶/≥80% 软阈（M66-I200 项目预算同构）；自动化 run_agent 派发路径经既有 HTTPException 兜底自然降级 ok:false；TeamPage 卡片暂停/恢复+预算行内编辑（非管理员只读）。
 - **工作项原子检出执行锁**（M116-I352）：`start_run(item_id)` 前置校验——同工作项存在活跃 run（pending/running/interrupted，挂 Gate 等人亦持锁）即 409 带持锁 run_id，终态（succeeded/failed）释放；`runs` 补 `idx_runs_item` 索引（Paperclip atomic task checkout 的翻译——batch_start 会话复用守卫之外的第三层防线，automations 派活同受管辖）。
 
 ### Fixed
+- **工作项列表 `?status=` 过滤参数半传静默忽略**（M117-I357，浏览器 E2E 走查抓获）：`GET /projects/{id}/items` 的 `status` 显式查询参数从未接入端点签名——只有保存视图路径（view definition）能带 status，显式传参被 FastAPI 静默丢弃（分诊队列读面依赖该参数才被照亮；M110 R1 留观②「过滤参数半传」同族）。现补接线并入回归锁。
 - **跨项目 run 绑定 422 留幽灵 run**（M116-I352，调研发现即修）：M114-I339 的跨项目校验位于 `run.requested`/`run.started`/`conversation.status_changed` 三事件发射**之后**——422 时幽灵 run 已落库且永远停在 running、会话永远 running（且引入执行锁后会永久锁死该工作项）；校验前移到任何事件发射之前（`test_f1_cross_project_422_leaves_no_ghost_run` 回归锁）。
 
 ## [0.21.0] — 2026-10-06
