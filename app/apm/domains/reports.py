@@ -47,7 +47,9 @@ def _now() -> datetime:
 
 
 def _active_where() -> str:
-    return "status_group NOT IN ('done','cancelled')"
+    # M118-I361: 归档（回收站）项不是活的——软删除语义对齐（M65-I197 清账：
+    # archived_at 晚于这些查询面诞生，三处消费方一直把死项当活项计数）
+    return "status_group NOT IN ('done','cancelled') AND archived_at IS NULL"
 
 
 def _parse_due(value) -> date | None:
@@ -129,14 +131,16 @@ def project_report(project_id: str) -> dict:
 
     funnel = {b: 0 for b in BUCKET_NAMES}
     for r in conn.execute(
-        "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? GROUP BY status_group",
+        "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? AND archived_at IS NULL"
+        " GROUP BY status_group",
         (project_id,),
     ).fetchall():
         if r["status_group"] in funnel:
             funnel[r["status_group"]] = r["c"]
 
     concepts = {r["concept_id"]: r["c"] for r in conn.execute(
-        "SELECT concept_id, COUNT(*) c FROM items WHERE project_id = ? GROUP BY concept_id",
+        "SELECT concept_id, COUNT(*) c FROM items WHERE project_id = ? AND archived_at IS NULL"
+        " GROUP BY concept_id",
         (project_id,),
     ).fetchall()}
 
@@ -371,7 +375,8 @@ def portfolio_report() -> dict:
                 continue
             funnel = {b: 0 for b in BUCKET_NAMES}
             for r in conn.execute(
-                "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ? GROUP BY status_group",
+                "SELECT status_group, COUNT(*) c FROM items WHERE project_id = ?"
+                " AND archived_at IS NULL GROUP BY status_group",
                 (p["id"],),
             ).fetchall():
                 if r["status_group"] in funnel:
@@ -568,7 +573,8 @@ def _health_factors(project_id: str, conn) -> dict:
         "SELECT COUNT(*) AS active,"
         " SUM(CASE WHEN due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END) AS overdue,"
         " SUM(CASE WHEN updated_at < ? THEN 1 ELSE 0 END) AS stale"
-        " FROM items WHERE project_id = ? AND status_group NOT IN ('done','cancelled')",
+        " FROM items WHERE project_id = ? AND status_group NOT IN ('done','cancelled')"
+        " AND archived_at IS NULL",
         (today.isoformat(), stale_cutoff, project_id),
     ).fetchone()
     done_7d = 0
@@ -666,12 +672,14 @@ def _health_replay(project_id: str, days: int = 30) -> tuple[dict, dict[str, str
         "SELECT agg_id, event_type, payload, ts FROM events"
         " WHERE project_id = ? AND event_type IN"
         " ('item.created','item.updated','item.status_changed',"
+        "  'item.archived','item.restored',"
         "  'approval.requested','approval.granted','approval.rejected')"
         " ORDER BY id",
         (project_id,),
     ).fetchall()
 
     items: dict[str, dict] = {}
+    archived: set[str] = set()  # M118-I361: 重放学得会软删除——回收站项不再压分
     done_arrival: dict[str, str] = {}
     created: dict[str, str] = {}  # M114-I340: flow metrics ride the same pass
     pending_gates = 0
@@ -693,6 +701,10 @@ def _health_replay(project_id: str, days: int = 30) -> tuple[dict, dict[str, str
             items[e["agg_id"]]["touch"] = e["ts"][:10]
             if p.get("status_group") == "done" and e["agg_id"] not in done_arrival:
                 done_arrival[e["agg_id"]] = e["ts"][:10]
+        elif et == "item.archived":
+            archived.add(e["agg_id"])
+        elif et == "item.restored":
+            archived.discard(e["agg_id"])
         elif et == "approval.requested":
             pending_gates += 1
         elif et in ("approval.granted", "approval.rejected"):
@@ -707,7 +719,8 @@ def _health_replay(project_id: str, days: int = 30) -> tuple[dict, dict[str, str
             ei += 1
         stale_cut = (point - timedelta(days=STALE_DAYS)).isoformat()
         week_start = (point - timedelta(days=6)).isoformat()
-        active_items = [s for s in items.values() if s["group"] not in ("done", "cancelled")]
+        active_items = [s for k, s in items.items()
+                        if k not in archived and s["group"] not in ("done", "cancelled")]
         active = len(active_items)
         overdue = sum(1 for s in active_items if s["due"] and s["due"] < point_s)
         stale = sum(1 for s in active_items if s["touch"] <= stale_cut)
@@ -1454,6 +1467,7 @@ def my_schedule() -> dict:
         " i.project_id, p.name AS project_name"
         " FROM items i JOIN projects p ON p.id = i.project_id"
         " WHERE i.assignee_type = 'human' AND i.assignee_id = ?"
+        " AND i.archived_at IS NULL"
         " AND i.project_id IN (SELECT id FROM projects WHERE status != 'archived')"
         " AND (i.start_date IS NOT NULL OR i.due_date IS NOT NULL)"
         " ORDER BY COALESCE(i.due_date, i.start_date)",

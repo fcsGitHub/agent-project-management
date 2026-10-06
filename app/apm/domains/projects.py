@@ -529,9 +529,19 @@ def get_project_graph(project_id: str) -> dict:
             edges.append({"source": src, "target": f"phase:{p['id']}", "kind": "sequence"})
         prev_phase = p["id"]
 
+    # M118-I361: 回收站项不进阶段图（archived_at 晚于此查询面诞生的同族残留）；
+    # 隐藏概念项同理不借图泄露标题/指派（M67-I201 读面家族——list/board/CSV/
+    # trash 都过滤了，唯独图漏了）。
+    from apm.core.events import effective_actor as _actor
+    from apm.domains.items import _concept_visible_filter
+
+    me = _actor()
+    _visible = _concept_visible_filter(project_id, me)
     for item in db.get_conn().execute(
-        "SELECT * FROM items WHERE project_id = ?", (project_id,)
+        "SELECT * FROM items WHERE project_id = ? AND archived_at IS NULL", (project_id,)
     ).fetchall():
+        if not _visible(item["concept_id"]):
+            continue
         concept = onto.concepts.get(item["concept_id"])
         phase = concept.default_phase if concept else None
         nodes.append(
@@ -564,11 +574,9 @@ def get_project_graph(project_id: str) -> dict:
     # M47-I143: 跨项目 to_item 不在本项目节点集——补「外部依赖」占位节点。
     # 对当前用户不可读的项目只给 🔒 占位（不泄露对方标题）；可读则显示真实
     # 标题与来源项目名。
-    from apm.core.events import effective_actor as _actor
     from apm.domains.members import is_instance_admin, member_role
 
     known = {n["id"] for n in nodes}
-    me = _actor()
     admin = is_instance_admin(me)
     for rel in db.get_conn().execute(
         "SELECT to_item AS iid FROM item_relations WHERE project_id = ?",
@@ -577,9 +585,9 @@ def get_project_graph(project_id: str) -> dict:
         if ext in known:
             continue
         row = db.get_conn().execute(
-            "SELECT title, project_id FROM items WHERE id = ?", (ext,)).fetchone()
-        if row is None:
-            continue
+            "SELECT title, project_id, archived_at FROM items WHERE id = ?", (ext,)).fetchone()
+        if row is None or row["archived_at"]:
+            continue  # 回收站项不借跨项目依赖边还魂（M118-I361）
         readable = admin or member_role(row["project_id"], me)
         proj = db.get_conn().execute(
             "SELECT name FROM projects WHERE id = ?", (row["project_id"],)).fetchone()
@@ -647,8 +655,10 @@ def clone_project(project_id: str, body: CloneIn) -> dict:
 
     if body.items:
         from apm.domains.items import create_item
+        # M118-I361: 克隆复制的是活项目——回收站项不跟随（board/list 同语义）
         for it in conn.execute(
-            "SELECT * FROM items WHERE project_id = ? ORDER BY created_at", (project_id,),
+            "SELECT * FROM items WHERE project_id = ? AND archived_at IS NULL"
+            " ORDER BY created_at", (project_id,),
         ).fetchall():
             ni = create_item(
                 project_id=new["id"],

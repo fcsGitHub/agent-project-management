@@ -287,23 +287,27 @@ def get_notifications() -> dict:
         "SELECT email_notify FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     email_enabled = bool(pref["email_notify"]) if pref else True
-    out = []
-    for r in rows:
-        d = dict(r)
-        # mention 通知跳转工作项：ref_event_id → 事件 agg_id 即 item_id（M18-I57）；
-        # M58-I175: run watch notifications surface the source run_id so the
-        # bell can deep-link to the run drawer
-        if d.get("ref_event_id"):
-            ev = conn.execute(
-                "SELECT agg_id, event_type, payload FROM events WHERE id = ?",
-                (d["ref_event_id"],)).fetchone()
-            if ev:
-                d["item_id"] = ev["agg_id"]
-                if ev["event_type"] == "notification.sent":
-                    src = json.loads(ev["payload"] or "{}")
-                    if src.get("run_id"):
-                        d["run_id"] = src["run_id"]
-        out.append(d)
+    # mention 通知跳转工作项：ref_event_id → 事件 agg_id 即 item_id（M18-I57）；
+    # M58-I175: run watch notifications surface the source run_id so the
+    # bell can deep-link to the run drawer.
+    # M118-I362: 引用事件一个 IN 查询批量回查（此前逐行 SELECT，铃铛 10s 轮询
+    # 最多 30 查/次——M114-I340 批量富化同款先例）。
+    out = [dict(r) for r in rows]
+    ref_ids = {d["ref_event_id"] for d in out if d.get("ref_event_id")}
+    ev_by_id = {}
+    if ref_ids:
+        marks = ",".join("?" for _ in ref_ids)
+        ev_by_id = {e["id"]: e for e in conn.execute(
+            f"SELECT id, agg_id, event_type, payload FROM events WHERE id IN ({marks})",
+            tuple(ref_ids)).fetchall()}
+    for d in out:
+        ev = ev_by_id.get(d.get("ref_event_id"))
+        if ev:
+            d["item_id"] = ev["agg_id"]
+            if ev["event_type"] == "notification.sent":
+                src = json.loads(ev["payload"] or "{}")
+                if src.get("run_id"):
+                    d["run_id"] = src["run_id"]
     return {
         "notifications": out,
         "unread": unread,

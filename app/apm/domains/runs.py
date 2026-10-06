@@ -110,6 +110,35 @@ def _run_detail(run: dict) -> dict:
     return run
 
 
+def _run_details(runs: list[dict]) -> list[dict]:
+    """M118-I362: 批量版 _run_detail——会话标题/特性归属与工作项标题各一个
+    IN 查询收口。此前 list_runs 每行 2 查询（RunsPage 3s 轮询 × 默认 100 行
+    = 每 3 秒 ~200 查），M114-I340 _with_assignee_names 同款先例。形状与
+    单条版逐键一致（缺行回落 None 同语义）。"""
+    conv_ids = {r["conversation_id"] for r in runs if r.get("conversation_id")}
+    convs: dict[str, dict] = {}
+    if conv_ids:
+        marks = ",".join("?" for _ in conv_ids)
+        convs = {c["id"]: dict(c) for c in db.get_conn().execute(
+            f"SELECT id, title, feature_id FROM conversations WHERE id IN ({marks})",
+            tuple(conv_ids)).fetchall()}
+    item_ids = {r["item_id"] for r in runs if r.get("item_id")}
+    titles: dict[str, str] = {}
+    if item_ids:
+        marks = ",".join("?" for _ in item_ids)
+        titles = {i["id"]: i["title"] for i in db.get_conn().execute(
+            f"SELECT id, title FROM items WHERE id IN ({marks})", tuple(item_ids)).fetchall()}
+    for r in runs:
+        conv = convs.get(r["conversation_id"]) or {}
+        r["conversation_title"] = conv.get("title")
+        r["feature_id"] = r.get("feature_id") or conv.get("feature_id")
+        if r.get("output"):
+            r["output"] = json.loads(r["output"])
+        if r.get("item_id"):
+            r["item_title"] = titles.get(r["item_id"])
+    return runs
+
+
 @router.post("/runs")
 def post_run(body: RunIn) -> dict:
     from apm.domains.conversations import get_conversation
@@ -281,7 +310,7 @@ def list_runs(
         f"SELECT * FROM runs WHERE {' AND '.join(where)} ORDER BY started_at DESC LIMIT ?",
         params + [limit],
     ).fetchall()
-    return {"runs": [_run_detail(dict(r)) for r in rows]}
+    return {"runs": _run_details([dict(r) for r in rows])}
 
 
 @router.get("/runs/{run_id}")

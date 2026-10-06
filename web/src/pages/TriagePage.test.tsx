@@ -26,10 +26,12 @@ const QUEUE = {
   items: [
     { id: "i_t1", project_id: "p1", concept_id: "task", title: "登录页反馈", status: "triage",
       status_group: "backlog", priority: "high", created_at: "2026-10-06T09:00:00Z",
-      updated_at: "2026-10-06T09:00:00Z", snoozed_until: null },
+      updated_at: "2026-10-06T09:00:00Z", snoozed_until: null,
+      reporter_id: "intake", reporter_name: "intake" },
     { id: "i_t2", project_id: "p1", concept_id: "bug", title: "旧报表报错", status: "triage",
       status_group: "backlog", priority: "low", created_at: "2026-10-05T09:00:00Z",
-      updated_at: "2026-10-05T09:00:00Z", snoozed_until: future },
+      updated_at: "2026-10-05T09:00:00Z", snoozed_until: future,
+      reporter_id: "u_rep", reporter_name: "小张" },
   ], total: 2,
 };
 
@@ -88,5 +90,16 @@ describe("TriagePage（M117）", () => {
     fireEvent.click(screen.getByLabelText("显示已暂缓"));
     expect(await screen.findByText("旧报表报错")).toBeTruthy();
     expect(screen.getByText(/天后回队/)).toBeTruthy();
+  });
+
+  it("报告人显示真源（intake→外部，用户→显示名）且标题深链看板抽屉", async () => {
+    // M118-I363: 此前拿 assignee 冒充报告人（接受并指派后会变成被指派者）
+    mount();
+    await screen.findByText("登录页反馈");
+    expect(screen.getByText(/报告人 外部/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "登录页反馈" });
+    expect(link.getAttribute("href")).toBe("/p/p1/board?item=i_t1");
+    fireEvent.click(screen.getByLabelText("显示已暂缓"));
+    expect(await screen.findByText(/报告人 小张/)).toBeTruthy();
   });
 });

@@ -158,7 +158,8 @@ CREATE TABLE IF NOT EXISTS items (
   description TEXT,
   labels TEXT,
   archived_at TEXT,
-  snoozed_until TEXT
+  snoozed_until TEXT,
+  reporter_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_items_project ON items(project_id);
 CREATE INDEX IF NOT EXISTS idx_items_feature ON items(feature_id);

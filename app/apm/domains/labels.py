@@ -127,8 +127,10 @@ def list_labels(project_id: str) -> dict:
         "SELECT * FROM labels WHERE project_id = ? ORDER BY created_at, id",
         (project_id,)).fetchall()
     counts: dict[str, int] = {}
+    # M118-I361: 用量只数活项（回收站项不再撑着 usage 计数）
     for row in db.get_conn().execute(
-            "SELECT labels FROM items WHERE project_id = ? AND labels IS NOT NULL",
+            "SELECT labels FROM items WHERE project_id = ? AND labels IS NOT NULL"
+            " AND archived_at IS NULL",
             (project_id,)).fetchall():
         try:
             ids = json.loads(row["labels"])

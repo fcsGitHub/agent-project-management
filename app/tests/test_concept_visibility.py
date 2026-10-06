@@ -61,6 +61,10 @@ def test_declared_concept_hidden_from_non_owner_read_faces(client, setup, monkey
     assert all(it["id"] != secret_id for b in board["buckets"] for it in b["items"])
     # CSV + trash faces stay silent too
     assert "机密缺陷" not in client.get(f"/api/projects/{pid}/items.csv").text
+    # M118-I361: 阶段图同族补课——隐藏概念项不得借 /graph 泄露标题/指派
+    graph = client.get(f"/api/projects/{pid}/graph").json()
+    assert all(n["id"] != secret_id for n in graph["nodes"])
+    assert all("机密缺陷" not in str(n.get("label", "")) for n in graph["nodes"])
     # detail: 404 — existence not revealed
     assert client.get(f"/api/items/{secret_id}").status_code == 404
     assert client.get(f"/api/items/{open_id}").status_code == 200
@@ -72,6 +76,8 @@ def test_declared_concept_hidden_from_non_owner_read_faces(client, setup, monkey
     _login(client, "owner-zhang", "zhang-pass")
     r = client.get(f"/api/projects/{pid}/items").json()
     assert {it["id"] for it in r["items"]} == {open_id, secret_id}
+    assert any(n["id"] == secret_id
+               for n in client.get(f"/api/projects/{pid}/graph").json()["nodes"])
 
 
 def test_write_faces_403_create_and_404_mutate(client, setup, monkeypatch):

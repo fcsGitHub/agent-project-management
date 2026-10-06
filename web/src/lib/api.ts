@@ -44,6 +44,8 @@ export type Item = {
   description?: string | null;
   labels?: string[] | null;
   snoozed_until?: string | null;  // M117: triage 暂缓（到期 sweep 复浮）
+  reporter_id?: string | null;    // M118: 报告人=item.created 的 actor（intake→"intake"）
+  reporter_name?: string | null;
   spent_minutes?: number;
   created_at: string; updated_at: string;
   relations?: { id: string; from_item: string; to_item: string; relation_type: string; lag_days?: number | null }[];

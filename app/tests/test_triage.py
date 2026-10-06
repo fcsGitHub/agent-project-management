@@ -116,11 +116,18 @@ def test_triage_snooze_sweep_resurface_and_clear(client, proj):
     assert client.post("/api/automations/sweep", json={}).status_code == 200
     assert client.get(f"/api/items/{iid}").json()["snoozed_until"] is not None
 
-    # 到期（合成回溯事件钉过期态）：sweep 复浮——清暂缓重新入队
+    # 到期（合成回溯事件钉过期态）：sweep 复浮——清暂缓重新入队。
+    # 锚点与服务端 sweep 同一时钟源（events.utcnow=UTC——M118 满载当场抓获：
+    # date.today()=本地在本地跨日后 until==UTC today 不再命中 `< today`，
+    # M63-I191/M83-I251 同族第三例）
     from datetime import date, timedelta
+
+    from apm.core.events import utcnow
+
     events.emit(event_type="item.triage_snoozed", agg_type="item", agg_id=iid,
                 project_id=proj, actor_type="human", actor_id="u_admin",
-                payload={"until": (date.today() - timedelta(days=1)).isoformat()})
+                payload={"until": (date.fromisoformat(utcnow()[:10])
+                                   - timedelta(days=1)).isoformat()})
     swept = client.post("/api/automations/sweep", json={"force": True}).json()
     assert swept.get("resurfaced", 0) >= 1
     assert client.get(f"/api/items/{iid}").json()["snoozed_until"] is None
@@ -163,6 +170,61 @@ def test_triage_write_gate_network(client, proj):
         assert _triage(client, iid, "accept").status_code == 403
     finally:
         config.settings.auth_mode = "local"
+
+
+def test_triage_hidden_concept_reads_404(client, proj):
+    """M118-I361: 分诊动作对隐藏概念项 404（存在性不泄露，M67 家族）——
+    post_triage 此前裸 get_item 绕过 require_visible_item，项目成员可对
+    仅 Owner 可见的概念做接受/拒绝/暂缓。"""
+    config.settings.admin_password = "admin-pass"
+    from apm.domains.users import ensure_default_user
+    ensure_default_user()
+    assert client.post("/api/users", json={
+        "id": "u_dev", "name": "开发", "password": "d-pass"}).status_code == 200
+    assert client.post(f"/api/projects/{proj}/members",
+                       json={"user_id": "u_dev", "role": "contributor"}).status_code == 200
+    assert client.patch(f"/api/projects/{proj}",
+                        json={"concept_visibility": {"bug": "owner"}}).status_code == 200
+    iid = _land(client, proj, "机密分诊项", concept="bug")
+    config.settings.auth_mode = "network"
+    try:
+        assert client.post("/api/auth/login",
+                           json={"user_id": "u_dev", "password": "d-pass"}).status_code == 200
+        assert _triage(client, iid, "accept").status_code == 404
+        assert _triage(client, iid, "decline").status_code == 404
+        assert _triage(client, iid, "snooze", days=3).status_code == 404
+    finally:
+        config.settings.auth_mode = "local"
+
+
+def test_queue_surfaces_reporter(client, proj):
+    """M118-I363: 队列行「报告人」真源=item.created 的 actor——intake 落
+    reporter_id="intake"（前端显示外部），手工创建/IMAP 已知发件人落用户 id
+    并批量富化 reporter_name。此前 TriagePage 拿 assignee 冒充报告人。"""
+    iid = _land(client, proj, "有报告人的项")
+    rows = client.get(f"/api/projects/{proj}/items").json()["items"]
+    intake_row = next(x for x in rows if x["id"] == iid)
+    assert intake_row["reporter_id"] == "intake"
+
+    client.post("/api/users", json={"id": "u_rep", "name": "报告人小张"})
+    assert client.post(f"/api/projects/{proj}/members",
+                       json={"user_id": "u_rep", "role": "contributor"}).status_code == 200
+    config.settings.user_id = "u_rep"  # local 模式：以 u_rep 身份手工创建
+    try:
+        mine = client.post(f"/api/projects/{proj}/items",
+                           json={"concept_id": "task", "title": "手工报告项"}).json()
+    finally:
+        config.settings.user_id = "u_admin"
+    rows = client.get(f"/api/projects/{proj}/items").json()["items"]
+    row = next(x for x in rows if x["id"] == mine["id"])
+    assert row["reporter_id"] == "u_rep"
+    assert row["reporter_name"] == "报告人小张"
+
+    # reporter 随事件链 rebuild 稳定（actor 在 item.created 事件上）
+    assert client.post("/api/system/rebuild-projections").status_code == 200
+    rows = client.get(f"/api/projects/{proj}/items").json()["items"]
+    row = next(x for x in rows if x["id"] == mine["id"])
+    assert row["reporter_id"] == "u_rep" and row["reporter_name"] == "报告人小张"
 
 
 def test_dispatch_from_triage_moves_to_in_progress(client, proj):

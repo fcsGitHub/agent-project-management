@@ -45,6 +45,10 @@ REVIEWED: dict[str, tuple[str, str]] = {
     "app/tests/test_health_history.py": (
         "②", "health/history 30 天窗但 past=2026-01-01 只作 overdue 静态过去锚；"
         "series 断言用真实 today 样点（M84-I252 定类）"),
+    "app/tests/test_archive_semantics.py": (
+        "②", "health/history 7 天窗但 due=2026-01-01 只作 overdue 静态过去锚"
+        "（断言对象=归档排除而非窗口成员资格·任何运行日 2026-01-01 恒为过去；"
+        "归档事件发生在 now，天然在窗内。M118-I361 定类）"),
     "app/tests/smoke/test_smoke_26_m20_experience.py": (
         "③已修", "/my/timelog 窗口断言已动态锚定 date.today()-3/-2"
         "（M83-I251 发现即修——本轮防的正是这个炸弹的原型）"),

@@ -23,11 +23,14 @@ router = APIRouter(tags=["items"])
 @on("item.created")
 def _proj_item_created(conn, e):
     p = e.payload
+    # M118-I363: reporter_id = item.created 的 actor（intake→"intake"、
+    # IMAP 已知发件人/手工创建→用户 id）——队列「报告人」显示真源。
     conn.execute(
         "INSERT INTO items (id, project_id, feature_id, parent_id, concept_id, title, status,"
-        " status_group, priority, assignee_type, assignee_id, estimate_hours, start_date, due_date,"
-        " milestone_id, custom_fields, description, labels, created_at, updated_at, version)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
+        " status_group, priority, assignee_type, assignee_id, reporter_id, estimate_hours,"
+        " start_date, due_date, milestone_id, custom_fields, description, labels,"
+        " created_at, updated_at, version)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
         (
             e.agg_id,
             e.project_id,
@@ -40,6 +43,7 @@ def _proj_item_created(conn, e):
             p.get("priority"),
             p.get("assignee_type"),
             p.get("assignee_id"),
+            e.actor_id,
             p.get("estimate_hours"),
             p.get("start_date"),
             p.get("due_date"),
@@ -742,6 +746,10 @@ def _with_assignee_name(item: dict) -> dict:
         row = db.get_conn().execute(
             "SELECT name FROM users WHERE id = ?", (item["assignee_id"],)).fetchone()
         item["assignee_name"] = row["name"] if row else item["assignee_id"]
+    if item.get("reporter_id"):  # M118-I363: 报告人显示名（删户兜底 raw id）
+        row = db.get_conn().execute(
+            "SELECT name FROM users WHERE id = ?", (item["reporter_id"],)).fetchone()
+        item["reporter_name"] = row["name"] if row else item["reporter_id"]
     return item
 
 
@@ -749,10 +757,13 @@ def _with_assignee_names(items: "list[dict]") -> "list[dict]":
     """M114-I340: batch variant of _with_assignee_name — one IN query instead
     of one query per row (list_items runs on every board/list request, so the
     per-row lookup was an N+1 that scaled with the whole project, not the
-    page). Deleted users fall back to the raw id, same as the single form."""
+    page). Deleted users fall back to the raw id, same as the single form.
+    M118-I363: reporter_name rides the same users IN query (intake items keep
+    the raw "intake" — the queue renders it as 外部)."""
     items = list(items)  # callers may hand a generator — iterate twice below
     ids = {it["assignee_id"] for it in items
            if it.get("assignee_type") == "human" and it.get("assignee_id")}
+    ids |= {r for it in items if (r := it.get("reporter_id"))}
     names: dict[str, str] = {}
     if ids:
         marks = ",".join("?" for _ in ids)
@@ -761,6 +772,8 @@ def _with_assignee_names(items: "list[dict]") -> "list[dict]":
     for it in items:
         if it.get("assignee_type") == "human" and it.get("assignee_id"):
             it["assignee_name"] = names.get(it["assignee_id"], it["assignee_id"])
+        if it.get("reporter_id"):
+            it["reporter_name"] = names.get(it["reporter_id"], it["reporter_id"])
     return items
 
 
@@ -1463,7 +1476,7 @@ def export_items_csv(project_id: str) -> Response:
     rows = conn.execute(
         "SELECT i.*, p.title AS parent_title FROM items i"
         " LEFT JOIN items p ON p.id = i.parent_id"
-        " WHERE i.project_id = ? ORDER BY i.created_at", (project_id,),
+        " WHERE i.project_id = ? AND i.archived_at IS NULL ORDER BY i.created_at", (project_id,),
     ).fetchall()
     # M67-I201: hidden concepts don't appear in exports either
     viewer = events.effective_actor()

@@ -68,11 +68,11 @@ class TriageIn(BaseModel):
 
 @router.post("/items/{item_id}/triage")
 def post_triage(item_id: str, body: TriageIn) -> dict:
-    from apm.domains.items import change_status, get_item
+    from apm.domains.items import change_status, get_item, require_visible_item
 
-    item = get_item(item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail=f"item {item_id} not found")
+    # M118-I361: require_visible_item（M67-I201）——隐藏概念的分诊决定对无权者
+    # 404（存在性不泄露）；此前裸 get_item 让项目成员可分诊仅 Owner 可见的概念。
+    item = require_visible_item(item_id)
     if item["status"] != "triage":
         raise HTTPException(
             status_code=409,

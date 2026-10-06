@@ -3492,6 +3492,37 @@ agent-project-management/
 - DoD：全量 EXIT=0；防腐 ✓；文档四处随轮。
 - 演示路径：intake token 提交外部请求→分诊队列上卡→💤暂缓（默认隐藏）→✅接受并指派→看板 open 列；分诊中「▶ 让 Agent 做」自动出队。
 
+### M118 · 质量轮·归档语义对齐+读面收口+性能收口+分诊队列体验（I360-I364，约 1 人日）
+
+> v3.0 新增（2026-10-06，用户指令轮「接管项目，进行优化迭代，符合人类用户的真实使用逻辑，优化性能，修复漏洞」+ docs/01 §DI）。M114 质量轮同型三路盘点：①「过滤参数半传」族反向全量对账（前端 api.ts 传参×131 个 GET 端点签名——M117 修复后零残留）②「归档语义对齐」族全量对账（`FROM items` 无 `archived_at` 过滤逐个读函数体判语义——M65-I197 预言的清账轮，九处残留坐实）③M67 概念可见性读面家族复查（/graph 泄露坐实）+ N+1 热路径×前端轮询放大系数盘点 + 分诊队列旅程走查（M94 方法论对新面的应用）。
+
+| 迭代 | 主题 | 对应 10 | 复用引入 | 估时 |
+| --- | --- | --- | --- | --- |
+| I360 | 盘点定案：docs/01 §DI 五路盘点（半传零残留/归档族九处/graph 可见性/两个 N+1/报告人错标+队列不可检查+triage 门禁缺口） | docs/01 §DI | M114 §DE 方法论 | 0.2d |
+| I361 | 归档语义对齐族+读面门禁：`_active_where` 补归档（_overdue_rows/组合 overdue/按指派人最近在办三消费方一次收口）+`_health_factors` 三因子+`_health_replay` 重放学归档（事件 IN 补 item.archived/restored·archived 集合过滤聚合）+project_report funnel/concepts+组合逐项目 funnel+**graph 双修**（归档过滤+`_concept_visible_filter` 接入+占位节点不借死项还魂）+items.csv 导出+clone 排除回收站+my_schedule+labels usage+**post_triage 换 require_visible_item**（M67 家族——隐藏概念分诊 404） | docs/01 §DI | M65-I197 预言·M67-I201 家族 | 0.4d |
+| I362 | 性能收口：`_run_details` 批量版（list_runs 逐行 2 查询→两个 IN——RunsPage 3s 轮询×100 行≈每 3 秒 200 查的 N+1；**全量回归抓获 convs 存 sqlite3.Row 无 .get 的低级错——单文件绿全量红的再证**）+get_notifications 引用事件批量回查（逐行最多 30 查→1 IN·铃铛 10s 轮询放大） | docs/01 §DI | M114-I340 批量富化先例 | 0.2d |
+| I363 | 分诊队列体验：items.reporter_id 列（建表+存量 ALTER+投影 INSERT 逐列核对 22 列/21 占位——报告人=item.created 的 actor·rebuild 稳定）+list_items/get_item_detail 批量与单条富化（reporter_name 同 users IN 查询收口·intake 保持 raw id 前端显「外部」）+TriagePage 报告人真源显示+标题深链看板抽屉（`?item=` M18 惯例）+vitest 补枚 | docs/01 §DI | M117 snoozed_until 列三件套 | 0.3d |
+| I364 | 收口：全量回归+冒烟+vitest+build+防腐三件直测+浏览器 E2E 走查+docs 五处+HANDOFF 修剪 | — | M117-I359 惯例 | 0.3d |
+
+#### I361 · 归档语义对齐族+读面门禁（0.4d）
+
+- 任务：九处残留逐处补 `archived_at IS NULL`（对照组证明新代码面都对——周报/critical-path/forecast/flow WIP/closure 均已过滤，烂在 archived_at 诞生前的旧查询面）；graph 顺手接 `_concept_visible_filter`；post_triage 换 require_visible_item。
+- DoD：test_archive_semantics 八枚先红后绿（项目报表/组合报表/健康分与趋势/图/CSV/克隆/个人日程/标签用量逐面断言死项消失）；test_concept_visibility 补 graph 面断言（dev-wang 无机密缺陷节点+owner 有）；test_triage 补隐藏概念分诊 404 三动作。
+
+#### I362 · 性能收口（0.2d）
+
+- DoD：行为等价由既有 runs/notifications 测试全绿背书（形状逐键一致）；全量回归 EXIT=0（当场抓获 convs Row 假绿——「改动跑全量」兜底价值再证）。
+
+#### I363 · 分诊队列体验（0.3d）
+
+- DoD：test_queue_surfaces_reporter（intake→"intake"/手工创建→创建者 id+reporter_name 富化/rebuild 稳定）先红后绿；TriagePage vitest 四枚（+报告人真源与深链 href）；tsc+build 绿。
+
+#### I364 · 收口（0.3d）
+
+- 任务：全量回归（非 smoke+冒烟+vitest+build）+防腐三件直测（env_doc/写门 **146=76+70** 持平/日期台账 **7 文件**——新测试文件 test_archive_semantics 因 health/history 引用被点名按②静态实体锚登记）→ docs/01 §DI+docs/10 §M118+看板行+CHANGELOG+HANDOFF 修剪。
+- DoD：全量 EXIT=0；防腐 ✓；E2E 走查（隔离 8019/4187：队列报告人外部+标题深链直达看板抽屉+看板与阶段图无归档项+CSV/报表对账·截图 docs/m118-*.png ×2）。
+- **满载回归当场抓获 M117 测试自带日期炸弹**（本地午夜引信到点）：test_triage 合成回溯事件用 `date.today()`（本地）造 until 而 sweep 用 `events.utcnow()`（UTC）判窗——本地跨日后 until==UTC today 不再命中 `< today`，白天全绿午夜必红；修=造数锚改服务端时钟（M63-I191/M83-I251 同族第三例入坑列表）。
+
 ### M92 · 后台线程韧性轮·webhooks 停机竞态修复（I278-I280，约 3 人日）
 
 
@@ -3861,6 +3892,12 @@ agent-project-management/
 | I353 团队总览面 | 已完成 | 2026-10-06 | 2026-10-06 | domains/agents.py GET /api/agents（require_instance_user 匿名 401）：roles YAML 声明（display_name/tier/model/concepts/tools）×agents 覆盖层（status/budget_usd）×runs GROUP BY agent_role 统计（total/succeeded/failed/active/last_started_at/tokens/累计与月窗成本）——零新表零埋点纯读侧；TeamPage（/team org 级页面·rail Bot「团队」·15s 轮询）状态徽标+tier/概念 chip+统计行+预算行；api.ts listAgents/pauseAgent/resumeAgent/patchAgentBudget+AgentTeamMember 类型；登录门矩阵+vitest 三枚（目录渲染/暂停翻转/非管理员只读） |
 | I354 Agent 治理+预算 | 已完成 | 2026-10-06 | 2026-10-06 | agent.paused/resumed/updated 事件（org 级 project_id=''）+agents 投影表三件套（schema 建表+投影器 INSERT OR IGNORE→UPDATE 保兄弟列+drop_projections 登记）；POST pause/resume+PATCH budget 三端点 is_instance_admin 门（reload-ontologies 惯例·422 负数/0=关闭护栏）+check_write_gates REVIEWED 登记；engine `_agent_governance_gate`：暂停 409（自动化派发经 HTTPException 兜底降级 ok:false·实测）+agent 月窗预算 ≥100% 402（detail 带 agent 名）/≥80% budget_warning（M66-I200 同构·agent 门先于项目门）；TeamPage 治理按钮+预算行内编辑（is_admin 显隐）；test_agents 治理矩阵先红后绿（rebuild 稳定/非 admin 403/预算分角色） |
 | I355 收口 | 已完成 | 2026-10-06 | 2026-10-06 | 全量回归[非 smoke **522 EXIT=0**（+test_agents 10·collect-only 计数对账）+冒烟 runner **98 GREEN**（smoke_68 日上限前提按锁语义同款改造——M83「迁移面含 tests/smoke」教训再证）+vitest **53**+build EXIT=0（precache 43→44=TeamPage 新 chunk）] + 机械防腐三件直测[env_doc ✓/写门 **145=75+70** ✓/日期台账 ✓] + 浏览器 E2E 走查（隔离 8017/4185·API 造数：pm/dev 各一活跃 run+qa 暂停+dev 预算 5——目录卡三源合并渲染/暂停按钮点击翻转已暂停/预算行内编辑 $2.50 落地/暂停门 409 实证·截图 docs/m116-team-page.png+m116-team-paused.png） + docs 五处（§DG/§M116/看板六行/附录 C/CHANGELOG Added×3+Fixed×1）+HANDOFF 修剪；v0.22.0 攒批第一轮（不 tag——攒批节奏维持） |
+| **M118 质量轮·归档语义对齐+读面收口+性能收口+分诊队列体验（I360-I364）** | 已完成 | 2026-10-06 | 2026-10-06 | 5 迭代 / 约 1.5 人日（用户指令轮「接管项目，进行优化迭代，符合人类用户的真实使用逻辑，优化性能，修复漏洞」+ docs/01 §DI + docs/10 §M118）：M114 质量轮同型三路盘点→①半传族反向对账零残留/②**归档语义族九处坐实**（M65-I197 预言的清账轮：报表漏斗与逾期/健康分三因子/健康趋势重放/阶段图/CSV 导出/克隆/个人日程/标签用量——对照组证明新代码面全对烂在旧查询面）/③M67 可见性 /graph 泄露坐实+N+1 两个（RunsPage 3s 轮询×100 行×2 查+铃铛 10s×30 查）+分诊队列旅程走查（报告人错标/不可检查/triage 门禁缺口）→ I361 归档族+graph 可见性+triage 门（test_archive_semantics 八枚+visibility/triage 扩展先红后绿）/I362 `_run_details`+notifications 批量化（**全量回归抓获 convs 存 sqlite3.Row 无 .get——单文件绿全量红再证**）/I363 items.reporter_id 列三件套+TriagePage 报告人真源+标题深链/I364 收口[**满载当场抓获 M117 测试自带日期炸弹**——date.today() 本地锚 vs sweep UTC 窗·本地午夜引信到点白天全绿午夜必红·M63-I191 同族第三例·造数改服务端时钟锚]。基线 pytest 531→**541**（+test_archive_semantics 8+test_triage 2）/冒烟 98 持平/vitest 56→**57**（+TriagePage 1）/build 绿 precache 45 持平/写门 **146=76+70** 持平 ✓/日期台账 **7 文件** ✓；v0.22.0 攒批第三轮（不 tag） |
+| I360 盘点定案 | 已完成 | 2026-10-06 | 2026-10-06 | docs/01 §DI 五路盘点：①前端 api.ts 全部传参点×后端端点签名反向对账——M117 修复后半传族零残留（approvals 后端多出 kind/decided_by 合法过滤·方向相反非缺陷）②`FROM items WHERE project_id` 无 archived_at 全量对账逐个读函数体——九处坐实（_active_where 三消费方/_health_factors/_health_replay 事件 IN 不含 archived·restored/project_report/组合 funnel/graph/CSV/clone/my_schedule/labels usage；对照组周报/critical-path/forecast/flow WIP/closure 全带过滤）③graph 隐藏概念项标题+指派泄露坐实④N+1 热路径×轮询放大系数⑤TriagePage 报告人错标（assignee 冒充·IMAP 已知发件人恒显外部）+队列行不可检查+post_triage 裸 get_item 绕 require_visible_item |
+| I361 归档语义对齐+读面门禁 | 已完成 | 2026-10-06 | 2026-10-06 | `_active_where` 补 archived_at IS NULL（_overdue_rows/组合 overdue/按指派人最近在办三消费方一次收口）+_health_factors+**_health_replay 重放学归档**（事件 IN 补 item.archived/restored+archived 集合过滤聚合·restored 摘除）+project_report funnel/concepts+组合逐项目 funnel+**graph 双修**（归档过滤+`_concept_visible_filter` 接入[items.py 函数级 import 防循环]+占位节点 SELECT 补 archived_at 死项不还魂）+items.csv 导出+clone 排除回收站+my_schedule+labels usage+**post_triage 换 require_visible_item**；test_archive_semantics 八枚先红后绿+test_concept_visibility graph 面+test_triage 隐藏概念 404 三动作 |
+| I362 性能收口 | 已完成 | 2026-10-06 | 2026-10-06 | runs.py `_run_details` 批量版（conversations IN+items IN 两查询收口 list_runs 逐行 2 查询——RunsPage 3s 无条件轮询×默认 100 行≈每 3 秒 200 查·形状与单条 _run_detail 逐键一致）；notifications.py 引用事件批量回查（ref_event_id 集合 1 IN 查询·此前逐行最多 30 查/次×铃铛 10s 轮询）；**全量回归首跑 EXIT=1 抓获两真伤**：①convs dict 存 sqlite3.Row 无 .get（AttributeError×6——单文件绿全量红的兜底价值再证·dict() 收口）②test_triage 合成回溯事件 date.today() 本地锚 vs sweep utcnow 窗——本地午夜引信（M63-I191 同族第三例·修=造数改 events.utcnow 锚） |
+| I363 分诊队列体验 | 已完成 | 2026-10-06 | 2026-10-06 | items.reporter_id 列（schema 建表+db.py 存量 ALTER+投影 INSERT 22 列/21 占位逐列核对——报告人=item.created 的 e.actor_id·rebuild 稳定）+_with_assignee_names 批量与 _with_assignee_name 单条扩 reporter_name（同一 users IN 查询收口·intake 保持 raw id）；TriagePage 报告人真源显示（intake→外部/用户→显示名/旧数据→—）+标题改 Link 深链 `/p/:pid/board?item=`（M18 惯例·title 提示「打开看板抽屉」）；api.ts Item 类型补 reporter 双键；test_queue_surfaces_reporter 先红后绿+TriagePage vitest 第四枚（报告人外部/用户名+深链 href 断言） |
+| I364 收口 | 已完成 | 2026-10-06 | 2026-10-06 | 全量回归[非 smoke **541 EXIT=0**（+test_archive_semantics 8+test_triage 2·convs 修复+日期炸弹拆弹后重跑——改动跑全量纪律）+冒烟 runner **98 GREEN**+vitest **57**+build EXIT=0（precache 45 持平）] + 机械防腐三件直测[env_doc ✓/写门 **146=76+70** 持平 ✓/日期台账 **7 文件** ✓（test_archive_semantics 被 health/history 引用点名——②静态实体锚登记：due=2026-01-01 恒为过去·断言对象是归档排除非窗口成员资格）] + 浏览器 E2E 走查（隔离 8019/4187·urllib 造数：队列报告人外部+标题深链 href→直达 URL 开看板抽屉实证[IAB 合成点击对 hash 路由链接拦截族·已知坑非缺陷]+看板无归档项+阶段图三活项节点归档项消失+CSV 0 命中死项+报表漏斗只数活项·截图 docs/m118-triage-reporter.png+m118-graph-no-archived.png·走查完 vite 代理 git checkout 还原+4187 node 残留按端口 PID taskkill） + docs 五处（§DI/§M118/看板六行/CHANGELOG Added×1+Fixed×4+Changed×1/HANDOFF 修剪）；v0.22.0 攒批第三轮 |
 | **M117 Triage 分诊队列轮（I356-I359）** | 已完成 | 2026-10-06 | 2026-10-06 | 4 迭代 / 约 1 人日（用户指令轮「继续实现，优化迭代」+ docs/01 §DH + docs/10 §M117）：HANDOFF 候选池①转正——Linear Triage 语义八行表定案（分诊态属本体·外部入流才入队·decline 按本体 cancelled 组解析·snooze=sweep 复浮）→ I356 本体声明[task/bug 增 triage 态·**bug 补白名单三对而 task 只加状态**（task 无白名单=undeclared=open·加 transitions 反锁死）]/I357 后端分诊域[snoozed_until 列+事件投影+triage 决定端点（中间件 id-path 管辖·台账零新增·写门 145→146=76+70）+intake/IMAP 落点解析（概念声明才落·generic 零变化）+**sweep 第八员到期复浮**]/I358 TriagePage 队列页（行式队列+接受并指派/拒绝/暂缓+显示已暂缓开关——读面零新端点）；排除三项登记（duplicate=既有组合面/责任轮换=语义薄留观/triage rules=自动化已表达）。基线 pytest 522→**531**（+test_triage 9）/冒烟 98 持平/vitest 53→**56**（+TriagePage 3）/build 绿 precache 44→45/写门 **146=76+70** ✓/防腐三件 ✓；v0.22.0 攒批第二轮（不 tag） |
 | I356 调研定案+本体 | 已完成 | 2026-10-06 | 2026-10-06 | docs/01 §DH：语义源=Linear Triage（§DF 调研在案）+Paperclip intake→派活互证（外部请求进组织先过人审再派 Agent）→八行翻译表+四处接线点核实（intake:147/imap:138,148 落点·change_status:262 校验链·_move_item 引擎旁路·sweep 678 计数链）；本体：task 增 `{id: triage, name: 分诊中, group: backlog}`（无 transitions 声明——语义复核后只加状态）+bug 增同态并补白名单 triage→open/triage→wont_fix/open→triage |
 | I357 后端分诊域 | 已完成 | 2026-10-06 | 2026-10-06 | triage.py：item.triage_snoozed 投影（snoozed_until 唯一写者）+intake_landing_status 落点解析+`POST /items/{id}/triage`（accept=change_status→initial_status+可选 item.assigned 指派/decline=本体 cancelled 组状态/snooze=1-30 天·409 非分诊态·422 守卫·决定清暂缓）；schema items.snoozed_until+db.py 存量 ALTER；intake.py/imap_in.py 两路三处落点接线；automations `_resurface_triage` 第八员（automation.swept 计数+resurfaced·幂等=清后 WHERE 不再命中）；**E2E 走查抓获 `GET /items?status=` 半传静默忽略**（get_items 端点签名从未接 status 显式参——只有保存视图路径能带·R1 留观②同族·先红[测试加非分诊项照亮]后绿补接线）；test_triage 九枚+smoke_38 桶对账前提按组演进（triage 与 open 同 backlog 组·I78 纪律） |

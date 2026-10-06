@@ -2,9 +2,11 @@
  * 外部入流（intake/IMAP）落本体 triage 态等人决定——本页=队列视图+三个
  * 决定动作：✅ 接受（→正常流转·可指派）/ ✕ 拒绝（→cancelled 组状态）/
  * 💤 暂缓 N 天（sweep 到期复浮——暂缓不是丢弃）。读面全走既有
- * list_items(status=triage)（事件溯源红利：零新读端点）。 */
+ * list_items(status=triage)（事件溯源红利：零新读端点）。
+ * M118-I363：报告人显示真源=item.created 的 actor（intake→外部），
+ * 此前误拿 assignee 冒充；标题深链看板抽屉（?item= 惯例）先检查再决定。 */
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api";
@@ -93,7 +95,10 @@ export function TriagePage() {
               snoozedDays != null && snoozedDays > 0 && "opacity-70")}>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-sm font-medium">{it.title}</span>
+                  {/* M118-I363: 标题可点——深链看板抽屉（?item= 惯例），决定前先检查 */}
+                  <Link to={`/p/${pid}/board?item=${it.id}`}
+                    className="truncate text-sm font-medium hover:underline"
+                    title={`打开 ${it.title}（看板抽屉）`}>{it.title}</Link>
                   <Badge>{it.concept_id}</Badge>
                   {it.priority && <Badge tone="amber">{it.priority}</Badge>}
                   {snoozedDays != null && snoozedDays > 0 && (
@@ -103,7 +108,8 @@ export function TriagePage() {
                   )}
                 </div>
                 <div className="text-[11px] text-mut" title={it.created_at}>
-                  报告人 {it.assignee_id ?? "外部"} · {it.created_at.slice(0, 10)} 入队
+                  报告人 {it.reporter_id === "intake" ? "外部"
+                    : (it.reporter_name || it.reporter_id) || "—"} · {it.created_at.slice(0, 10)} 入队
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">

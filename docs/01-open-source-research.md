@@ -2991,3 +2991,44 @@ M107 = **发布工程第九轮·零漂移 v0.19.0 攒批发布**：I323 发布�
 **如实排除**：duplicate（既有组合面）/责任轮换（语义薄留观）/triage rules（自动化已表达）——登记附录 C。
 
 定案 **M117 = Triage 分诊队列轮（I356-I359）**；v0.22.0 攒批第二轮。
+
+
+## DI. M118 前置调研：质量轮·归档语义对齐+读面收口+性能收口+分诊队列体验（2026-10-06）
+
+> 目标协议触发：用户指令（2026-10-06）「接管项目，进行优化迭代，符合人类用户的真实使用逻辑，优化性能，修复漏洞」。M114 质量轮同型（三路盘点→逐项核实→先红后绿），本轮的差异化重心是「真实使用逻辑」——以 M94/M95 旅程复演的方法论审读新面（M117 Triage 队列）与高频活视图（图/报表/个人日程）。方法：①「过滤参数半传」家族反向全量对账（前端 api.ts 传参 × 后端端点签名，131 个 GET 端点）②「归档语义对齐」全量对账（`FROM items WHERE project_id` 无 `archived_at` 过滤的残留查询逐个读进函数体判语义）③M67 概念可见性读面家族复查 ④逐行富化/逐行回查的 N+1 热路径盘点（前端轮询面为放大系数）。
+
+**盘点一：过滤参数半传族（M117 R1 同族）——全量对账零新增**：前端 api.ts 全部 URLSearchParams 传参点（listItems/portfolioActivity/listApprovals/listRunsByItem/listRunsByConversation/listAssets/listEvents/listExpenses/trace/baseline 族）逐一对照后端端点签名，M117-I357 修复后无残留半传（approvals 后端还多出 kind/decided_by 两个前端未用的合法过滤——方向相反，非缺陷）。
+
+**盘点二：归档语义对齐族（M65-I197 预言的清账轮，9 处残留坐实）**：M33-I103 引入软删除后，M65 只对了基线快照；本轮 grep 出全部「活项查询」并逐个核实——
+1. **`_active_where()`（reports.py:49）**：`status_group NOT IN ('done','cancelled')` 无归档过滤——三个消费方（`_overdue_rows` 项目报表逾期清单/组合报表逾期计数/按指派人的最近在办清单）全把死项当活项；
+2. **`_health_factors`（健康分三因子）**：active/overdue/stale 含回收站项——死项永远压着健康分直到手动恢复；
+3. **`_health_replay`（健康趋势重放）**：事件 IN 子句根本不含 `item.archived/item.restored`——趋势线从不学习归档，归档前的分被永久拉进全部后续采样点；
+4. **`project_report` funnel+concepts**：项目报表漏斗含死项；
+5. **组合报表逐项目 funnel**：Dashboard 顶栏计数被回收站撑大；
+6. **`/projects/{id}/graph` 阶段图**：`SELECT * FROM items WHERE project_id = ?` 无过滤——回收站项永久显示为图节点（GraphView 5s 轮询放大）；
+7. **`items.csv` 导出**：死项照常导出成普通行——roundtrip 导回即幽灵复制（import 面走 list_items 是过滤的，两侧不对称）；
+8. **`clone_project`**：克隆连回收站一起复制——「克隆活项目」语义破损；
+9. **`my_schedule` 个人日程**：指派给我的死项继续挂在日历上（还能从日历拖拽改期！）；
+10. **`list_labels` usage 计数**：回收站项撑着标签用量（board 上同一标签已无卡可指）。
+    （对照组：周报 `_collect_status_metrics`、critical-path、forecast、flow trio WIP、closure checklist 均已带过滤——新代码是对的，烂在 archived_at 诞生前的旧查询面。）
+
+**盘点三：M67 概念可见性读面家族复查——/graph 泄露坐实**：list/board/CSV/trash/detail/search 全过滤，唯独 `/projects/{id}/graph` 把隐藏概念项的**标题+指派+状态**原样发给无权者（阶段图是 GraphView/FeaturePage 的活视图，5s 轮询）。同函数坐实次要面：跨项目依赖占位节点可借已归档的外部项「还魂」。
+
+**盘点四：性能（N+1 热路径 × 前端轮询放大系数）**：
+1. **`list_runs` 逐行 `_run_detail`**：每行 2 查询（get_conversation+get_item）——RunsPage **3s 无条件轮询** × 默认 100 行 = 每 3 秒 ~200 查询，全站最热 N+1；
+2. **`get_notifications` 逐行 ref_event 回查**：LIMIT 30 最多 30 查/次——AppShell 铃铛 **10s 轮询**放大；
+3. graph 外部依赖占位循环每行 2-3 查询（顺手低优，随 I361 同函数治理不单列）。
+    （对照：reports._activity_list/assignee 富化/WIP 计数 M114-I340 已批量；Board 6s/Approvals 4s 端点均单查询。）
+
+**盘点五：分诊队列真实使用逻辑走查（M94 方法论对新面的应用）**：
+1. **「报告人」错标坐实**：TriagePage 行显示 `报告人 {assignee_id ?? "外部"}`——assignee 是负责人不是报告人；队列内 accept 前恰恒为 null 故恒显「外部」，而 IMAP 已知发件人的队列项报告人是真实用户却显示外部（`item.created` 的 actor 才是报告人真源，投影从未存储）；
+2. **队列行不可检查**：标题无深链——分诊者决定前看不到描述/附件/评论（Linear 队列行点击即开 issue）；Board `?item=` 深链惯例（M18）已在，差一个 Link；
+3. **post_triage 门禁缺口**：裸 `get_item` 绕过 `require_visible_item`（M67-I201）——项目贡献者可对仅 Owner 可见概念的项做接受/拒绝/暂缓（兄弟面 patch/archive/checklist 全是 404 语义）；
+4. 暂缓按钮固定 3 天无档位选择/relDays 与 today 的 UTC-本地混用——cosmetic，如实登记不动。
+
+**定案（M118 = 质量轮·归档语义对齐+读面收口+性能收口+分诊队列体验，I360-I364）**：
+- **I360 盘点定案**（本节）；
+- **I361 归档语义对齐族+读面门禁**（全部先红后绿）：`_active_where` 补归档（三消费方一次收口）+`_health_factors`+`_health_replay` 重放学归档（archived 集合，restored 摘除）+`project_report`+组合 funnel+**graph 归档与可见性双修**（`_concept_visible_filter` 接入+占位节点不还魂）+CSV 导出+clone+my_schedule+labels usage+**post_triage 换 require_visible_item**；
+- **I362 性能收口**：`_run_details` 批量版（两个 IN 查询，形状与单条版逐键一致）+notifications 引用事件批量回查；
+- **I363 分诊队列体验**：`items.reporter_id` 列（建表+存量 ALTER+投影 INSERT 逐列核对+list_items/detail 批量与单条富化——M117 snoozed_until 同款三件套）+TriagePage 报告人真源显示（intake→外部）+标题深链看板抽屉+vitest 补枚；
+- **I364 收口**：全量回归+机械防腐+E2E 走查+文档。

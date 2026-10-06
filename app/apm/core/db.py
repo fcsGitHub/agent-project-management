@@ -90,6 +90,9 @@ def init_db() -> None:
         # Lightweight migration: 存量库补 items.snoozed_until（M117-I357，Triage 分诊暂缓列）。
         if "snoozed_until" not in cols:
             conn.execute("ALTER TABLE items ADD COLUMN snoozed_until TEXT")
+        # Lightweight migration: 存量库补 items.reporter_id（M118-I363，报告人=item.created 的 actor）。
+        if "reporter_id" not in cols:
+            conn.execute("ALTER TABLE items ADD COLUMN reporter_id TEXT")
         # Lightweight migration: 存量库补 projects.field_overrides（M7-I25）。
         pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)").fetchall()}
         if "field_overrides" not in pcols:

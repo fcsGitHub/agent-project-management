@@ -1,4 +1,4 @@
-# HANDOFF —— 写给下一个新会话（2026-10-06 更新 · M117 Triage 分诊队列轮完成[本体 triage 态+决定端点+sweep 复浮+队列页·v0.22.0 攒批第二轮]，下一步=候选池选轮或等新用户指令）
+# HANDOFF —— 写给下一个新会话（2026-10-07 更新 · M118 质量轮完成[归档语义对齐族九处+graph 可见性泄露+triage 门+两个 N+1 批量化+分诊队列报告人与深链·v0.22.0 攒批第三轮]，下一步=候选池选轮或等新用户指令）
 
 > 你是完全没有任何上下文的新会话。先读完本文件，再按「下一步」开工。**不要重新调研已调研过的东西，不要重做已完成的事。**
 
@@ -56,6 +56,7 @@
 - **M112 发布工程第十一轮·v0.21.0 攒批发布（I348-I350，2026-10-06 完成，docs/10 §M112）**：五轮一版攒批（M110+M111+M113+M114+M115）。I348 依赖漂移当轮实测+一车[pip index 实测后端顶格零漂移唯 langgraph patch 1.2.12→1.2.13+前端 axe-core/marked 两项——requirements 下限=装机+manifest/lockfile 同车·三关绿]/I349 发布面验证[compose 双镜像 EXIT=0+镜像内 pip 对账 **13/13 逐版一致**（行尾 CRLF 假差异 tr 剥离——Windows docker 输出坑入档）]/I350 收口[五点 bump 0.21.0 零 RED+CHANGELOG [0.21.0] 成版（Added×4/Changed×7/Fixed×6/Removed×2·Unreleased 回空指向 v0.22.0）+smoke 86 代标记 M112-I350+docs/11 解冻（§2.4 计数 **143→142=75+67** 对账修正·演练十二次）+release_drill EXIT=0 **RTO 9.3s**+全量回归 512/98/50/build 绿+防腐七件 ✓+`git tag -a v0.21.0`（**DoD 两项第十二次执行**·tag v0.5.0~v0.21.0 十六枚在案）]。
 - **M116 Paperclip 吸纳轮·多 Agent 团队编排（I351-I355，2026-10-06 完成，用户指令轮，docs/01 §DG + docs/10 §M116）**：「查开源 paperclip、融合吸收、改造成用户统筹支配多 agent 的团队」——paperclipai/paperclip（97.8k★·MIT·Agent 团队编排）专项调研 23 行映射矩阵（✅12/🟡4/❌7）→吸纳四件全先红后绿：I352 工作项原子检出执行锁+F1 幽灵 run 发现即修（跨项目 422 晚于三事件发射→前移；同 item 活跃 run 409 带持锁 id·挂 Gate 亦持锁·终态释放·idx_runs_item）/I353 Agent 团队总览面（GET /api/agents org 登录门三源合并=YAML 声明×agents 治理覆盖层×runs 聚合——红利第十七例零新表；TeamPage /team rail「团队」）/I354 Agent 治理（agent.paused/resumed/updated 事件+agents 投影三件套[INSERT OR IGNORE→UPDATE 保兄弟列]；pause/resume/PATCH 预算 admin 门·台账 142→145=75+70；start_run 增查暂停 409+agent 月窗预算 402/80% 双阈[M66 同构·自动化派发 HTTPException 兜底降级 ok:false]）；排除七项登记（BYOA 外部适配器[run_command 剪枝同向·须独立安全评审]/Org chart/Goal ancestry[Initiative 维持]/Skills·evals/多组织/Scoped secrets/团队模板）；test_automation_run_agent 日上限前提按锁语义改造（I78 纪律）。基线 pytest 512→**522**（+test_agents 10）/冒烟 98/vitest 50→**53**（+TeamPage 3）/build 绿 precache 44/写门 **145=75+70** ✓；v0.22.0 攒批第一轮（不 tag）。
 - **M117 Triage 分诊队列轮（I356-I359，2026-10-06 完成，用户指令轮「继续实现，优化迭代」，docs/01 §DH + docs/10 §M117）**：HANDOFF 候选池①转正（M115 排除时明确「最有 Linear 特色值得独立成轮」）。I356 本体声明[software-dev task/bug 增 `triage` 态（group=backlog）——**bug 补白名单三对（triage→open/wont_fix+open→triage）而 task 只加状态**（task 自 M26 起 undeclared=open·加 transitions 反锁死）]/I357 后端分诊域[items.snoozed_until 列（建表+ALTER）+item.triage_snoozed 投影+`POST /items/{id}/triage`（accept→initial_status+可选指派/decline→本体 cancelled 组/snooze 1-30 天·409 非分诊态·中间件 id-path 管辖台账零新增）+intake/IMAP 三处落点解析（概念声明才落 triage·generic 零变化·手工创建落初始态不变）+**sweep 第八员 `_resurface_triage` 到期复浮**（幂等=清后 WHERE 不再命中）]/I358 TriagePage（/p/:pid/triage·rail「分诊」——行式队列+接受并指派/拒绝/暂缓+显示已暂缓开关·读面零新端点）；排除三项（duplicate=组合面/责任轮换=留观/triage rules=自动化已表达）。基线 pytest 522→**531**（+test_triage 9）/冒烟 98/vitest 53→**56**（+TriagePage 3）/build 绿 precache 45/写门 **146=76+70** ✓；v0.22.0 攒批第二轮（不 tag）。
+- **M118 质量轮·归档语义对齐+读面收口+性能收口+分诊队列体验（I360-I364，2026-10-07 完成，用户指令轮「接管项目，进行优化迭代，符合人类用户的真实使用逻辑，优化性能，修复漏洞」，docs/01 §DI + docs/10 §M118）**：M114 同型三路盘点（半传族反向对账零残留/**归档语义族九处坐实**——M65-I197 预言的清账轮/M67 可见性 /graph 泄露/N+1×轮询放大/分诊队列旅程走查）。I361 归档族+读面门禁[`_active_where` 补 archived（三消费方一次收口）+`_health_factors`+`_health_replay` 重放学归档（事件 IN 补 item.archived/restored）+project_report/组合 funnel+**graph 双修**（归档过滤+`_concept_visible_filter` 接入+占位节点死项不还魂）+CSV 导出+clone+my_schedule+labels usage+**post_triage 换 require_visible_item**（隐藏概念分诊 404）]/I362 性能[`_run_details` 批量版（RunsPage 3s 轮询×100 行×2 查的 N+1→两 IN）+notifications 引用事件批量回查]/I363 分诊队列体验[items.reporter_id 列三件套（报告人=item.created 的 actor·rebuild 稳定）+TriagePage 报告人真源（intake→外部）+标题深链看板抽屉]；I364 收口[全量回归抓获 convs 存 sqlite3.Row 无 .get（单文件绿全量红）+**满载当场拆掉 M117 测试自带日期炸弹**（date.today 本地锚 vs sweep UTC 窗·本地午夜引信）]。基线 pytest 531→**541**（+test_archive_semantics 8+test_triage 2）/冒烟 98/vitest 56→**57**/build 绿 precache 45/写门 **146=76+70** ✓/日期台账 **7 文件**；v0.22.0 攒批第三轮（不 tag）。
 
 ## 3. 现在卡在哪
 
@@ -197,18 +198,21 @@
 - **拦截类校验必须在任何 events.emit 之前**（M116-I352 F1）：M114 跨项目 422 校验排在 run.requested/started/conversation.status_changed 之后——422 时幽灵 run 已落库且永久 running；M66 预算门才是正确先例（发射前拦截）。新增 start_run 前置门一律进发射前校验区，且测试断言「无幽灵行」而不止断言状态码。
 - **多列覆盖层投影的 upsert 用两段式**（M116-I354）：INSERT OR REPLACE 会把未提及的兄弟列抹回默认（pause 事件抹 budget_usd）——INSERT OR IGNORE 先落行再 UPDATE 本事件管的列。
 - **想在自动化派发前造状态的测试用 item.updated 触发**（M116-I355）：item.created 在创建瞬间同步派发，不给占用/暂停态留准备窗口；PATCH 触发才有「先造状态再触发」的时序。
+- **看板行插入的 Edit 锚=「旧行→新行块+旧行」**（M118）：old_string 只锚旧行、new_string 只写新块会把旧行**顶掉**（M117 里程碑行被当即顶掉又补回——M78「多出全同重复行」的姊妹变体，这次是「少一行」；追加后 grep 旧行与新行标题计数各 =1 双向核对）。
+- **批量富化里 comprehension 存 sqlite3.Row**（M118-I362）：`{c["id"]: c for c in fetchall()}` 存的是 Row 不是 dict——消费方 `.get()` 即 AttributeError；单文件绿、全量跑才炸（I20 列序目视核对的读取面变体：写对列还得存对类型，`dict(c)` 收口）。
+- **日期炸弹同族第三例长在 M117 自己的测试里**（M118-I364）：合成回溯事件用 `date.today()`（本地）造 until、sweep 用 `events.utcnow()`（UTC）判窗——本地跨日后 until==UTC today 不再命中 `< today`，**白天全绿、本地午夜必红**；造数锚一律取服务端时钟（`events.utcnow()`/`reports._now`），M63-I191/M83-I251 纪律第三次执行。
 
 ## 6. 快速上手命令
 
 ```bash
-cd app && python -m pytest            # 531 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
+cd app && python -m pytest            # 541 项，应全绿（>10 分钟：后台跑会被超时杀，用 --ignore=tests/smoke 分片 + 冒烟 runner 对账；完整日志落文件+EXIT=$? 勿用管道 tail；判定=EXIT+collect-only 计数）
 python tools/smoke/run_smoke.py       # 冒烟基线 98 例（89 文件·smoke 87/88/89/09 双用例），应 GREEN（repo 根目录跑）
 python tools/check_env_doc.py         # env 文档对账，应 ✓（冒烟 82 已锁）
 python tools/check_write_gates.py     # 路由×门禁对账，应 ✓（冒烟 85 已锁·新写路由先补门再登记台账）
 python tools/check_test_dates.py      # 测试日期×窗口端点对账，应 ✓（冒烟 89 已锁·台账=tools/check_test_dates.py REVIEWED）
 python tools/release_drill.py         # 一键发布演练（发布轮收口 DoD·M88 起——备份→毁库→恢复→对账→RTO，EXIT=0 即过）
 git describe                          # 应输出 vX.Y.Z-N-ghash（v0.5.0~v0.21.0 十六枚在案·版本四锚由冒烟 86+88 锁定）
-cd web && pnpm vitest run             # 前端单测 56 项（含 axe a11y 机械锁+TeamPage/TriagePage 各 3 枚）；pnpm build 须绿（precache 45——M117 实测·页面已按路由懒加载）
+cd web && pnpm vitest run             # 前端单测 57 项（含 axe a11y 机械锁+TeamPage 3/TriagePage 4 枚）；pnpm build 须绿（precache 45——M118 实测持平·页面已按路由懒加载）
 # 真实 LLM（先复制 .env.example 为 .env 填 key；openai>=3.22 + httpx2 已在 requirements）
 cd app && APM_PROVIDER_MODE=openai python -m uvicorn apm.main:app --port 8000
 # 后端（演示/审阅时必须隔离：APM_DATA_DIR + APM_ONTOLOGY_DIR_OVERRIDE 且拷贝本体进去！）
