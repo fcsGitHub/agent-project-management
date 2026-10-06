@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。当前攒批：M110（验收考官 Round 2）+M111（真实 LLM 回归轮）+M113（功能瘦身轮）+M114（质量轮·性能与漏洞/显示修复）+M115（Linear 吸纳轮）已入批——v0.21.0 由 M112 收口 bump+tag。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.22.0。
+
+## [0.21.0] — 2026-10-06
+
+M110~M115 五轮成版（M112 收口）：验收考官 Round 2 + 真实 LLM 回归轮（DeepSeek flash 全链复演）+ 功能瘦身轮 + 质量轮（性能与漏洞/显示修复）+ Linear 吸纳轮（差距调研与四件吸纳）。攒批节奏第十五版：五轮一版。基线：pytest 492→512 / 冒烟 98 / vitest 47→50 / 机械防腐七件 ✓ / axe 基线 25 路。
+
+### Added
 
 ### Added
 - **工作项描述域**（M115-I343）：items 补 `description` 列（建表+存量库轻量迁移），create/PATCH/事件流/读面全链路，空串=清空；描述纳入 FTS 全文索引（标题关键词照旧优先）——对齐 Linear issue 正文的最高频缺口。
@@ -15,6 +21,8 @@
 - **创建防重提示**（M115-I346）：`GET /projects/{id}/items/similar`（FTS5 `_match_expr`）+ 新建弹窗标题去抖 400ms 提示相似项、点击直达已有项——Linear similar-issues 防重语义；归档项与隐匿概念不出提示（M67 存在性不泄露）。
 
 ### Changed
+- **langgraph 1.2.13 / axe-core 4.14.0 / marked 18.1.0 依赖一车**（M112-I348）：发布轮起点当轮实测——后端 13 项运行时依赖 fastapi/openai/httpx2 等顶格零漂移、仅 langgraph patch 漂移一项（1.2.12→1.2.13，requirements 下限=装机同车）；前端 axe-core（dev）与 marked minor 两项（manifest range+lockfile 同车）——runtime 测试+vitest+tsc 三关绿。
+- **docs/11 解冻至 v0.21.0**（M112-I350）：全部部署面时效戳随版；§2.4 写路由计数随解冻修正为 **142=75+67**（M113 webhook 双注册去重 -6 与 M115 labels 三写路由 +3 的净差，check_write_gates 实测为准）；一键发布演练计数十一→十二次；部署链已验证声明追加 M115 轮后双镜像重建对账。
 - **真实 LLM 默认示例切换到 DeepSeek 官方**（M111-I333）：`.env.example`/README 以 `https://api.deepseek.com` + `deepseek-flash` 为默认示例（智谱 coding-plan 降为备选）；角色 YAML 七件 `model.name: glm-5.3` 硬编码改为 `tier: standard` 三档路由（M48-I144）——厂商模型名不再进仓库，由 `APM_MODEL_*` 环境键解析，未配置时按回落链落到 `APM_LLM_MODEL`（回落链收拢 `roles.tier_model_name` 单一真源，档位解析永不出空模型名）。
 - **角色提示词执行环境契约**（M111-I334）：六份角色提示词移除「工具使用规范」——旧文案承诺了固定图引擎不存在的模型侧工具回路，真实模型会把工具调用语法原样写进工件（DeepSeek flash 实测抓获）；改为「执行环境契约」：单轮、无工具、输出即工件、严禁工具调用标记与开场白。
 - **廉价模型旋钮统一**（M113-I337）：L2 命令解析的模型选择改为 `APM_MODEL_CHEAP` 首选、`APM_UI_AGENT_MODEL` 降为兼容回落（两旋钮一语义，既有 .env 零破坏）；L2 溯源文案改用实际调用的模型名。

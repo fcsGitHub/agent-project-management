@@ -1,6 +1,6 @@
 # 11 · 网络协作部署指南
 
-> 时效：2026-10-05 更新（M109-I328 解冻——覆盖至 v0.20.0 全部部署面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫/密码自助修改与会话失效=M96-I290 §2.6]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4 写路由 145=中间件 78+台账 67]/部署后自检速查[§2.5]/账号与凭据须知[§2.6 M96-I290]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95/M97/M99/M101/M103/M105/M107/M109 十一次执行]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282/M97-I294 依赖车后双镜像重建对账+M99-I299/M101-I305 零漂移重建对账（连续第二轮）+M103-I312 lucide 小车后重建对账+M105-I318 pwa 构建插件 major 车后双镜像重建对账+M107-I323 零漂移重建对账[双生态全零·后端连续第五轮]+M109-I327 lucide minor 车后双镜像重建对账[后端运行时 13 项连续第六轮零漂移·镜像内 pip 对账 13/13]；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.24/pydantic 2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
+> 时效：2026-10-06 更新（M112-I350 解冻——覆盖至 v0.21.0 全部部署面：双模认证[本档 M8 骨架/匿名首访主动登录引导=M95-I287 health 暴露 auth_mode+SPA 守卫/密码自助修改与会话失效=M96-I290 §2.6]/OIDC SSO[§2.1]/PAT 机器接入[§2.2]/推送与出站观测[§2.3]/写门语义须知[§2.4 写路由 142=中间件 75+台账 67·M112-I350 对账修正]/部署后自检速查[§2.5]/账号与凭据须知[§2.6 M96-I290]/一键发布演练[§5.2.1 `tools/release_drill.py`·发布轮收口 DoD 必跑·M89/M91/M93/M95/M97/M99/M101/M103/M105/M107/M109/M112 十二次执行·最近一次 RTO 9.3s]/部署链已验证声明[M86-I260 双镜像首验+M88-I266 v0.9.0 重建对账+M93-I282/M97-I294 依赖车后双镜像重建对账+M99-I299/M101-I305 零漂移重建对账（连续第二轮）+M103-I312 lucide 小车后重建对账+M105-I318 pwa 构建插件 major 车后双镜像重建对账+M107-I323 零漂移重建对账[双生态全零·后端连续第五轮]+M109-I327 lucide minor 车后双镜像重建对账[后端运行时 13 项连续第六轮零漂移·镜像内 pip 对账 13/13]+M112-I349 langgraph patch 车后双镜像重建对账]；app 镜像 python:3.12-slim/web 镜像 node:24-alpine；web 构建链 vite 8 Rolldown/vitest 5 node≥22.12]；自动化与集成面使用指南=[docs/12](12-automation-guide.md)（M91-I275 重写解冻·任务五域拓扑）；a11y 对比 token 基线见 docs/06 §7；env 速查单一真源=[.env.example](.env.example)）。依赖底座：httpx2 2.13/openai 3.24/pydantic 2.13/langgraph 1.2.13[Python≥3.10——镜像 python:3.12-slim 已满足]。
 
 > 单机开发保持默认 `auth_mode=local`（免登录，行为同 MVP）。多人网络协作部署按本文操作。
 
@@ -68,7 +68,7 @@ curl -X POST http://host:8000/api/users -H "Content-Type: application/json" \
 
 ### 2.4 写门语义须知（M80-I240 起）
 
-- network 模式下**全部 143 条写路由**有门（M99-I300 对账修正——M96-I290 改密双端点时台账 64→66 本计数未随·原记 141）：`/api/projects/*` 与 id 白名单由中间件把守，其余由域内成员门/实例门/admin 门把守（对账：`python tools/check_write_gates.py`）。
+- network 模式下**全部 142 条写路由**有门（M112-I350 解冻对账修正=中间件 75+台账 67——M113-I338 webhook 双注册去重 -6 与 M115-I345 labels 三写路由 +3 的净差·原记 143=78+67）：`/api/projects/*` 与 id 白名单由中间件把守，其余由域内成员门/实例门/admin 门把守（对账：`python tools/check_write_gates.py`）。
 - 部署者须知：非项目成员写操作 403（含 cycles/milestones/features/risks 的改期/删除）；资产库 org 治理动作（退役/归档/恢复/评审）需登录（实例成员）；本体 learn/apply 与 sweep force 仅 admin。
 - local 模式零影响（可信单用户语义不变）。
 
