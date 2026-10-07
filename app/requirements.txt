@@ -1,6 +1,6 @@
 # AgentPM backend dependencies (pinned to known-good versions — floors = the
 # versions actually verified by the M83-I249 one-truck upgrade + full regression,
-# last re-verified by the M93-I281 small-version truck and the M97-I293 openai minor)
+# last re-verified by the M120-I371 release truck (openai minor + langgraph patch)
 fastapi>=0.142.2
 python-multipart>=0.0.32
 uvicorn>=0.54.0
@@ -11,8 +11,8 @@ PyYAML>=6.0.3
 jsonschema>=4.26.0
 cryptography>=50.0.2
 httpx2>=2.13.1
-openai>=3.24.0
-langgraph>=1.2.13
+openai>=3.26.0
+langgraph>=1.2.14
 langgraph-checkpoint-sqlite>=3.1
 # dev/test
 pytest>=9.1

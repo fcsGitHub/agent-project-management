@@ -6,7 +6,11 @@
 
 ## [Unreleased]
 
-未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.22.0。
+未发布变更（攒批中——迭代细节真源=[docs/10 §7 看板](docs/10-development-plan.md)）。攒批指向 v0.23.0。
+
+## [0.22.0] — 2026-10-07
+
+M116~M120 五轮成版（M120 收口）：Paperclip 吸纳轮（多 Agent 团队编排与治理）+ Triage 分诊队列轮 + 质量轮（归档语义对齐与性能收口）+ 质量轮（流程图显示与 CPM 关键路径方向修复）+ 发布工程第十二轮。攒批节奏第十六版：五轮一版。基线：pytest 512→544 / 冒烟 98 / vitest 50→66 / 机械防腐七件 ✓ / 写门 146=76+70。
 
 ### Added
 - **交互式流程图工件三枚**（M119-I368，archify 技能首次引入）：[系统架构](docs/diagrams/agentpm-architecture.html)（事件账本居中辐辏+单体与密钥边界）、[入流·分诊·执行工作流](docs/diagrams/intake-triage-workflow.html)（分诊主链+拒绝/暂缓旁路+阶段门授权回环）、[工作项生命周期](docs/diagrams/item-lifecycle.html)（task 主链+暂缓复浮+终态回收）——standalone HTML（内嵌 SVG，亮暗双主题/pan-zoom/引导视图/PNG-SVG 导出），事实全部取自仓库实现，showcase 档校验（构图 9 检查零错误）+四视口容纳性+亮暗人工目检；规范 JSON 同目录在案可再生产。
@@ -31,6 +35,7 @@
 - **跨项目 run 绑定 422 留幽灵 run**（M116-I352，调研发现即修）：M114-I339 的跨项目校验位于 `run.requested`/`run.started`/`conversation.status_changed` 三事件发射**之后**——422 时幽灵 run 已落库且永远停在 running、会话永远 running（且引入执行锁后会永久锁死该工作项）；校验前移到任何事件发射之前（`test_f1_cross_project_422_leaves_no_ghost_run` 回归锁）。
 
 ### Changed
+- **依赖一车（发布轮起点跟随·当轮实测）**（M120-I370）：后端 openai 3.24.0→3.26.0（minor）与 langgraph 1.2.13→1.2.14（patch），requirements 下限=装机、双镜像重建后镜像内 pip 对账 13/13 逐版一致；前端 dev 三件 vite 8.3.2→8.3.3 / @vitejs/plugin-react 6.1.1→6.1.2 / jsdom 30.1.1→30.1.2（manifest range 与 lockfile 同车，web 镜像 frozen-lockfile 构建通过）。
 - **Runs 列表与通知铃铛热路径批量化**（M118-I362）：`/runs` 列表逐行回查会话标题与工作项标题（RunsPage 3 秒轮询 × 默认 100 行 ≈ 每 3 秒 200 次查询）改为两条 IN 批量查询；`/notifications` 引用事件逐行回查（铃铛 10 秒轮询最多 30 查/次）改为单条 IN 批量——响应形状逐键不变，行为零变化（M114-I340 批量富化同款先例）。
 
 ## [0.21.0] — 2026-10-06

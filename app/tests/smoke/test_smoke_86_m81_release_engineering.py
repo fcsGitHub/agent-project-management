@@ -53,5 +53,5 @@ def test_smoke_86_changelog_shape_and_tags():
     assert out.stdout.strip() == "tag"
 
     docs11 = (ROOT / "docs" / "11-network-deploy.md").read_text(encoding="utf-8")
-    # 解冻代标记随最新解冻轮更新（M81-I244 → M86-I262）——锁「docs/11 未冻结在旧代」
-    assert "M112-I350 解冻" in docs11
+    # 解冻代标记随最新解冻轮更新（M81-I244 → M120-I372）——锁「docs/11 未冻结在旧代」
+    assert "M120-I372 解冻" in docs11
